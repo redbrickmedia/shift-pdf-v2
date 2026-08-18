@@ -860,9 +860,12 @@
       .category-filter {
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: #1f2937;
-        color: #9ca3af;
-        border: 1px solid #374151;
+        background-color: var(
+          --action-controls-surface-primary-default,
+          #f3f4f6
+        );
+        color: var(--action-text-neutral-default, #374151);
+        border: 1px solid var(--border-outer-primary, #d1d5db);
         cursor: pointer;
         transition: all 0.2s;
         font-size: 0.875rem;
@@ -870,14 +873,14 @@
       }
 
       .category-filter:hover {
-        background-color: #374151;
-        color: #fff;
+        background-color: var(--action-controls-surface-primary-hover, #e6e9ef);
+        color: var(--text-primary, #111827);
       }
 
       .category-filter.active {
-        background-color: #4f46e5;
+        background-color: var(--action-button-surface-primary-default, #2563eb);
         color: #fff;
-        border-color: #4f46e5;
+        border-color: var(--action-button-surface-primary-default, #2563eb);
       }
     </style>
   </body>

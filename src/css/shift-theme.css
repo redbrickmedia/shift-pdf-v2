@@ -1,0 +1,903 @@
+/* Shift experimental theme — Concept A (sidebar shell)
+ *
+ * Semantic colour / radius tokens use the SAME names as
+ * @redbrickmedia/shift-design-system (css-exports/variables.css). The Shift
+ * browser toolkit drives embedded apps by toggling `.light` / `.dark` and
+ * `data-theme` on <html>, which only updates properties that share those
+ * names — so do not invent `--shift-*` aliases for themed values.
+ *
+ * Hex values below are the light / default-brand resolutions, used as
+ * standalone fallbacks until the design-system stylesheet is loaded.
+ * App-local geometry (sidebar width, panel radius, font stack) stays
+ * `--shift-*` because the toolkit does not theme those.
+ *
+ * Sidebar geometry mirrors shift-pdf's .sidebar / .nav-item / .logo.
+ */
+
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+
+:root {
+  /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
+  --background-bar-primary: #f3f4f6; /* light-100 */
+  --background-secondary: #ffffff; /* basic-white */
+  --text-primary: #111827; /* light-900 */
+  --text-secondary: #374151; /* light-700 */
+  --border-divider-secondary: #e6e9ef; /* light-200 */
+  --border-outer-primary: #d1d5db; /* light-300 */
+  --action-button-surface-primary-default: #2563eb; /* brand-600 */
+  --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
+  --brand-50: #eff6ff;
+  --brand-500: #3b82f6;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
+  --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
+  --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
+  --action-text-neutral-default: #374151; /* light-700 */
+  --action-text-neutral-hover: #1f2937; /* light-800 */
+  --action-text-neutral-selected: #111827; /* light-900 */
+
+  /* ---- App-local geometry (not themed by the toolkit) ---- */
+  /* Matches .main-content in shift-pdf */
+  --shift-radius-panel: 10px;
+  --shift-sidebar-width: 276px;
+  --shift-sidebar-width-collapsed: 64px;
+  --shift-sidebar-pad: 30px;
+  --shift-sidebar-pad-collapsed: 12px;
+  --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Bento grey ramp, reinterpreted for a light shell ----
+   * The 117 tool pages in src/pages are authored for a dark theme: ~1300
+   * `bg-gray-800` cards, ~1300 `border-gray-700` rules, ~1700 `text-gray-400`
+   * labels. Tailwind v4 compiles those to var(--color-gray-*), so retinting the
+   * ramp here re-themes every tool page at once — including hover/focus
+   * variants and /opacity modifiers — without editing their markup.
+   *
+   * The ramp is inverted: high numbers were dark surfaces and become light
+   * surfaces, low-to-mid numbers were light ink and become dark ink.
+   * gray-50/100/200 keep their stock light values because the markup already
+   * uses those as light surfaces and gradient stops.
+   */
+  --color-gray-900: #ffffff;
+  --color-gray-800: #f9fafb;
+  --color-gray-700: #e6e9ef;
+  --color-gray-600: #d1d5db;
+  --color-gray-500: #6b7280;
+  --color-gray-400: #4b5563;
+  --color-gray-300: #374151;
+
+  /* Dark themes reach for the pale -200/-400 shades as accent *ink*: links,
+   * icons, status pills and "Note:" copy. Across these pages those levels are
+   * ink far more often than surface, and every one of them washes out on white,
+   * so each hue drops to a readable weight in the same family. */
+  --color-indigo-200: #2563eb;
+  --color-indigo-300: #2563eb;
+  --color-indigo-400: #2563eb;
+  --color-blue-200: #1d4ed8;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #1d4ed8;
+  --color-red-200: #b91c1c;
+  --color-red-300: #b91c1c;
+  --color-red-400: #b91c1c;
+  --color-green-200: #166534;
+  --color-green-300: #166534;
+  --color-green-400: #166534;
+  --color-yellow-200: #a16207;
+  --color-yellow-300: #a16207;
+  --color-yellow-400: #a16207;
+  --color-yellow-500: #a16207;
+  --color-amber-200: #a16207;
+  --color-amber-300: #a16207;
+  --color-amber-400: #a16207;
+  --color-purple-300: #6d28d9;
+  --color-purple-400: #6d28d9;
+  --color-violet-300: #6d28d9;
+  --color-teal-300: #0f766e;
+  --color-rose-300: #be123c;
+}
+
+/* ---- Shell layout ---- */
+
+/* Shift's shell: the page carries the bar colour and the content sits on top of
+   it as a rounded panel, so the sidebar needs no divider rule. */
+html {
+  background-color: var(--background-bar-primary);
+}
+
+body {
+  font-family: var(--shift-font);
+  background-color: var(--background-secondary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* A body-level overflow is propagated to the viewport unless the root element
+   declares its own, which would leave the document scrolling and the panel not.
+   Browsers without :has() simply keep Bento's document scrolling. */
+html:has(body:not(.simple-mode) #shift-sidebar) {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The panel is its own scrollport rather than growing with the document, so it
+   stays exactly viewport-tall and both its top and bottom corners round against
+   the rail behind it. Scrolling the document instead would push the bottom
+   corner thousands of pixels below the fold.
+   Gated on the rail actually being present: simple-index.html ships its own top
+   bar and no sidebar, so it would otherwise reserve an empty 276px gutter. */
+body:not(.simple-mode):has(#shift-sidebar) {
+  margin-left: var(--shift-sidebar-width);
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--shift-radius-panel);
+  transition: margin-left 200ms ease;
+}
+
+body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar) {
+  margin-left: var(--shift-sidebar-width-collapsed);
+}
+
+.shift-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: var(--shift-sidebar-width);
+  max-width: var(--shift-sidebar-width);
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: var(--background-bar-primary);
+  overflow: hidden;
+  transition: width 200ms ease;
+}
+
+body.shift-sidebar-collapsed .shift-sidebar {
+  width: var(--shift-sidebar-width-collapsed);
+  max-width: var(--shift-sidebar-width-collapsed);
+}
+
+.shift-sidebar-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 var(--shift-sidebar-pad);
+}
+
+.shift-collapse-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--action-text-neutral-default);
+  cursor: pointer;
+  transition:
+    color 300ms,
+    background 300ms;
+}
+
+.shift-collapse-btn:hover {
+  background: var(--action-controls-surface-primary-hover);
+  color: var(--action-text-neutral-hover);
+}
+
+.shift-sidebar-content {
+  display: flex;
+  flex: 1 1 0%;
+  flex-direction: column;
+  gap: 36px;
+  width: 100%;
+  height: 100%;
+  padding: 40px 0;
+  overflow-y: auto;
+}
+
+.shift-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.shift-logo-img {
+  width: 32px;
+  height: 32px;
+}
+
+.shift-logo-text {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.shift-primary-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 var(--shift-sidebar-pad);
+}
+
+/* Mirrors .nav-item from shift-pdf */
+.shift-nav-link {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 8px 8px 8px var(--radius-12);
+  border-radius: var(--radius-8);
+  background: var(--action-controls-surface-primary-default);
+  color: var(--action-text-neutral-default);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  transition:
+    color 300ms,
+    background 300ms,
+    box-shadow 300ms;
+}
+
+.shift-nav-icon {
+  min-width: 24px;
+  max-width: 24px;
+  min-height: 24px;
+  max-height: 24px;
+}
+
+.shift-nav-icon.with-padding {
+  padding: 4px;
+}
+
+.shift-nav-link:hover:not(.is-active) {
+  background: var(--action-controls-surface-primary-hover);
+  color: var(--action-text-neutral-hover);
+  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
+}
+
+.shift-nav-link.is-active {
+  background: var(--action-controls-surface-secondary-active-tertiary);
+  color: var(--action-text-neutral-selected);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06),
+    inset 0 0 0 1px var(--action-controls-surface-secondary-active-tertiary);
+}
+
+/* ---- Collapsed rail (icons only) ---- */
+
+/* Set by main.ts before the body class lands, to avoid a wide-then-narrow flash */
+html.shift-sidebar-collapsed-pending body:not(.simple-mode) {
+  margin-left: var(--shift-sidebar-width-collapsed);
+}
+
+html.shift-sidebar-collapsed-pending .shift-sidebar {
+  width: var(--shift-sidebar-width-collapsed);
+  max-width: var(--shift-sidebar-width-collapsed);
+}
+
+body.shift-sidebar-collapsed .shift-sidebar-header {
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 var(--shift-sidebar-pad-collapsed);
+}
+
+body.shift-sidebar-collapsed .shift-logo {
+  justify-content: center;
+  width: 100%;
+}
+
+body.shift-sidebar-collapsed .shift-logo-text,
+body.shift-sidebar-collapsed .shift-nav-label {
+  display: none;
+}
+
+body.shift-sidebar-collapsed .shift-primary-nav {
+  padding: 0 var(--shift-sidebar-pad-collapsed);
+}
+
+body.shift-sidebar-collapsed .shift-nav-link {
+  justify-content: center;
+  padding: 8px;
+}
+
+.shift-sidebar-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.shift-sidebar-backdrop {
+  display: none;
+}
+
+/* ---- Tool cards / categories (override dark Bento) ---- */
+
+.tool-card {
+  border: 1px solid var(--border-outer-primary);
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-8);
+  color: var(--text-primary);
+}
+
+.tool-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--action-button-surface-primary-default);
+  background-color: var(--brand-50);
+  box-shadow: none;
+}
+
+.shift-tool-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--action-button-surface-primary-default);
+}
+
+.shift-tool-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* DS icons ship on 16/24/64 grids. Sizing every glyph into one box makes the
+   small-grid artwork read as heavy, so compensate per grid. */
+.shift-tool-icon-g16 {
+  width: 30px;
+  height: 30px;
+}
+
+.shift-tool-icon-g24 {
+  width: 34px;
+  height: 34px;
+}
+
+.shift-tool-icon-g64 {
+  width: 36px;
+  height: 36px;
+}
+
+.shift-tool-icon-ph {
+  width: 36px;
+  height: 36px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+/* Compact variant used by the shortcuts list */
+.shift-tool-icon-sm {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.shift-tool-icon-sm.shift-tool-icon-ph {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.shift-tool-name {
+  color: var(--text-primary);
+}
+
+.shift-tool-subtitle {
+  color: var(--text-secondary);
+}
+
+.category-header {
+  color: var(--text-primary);
+}
+
+/* ---- Ramp corrections ----
+ * A few utilities read the ramp the opposite way to the dominant usage above:
+ * these levels are used as ink where the remap makes them surfaces, or as
+ * surfaces where the remap makes them ink.
+ */
+.text-gray-800,
+.text-gray-700,
+.text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-200 {
+  color: var(--text-primary) !important;
+}
+
+.bg-gray-500,
+.bg-gray-300,
+[class~='hover:bg-gray-500']:hover,
+[class~='hover:bg-gray-300']:hover {
+  background-color: var(--border-outer-primary) !important;
+}
+
+.border-gray-500,
+.border-gray-300 {
+  border-color: var(--border-outer-primary) !important;
+}
+
+/* Tinted alert panels. Bento tints these by laying a -900 colour over a dark
+ * page, at anything from /10 to fully opaque; over a white panel the same
+ * colours turn muddy brown instead. Each hue gets one flat light tint — the
+ * -700 borders these panels already carry supply the emphasis that the varying
+ * opacities used to. */
+.bg-red-900,
+[class*='bg-red-900/'] {
+  background-color: #fee2e2 !important;
+}
+
+.bg-green-900,
+[class*='bg-green-900/'] {
+  background-color: #dcfce7 !important;
+}
+
+.bg-blue-900,
+[class*='bg-blue-900/'] {
+  background-color: #dbeafe !important;
+}
+
+.bg-yellow-900,
+[class*='bg-yellow-900/'],
+.bg-amber-900,
+[class*='bg-amber-900/'] {
+  background-color: #fef9c3 !important;
+}
+
+.bg-indigo-900,
+[class*='bg-indigo-900/'] {
+  background-color: var(--brand-50) !important;
+}
+
+/* Star ratings are decorative, so they keep a gold rather than dropping to the
+ * readable amber the other yellow ink uses. One step deeper than amber-500,
+ * which the retinted white card no longer gives enough contrast to hold. */
+.testimonial-card [class*='text-yellow-'] {
+  color: #d97706 !important;
+}
+
+/* ---- text-white ----
+ * White is the primary ink in Bento's dark markup, so on the light shell it has
+ * to become body text — `text-white/70` and friends included, since those are
+ * separate utilities the plain `.text-white` rule never matches.
+ *
+ * The exception is a saturated or gradient surface, where white is a
+ * button/badge label and must stay white. Those surfaces are listed by exact
+ * class so that a variant like `hover:bg-indigo-700` sitting on an
+ * otherwise-grey button doesn't keep the label white while it is still grey.
+ */
+.text-white,
+[class~='hover:text-white']:hover {
+  color: var(--text-primary) !important;
+}
+
+[class*='text-white/'] {
+  color: var(--text-secondary) !important;
+}
+
+:is(
+  .bg-indigo-400,
+  .bg-indigo-500,
+  .bg-indigo-600,
+  .bg-indigo-700,
+  .bg-blue-500,
+  .bg-blue-600,
+  .bg-green-600,
+  .bg-green-700,
+  .bg-red-500,
+  .bg-red-600,
+  .bg-red-700,
+  .bg-orange-600,
+  .bg-orange-700,
+  [class*='from-indigo-'],
+  .btn-gradient
+):is(.text-white, [class*='text-white/']),
+:is(
+    .bg-indigo-400,
+    .bg-indigo-500,
+    .bg-indigo-600,
+    .bg-indigo-700,
+    .bg-blue-500,
+    .bg-blue-600,
+    .bg-green-600,
+    .bg-green-700,
+    .bg-red-500,
+    .bg-red-600,
+    .bg-red-700,
+    .bg-orange-600,
+    .bg-orange-700,
+    [class*='from-indigo-'],
+    .btn-gradient
+  )
+  :is(.text-white, [class*='text-white/']) {
+  color: #ffffff !important;
+}
+
+/* Black stays black: modal scrims, thumbnail overlays and log panels all want a
+ * dark surface in a light theme too. Matched on the element itself only — these
+ * scrims wrap the light modal panels, so a descendant match would drag those
+ * panels' text back to white. */
+:is(.bg-black, [class*='bg-black/']):is(
+  .text-white,
+  [class*='text-white/'],
+  [class*='text-gray-']
+) {
+  color: #ffffff !important;
+}
+
+/* Grey-at-rest controls that turn saturated on hover keep a white label then */
+:is(
+    [class*='hover:bg-indigo-'],
+    [class*='hover:bg-blue-'],
+    [class*='hover:bg-green-'],
+    [class*='hover:bg-red-'],
+    [class*='hover:bg-orange-']
+  ):is(.text-white, [class~='hover:text-white'], [class*='text-white/']):hover {
+  color: #ffffff !important;
+}
+
+#search-input,
+input#tool-search {
+  background-color: var(--background-bar-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-outer-primary) !important;
+}
+
+/* Tool catalog search — mirrors Shift SearchField (secondary) geometry */
+.shift-tool-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.shift-search-bar {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.shift-search-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  height: 40px;
+  padding-inline: 8px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition:
+    border-color 80ms ease-in-out,
+    box-shadow 300ms ease-in-out,
+    color 80ms ease-in-out;
+}
+
+.shift-search-field:hover {
+  border-color: var(--text-secondary);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shift-search-field:focus-within {
+  border-color: var(--action-button-surface-primary-default);
+  border-width: 2px;
+  padding-inline: 7px;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.shift-search-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--text-secondary);
+}
+
+.shift-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.shift-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.shift-search-input::-webkit-search-cancel-button,
+.shift-search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+.shift-search-end {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.shift-search-kbd {
+  padding: 2px 8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  font-family: var(--shift-font);
+  line-height: 16px;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.shift-search-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-8);
+  background: transparent;
+  cursor: pointer;
+}
+
+.shift-search-settings:hover {
+  color: var(--text-primary);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-search-empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* While searching, reveal matches inside collapsed categories */
+.category-group.is-tool-searching.collapsed .category-tools {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.category-group.is-tool-searching.collapsed .category-chevron {
+  transform: rotate(0deg);
+}
+
+.category-header:hover {
+  color: var(--action-button-surface-primary-default);
+}
+
+.category-header:hover .category-chevron {
+  color: var(--action-button-surface-primary-default);
+}
+
+.category-chevron {
+  color: var(--text-secondary) !important;
+}
+
+.compact-mode .tool-card {
+  border-bottom: 1px solid var(--border-divider-secondary);
+  background-color: transparent;
+}
+
+/* Compact rows shrink Bento's <i> icons, but the design-system glyphs render as
+   spans, so they keep their full size and sit flush against the label without
+   the matching rule. */
+.compact-mode .tool-card .shift-tool-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  margin-bottom: 0;
+  margin-right: 0.75rem;
+  font-size: 1.25rem;
+}
+
+/* Hide Bento marketing chrome in this experiment */
+#donation-ribbon {
+  display: none !important;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--action-button-surface-primary-default);
+}
+
+/* Buttons — approximates the Shift Button primary/secondary surfaces */
+.bg-indigo-500,
+.bg-indigo-600 {
+  background-color: var(--action-button-surface-primary-default) !important;
+  border-radius: var(--radius-8);
+}
+
+.bg-indigo-500:hover,
+.bg-indigo-600:hover,
+.hover\:bg-indigo-700:hover {
+  background-color: var(--action-button-surface-primary-hover) !important;
+}
+
+/* Transparent so the panel stays one white sheet to its rounded bottom edge —
+   the rail-grey fill used to dissolve into the identical backdrop behind it. */
+.shift-footer {
+  background-color: transparent;
+  border-color: var(--border-divider-secondary);
+  color: var(--text-secondary);
+}
+
+.shift-footer .text-white,
+.shift-footer #footer-brand {
+  color: var(--text-primary) !important;
+}
+
+/* The panel is a fixed-height scrollport, so the footer sat permanently past
+   the fold and was only reachable by scrolling a page to its very end. Keeping
+   it on screen takes two halves: the auto top margin parks it on the panel's
+   bottom edge when the content is shorter than the panel, and `sticky` holds it
+   there while longer content scrolls underneath. Sticky rather than fixed means
+   it still comes to rest in flow at maximum scroll, so the last of the content
+   is never permanently covered, and it needs no manual tracking of the rail
+   width or the mobile drawer.
+   Gated on the body actually carrying the footer: pdf-workflow and
+   pdf-multi-tool run their own h-screen flex column and ship no footer. */
+body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Flex items shrink to fit their container by default, which would squash a
+   long page into the panel instead of letting the panel scroll. */
+body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer) > * {
+  flex-shrink: 0;
+}
+
+body:not(.simple-mode):has(#shift-sidebar) > .shift-footer {
+  position: sticky;
+  bottom: 0;
+  /* Under #scroll-to-top-btn (z-40) and the tool modals (z-50). */
+  z-index: 10;
+  /* Replaces the partial's mt-16 with the push that parks it on the bottom. */
+  margin-top: auto;
+  /* Opaque now that content passes behind it, in the panel's white rather than
+     the rail grey; the panel's own rounded overflow clips the bottom corners. */
+  background-color: var(--background-secondary);
+}
+
+/* Every page wraps its content in a `min-h-screen` element — #uploader on the
+   tool pages, #app on the marketing ones. Bento authored that against a
+   document-scrolled page, where a full-viewport wrapper simply guaranteed the
+   footer never floated mid-screen. Here the panel *is* the viewport, so 100vh
+   fills it exactly and the footer below then adds its own height on top:
+   every short page overflowed by precisely a footer (113px at 1440x900) and
+   grew a scrollbar for content that fit.
+   Zeroing the minimum and letting the wrapper take the free space instead
+   leaves the geometry it was standing in for intact — the wrappers that centre
+   their card (`items-center justify-center`, e.g. repair-pdf, bookmark,
+   table-of-contents) still centre, now within the area above the footer rather
+   than behind it — while a wrapper whose content is genuinely taller keeps its
+   own height and scrolls as before.
+   Direct children only: every one of these wrappers sits at body level, and a
+   descendant match would also zero the min-heights inside modals. */
+body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
+  > .min-h-screen {
+  min-height: 0;
+  flex-grow: 1;
+}
+
+@media (max-width: 768px) {
+  /* Full-bleed drawer layout: the rail no longer reserves space, and the
+     padding clears the fixed hamburger. */
+  body:not(.simple-mode):has(#shift-sidebar),
+  body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar) {
+    margin-left: 0;
+    padding-top: 56px;
+    border-radius: 0;
+  }
+
+  /* Off-canvas drawer takes over from the collapse rail on small screens.
+     It sits above the toggle so the open drawer covers it rather than having
+     the button float over the drawer's own logo. */
+  .shift-sidebar,
+  body.shift-sidebar-collapsed .shift-sidebar {
+    width: var(--shift-sidebar-width);
+    max-width: var(--shift-sidebar-width);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 60;
+  }
+
+  body.shift-sidebar-open .shift-sidebar {
+    transform: translateX(0);
+  }
+
+  /* Scrim dims the page behind the drawer and closes it on tap. */
+  body.shift-sidebar-open .shift-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background-color: rgb(17 24 39 / 0.5);
+  }
+
+  body.shift-sidebar-collapsed .shift-sidebar-header {
+    flex-direction: row;
+    margin: 0 var(--shift-sidebar-pad);
+  }
+
+  body.shift-sidebar-collapsed .shift-logo-text,
+  body.shift-sidebar-collapsed .shift-nav-label {
+    display: revert;
+  }
+
+  body.shift-sidebar-collapsed .shift-primary-nav {
+    padding: 0 var(--shift-sidebar-pad);
+  }
+
+  body.shift-sidebar-collapsed .shift-nav-link {
+    justify-content: flex-start;
+    padding: 8px 8px 8px var(--radius-12);
+  }
+
+  .shift-collapse-btn {
+    display: none;
+  }
+
+  .shift-sidebar-toggle {
+    display: inline-flex;
+  }
+}

@@ -104,7 +104,7 @@ function createPageWrapper(
 
   const pageLabel = document.createElement('div');
   pageLabel.className =
-    'absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded';
+    'absolute top-1 left-1 bg-black/60 text-white text-xs px-2 py-1 rounded';
   pageLabel.textContent = `${pageNumber}`;
 
   container.appendChild(canvasWrapper);

@@ -126,24 +126,14 @@
   <body
     class="antialiased bg-gray-900 h-[100dvh] overflow-hidden flex flex-col"
   >
-    <!-- Navigation -->
+    {{> navbar }}
+
+    <!-- Tool header (branding lives in the Shift sidebar) -->
     <nav class="bg-gray-800 border-b border-gray-700 flex-none z-30">
-      <div class="container mx-auto px-4">
+      <div class="px-4">
         <div class="flex justify-between items-center h-16">
           <div class="flex-shrink-0 flex items-center">
-            <img
-              src="{{baseUrl}}{{#if brandLogo}}{{brandLogo}}{{else}}images/favicon-no-bg.svg{{/if}}"
-              alt="{{#if brandName}}{{brandName}}{{else}}Bento PDF{{/if}} Logo"
-              class="h-8 w-8"
-            />
-            <span class="text-white font-bold text-xl ml-2">
-              <a href="/"
-                >{{#if brandName}}{{brandName}}{{else}}BentoPDF{{/if}}</a
-              >
-            </span>
-            <span class="text-gray-400 ml-3 text-sm sm:text-base"
-              >PDF Multi Tool</span
-            >
+            <span class="text-white font-bold text-lg">PDF Multi Tool</span>
           </div>
           <button
             id="close-tool-btn"
@@ -493,35 +483,6 @@
           "price": "0",
           "priceCurrency": "USD"
         }
-      }
-    </script>
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "HowTo",
-        "name": "How to pdf multi tool online",
-        "description": "Learn how to pdf multi tool using BentoPDF",
-        "step": [
-          {
-            "@type": "HowToStep",
-            "position": 1,
-            "name": "Upload File",
-            "text": "Click or drag and drop your file"
-          },
-          {
-            "@type": "HowToStep",
-            "position": 2,
-            "name": "Process",
-            "text": "Click the process button"
-          },
-          {
-            "@type": "HowToStep",
-            "position": 3,
-            "name": "Download",
-            "text": "Download your processed file"
-          }
-        ]
       }
     </script>
 

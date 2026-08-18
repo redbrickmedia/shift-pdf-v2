@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'http';
 import http from 'http';
 import https from 'https';
@@ -12,7 +13,9 @@ import handlebars from 'vite-plugin-handlebars';
 import { resolve } from 'path';
 import fs from 'fs';
 import { constants as zlibConstants } from 'zlib';
+import { fileURLToPath } from 'url';
 
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SUPPORTED_LANGUAGES = [
   'en',
   'ar',
@@ -450,7 +453,14 @@ function rewriteHtmlPathsPlugin(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, '');
+  for (const [key, value] of Object.entries(env)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value as string;
+    }
+  }
+
   const USE_CDN = process.env.VITE_USE_CDN === 'true';
 
   if (USE_CDN) {
@@ -475,9 +485,11 @@ export default defineConfig(() => {
         context: {
           baseUrl: (process.env.BASE_URL || '/').replace(/\/?$/, '/'),
           simpleMode: process.env.SIMPLE_MODE === 'true',
-          brandName: process.env.VITE_BRAND_NAME || '',
-          brandLogo: process.env.VITE_BRAND_LOGO || '',
-          footerText: process.env.VITE_FOOTER_TEXT || '',
+          brandName: process.env.VITE_BRAND_NAME || 'Shift PDF',
+          brandLogo: process.env.VITE_BRAND_LOGO || 'images/shift-pdf-logo.svg',
+          footerText:
+            process.env.VITE_FOOTER_TEXT ||
+            'Shift PDF experimental — files stay in your browser',
           appVersion: process.env.npm_package_version || 'Unknown',
         },
       }),

@@ -208,7 +208,7 @@
 
     <div
       id="loader-modal"
-      class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+      class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50"
     >
       <div
         class="bg-gray-800 p-8 rounded-lg flex flex-col items-center gap-4 border border-gray-700 shadow-xl"
@@ -222,7 +222,7 @@
 
     <div
       id="alert-modal"
-      class="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-50 hidden"
+      class="fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 hidden"
     >
       <div
         class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full border border-gray-700"
@@ -243,145 +243,6 @@
         </button>
       </div>
     </div>
-
-    <!-- How It Works Section -->
-    <section class="max-w-4xl mx-auto px-4 py-12">
-      <h2
-        class="text-2xl md:text-3xl font-bold text-white mb-8 text-center"
-        data-i18n="howItWorks.title"
-      >
-        How It Works
-      </h2>
-      <div class="space-y-6">
-        <div class="flex items-start gap-4">
-          <div
-            class="flex-shrink-0 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold"
-          >
-            1
-          </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-white mb-1">
-              Upload Your PDF
-            </h3>
-            <p class="text-gray-400">
-              Select a digitally signed PDF file from your device
-            </p>
-          </div>
-        </div>
-        <div class="flex items-start gap-4">
-          <div
-            class="flex-shrink-0 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold"
-          >
-            2
-          </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-white mb-1">
-              Automatic Analysis
-            </h3>
-            <p class="text-gray-400">
-              The tool extracts and parses all digital signatures in the
-              document
-            </p>
-          </div>
-        </div>
-        <div class="flex items-start gap-4">
-          <div
-            class="flex-shrink-0 w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold"
-          >
-            3
-          </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-white mb-1">View Results</h3>
-            <p class="text-gray-400">
-              See signer information, certificate validity, and signature status
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Related Tools Section -->
-    <section class="max-w-6xl mx-auto px-4 py-12">
-      <h2
-        class="text-2xl md:text-3xl font-bold text-white mb-6 text-center"
-        data-i18n="relatedTools.title"
-      >
-        Related PDF Tools
-      </h2>
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <a
-          href="digital-sign-pdf.html"
-          class="block bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
-        >
-          <h3 class="text-white font-semibold mb-1">Digital Signature</h3>
-          <p class="text-gray-400 text-sm">Add cryptographic signature</p>
-        </a>
-        <a
-          href="encrypt-pdf.html"
-          class="block bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
-        >
-          <h3 class="text-white font-semibold mb-1">Encrypt PDF</h3>
-          <p class="text-gray-400 text-sm">Password protect PDF</p>
-        </a>
-        <a
-          href="view-metadata.html"
-          class="block bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
-        >
-          <h3 class="text-white font-semibold mb-1">View Metadata</h3>
-          <p class="text-gray-400 text-sm">Inspect PDF properties</p>
-        </a>
-      </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section class="max-w-4xl mx-auto px-4 py-12">
-      <h2
-        class="text-2xl md:text-3xl font-bold text-white mb-6 text-center"
-        data-i18n="faq.sectionTitle"
-      >
-        Frequently Asked Questions
-      </h2>
-      <div class="space-y-4">
-        <details class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-          <summary
-            class="cursor-pointer font-semibold text-white flex items-center justify-between"
-          >
-            What types of signatures can be validated?
-            <i data-lucide="chevron-down" class="w-5 h-5"></i>
-          </summary>
-          <p class="mt-3 text-gray-400">
-            This tool validates PKCS#7 digital signatures created with X.509
-            certificates, the standard format used by most PDF signing tools and
-            certificate authorities.
-          </p>
-        </details>
-        <details class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-          <summary
-            class="cursor-pointer font-semibold text-white flex items-center justify-between"
-          >
-            What does "Self-Signed Certificate" mean?
-            <i data-lucide="chevron-down" class="w-5 h-5"></i>
-          </summary>
-          <p class="mt-3 text-gray-400">
-            A self-signed certificate is one where the issuer and subject are
-            the same. While the signature is technically valid, it means the
-            certificate wasn't issued by a trusted Certificate Authority (CA).
-          </p>
-        </details>
-        <details class="bg-gray-800 p-5 rounded-lg border border-gray-700">
-          <summary
-            class="cursor-pointer font-semibold text-white flex items-center justify-between"
-          >
-            Is my PDF uploaded to a server?
-            <i data-lucide="chevron-down" class="w-5 h-5"></i>
-          </summary>
-          <p class="mt-3 text-gray-400">
-            No, all processing happens entirely in your browser. Your PDF files
-            never leave your device, ensuring complete privacy and security.
-          </p>
-        </details>
-      </div>
-    </section>
 
     {{> footer }}
 
