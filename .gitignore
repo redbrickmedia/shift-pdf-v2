@@ -53,3 +53,6 @@ bentopdf-*.tgz
 # test 
 dist-test
 test
+
+# Isolated Playwright install for design/explorations/verify-visual-smoke.mjs
+.smoke-tools

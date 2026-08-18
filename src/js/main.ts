@@ -1,4 +1,5 @@
 import { categories } from './config/tools.js';
+import { shiftToolIcons } from './config/shift-tool-icons.js';
 import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
@@ -24,11 +25,168 @@ import {
 } from './utils/disabled-tools.js';
 declare const __BRAND_NAME__: string;
 
+const SIDEBAR_COLLAPSED_KEY = 'shiftSidebarCollapsed';
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Applied at module scope so the rail width is set before first paint where possible.
+if (typeof document !== 'undefined' && readSidebarCollapsed()) {
+  document.documentElement.classList.add('shift-sidebar-collapsed-pending');
+}
+
+/**
+ * Element that actually scrolls. The Shift shell makes the main panel a fixed
+ * height scrollport so its rounded corners stay on screen; pages without the
+ * rail (and browsers without :has()) keep the document scrolling as Bento
+ * shipped it. Read back from the computed style so this can't drift from the
+ * conditions the stylesheet applies it under.
+ */
+function getShellScroller(): HTMLElement {
+  return getComputedStyle(document.body).overflowY === 'auto'
+    ? document.body
+    : document.documentElement;
+}
+
+function getToolId(tool: { id?: string; href?: string }): string {
+  if (tool.id) return tool.id;
+  if (tool.href) {
+    const match = tool.href.match(/\/([^/]+)\.html$/);
+    return match ? match[1] : tool.href;
+  }
+  return 'unknown';
+}
+
+/**
+ * Tools with Shift design-system artwork render it inline; the rest keep their
+ * original Phosphor/Lucide icon.
+ */
+function createToolIcon(
+  tool: { id?: string; href?: string; icon: string },
+  extraClass = ''
+): HTMLElement {
+  const dsIcon = shiftToolIcons[getToolId(tool)];
+
+  if (dsIcon) {
+    const wrapper = document.createElement('span');
+    wrapper.className =
+      `shift-tool-icon shift-tool-icon-g${dsIcon.grid} ${extraClass}`.trim();
+    // Static, build-time artwork generated from the design system.
+    wrapper.innerHTML = dsIcon.svg;
+    return wrapper;
+  }
+
+  const icon = document.createElement('i');
+  if (tool.icon.startsWith('ph-')) {
+    icon.className = `ph ${tool.icon} shift-tool-icon shift-tool-icon-ph ${extraClass}`;
+  } else {
+    icon.className = `shift-tool-icon shift-tool-icon-ph ${extraClass}`;
+    icon.setAttribute('data-lucide', tool.icon);
+  }
+  return icon;
+}
+
+function initShiftShell() {
+  const donationRibbon = document.getElementById('donation-ribbon');
+  if (donationRibbon) {
+    donationRibbon.classList.add('hidden');
+    donationRibbon.style.display = 'none';
+  }
+
+  const toggle = document.getElementById('shift-sidebar-toggle');
+  if (toggle) {
+    const setDrawer = (open: boolean) => {
+      document.body.classList.toggle('shift-sidebar-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    toggle.addEventListener('click', () => {
+      setDrawer(!document.body.classList.contains('shift-sidebar-open'));
+    });
+
+    document
+      .getElementById('shift-sidebar-backdrop')
+      ?.addEventListener('click', () => setDrawer(false));
+
+    document.addEventListener('keydown', (event) => {
+      if (
+        event.key === 'Escape' &&
+        document.body.classList.contains('shift-sidebar-open')
+      ) {
+        setDrawer(false);
+      }
+    });
+  }
+
+  const collapseBtn = document.getElementById('shift-sidebar-collapse');
+  if (collapseBtn) {
+    const applyCollapsed = (collapsed: boolean) => {
+      document.body.classList.toggle('shift-sidebar-collapsed', collapsed);
+      document.documentElement.classList.remove(
+        'shift-sidebar-collapsed-pending'
+      );
+      collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+      collapseBtn.setAttribute('title', label);
+      const srLabel = collapseBtn.querySelector('.sr-only');
+      if (srLabel) srLabel.textContent = label;
+    };
+
+    applyCollapsed(readSidebarCollapsed());
+
+    collapseBtn.addEventListener('click', () => {
+      const collapsed = !document.body.classList.contains(
+        'shift-sidebar-collapsed'
+      );
+      applyCollapsed(collapsed);
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+      } catch {
+        // storage unavailable (private mode) — collapse still works for the session
+      }
+    });
+  }
+
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const file = path.split('/').pop() || 'index.html';
+  const navMap: Record<string, string> = {
+    'index.html': 'home',
+    '': 'home',
+    'compress-pdf.html': 'compress',
+    'merge-pdf.html': 'merge',
+    'pdf-converter.html': 'convert',
+    'sign-pdf.html': 'esign',
+  };
+  // Clean URLs without .html (Cloudflare / nginx)
+  const cleanMap: Record<string, string> = {
+    'compress-pdf': 'compress',
+    'merge-pdf': 'merge',
+    'pdf-converter': 'convert',
+    'sign-pdf': 'esign',
+  };
+  const key =
+    navMap[file] ||
+    cleanMap[file.replace(/\.html$/, '')] ||
+    (file === 'index' || path.endsWith('/') ? 'home' : '');
+  if (key) {
+    document
+      .querySelectorAll(`.shift-nav-link[data-nav="${key}"]`)
+      .forEach((el) => el.classList.add('is-active'));
+  }
+}
+
 const init = async () => {
   await initI18n();
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
+
+  initShiftShell();
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
@@ -55,21 +213,11 @@ const init = async () => {
   ).toString();
   if (__SIMPLE_MODE__) {
     const hideBrandingSections = () => {
-      const heroSection = document.getElementById('hero-section');
-      if (heroSection) {
-        heroSection.style.display = 'none';
-      }
-
       const githubLink = document.querySelector(
         'a[href*="github.com/alam00000/bentopdf"]'
       );
       if (githubLink) {
         (githubLink as HTMLElement).style.display = 'none';
-      }
-
-      const featuresSection = document.getElementById('features-section');
-      if (featuresSection) {
-        featuresSection.style.display = 'none';
       }
 
       const securitySection = document.getElementById(
@@ -375,25 +523,18 @@ const init = async () => {
           toolCard = document.createElement('a');
           toolCard.href = tool.href;
           toolCard.className =
-            'tool-card block bg-gray-800 rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center no-underline hover:shadow-lg transition duration-200';
+            'tool-card block rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center no-underline transition duration-200';
         } else {
           toolCard = document.createElement('div');
           toolCard.className =
-            'tool-card bg-gray-800 rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center hover:shadow-lg transition duration-200';
+            'tool-card rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center transition duration-200';
           toolCard.dataset.toolId = getToolId(tool);
         }
 
-        const icon = document.createElement('i');
-        icon.className = 'w-10 h-10 mb-3 text-indigo-400';
-
-        if (tool.icon.startsWith('ph-')) {
-          icon.className = `ph ${tool.icon} text-4xl mb-3 text-indigo-400`;
-        } else {
-          icon.setAttribute('data-lucide', tool.icon);
-        }
+        const icon = createToolIcon(tool, 'mb-3');
 
         const toolName = document.createElement('h3');
-        toolName.className = 'font-semibold text-white';
+        toolName.className = 'font-semibold shift-tool-name';
         const toolKey = toolTranslationKeys[tool.name];
         toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
 
@@ -401,7 +542,7 @@ const init = async () => {
 
         if (tool.subtitle) {
           const toolSubtitle = document.createElement('p');
-          toolSubtitle.className = 'text-xs text-gray-400 mt-1 px-2';
+          toolSubtitle.className = 'text-xs shift-tool-subtitle mt-1 px-2';
           toolSubtitle.textContent = toolKey
             ? t(`${toolKey}.subtitle`)
             : tool.subtitle;
@@ -412,6 +553,20 @@ const init = async () => {
       });
 
       categoryGroup.append(header, toolsContainer);
+      // Stable anchors for Shift sidebar category links
+      const categoryAnchorIds: Record<string, string> = {
+        'Popular Tools': 'popular-tools',
+        'Edit & Annotate': 'edit-annotate',
+        'Convert to PDF': 'convert-to-pdf',
+        'Convert from PDF': 'convert-from-pdf',
+        'Organize & Manage': 'organize-manage',
+        'Optimize & Repair': 'optimize-repair',
+        'Secure PDF': 'secure-pdf',
+      };
+      const anchorId = categoryAnchorIds[category.name];
+      if (anchorId) {
+        categoryGroup.id = anchorId;
+      }
       dom.toolGrid.appendChild(categoryGroup);
 
       if (!isCollapsed) {
@@ -420,89 +575,86 @@ const init = async () => {
       }
     });
 
-    const searchBar = document.getElementById('search-bar');
+    const searchBar = document.getElementById(
+      'search-bar'
+    ) as HTMLInputElement | null;
     const categoryGroups = dom.toolGrid.querySelectorAll('.category-group');
+    const searchStatus = document.getElementById('tool-search-status');
+    const searchEmpty = document.getElementById('tool-search-empty');
 
-    const searchResultsContainer = document.createElement('div');
-    searchResultsContainer.id = 'search-results';
-    searchResultsContainer.className =
-      'hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 col-span-full';
-    dom.toolGrid.insertBefore(searchResultsContainer, dom.toolGrid.firstChild);
-
-    searchBar.addEventListener('input', () => {
-      // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-      const searchTerm = searchBar.value.toLowerCase().trim();
-
-      if (!searchTerm) {
-        searchResultsContainer.classList.add('hidden');
-        searchResultsContainer.innerHTML = '';
-        categoryGroups.forEach((group) => {
-          (group as HTMLElement).style.display = '';
-          const toolCards = group.querySelectorAll('.tool-card');
-          toolCards.forEach((card) => {
-            (card as HTMLElement).style.display = '';
-          });
-        });
-        return;
-      }
+    const applyToolSearch = (rawQuery: string) => {
+      const searchTerm = rawQuery.toLowerCase().trim();
+      let matchCount = 0;
 
       categoryGroups.forEach((group) => {
-        (group as HTMLElement).style.display = 'none';
-      });
-
-      searchResultsContainer.innerHTML = '';
-      searchResultsContainer.classList.remove('hidden');
-
-      const seenToolIds = new Set<string>();
-      const allTools: HTMLElement[] = [];
-
-      categoryGroups.forEach((group) => {
-        const toolCards = Array.from(group.querySelectorAll('.tool-card'));
+        const groupEl = group as HTMLElement;
+        const toolCards = group.querySelectorAll('.tool-card');
+        let groupMatches = 0;
 
         toolCards.forEach((card) => {
+          const cardEl = card as HTMLElement;
+          if (!searchTerm) {
+            cardEl.hidden = false;
+            groupMatches++;
+            return;
+          }
+
           const toolName = (
             card.querySelector('h3')?.textContent || ''
           ).toLowerCase();
           const toolSubtitle = (
             card.querySelector('p')?.textContent || ''
           ).toLowerCase();
-          const toolHref =
-            (card as HTMLAnchorElement).href ||
-            (card as HTMLElement).dataset.toolId ||
-            '';
-
-          const toolId =
-            toolHref.split('/').pop()?.replace('.html', '') || toolName;
-
           const isMatch =
             toolName.includes(searchTerm) || toolSubtitle.includes(searchTerm);
-          const isDuplicate = seenToolIds.has(toolId);
 
-          if (isMatch && !isDuplicate) {
-            seenToolIds.add(toolId);
-            allTools.push(card.cloneNode(true) as HTMLElement);
-          }
+          cardEl.hidden = !isMatch;
+          if (isMatch) groupMatches++;
         });
+
+        matchCount += groupMatches;
+
+        // Hide empty sections while searching; restore the full catalog when cleared.
+        groupEl.hidden = Boolean(searchTerm) && groupMatches === 0;
+        groupEl.classList.toggle('is-tool-searching', Boolean(searchTerm));
       });
 
-      allTools.forEach((tool) => {
-        searchResultsContainer.appendChild(tool);
-      });
-
-      createIcons({ icons });
-    });
-
-    window.addEventListener('keydown', function (e) {
-      const key = e.key.toLowerCase();
-      const isMac = navigator.userAgent.toUpperCase().includes('MAC');
-      const isCtrlK = e.ctrlKey && key === 'k';
-      const isCmdK = isMac && e.metaKey && key === 'k';
-
-      if (isCtrlK || isCmdK) {
-        e.preventDefault();
-        searchBar.focus();
+      if (searchStatus) {
+        if (!searchTerm) {
+          searchStatus.textContent = '';
+        } else if (matchCount === 0) {
+          searchStatus.textContent = 'No tools match your search.';
+        } else {
+          searchStatus.textContent = `${matchCount} tool${
+            matchCount === 1 ? '' : 's'
+          } match your search.`;
+        }
       }
-    });
+
+      if (searchEmpty) {
+        const showEmpty = Boolean(searchTerm) && matchCount === 0;
+        searchEmpty.hidden = !showEmpty;
+        searchEmpty.classList.toggle('hidden', !showEmpty);
+      }
+    };
+
+    if (searchBar) {
+      searchBar.addEventListener('input', () => {
+        applyToolSearch(searchBar.value);
+      });
+
+      window.addEventListener('keydown', function (e) {
+        const key = e.key.toLowerCase();
+        const isMac = navigator.userAgent.toUpperCase().includes('MAC');
+        const isCtrlK = e.ctrlKey && key === 'k';
+        const isCmdK = isMac && e.metaKey && key === 'k';
+
+        if (isCtrlK || isCmdK) {
+          e.preventDefault();
+          searchBar.focus();
+        }
+      });
+    }
 
     dom.toolGrid.addEventListener('click', () => {
       // All tools now use href and navigate directly - no modal handling needed
@@ -894,15 +1046,6 @@ const init = async () => {
     });
   }
 
-  function getToolId(tool: { id?: string; href?: string }): string {
-    if (tool.id) return tool.id;
-    if (tool.href) {
-      const match = tool.href.match(/\/([^/]+)\.html$/);
-      return match ? match[1] : tool.href;
-    }
-    return 'unknown';
-  }
-
   function renderShortcutsList() {
     if (!dom.shortcutsList) return;
     dom.shortcutsList.innerHTML = '';
@@ -946,13 +1089,7 @@ const init = async () => {
         const left = document.createElement('div');
         left.className = 'flex items-center gap-3';
 
-        const icon = document.createElement('i');
-        if (tool.icon.startsWith('ph-')) {
-          icon.className = `ph ${tool.icon} w-5 h-5 text-indigo-400`;
-        } else {
-          icon.className = 'w-5 h-5 text-indigo-400';
-          icon.setAttribute('data-lucide', tool.icon);
-        }
+        const icon = createToolIcon(tool, 'shift-tool-icon-sm');
 
         const name = document.createElement('span');
         name.className = 'text-gray-200 font-medium';
@@ -1140,10 +1277,15 @@ const init = async () => {
   const scrollToTopBtn = document.getElementById('scroll-to-top-btn');
 
   if (scrollToTopBtn) {
-    let lastScrollY = window.scrollY;
+    // In the Shift shell the main panel scrolls itself, so the document never
+    // moves and window scroll position would always read 0.
+    const scroller = getShellScroller();
+    const scrollTarget: EventTarget =
+      scroller === document.documentElement ? window : scroller;
+    let lastScrollY = scroller.scrollTop;
 
-    window.addEventListener('scroll', () => {
-      const currentScrollY = window.scrollY;
+    scrollTarget.addEventListener('scroll', () => {
+      const currentScrollY = scroller.scrollTop;
 
       if (currentScrollY < lastScrollY && currentScrollY > 300) {
         scrollToTopBtn.classList.add('visible');
@@ -1155,7 +1297,7 @@ const init = async () => {
     });
 
     scrollToTopBtn.addEventListener('click', () => {
-      window.scrollTo({
+      scroller.scrollTo({
         top: 0,
         behavior: 'instant',
       });
