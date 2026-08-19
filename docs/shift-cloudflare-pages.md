@@ -11,26 +11,27 @@ npm run build
 npx wrangler pages deploy dist --project-name=shift-pdf-v2
 ```
 
-Preview the current git branch (does not publish production):
+Preview to the shared development alias (does not publish production):
 
 ```bash
 npx wrangler login
 npm run pages:preview
 ```
 
-## GitHub Actions (preview)
+## GitHub Actions (development)
 
-`.github/workflows/deploy-development.yml` builds `dist/` with npm and deploys via Wrangler.
+`.github/workflows/deploy-development.yml` follows the integrated-app starter’s development method: PR and `main` pushes deploy to Pages `--branch=development`. The Next.js shared action is not used; this repo builds `dist/` with npm.
 
-| Trigger             | Pages `--branch`                             | Result                                    |
-| ------------------- | -------------------------------------------- | ----------------------------------------- |
-| Pull request        | PR head branch                               | Preview + PR comment with URL             |
-| Push to `main`      | `development`                                | Shared development alias (not production) |
-| `workflow_dispatch` | current git ref (or `development` on `main`) | Manual preview                            |
+| Trigger        | Pages `--branch` | Result                               |
+| -------------- | ---------------- | ------------------------------------ |
+| Pull request   | `development`    | Shared preview + PR comment with URL |
+| Push to `main` | `development`    | Same shared alias (not production)   |
+
+Preview URL: `https://development.shift-pdf-v2.pages.dev`
 
 Required GitHub secret: `CLOUDFLARE_API_TOKEN` (same token used by other Shift Pages apps). The workflow uses Shift account `4bff8d4d2bb0eb90fd63b5149bbf96c5`.
 
-Create the Pages project once (production branch `main`; CI still publishes previews to non-`main` aliases):
+Create the Pages project once (production branch `main`; CI publishes the `development` alias):
 
 ```bash
 npx wrangler pages project create shift-pdf-v2 --production-branch=main

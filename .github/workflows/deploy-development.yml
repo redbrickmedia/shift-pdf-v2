@@ -1,8 +1,8 @@
 name: Deploy to Development
 
-# Vite MPA → Cloudflare Pages preview.
-# The shared integrated-apps action assumes pnpm + next-on-pages
-# (.vercel/output/static), so this repo builds dist/ itself.
+# Starter-shaped development deploy (see shift-integrated-app-starter).
+# Next.js pieces from integrated-apps-deploy-cloudflare are skipped:
+# pnpm, pages:build, and .vercel/output/static. This app builds dist/.
 
 on:
   pull_request:
@@ -10,25 +10,15 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  deployments: write
-  pull-requests: write
-
-env:
-  HUSKY: 0
-  VITE_BRAND_NAME: Shift PDF
-  VITE_BRAND_LOGO: images/shift-pdf-logo.svg
-  VITE_FOOTER_TEXT: Shift PDF — files stay in your browser
 
 jobs:
   deploy_development:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout the code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,31 +27,26 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        env:
+          HUSKY: 0
         run: npm ci
 
       - name: Build
+        env:
+          HUSKY: 0
+          VITE_BRAND_NAME: Shift PDF
+          VITE_BRAND_LOGO: images/shift-pdf-logo.svg
+          VITE_FOOTER_TEXT: Shift PDF — files stay in your browser
         run: npm run build
 
-      - name: Resolve Pages branch
-        id: pages_branch
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
-            echo "name=${GITHUB_HEAD_REF}" >> "$GITHUB_OUTPUT"
-          elif [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "name=development" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Development
         id: deploy
-        uses: cloudflare/wrangler-action@v4
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: "4bff8d4d2bb0eb90fd63b5149bbf96c5"
           wranglerVersion: "4"
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          command: pages deploy dist --project-name=shift-pdf-v2 --branch=${{ steps.pages_branch.outputs.name }}
+          command: pages deploy dist --project-name=shift-pdf-v2 --branch=development
 
       - name: Add Deployment Info to Pull Request
         if: github.event_name == 'pull_request'
@@ -69,8 +54,7 @@ jobs:
         with:
           comment_tag: deployment_id
           message: |
-            | Deployment | |
-            | ---------- | --- |
-            | URL | ${{ steps.deploy.outputs.deployment-url }} |
-            | Alias | ${{ steps.deploy.outputs.pages-deployment-alias-url }} |
-            | Environment | ${{ steps.deploy.outputs.pages-environment }} |
+            | Deployment  |  |
+            | ------------- | ------------- |
+            | URL  | ${{ steps.deploy.outputs.deployment-url }}  |
+            | Environment  | ${{ steps.deploy.outputs.pages-environment }}  |
