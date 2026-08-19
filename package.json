@@ -29,6 +29,7 @@
     "serve:simple": "SIMPLE_MODE=true npm run build && npm run preview -- --port 3000",
     "serve": "npm run build && npm run preview -- --port 3000",
     "pages:deploy": "npm run build && npx wrangler pages deploy dist --project-name=shift-pdf-v2",
+    "pages:preview": "npm run build && npx wrangler pages deploy dist --project-name=shift-pdf-v2 --branch=$(git rev-parse --abbrev-ref HEAD)",
     "smoke:shift": "node scripts/smoke-shift-pages.mjs",
     "package": "node scripts/package-dist.js",
     "docs:dev": "vitepress dev docs",
