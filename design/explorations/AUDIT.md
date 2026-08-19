@@ -1,4 +1,4 @@
-# Visual audit: shift-pdf vs Bento (shift-pdf-v2)
+# Visual audit: Shift PDF vs Bento (shift-pdf-v2)
 
 ## shift-pdf (Shift integrated app)
 
@@ -29,3 +29,21 @@
 - Palette: dark indigo → light grey + brand blue
 - Chrome: strip marketing/GitHub; Shift logo + name
 - Keep full Bento tool catalog reachable
+
+## ST-14683 follow-up audit
+
+The shell branch closes the structural and visual gaps above, but the complete
+ticket also needs research, trust, stickiness, and measurement deliverables.
+
+| Ticket need                    | Shell baseline          | ST-14683 follow-up                                                         |
+| ------------------------------ | ----------------------- | -------------------------------------------------------------------------- |
+| Display-ad competitor set      | Not covered             | [`COMPETITIVE-RESEARCH.md`](./COMPETITIVE-RESEARCH.md)                     |
+| Prioritized Shift 1-ups        | Shell concept only      | [`STICKY-TOOLKIT-RECOMMENDATIONS.md`](./STICKY-TOOLKIT-RECOMMENDATIONS.md) |
+| Estimate-ready key screens     | Static shell concepts   | States and story split in the recommendations                              |
+| Shift ownership                | Sidebar, tokens, logo   | Shift About, Source, entry metadata, and footer links                      |
+| Entry → use → return analytics | Not covered             | [`MIXPANEL-TRACKING.md`](./MIXPANEL-TRACKING.md)                           |
+| Scope boundary                 | Related-tool UI removed | Search handoff and next tools explicitly excluded                          |
+
+The remaining upstream About and commercial Licensing pages are not appropriate
+trust surfaces for the Shift experiment. ST-14683 replaces their user-facing
+content while retaining clear Bento attribution on the Source page.
