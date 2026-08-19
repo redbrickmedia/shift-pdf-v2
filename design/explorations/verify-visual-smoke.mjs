@@ -37,6 +37,7 @@ const PAGES = [
   ['wasm-settings', '/wasm-settings.html', 'body'],
   ['form-filler', '/form-filler.html', 'body'],
   ['digital-sign-pdf', '/digital-sign-pdf.html', 'body'],
+  ['about', '/about.html', 'body'],
   ['licensing', '/licensing.html', 'body'],
   ['pdf-editor', '/pdf-editor.html', 'body'],
   ['organize-pdf', '/organize-pdf.html', 'body'],
@@ -453,6 +454,28 @@ for (const [name, path, waitFor] of PAGES) {
   );
   if (nonInter.length) note(name, 'FONT', `unexpected: ${nonInter.join(', ')}`);
 
+  const trustLinks = await page.evaluate(() => ({
+    hasFooter: Boolean(document.querySelector('footer')),
+    about: Boolean(document.querySelector('footer a[href$="about.html"]')),
+    source: Boolean(document.querySelector('footer a[href$="licensing.html"]')),
+    sourceOffer:
+      document
+        .getElementById('source-offer')
+        ?.querySelector(
+          'a[href="https://github.com/redbrickmedia/shift-pdf-v2"]'
+        ) !== null,
+  }));
+  if (trustLinks.hasFooter && (!trustLinks.about || !trustLinks.source)) {
+    note(
+      name,
+      'TRUST LINKS',
+      `footer about=${trustLinks.about} source=${trustLinks.source}`
+    );
+  }
+  if (name === 'licensing' && !trustLinks.sourceOffer) {
+    note(name, 'SOURCE OFFER', 'missing corresponding Shift source link');
+  }
+
   // Probe the hand-written Bento classes whose CSS this page loads.
   const probes = PROBES.filter((p) => p.on === null || p.on === name);
   if (probes.length) {
@@ -820,6 +843,30 @@ if (mobileAudit.invisibleText.length) {
     'LOW CONTRAST',
     mobileAudit.invisibleText.map((x) => `${x.ratio}:1 "${x.text}"`)
   );
+}
+
+for (const [name, path] of [
+  ['about-mobile', '/about.html'],
+  ['licensing-mobile', '/licensing.html'],
+]) {
+  await page.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(500);
+  const audit = await page.evaluate(AUDIT);
+  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
+  if (audit.horizontalOverflow) {
+    note(
+      name,
+      'H-SCROLL',
+      `scrollWidth ${audit.scrollWidth} vs ${audit.innerWidth}`
+    );
+  }
+  if (audit.invisibleText.length) {
+    note(
+      name,
+      'LOW CONTRAST',
+      audit.invisibleText.map((x) => `${x.ratio}:1 "${x.text}"`)
+    );
+  }
 }
 
 await browser.close();

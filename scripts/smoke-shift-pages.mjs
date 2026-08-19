@@ -19,6 +19,8 @@ const paths = [
   '/compress-pdf.html',
   '/pdf-converter.html',
   '/sign-pdf.html',
+  '/about.html',
+  '/licensing.html',
   '/images/shift-pdf-logo.svg',
 ];
 
@@ -65,6 +67,20 @@ for (const path of paths) {
         console.error('FAIL home missing Shift PDF brand');
         failed++;
       }
+      if (!html.includes('about.html') || !html.includes('licensing.html')) {
+        console.error(`FAIL ${path} missing About or Source footer link`);
+        failed++;
+      } else {
+        console.log(`OK   ${path} exposes About and Source`);
+      }
+      if (
+        path === '/licensing.html' &&
+        (!html.includes('id="source-offer"') ||
+          !html.includes('https://github.com/redbrickmedia/shift-pdf-v2'))
+      ) {
+        console.error('FAIL Source page missing corresponding source offer');
+        failed++;
+      }
     }
   } catch (err) {
     console.error(`FAIL ${path} ${err.message}`);
@@ -77,6 +93,4 @@ if (failed) {
   console.error(`\nSmoke failed with ${failed} error(s)`);
   process.exit(1);
 }
-console.log(
-  '\nSmoke passed (merge / compress / convert / sign routes + headers)'
-);
+console.log('\nSmoke passed (primary tools + Shift trust routes + headers)');
