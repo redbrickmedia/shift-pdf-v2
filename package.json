@@ -32,6 +32,8 @@
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
+    "pages:build": "npm run build && node scripts/pages-noindex-robots.mjs",
+    "pages:deploy": "npm run pages:build && wrangler pages deploy dist --project-name=shift-pdf-neo",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:security": "eslint . --no-inline-config --rule 'no-unsanitized/method:error' --rule 'no-unsanitized/property:error' --rule 'security/detect-eval-with-expression:error'",
@@ -69,7 +71,8 @@
     "vite-plugin-node-polyfills": "^0.26.0",
     "vitepress": "^1.6.4",
     "vitest": "^4.0.18",
-    "vue": "^3.5.29"
+    "vue": "^3.5.29",
+    "wrangler": "4.125.0"
   },
   "dependencies": {
     "@fontsource/cedarville-cursive": "^5.2.7",

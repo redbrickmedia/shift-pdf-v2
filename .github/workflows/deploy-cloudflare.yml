@@ -1,0 +1,83 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Cloudflare Pages deployment alias (development, staging, or a release tag)
+        required: true
+        type: string
+      ref:
+        description: Git ref to check out. Defaults to the triggering ref.
+        required: false
+        type: string
+      update_production_branch:
+        description: PATCH the Pages project production_branch to the deploy alias before deploying
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      api_token:
+        description: Cloudflare API token
+        required: true
+    outputs:
+      url:
+        description: Deployment URL printed by Wrangler
+        value: ${{ jobs.deploy.outputs.url }}
+      environment:
+        description: Pages alias used for this deployment
+        value: ${{ jobs.deploy.outputs.environment }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      environment: ${{ steps.deploy.outputs.environment }}
+    env:
+      HUSKY: 0
+      BASE_URL: /
+      SITE_URL: https://shift-pdf-neo.integrated-apps.tryshift.com
+      CLOUDFLARE_API_TOKEN: ${{ secrets.api_token }}
+      CLOUDFLARE_ACCOUNT_ID: 4bff8d4d2bb0eb90fd63b5149bbf96c5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run pages:build
+
+      - name: Update production branch on Cloudflare
+        if: inputs.update_production_branch
+        run: |
+          curl -sS -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/shift-pdf-neo" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"production_branch\": \"${{ inputs.branch }}\"}" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("success"), d'
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy dist \
+            --project-name=shift-pdf-neo \
+            --branch="${{ inputs.branch }}" \
+            --commit-dirty=true \
+            | tee /tmp/wrangler-out.txt
+          URL=$(grep -Eo 'https://[a-zA-Z0-9._/-]+' /tmp/wrangler-out.txt | tail -1)
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "environment=${{ inputs.branch }}" >> "$GITHUB_OUTPUT"

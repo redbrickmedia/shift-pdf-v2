@@ -1,0 +1,26 @@
+# This workflow validates the pull request title to ensure that
+# it starts with a Jira ticket number or an allowed prefix.
+# Inline (rather than shift-github-actions) because this repository is public
+# and cannot call private organization actions.
+
+name: Validate Pull Request Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const regex = /^(Revert ")?(([Rr]elease|[Mm]erge|[Dd]ocs|[Ss]tyle|[Cc]hore|[Ff]ix):?|([A-Z]+-[0-9]+(, [A-Z]+-[0-9]+)*):) .+/;
+            if (!regex.test(title)) {
+              core.setFailed(
+                `Pull request title "${title}" does not match Shift format. Use "ST-12345: summary" or "Fix: summary".`
+              );
+            }
