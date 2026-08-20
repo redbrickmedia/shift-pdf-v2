@@ -262,10 +262,11 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   position: relative;
 }
 
-/* Scoped through the item so it outweighs the `padding` shorthand on
-   .shift-nav-link, which is a single class like this one but declared later —
-   the reason the gap this reserves for the remove button never used to hold. */
-.shift-favorite-item .shift-favorite-link {
+/* Reserve end padding for the remove control only while it is visible, so
+   labels can use the full rail width until hover or keyboard focus. Scoped
+   through the item so it outweighs the later `.shift-nav-link` padding
+   shorthand. */
+.shift-favorite-item:is(:hover, :focus-within) .shift-favorite-link {
   padding-right: 40px;
 }
 
@@ -302,6 +303,13 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   border-radius: var(--radius-8);
   background: transparent;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shift-favorite-item:is(:hover, :focus-within) .shift-favorite-remove {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .shift-favorite-remove:hover {
