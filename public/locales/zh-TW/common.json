@@ -60,7 +60,8 @@
     "toolsLabel": "PDF 工具",
     "subtitle": "點選任意工具即可開啟檔案上傳器",
     "searchPlaceholder": "搜尋工具（例如「分割」或「整理」…）",
-    "backToTools": "回到工具清單",
+    "backToTools": "返回",
+    "backOptions": "更多返回方式",
     "firstLoadNotice": "首次載入需要一點時間，因為我們正在下載轉換引擎。之後所有載入將即時完成。"
   },
   "upload": {

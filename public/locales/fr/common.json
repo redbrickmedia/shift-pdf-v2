@@ -60,7 +60,8 @@
     "toolsLabel": "Les outils",
     "subtitle": "Cliquez sur un outil pour importer vos fichiers",
     "searchPlaceholder": "Rechercher un outil (ex. « scinder », « organiser »...)",
-    "backToTools": "Retour aux outils",
+    "backToTools": "Retour",
+    "backOptions": "Autres façons de revenir",
     "firstLoadNotice": "Le premier chargement peut prendre quelques instants, le temps de charger notre moteur de conversion. Les prochaines fois, tout se chargera instantanément."
   },
   "upload": {

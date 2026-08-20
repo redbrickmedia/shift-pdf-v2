@@ -5,7 +5,7 @@
 ## Why
 
 - Closest to production `shift-pdf` chrome (sticky 276px sidebar + main).
-- Matches experiment goal of “light Shift shell cues” while keeping the **full** Bento tool catalog in the main pane.
+- Matches the goal of “light Shift shell cues” while keeping the **full** Bento tool catalog in the main pane.
 - Primary five (Home / Compress / Merge / Convert / E-sign) live in the sidebar; category jump links expose all tools.
 - Reduces the grid-first overload found across broad competitor suites without
   hiding long-tail capability.
@@ -30,7 +30,7 @@
 
 ## Product decisions
 
-- The experiment competes on local processing, no account, no display ads, broad
+- Shift PDF competes on local processing, no account, no display ads, broad
   coverage, and fast access to the first job.
 - Shift owns the experience; Bento is credited on the trusted Source surface
   instead of appearing as the product's marketing brand.

@@ -1,5 +1,4 @@
 import { categories } from './config/tools.js';
-import { shiftToolIcons } from './config/shift-tool-icons.js';
 import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
@@ -23,6 +22,23 @@ import {
   isToolDisabled,
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
+import {
+  applyFavoritePinTitles,
+  loadFavoriteToolIds,
+  saveFavoriteRailSnapshot,
+  saveFavoriteToolIds,
+  toggleFavoriteToolId,
+  type FavoriteRailPin,
+} from './logic/tool-favorites.js';
+import {
+  dismissPromiseBanner,
+  markPromiseBannerSeen,
+  readPromiseBannerState,
+  shouldShowPromiseBanner,
+} from './logic/promise-banner.js';
+import { initToolBackNavigation } from './logic/tool-back.js';
+import { initToolBackMenu } from './logic/tool-back-menu.js';
+
 declare const __BRAND_NAME__: string;
 
 const SIDEBAR_COLLAPSED_KEY = 'shiftSidebarCollapsed';
@@ -35,9 +51,18 @@ function readSidebarCollapsed(): boolean {
   }
 }
 
-// Applied at module scope so the rail width is set before first paint where possible.
+// Applied at module scope so a stored collapse is set before first paint where possible.
 if (typeof document !== 'undefined' && readSidebarCollapsed()) {
   document.documentElement.classList.add('shift-sidebar-collapsed-pending');
+}
+
+// At module scope rather than in init(): init() waits for `load`, and the tool
+// pages bind their own back handlers on DOMContentLoaded, so the shared one has
+// to be in place before that window opens.
+if (typeof document !== 'undefined') {
+  initToolBackNavigation();
+  // After, not before: the menu hangs off the class the call above adds.
+  initToolBackMenu();
 }
 
 /**
@@ -63,24 +88,14 @@ function getToolId(tool: { id?: string; href?: string }): string {
 }
 
 /**
- * Tools with Shift design-system artwork render it inline; the rest keep their
- * original Phosphor/Lucide icon.
+ * Every tool keeps its own Phosphor/Lucide artwork, in the catalog and on the
+ * rail pins alike. The Shift design-system glyphs are reserved for the chrome
+ * that is hand-authored for this shell: the primary rail items in navbar.html.
  */
 function createToolIcon(
   tool: { id?: string; href?: string; icon: string },
   extraClass = ''
 ): HTMLElement {
-  const dsIcon = shiftToolIcons[getToolId(tool)];
-
-  if (dsIcon) {
-    const wrapper = document.createElement('span');
-    wrapper.className =
-      `shift-tool-icon shift-tool-icon-g${dsIcon.grid} ${extraClass}`.trim();
-    // Static, build-time artwork generated from the design system.
-    wrapper.innerHTML = dsIcon.svg;
-    return wrapper;
-  }
-
   const icon = document.createElement('i');
   if (tool.icon.startsWith('ph-')) {
     icon.className = `ph ${tool.icon} shift-tool-icon shift-tool-icon-ph ${extraClass}`;
@@ -91,6 +106,17 @@ function createToolIcon(
   return icon;
 }
 
+function createInlineIcon(pathData: string): SVGSVGElement {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(namespace, 'svg');
+  const path = document.createElementNS(namespace, 'path');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  path.setAttribute('d', pathData);
+  svg.appendChild(path);
+  return svg;
+}
+
 function initShiftShell() {
   const donationRibbon = document.getElementById('donation-ribbon');
   if (donationRibbon) {
@@ -98,29 +124,21 @@ function initShiftShell() {
     donationRibbon.style.display = 'none';
   }
 
-  const toggle = document.getElementById('shift-sidebar-toggle');
-  if (toggle) {
-    const setDrawer = (open: boolean) => {
-      document.body.classList.toggle('shift-sidebar-open', open);
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    };
-
-    toggle.addEventListener('click', () => {
-      setDrawer(!document.body.classList.contains('shift-sidebar-open'));
-    });
-
-    document
-      .getElementById('shift-sidebar-backdrop')
-      ?.addEventListener('click', () => setDrawer(false));
-
-    document.addEventListener('keydown', (event) => {
-      if (
-        event.key === 'Escape' &&
-        document.body.classList.contains('shift-sidebar-open')
-      ) {
-        setDrawer(false);
-      }
-    });
+  const promiseBanner = document.getElementById('shift-promise-banner');
+  if (promiseBanner) {
+    const until = import.meta.env.VITE_PROMISE_BANNER_UNTIL;
+    const now = Date.now();
+    const state = readPromiseBannerState(localStorage);
+    if (shouldShowPromiseBanner(now, state, until)) {
+      markPromiseBannerSeen(localStorage, now, state.firstSeenAt);
+      promiseBanner.hidden = false;
+      promiseBanner
+        .querySelector('#shift-promise-dismiss')
+        ?.addEventListener('click', () => {
+          dismissPromiseBanner(localStorage);
+          promiseBanner.hidden = true;
+        });
+    }
   }
 
   const collapseBtn = document.getElementById('shift-sidebar-collapse');
@@ -131,10 +149,18 @@ function initShiftShell() {
         'shift-sidebar-collapsed-pending'
       );
       collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
-      collapseBtn.setAttribute('title', label);
-      const srLabel = collapseBtn.querySelector('.sr-only');
-      if (srLabel) srLabel.textContent = label;
+      collapseBtn.setAttribute(
+        'title',
+        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+      );
+      const label = collapseBtn.querySelector('.shift-nav-label');
+      if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
+      requestAnimationFrame(() =>
+        applyFavoritePinTitles(
+          document.getElementById('shift-favorites-nav') ?? document,
+          collapsed
+        )
+      );
     };
 
     applyCollapsed(readSidebarCollapsed());
@@ -176,8 +202,37 @@ function initShiftShell() {
   if (key) {
     document
       .querySelectorAll(`.shift-nav-link[data-nav="${key}"]`)
-      .forEach((el) => el.classList.add('is-active'));
+      .forEach((el) => {
+        el.classList.add('is-active');
+        el.setAttribute('aria-current', 'page');
+      });
   }
+
+  markActiveNavLinks();
+}
+
+function navPageId(pathname: string): string {
+  const file = pathname.replace(/\/+$/, '').split('/').pop() || '';
+  const page = file.replace(/\.html$/, '');
+  return page === '' || page === 'index' ? 'index' : page;
+}
+
+/* Primary rail items are keyed by data-nav because their hrefs are aliased —
+   pdf-converter.html serves "Convert". Favourites come from the catalog and
+   only have an href, so they are matched by page instead. Both routes only
+   add, so neither clears what the other marked. */
+function markActiveNavLinks() {
+  const current = navPageId(window.location.pathname);
+  document
+    .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
+    .forEach((link) => {
+      const target = navPageId(
+        new URL(link.href, window.location.href).pathname
+      );
+      if (target !== current) return;
+      link.classList.add('is-active');
+      link.setAttribute('aria-current', 'page');
+    });
 }
 
 const init = async () => {
@@ -432,6 +487,140 @@ const init = async () => {
     'Rasterize PDF': 'tools:rasterizePdf',
   };
 
+  /* The rail's own items, pinned for everyone. They are excluded from the
+     favourites list and carry no star, because a control that offers to pin
+     something already permanently pinned has nothing to toggle. 'pdf-converter'
+     is the Convert item; it is a hub page rather than a catalog entry, so it
+     never reaches the grid, but it belongs here for the rail's sake. */
+  const primaryToolIds = new Set([
+    'compress-pdf',
+    'merge-pdf',
+    'pdf-converter',
+    'sign-pdf',
+  ]);
+  const toolsById = new Map<
+    string,
+    (typeof categories)[number]['tools'][number]
+  >();
+  categories.forEach((category) => {
+    category.tools.forEach((tool) => {
+      if (!isToolDisabled(tool.id) && !toolsById.has(tool.id)) {
+        toolsById.set(tool.id, tool);
+      }
+    });
+  });
+
+  const validToolIds = new Set(toolsById.keys());
+  let favoriteToolIds = loadFavoriteToolIds(validToolIds);
+
+  const getToolName = (tool: (typeof categories)[number]['tools'][number]) => {
+    const toolKey = toolTranslationKeys[tool.name];
+    return toolKey ? t(`${toolKey}.name`) : tool.name;
+  };
+
+  const updateGridFavoriteControls = () => {
+    document
+      .querySelectorAll<HTMLButtonElement>('.shift-tool-favorite')
+      .forEach((button) => {
+        const toolId = button.dataset.toolId;
+        const tool = toolId ? toolsById.get(toolId) : undefined;
+        if (!toolId || !tool) return;
+
+        const isFavorite = favoriteToolIds.includes(toolId);
+        const toolName = getToolName(tool);
+        button.setAttribute('aria-pressed', String(isFavorite));
+        button.setAttribute(
+          'aria-label',
+          `${isFavorite ? 'Remove' : 'Add'} ${toolName} ${
+            isFavorite ? 'from' : 'to'
+          } favorites`
+        );
+        button.setAttribute(
+          'title',
+          `${isFavorite ? 'Remove from' : 'Add to'} favorites`
+        );
+      });
+  };
+
+  const renderSidebarFavorites = () => {
+    const section = document.getElementById('shift-favorites');
+    const nav = document.getElementById('shift-favorites-nav');
+    if (!section || !nav) return;
+
+    nav.textContent = '';
+    const sidebarFavoriteIds = favoriteToolIds.filter(
+      (toolId) => !primaryToolIds.has(toolId)
+    );
+    section.hidden = sidebarFavoriteIds.length === 0;
+    const pins: FavoriteRailPin[] = [];
+
+    sidebarFavoriteIds.forEach((toolId) => {
+      const tool = toolsById.get(toolId);
+      if (!tool) return;
+
+      const item = document.createElement('div');
+      item.className = 'shift-favorite-item';
+
+      const link = document.createElement('a');
+      link.href = tool.href;
+      link.className = 'shift-nav-link shift-favorite-link';
+      link.addEventListener('mouseenter', () => {
+        applyFavoritePinTitles(
+          nav,
+          document.body.classList.contains('shift-sidebar-collapsed')
+        );
+      });
+
+      const icon = createToolIcon(tool, 'shift-nav-icon');
+      const label = document.createElement('span');
+      label.className = 'shift-nav-label';
+      label.textContent = getToolName(tool);
+      link.append(icon, label);
+
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'shift-favorite-remove';
+      removeButton.dataset.toolId = toolId;
+      removeButton.setAttribute(
+        'aria-label',
+        `Remove ${getToolName(tool)} from favorites`
+      );
+      removeButton.title = 'Remove from favorites';
+      removeButton.appendChild(createInlineIcon('m6 6 12 12M18 6 6 18'));
+      removeButton.addEventListener('click', () => {
+        favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
+        saveFavoriteToolIds(favoriteToolIds);
+        renderSidebarFavorites();
+        updateGridFavoriteControls();
+      });
+
+      item.append(link, removeButton);
+      nav.appendChild(item);
+      pins.push({ name: getToolName(tool), href: tool.href, icon: tool.icon });
+    });
+
+    // Lucide glyphs arrive as <i data-lucide> placeholders, and a re-render
+    // makes new ones, so they have to be materialised every time.
+    createIcons({ icons });
+    saveFavoriteRailSnapshot(pins);
+    markActiveNavLinks();
+    requestAnimationFrame(() =>
+      applyFavoritePinTitles(
+        nav,
+        document.body.classList.contains('shift-sidebar-collapsed')
+      )
+    );
+  };
+
+  const toggleFavorite = (toolId: string) => {
+    favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
+    saveFavoriteToolIds(favoriteToolIds);
+    renderSidebarFavorites();
+    updateGridFavoriteControls();
+  };
+
+  renderSidebarFavorites();
+
   // Homepage-only tool grid rendering (not used on individual tool pages)
   if (dom.toolGrid) {
     dom.toolGrid.textContent = '';
@@ -478,8 +667,7 @@ const init = async () => {
       header.append(title, chevron);
 
       const toolsContainer = document.createElement('div');
-      toolsContainer.className =
-        'category-tools grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6';
+      toolsContainer.className = 'category-tools shift-tool-grid';
 
       const isCollapsed = collapsedCategories.includes(category.name);
       if (isCollapsed) {
@@ -517,18 +705,23 @@ const init = async () => {
       });
 
       category.tools.forEach((tool) => {
-        let toolCard: HTMLDivElement | HTMLAnchorElement;
+        const toolId = getToolId(tool);
+        const toolCard = document.createElement('div');
+        toolCard.className = 'tool-card';
+        toolCard.dataset.toolId = toolId;
+
+        let toolContent: HTMLDivElement | HTMLAnchorElement;
 
         if (tool.href) {
-          toolCard = document.createElement('a');
-          toolCard.href = tool.href;
-          toolCard.className =
-            'tool-card block rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center no-underline transition duration-200';
+          toolContent = document.createElement('a');
+          toolContent.href = tool.href;
+          toolContent.className =
+            'shift-tool-card-link no-underline transition duration-200';
         } else {
-          toolCard = document.createElement('div');
-          toolCard.className =
-            'tool-card rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center transition duration-200';
-          toolCard.dataset.toolId = getToolId(tool);
+          toolContent = document.createElement('div');
+          toolContent.className =
+            'shift-tool-card-link cursor-pointer transition duration-200';
+          toolContent.dataset.toolId = toolId;
         }
 
         const icon = createToolIcon(tool, 'mb-3');
@@ -538,7 +731,7 @@ const init = async () => {
         const toolKey = toolTranslationKeys[tool.name];
         toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
 
-        toolCard.append(icon, toolName);
+        toolContent.append(icon, toolName);
 
         if (tool.subtitle) {
           const toolSubtitle = document.createElement('p');
@@ -546,7 +739,25 @@ const init = async () => {
           toolSubtitle.textContent = toolKey
             ? t(`${toolKey}.subtitle`)
             : tool.subtitle;
-          toolCard.appendChild(toolSubtitle);
+          toolContent.appendChild(toolSubtitle);
+        }
+
+        if (primaryToolIds.has(toolId)) {
+          toolCard.appendChild(toolContent);
+        } else {
+          const favoriteButton = document.createElement('button');
+          favoriteButton.type = 'button';
+          favoriteButton.className = 'shift-tool-favorite';
+          favoriteButton.dataset.toolId = toolId;
+          favoriteButton.appendChild(
+            createInlineIcon(
+              'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+            )
+          );
+          favoriteButton.addEventListener('click', () =>
+            toggleFavorite(toolId)
+          );
+          toolCard.append(toolContent, favoriteButton);
         }
 
         toolsContainer.appendChild(toolCard);
@@ -574,6 +785,8 @@ const init = async () => {
         toolsContainer.style.overflow = 'visible';
       }
     });
+
+    updateGridFavoriteControls();
 
     const searchBar = document.getElementById(
       'search-bar'

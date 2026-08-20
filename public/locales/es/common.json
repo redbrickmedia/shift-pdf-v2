@@ -60,7 +60,8 @@
     "toolsLabel": "Herramientas",
     "subtitle": "Haz clic en una herramienta para abrir el cargador de archivos",
     "searchPlaceholder": "Buscar una herramienta (ej., 'dividir', 'organizar'...)",
-    "backToTools": "Volver a Herramientas",
+    "backToTools": "Volver",
+    "backOptions": "Otras formas de volver",
     "firstLoadNotice": "La primera carga toma un momento mientras descargamos nuestro motor de conversión. Después de eso, todas las cargas serán instantáneas."
   },
   "upload": {

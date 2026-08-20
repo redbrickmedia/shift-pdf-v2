@@ -1,6 +1,6 @@
 /**
  * Generates src/js/config/shift-tool-icons.ts from the Shift design-system icon
- * set, so the experimental (non-React) tool grid can use real DS artwork.
+ * set, so the non-React tool grid can use real DS artwork.
  *
  * Only tools with an unambiguous DS match are listed; everything else keeps its
  * existing Phosphor icon at runtime.

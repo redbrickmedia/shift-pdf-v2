@@ -60,7 +60,8 @@
     "toolsLabel": "Tools",
     "subtitle": "Klik een tool om de bestandslader te openen",
     "searchPlaceholder": "Zoek een tool (bijv. 'splitsen', 'organiseren',…)",
-    "backToTools": "Terug naar Tools",
+    "backToTools": "Terug",
+    "backOptions": "Meer manieren om terug te gaan",
     "firstLoadNotice": "De eerste keer duurt het even om onze machinerie te laden. Daarna laadt alles direct."
   },
   "upload": {

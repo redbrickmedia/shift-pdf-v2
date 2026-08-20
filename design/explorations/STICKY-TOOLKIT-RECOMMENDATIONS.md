@@ -56,13 +56,15 @@ hard to scan.
 **Recommendation**
 
 - Keep Compress, Merge, Convert, and E-sign pinned in the sidebar.
+- Let users favorite any other tool from the catalog and pin those favorites in
+  the sidebar.
 - Keep catalog search above the tool grid.
 - Group all remaining tools by user job, not implementation engine.
 - On return visits, show up to three recently opened tools above the full catalog.
 - Let users clear recent tools; store only tool identifiers and timestamps.
 
-**Prototype coverage:** Pinned primary navigation and search already exist.
-Recent tools are a follow-up story.
+**Prototype coverage:** Pinned primary navigation, catalog search, and locally
+persisted sidebar favorites are implemented. Recent tools are a follow-up story.
 
 ### P1 — Make the first action predictable
 
@@ -107,7 +109,9 @@ Recent-tool context is a follow-up story.
 - First visit: primary tools, search, categorized catalog, privacy cue.
 - Return visit: the same page plus recent tools when local history exists.
 - Search: immediate filtered results, clear empty state, keyboard focus retained.
-- Mobile: drawer navigation without hiding the first tool action.
+- Tablet and mobile: the sidebar stays at the width the visitor last chose.
+  It never auto-shrinks or auto-expands with the viewport, never closes, and
+  there is no hamburger.
 
 ### 2. Tool workspace
 
@@ -130,9 +134,9 @@ tools belong to [ST-14708](https://redbrickmedia.atlassian.net/browse/ST-14708).
 
 **Required content**
 
-- Shift-owned experiment status.
+- Shift-owned product status.
 - Files normally process in the browser.
-- No account, quota, or display-ad interruption in the experiment.
+- No account, quota, or display-ad interruption.
 - Honest exceptions for optional network-backed features.
 - Link to Source.
 

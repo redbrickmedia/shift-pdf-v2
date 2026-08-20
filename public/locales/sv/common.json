@@ -60,7 +60,8 @@
     "toolsLabel": "verktyg",
     "subtitle": "Klicka på ett verktyg för att öppna filväljaren",
     "searchPlaceholder": "Sök efter ett verktyg (t.ex. 'dela', 'organisera'...)",
-    "backToTools": "Tillbaka till verktyg",
+    "backToTools": "Tillbaka",
+    "backOptions": "Fler sätt att gå tillbaka",
     "firstLoadNotice": "Första laddningen tar ett ögonblick eftersom vi hämtar vår konverteringsmotor. Därefter blir alla laddningar omedelbara."
   },
   "upload": {

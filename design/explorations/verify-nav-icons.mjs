@@ -1,5 +1,5 @@
 /**
- * Verifies that every inline SVG in the experimental sidebar really is Shift
+ * Verifies that every inline SVG in the Shift sidebar really is Shift
  * design-system artwork, by rendering the whole DS icon set and matching on
  * path data.
  *

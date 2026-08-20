@@ -60,7 +60,8 @@
     "toolsLabel": "Værktøjer",
     "subtitle": "Klik på et værktøj for at åbne fil-upload",
     "searchPlaceholder": "Søg efter et værktøj (f.eks. 'split', 'organiser'...)",
-    "backToTools": "Tilbage til værktøjer",
+    "backToTools": "Tilbage",
+    "backOptions": "Flere måder at gå tilbage på",
     "firstLoadNotice": "Første indlæsning tager et øjeblik, mens vi downloader konverteringsmotoren. Derefter vil alt indlæses øjeblikkeligt."
   },
   "upload": {

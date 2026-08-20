@@ -60,7 +60,8 @@
     "toolsLabel": "Nástroje",
     "subtitle": "Kliknutím na nástroj otvoríte nahrávanie súborov",
     "searchPlaceholder": "Vyhľadajte nástroj (napr. 'rozdeliť', 'usporiadať'...)",
-    "backToTools": "Späť na nástroje",
+    "backToTools": "Späť",
+    "backOptions": "Ďalšie spôsoby návratu",
     "firstLoadNotice": "Prvé načítanie chvíľu trvá, kým sa stiahne náš konverzný nástroj. Potom už budú všetky procesy okamžité."
   },
   "upload": {

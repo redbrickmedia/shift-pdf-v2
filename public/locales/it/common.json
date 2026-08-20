@@ -60,7 +60,8 @@
     "toolsLabel": "Strumenti",
     "subtitle": "Clicca su uno strumento per aprire il caricatore di file",
     "searchPlaceholder": "Cerca uno strumento (es. \"split\", \"organizza\"...)",
-    "backToTools": "Torna agli strumenti",
+    "backToTools": "Indietro",
+    "backOptions": "Altri modi per tornare indietro",
     "firstLoadNotice": "Il primo caricamento richiede qualche istante mentre scarichiamo il motore di conversione. Dopo di ciò, tutti i caricamenti saranno immediati."
   },
   "upload": {

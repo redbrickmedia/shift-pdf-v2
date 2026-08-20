@@ -60,7 +60,8 @@
     "toolsLabel": "ツール",
     "subtitle": "ツールをクリックしてファイルアップローダーを開きます",
     "searchPlaceholder": "ツールを検索します（例: 「分割」、「整理」など）",
-    "backToTools": "ツールに戻る",
+    "backToTools": "戻る",
+    "backOptions": "戻る方法をさらに表示",
     "firstLoadNotice": "変換エンジンをダウンロードするため最初の読み込みには少し時間がかかります。その後、すべての読み込みは瞬時に行われます。"
   },
   "upload": {
