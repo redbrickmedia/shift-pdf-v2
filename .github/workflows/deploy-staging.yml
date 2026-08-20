@@ -1,0 +1,16 @@
+name: Deploy to Staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy_staging:
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    secrets:
+      api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    with:
+      branch: staging
+      ref: ${{ github.ref }}
