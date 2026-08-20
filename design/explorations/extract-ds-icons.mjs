@@ -1,6 +1,6 @@
 /**
  * One-off helper: render Shift design-system icon components to static SVG so
- * the experimental (non-React) sidebar can use the real artwork.
+ * the non-React sidebar can use the real artwork.
  *
  * The design system is a private package that is not a dependency of this repo,
  * so this resolves it from a sibling checkout that already has it installed.

@@ -18,6 +18,7 @@ specification for
 - [Concept C — Token-only](./concept-c-tokens.html) — rejected
 - [Visual audit](./AUDIT.md)
 - [Design-system tokens](./TOKENS.md)
+- [Colour-theming audit](./THEME-AUDIT.md) — what a toolkit dark flip will not reach
 - [Visual smoke screenshots](./smoke-shots/)
 
 ## Scope boundary

@@ -44,9 +44,9 @@ These are geometry / type choices for this shell, not themed by the toolkit:
 | --------------------------------- | ----------- | ------------------------------------------------------ |
 | `--shift-radius-panel`            | `10px`      | Main content panel corners (shift-pdf `.main-content`) |
 | `--shift-sidebar-width`           | `276px`     | Expanded rail                                          |
-| `--shift-sidebar-width-collapsed` | `64px`      | Icon rail                                              |
+| `--shift-sidebar-width-collapsed` | `64px`      | Icon rail (collapsed by choice)                        |
 | `--shift-sidebar-pad`             | `30px`      | Expanded rail padding                                  |
-| `--shift-sidebar-pad-collapsed`   | `12px`      | Collapsed rail padding                                 |
+| `--shift-sidebar-pad-collapsed`   | `12px`      | Icon rail padding                                      |
 | `--shift-font`                    | Inter stack | Shell typeface                                         |
 
 Geometry copied from `shift-pdf`: item 40px tall, padding `8px 8px 8px 12px`,
@@ -63,5 +63,5 @@ the light-theme drop shadow pair plus inset ring.
 ```
 VITE_BRAND_NAME=Shift PDF
 VITE_BRAND_LOGO=images/shift-pdf-logo.svg
-VITE_FOOTER_TEXT=Shift PDF experimental
+VITE_FOOTER_TEXT=Shift PDF
 ```

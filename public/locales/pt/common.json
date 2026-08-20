@@ -60,7 +60,8 @@
     "toolsLabel": "Ferramentas",
     "subtitle": "Clique em uma ferramenta para abrir o seletor de arquivos",
     "searchPlaceholder": "Buscar ferramenta (ex: 'dividir', 'organizar'...)",
-    "backToTools": "Voltar para Ferramentas",
+    "backToTools": "Voltar",
+    "backOptions": "Outras formas de voltar",
     "firstLoadNotice": "O primeiro carregamento demora um momento enquanto baixamos nosso mecanismo de conversão. Depois disso, todos os carregamentos serão instantâneos."
   },
   "upload": {

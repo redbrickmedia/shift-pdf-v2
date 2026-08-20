@@ -60,7 +60,8 @@
     "toolsLabel": "Tools",
     "subtitle": "Klick auf ein Tool, um den Datei-Uploader zu öffnen",
     "searchPlaceholder": "Tool suchen (z.B. 'teilen', 'organisieren'...)",
-    "backToTools": "Zurück zu den Tools",
+    "backToTools": "Zurück",
+    "backOptions": "Weitere Wege zurück",
     "firstLoadNotice": "Der erste Ladevorgang dauert einen Moment, da wir unsere Konvertierungs-Engine herunterladen. Danach erfolgt jedes Laden sofort."
   },
   "upload": {

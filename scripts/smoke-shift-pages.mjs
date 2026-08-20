@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Experimental smoke check for Shift PDF v2 (Bento fork).
+ * Smoke check for Shift PDF v2 (Bento fork).
  * Assumes `npm run build` has produced dist/ and optionally a preview server.
  *
  * Usage:

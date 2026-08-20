@@ -60,7 +60,8 @@
     "toolsLabel": "Tools",
     "subtitle": "Click a tool to open the file uploader",
     "searchPlaceholder": "Search for a tool (e.g., 'split', 'organize'...)",
-    "backToTools": "Back to Tools",
+    "backToTools": "Back",
+    "backOptions": "More ways back",
     "firstLoadNotice": "First load takes a moment as we download our conversion engine. After that, all loads will be instant."
   },
   "upload": {

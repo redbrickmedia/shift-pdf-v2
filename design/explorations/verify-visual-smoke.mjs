@@ -589,6 +589,8 @@ if (await page.locator('#shift-sidebar-collapse').count()) {
   if (w2 >= w1) note('home', 'SIDEBAR', 'collapse did not shrink the sidebar');
   await page.click('#shift-sidebar-collapse');
   await page.waitForTimeout(400);
+} else {
+  note('home', 'SIDEBAR', 'no #shift-sidebar-collapse control found');
 }
 
 // 2b. Compact mode (its hover state used a hardcoded dark fill)
@@ -755,79 +757,55 @@ for (const nav of ['compress', 'merge', 'convert', 'esign', 'home']) {
     );
 }
 
-// 5. Mobile viewport + hamburger
-await page.setViewportSize({ width: 390, height: 844 });
-await page.goto(BASE + '/merge-pdf.html', { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(700);
-const togglePresent = await page
-  .locator('#shift-sidebar-toggle')
-  .isVisible()
-  .catch(() => false);
-console.log(`  mobile hamburger visible: ${togglePresent}`);
-await page.screenshot({ path: `${SHOTS}/mobile-closed.png` });
-if (togglePresent) {
-  await page.click('#shift-sidebar-toggle');
-  await page.waitForTimeout(500);
-  const open = await page.evaluate(() =>
-    document.body.classList.contains('shift-sidebar-open')
-  );
-  const sbVisible = await page.locator('#shift-sidebar').isVisible();
-  console.log(
-    `  mobile sidebar opened: body.open=${open} visible=${sbVisible}`
-  );
-  await page.screenshot({ path: `${SHOTS}/mobile-open.png` });
-  if (!open) note('mobile', 'SIDEBAR', 'hamburger did not open the sidebar');
-
-  // The toggle must not float over the open drawer's own header.
-  const layer = await page.evaluate(() => {
+// 5. Sidebar stays open at tablet and mobile; only the collapse control
+//    changes its width. There is no hamburger.
+const readRail = () =>
+  page.evaluate(() => {
     const sb = document.getElementById('shift-sidebar');
-    const tg = document.getElementById('shift-sidebar-toggle');
-    const bd = document.getElementById('shift-sidebar-backdrop');
-    const z = (el) =>
-      el ? parseInt(getComputedStyle(el).zIndex || '0', 10) : null;
-    const logo = document.getElementById('nav-logo');
-    const lr = logo ? logo.getBoundingClientRect() : null;
-    const tr = tg ? tg.getBoundingClientRect() : null;
-    const overlap =
-      lr &&
-      tr &&
-      tr.left < lr.right &&
-      tr.right > lr.left &&
-      tr.top < lr.bottom &&
-      tr.bottom > lr.top;
+    if (!sb) return null;
+    const label = document.querySelector('.shift-nav-label');
     return {
-      sidebarZ: z(sb),
-      toggleZ: z(tg),
-      backdrop: bd ? getComputedStyle(bd).display : 'MISSING',
-      backdropZ: z(bd),
-      toggleOverlapsLogo: !!overlap,
-      toggleAbove: z(tg) > z(sb),
+      width: Math.round(sb.getBoundingClientRect().width),
+      visible: getComputedStyle(sb).display !== 'none',
+      labelHidden: label ? getComputedStyle(label).display === 'none' : null,
+      contentStart: Math.round(
+        parseFloat(getComputedStyle(document.body).marginLeft)
+      ),
+      hamburger: !!document.getElementById('shift-sidebar-toggle'),
+      collapseBtn: !!document.getElementById('shift-sidebar-collapse'),
     };
   });
-  console.log(
-    `    drawer z=${layer.sidebarZ} toggle z=${layer.toggleZ} backdrop=${layer.backdrop} (z=${layer.backdropZ})`
-  );
-  if (layer.backdrop !== 'block')
-    note(
-      'mobile',
-      'DRAWER',
-      `no backdrop behind open drawer (display=${layer.backdrop})`
-    );
-  if (layer.toggleAbove && layer.toggleOverlapsLogo) {
-    note('mobile', 'DRAWER', 'hamburger paints over the open drawer header');
-  }
 
-  // Tapping the scrim should close it.
-  await page
-    .click('#shift-sidebar-backdrop', { position: { x: 350, y: 600 } })
-    .catch(() => {});
-  await page.waitForTimeout(400);
-  const closed = await page.evaluate(
-    () => !document.body.classList.contains('shift-sidebar-open')
+for (const [label, width, height] of [
+  ['tablet', 900, 1200],
+  ['mobile', 390, 844],
+]) {
+  await page.setViewportSize({ width, height });
+  await page.goto(BASE + '/merge-pdf.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${SHOTS}/${label}-rail.png` });
+  const rail = await readRail();
+  console.log(
+    `  ${label} rail: width=${rail?.width} visible=${rail?.visible}` +
+      ` labels-hidden=${rail?.labelHidden} body-margin=${rail?.contentStart}` +
+      ` hamburger=${rail?.hamburger} collapse-btn=${rail?.collapseBtn}`
   );
-  console.log(`  scrim tap closes drawer: ${closed}`);
-  if (!closed)
-    note('mobile', 'DRAWER', 'tapping the scrim did not close the drawer');
+  if (!rail?.visible)
+    note(label, 'SIDEBAR', `sidebar is not visible at ${width}px`);
+  if (rail && rail.width < 200)
+    note(label, 'SIDEBAR', `rail auto-shrunk (width=${rail.width}px)`);
+  if (rail && rail.labelHidden === true)
+    note(label, 'SIDEBAR', 'nav labels hidden without a collapse click');
+  if (rail?.hamburger)
+    note(label, 'SIDEBAR', 'hamburger toggle is back in the DOM');
+  if (!rail?.collapseBtn)
+    note(label, 'SIDEBAR', 'collapse control is missing from the rail');
+  if (rail && rail.contentStart !== rail.width)
+    note(
+      label,
+      'SIDEBAR',
+      `content gutter ${rail.contentStart}px does not match rail ${rail.width}px`
+    );
 }
 const mobileAudit = await page.evaluate(AUDIT);
 if (mobileAudit.horizontalOverflow) {

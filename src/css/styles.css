@@ -61,7 +61,7 @@ body {
     box-shadow 0.2s ease-in-out;
   border: 1px solid var(--border-outer-primary, #d1d5db);
   background-color: var(--background-secondary, #ffffff);
-  padding: 1.5rem;
+  padding: 0;
   border-radius: var(--radius-8, 0.5rem);
   display: flex;
   flex-direction: column;
@@ -113,14 +113,17 @@ body {
   transform: rotate(-90deg);
 }
 
+/* Compact rows read as a list, so they take a wider floor than the tiles and
+   add columns the same way once the panel can hold them. */
 .compact-mode .category-tools {
-  grid-template-columns: 1fr !important;
-  gap: 0 !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 0;
 }
 
 .compact-mode .tool-card {
   flex-direction: row;
-  padding: 0.75rem 1rem;
+  min-height: 0;
+  padding: 0;
   border-radius: 0;
   border-left: none;
   border-right: none;
@@ -161,18 +164,6 @@ body {
   box-shadow: none;
   background-color: var(--action-controls-surface-primary-hover, #e6e9ef);
   border-color: var(--border-divider-secondary, #e6e9ef);
-}
-
-@media (min-width: 640px) {
-  .compact-mode .category-tools {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .compact-mode .category-tools {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
 }
 
 .btn {

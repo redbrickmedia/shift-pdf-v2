@@ -1,33 +1,33 @@
 {{#if simpleMode}} {{> footer-simple}} {{else}}
-<footer class="mt-16 border-t py-8 shift-footer">
+<footer class="mt-8 border-t py-3 shift-footer">
   <div class="container mx-auto px-4">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-center md:text-left">
-      <div class="flex items-center justify-center md:justify-start gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+      <div class="flex min-w-0 items-center gap-2">
         <img
           id="footer-logo"
           src="{{baseUrl}}{{#if brandLogo}}{{brandLogo}}{{else}}images/shift-pdf-logo.svg{{/if}}"
           alt="{{#if brandName}}{{brandName}}{{else}}Shift PDF{{/if}} Logo"
-          class="h-8 w-8"
+          class="h-5 w-5"
         />
-        <div>
-          <span id="footer-brand" class="text-lg font-bold">{{#if brandName}}{{brandName}}{{else}}Shift PDF{{/if}}</span>
-          <p id="footer-copyright" class="text-sm text-gray-400" {{#unless footerText}}data-i18n="footer.copyright"{{/unless}}>
-            {{#if footerText}}{{footerText}}{{else}}Shift PDF experimental — client-side toolkit{{/if}}
-          </p>
-        </div>
+        <span id="footer-brand" class="text-sm font-semibold">{{#if brandName}}{{brandName}}{{else}}Shift PDF{{/if}}</span>
+        <p id="footer-copyright" class="hidden truncate text-xs text-gray-400 sm:block" {{#unless footerText}}data-i18n="footer.copyright"{{/unless}}>
+          {{#if footerText}}{{footerText}}{{else}}Shift PDF — files stay in your browser{{/if}}
+        </p>
       </div>
       <nav
-        class="flex items-center justify-center gap-5 text-sm"
-        aria-label="About Shift PDF"
+        class="flex items-center gap-4 text-xs"
+        aria-label="About and source"
       >
         <a
           href="{{baseUrl}}about.html"
           class="text-gray-400 hover:text-white transition-colors"
+          title="How privacy works"
           >About</a
         >
         <a
           href="{{baseUrl}}licensing.html"
           class="text-gray-400 hover:text-white transition-colors"
+          title="View corresponding source"
           >Source</a
         >
       </nav>

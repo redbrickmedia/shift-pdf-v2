@@ -60,7 +60,8 @@
     "toolsLabel": "도구",
     "subtitle": "도구를 클릭하면 파일 업로더가 열립니다",
     "searchPlaceholder": "도구 검색 (예: '분할', '병합'...)",
-    "backToTools": "도구 목록으로 돌아가기",
+    "backToTools": "뒤로",
+    "backOptions": "다른 이동 방법",
     "firstLoadNotice": "처음에는 변환 엔진을 다운로드하느라 시간이 조금 걸릴 수 있습니다. 이후에는 바로 실행됩니다."
   },
   "upload": {

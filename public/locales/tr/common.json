@@ -60,7 +60,8 @@
     "toolsLabel": "Başlayın",
     "subtitle": "Dosya yükleyiciyi açmak için bir araç seçin",
     "searchPlaceholder": "Bir araç arayın (örn. 'böl', 'düzenle'...)",
-    "backToTools": "Araçlara Dön",
+    "backToTools": "Geri",
+    "backOptions": "Geri dönmenin diğer yolları",
     "firstLoadNotice": "Dönüştürme motorumuzu indirirken ilk yükleme biraz zaman alır. Sonrasında tüm yüklemeler anında gerçekleşir."
   },
   "upload": {

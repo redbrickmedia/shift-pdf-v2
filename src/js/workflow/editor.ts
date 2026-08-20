@@ -106,7 +106,7 @@ class WorkflowNodeElement extends LitElement {
           : null}
         <div
           style="
-          background: #1f2937; border: 1px solid #374151;
+          background: var(--background-secondary, #ffffff); border: 1px solid var(--border-outer-primary, #d1d5db);
           border-radius: 12px; width: 100%; overflow: hidden;
         "
         >
@@ -158,7 +158,9 @@ class WorkflowNodeElement extends LitElement {
               </svg>
             </span>
           </div>
-          <div style="height: 1px; background: #374151; margin: 0 14px;"></div>
+          <div
+            style="height: 1px; background: var(--border-divider-secondary, #e6e9ef); margin: 0 14px;"
+          ></div>
           <div
             style="padding: 10px 14px 12px; display: flex; align-items: flex-start; gap: 10px;"
           >
@@ -168,12 +170,12 @@ class WorkflowNodeElement extends LitElement {
             ></i>
             <div style="flex: 1; min-width: 0;">
               <div
-                style="font-size: 13px; font-weight: 600; color: #f3f4f6; line-height: 1.3;"
+                style="font-size: 13px; font-weight: 600; color: var(--text-primary, #111827); line-height: 1.3;"
               >
                 ${node.label}
               </div>
               <div
-                style="font-size: 11px; color: #9ca3af; margin-top: 2px; line-height: 1.3;"
+                style="font-size: 11px; color: var(--text-secondary, #374151); margin-top: 2px; line-height: 1.3;"
               >
                 ${node.description}
               </div>
@@ -242,7 +244,7 @@ export function updateNodeDisplay(
   if (bar) {
     bar.className = st.animate ? 'wf-bar-slide' : '';
     bar.style.background = st.animate
-      ? `linear-gradient(90deg, #1f2937 0%, ${st.color} 50%, #1f2937 100%)`
+      ? `linear-gradient(90deg, var(--background-secondary, #ffffff) 0%, ${st.color} 50%, var(--background-secondary, #ffffff) 100%)`
       : st.color;
     bar.style.opacity =
       status === 'idle' && !connected
@@ -290,7 +292,7 @@ export async function createWorkflowEditor(
             return html`<div
               style="
             width: 14px; height: 14px; border-radius: 50%;
-            background: #6366f1; border: 2px solid #1f2937;
+            background: #6366f1; border: 2px solid var(--background-secondary, #ffffff);
             box-shadow: 0 0 0 1px #6366f1; cursor: crosshair;
           "
             ></div>`;

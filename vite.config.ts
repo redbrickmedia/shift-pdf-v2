@@ -365,6 +365,59 @@ function languageRouterPlugin(): Plugin {
   };
 }
 
+function sidebarBootPlugin(): Plugin {
+  let base = '/';
+  return {
+    name: 'sidebar-boot',
+    configResolved(config) {
+      base = config.base;
+    },
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'script',
+          attrs: { src: `${base}sidebar-boot.js` },
+          injectTo: 'head-prepend',
+        },
+      ];
+    },
+  };
+}
+
+const TOOL_GRID_MARKER_PATTERN = /id\s*=\s*["']tool-grid["']/;
+const CLASS_ATTRIBUTE_PATTERN = /class\s*=\s*["']([^"']*)["']/g;
+const BACK_CONTROL_PATTERN =
+  /id\s*=\s*["']back-to-tools(?:-[^"']*)?["']|\bdata-tool-back(?:\s|=|>)/;
+
+function hasCatalogMarker(html: string): boolean {
+  if (TOOL_GRID_MARKER_PATTERN.test(html)) return true;
+
+  return Array.from(html.matchAll(CLASS_ATTRIBUTE_PATTERN)).some((match) =>
+    match[1].split(/\s+/).includes('tool-card')
+  );
+}
+
+/**
+ * Puts an empty, height-stable shell in every tool page before paint. The
+ * runtime uses the same catalog markers to distinguish catalog and tool
+ * contexts, then moves the page's existing translated Back control into it.
+ */
+function toolHeaderPlugin(): Plugin {
+  const partialPath = resolve(__dirname, 'src/partials/tool-header.html');
+
+  return {
+    name: 'tool-header',
+    transformIndexHtml(html) {
+      if (hasCatalogMarker(html) || !BACK_CONTROL_PATTERN.test(html)) {
+        return html;
+      }
+
+      const header = fs.readFileSync(partialPath, 'utf8').trim();
+      return html.replace(/<body([^>]*)>/i, (body) => `${body}\n${header}`);
+    },
+  };
+}
+
 function flattenPagesPlugin(): Plugin {
   return {
     name: 'flatten-pages',
@@ -480,6 +533,8 @@ export default defineConfig(({ mode }) => {
     base: (process.env.BASE_URL || '/').replace(/\/?$/, '/'),
     plugins: [
       // basicSsl(),
+      sidebarBootPlugin(),
+      toolHeaderPlugin(),
       handlebars({
         partialDirectory: resolve(__dirname, 'src/partials'),
         context: {
@@ -489,7 +544,7 @@ export default defineConfig(({ mode }) => {
           brandLogo: process.env.VITE_BRAND_LOGO || 'images/shift-pdf-logo.svg',
           footerText:
             process.env.VITE_FOOTER_TEXT ||
-            'Shift PDF experimental — files stay in your browser',
+            'Shift PDF — files stay in your browser',
           appVersion: process.env.npm_package_version || 'Unknown',
         },
       }),

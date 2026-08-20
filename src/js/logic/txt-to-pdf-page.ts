@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'text-input'
   ) as HTMLTextAreaElement;
 
-  // Back to Tools
+  // Back control
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       window.location.href = import.meta.env.BASE_URL;

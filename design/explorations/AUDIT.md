@@ -45,5 +45,5 @@ ticket also needs research, trust, stickiness, and measurement deliverables.
 | Scope boundary                 | Related-tool UI removed | Search handoff and next tools explicitly excluded                          |
 
 The remaining upstream About and commercial Licensing pages are not appropriate
-trust surfaces for the Shift experiment. ST-14683 replaces their user-facing
+trust surfaces for Shift PDF. ST-14683 replaces their user-facing
 content while retaining clear Bento attribution on the Source page.

@@ -1,4 +1,4 @@
-/* Shift experimental theme — Concept A (sidebar shell)
+/* Shift theme — Concept A (sidebar shell)
  *
  * Semantic colour / radius tokens use the SAME names as
  * @redbrickmedia/shift-design-system (css-exports/variables.css). The Shift
@@ -137,8 +137,15 @@ body:not(.simple-mode):has(#shift-sidebar) {
   transition: margin-left 200ms ease;
 }
 
-body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar) {
+body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar),
+html.shift-sidebar-collapsed-pending
+  body:not(.simple-mode):has(#shift-sidebar) {
   margin-left: var(--shift-sidebar-width-collapsed);
+}
+
+html.shift-sidebar-collapsed-pending
+  body:not(.simple-mode):has(#shift-sidebar) {
+  transition: none;
 }
 
 .shift-sidebar {
@@ -158,40 +165,38 @@ body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar) {
   transition: width 200ms ease;
 }
 
-body.shift-sidebar-collapsed .shift-sidebar {
+body.shift-sidebar-collapsed .shift-sidebar,
+html.shift-sidebar-collapsed-pending .shift-sidebar {
   width: var(--shift-sidebar-width-collapsed);
   max-width: var(--shift-sidebar-width-collapsed);
+}
+
+html.shift-sidebar-collapsed-pending .shift-sidebar {
+  transition: none;
 }
 
 .shift-sidebar-header {
   display: flex;
   gap: 12px;
   align-items: center;
-  justify-content: space-between;
   margin: 0 var(--shift-sidebar-pad);
 }
 
-.shift-collapse-btn {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-8);
-  background: transparent;
-  color: var(--action-text-neutral-default);
-  cursor: pointer;
-  transition:
-    color 300ms,
-    background 300ms;
+/* Parks the toggle on the rail's bottom edge, and holds it there when the nav
+   above is short enough to leave slack. */
+.shift-sidebar-footer {
+  margin-top: auto;
+  padding: 0 var(--shift-sidebar-pad);
 }
 
-.shift-collapse-btn:hover {
-  background: var(--action-controls-surface-primary-hover);
-  color: var(--action-text-neutral-hover);
+/* Rides on .shift-nav-link so the toggle reads as one more rail item; this only
+   undoes the chrome a <button> brings that an <a> does not. */
+.shift-collapse-btn {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .shift-sidebar-content {
@@ -233,6 +238,91 @@ body.shift-sidebar-collapsed .shift-sidebar {
   padding: 0 var(--shift-sidebar-pad);
 }
 
+.shift-favorites {
+  padding: 0 var(--shift-sidebar-pad);
+}
+
+.shift-sidebar-section-title {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shift-favorites-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shift-favorite-item {
+  position: relative;
+}
+
+/* Scoped through the item so it outweighs the `padding` shorthand on
+   .shift-nav-link, which is a single class like this one but declared later —
+   the reason the gap this reserves for the remove button never used to hold. */
+.shift-favorite-item .shift-favorite-link {
+  padding-right: 40px;
+}
+
+/* The remove button is absolutely positioned over the end of the link, so a
+   long tool name has to stop short of it rather than run underneath. The rail
+   is a fixed width, so this is the only place a label can overflow. */
+.shift-favorite-link .shift-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Favourites reuse the catalog artwork, which is brand-blue on a tile. In the
+   rail an icon is chrome rather than an accent, so it inherits the nav link's
+   colour and tracks its hover and active states like the authored SVGs do. */
+.shift-sidebar .shift-tool-icon {
+  color: inherit;
+}
+
+.shift-favorite-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--action-text-neutral-default);
+  border: none;
+  border-radius: var(--radius-8);
+  background: transparent;
+  cursor: pointer;
+}
+
+.shift-favorite-remove:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-favorite-remove:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 1px;
+}
+
+.shift-favorite-remove svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
 /* Mirrors .nav-item from shift-pdf */
 .shift-nav-link {
   position: relative;
@@ -269,6 +359,13 @@ body.shift-sidebar-collapsed .shift-sidebar {
   padding: 4px;
 }
 
+/* Pins carry the catalog's Phosphor artwork, which is a font rather than a
+   drawing: the 24px slot above bounds the box but not the glyph inside it, so
+   it needs a size of its own to sit level with the authored rail icons. */
+.shift-nav-icon.shift-tool-icon-ph {
+  font-size: 20px;
+}
+
 .shift-nav-link:hover:not(.is-active) {
   background: var(--action-controls-surface-primary-hover);
   color: var(--action-text-neutral-hover);
@@ -284,72 +381,211 @@ body.shift-sidebar-collapsed .shift-sidebar {
     inset 0 0 0 1px var(--action-controls-surface-secondary-active-tertiary);
 }
 
-/* ---- Collapsed rail (icons only) ---- */
+/* ---- Collapsed rail (icons only) ----
+   Driven by the body class from the collapse control at the foot of the rail.
+   Viewport width never changes this — shrinking and expanding with a
+   breakpoint was what made the rail jump on resize and on page loads. */
 
-/* Set by main.ts before the body class lands, to avoid a wide-then-narrow flash */
-html.shift-sidebar-collapsed-pending body:not(.simple-mode) {
-  margin-left: var(--shift-sidebar-width-collapsed);
-}
-
-html.shift-sidebar-collapsed-pending .shift-sidebar {
-  width: var(--shift-sidebar-width-collapsed);
-  max-width: var(--shift-sidebar-width-collapsed);
-}
-
-body.shift-sidebar-collapsed .shift-sidebar-header {
+/* Set before the sidebar is parsed, then replaced by the body class in main.ts. */
+body.shift-sidebar-collapsed .shift-sidebar-header,
+html.shift-sidebar-collapsed-pending .shift-sidebar-header {
   flex-direction: column;
   gap: 16px;
   margin: 0 var(--shift-sidebar-pad-collapsed);
 }
 
-body.shift-sidebar-collapsed .shift-logo {
+body.shift-sidebar-collapsed .shift-logo,
+html.shift-sidebar-collapsed-pending .shift-logo {
   justify-content: center;
   width: 100%;
 }
 
 body.shift-sidebar-collapsed .shift-logo-text,
-body.shift-sidebar-collapsed .shift-nav-label {
+body.shift-sidebar-collapsed .shift-nav-label,
+html.shift-sidebar-collapsed-pending .shift-logo-text,
+html.shift-sidebar-collapsed-pending .shift-nav-label {
   display: none;
 }
 
-body.shift-sidebar-collapsed .shift-primary-nav {
+body.shift-sidebar-collapsed .shift-primary-nav,
+html.shift-sidebar-collapsed-pending .shift-primary-nav {
   padding: 0 var(--shift-sidebar-pad-collapsed);
 }
 
-body.shift-sidebar-collapsed .shift-nav-link {
+body.shift-sidebar-collapsed .shift-favorites,
+body.shift-sidebar-collapsed .shift-sidebar-footer,
+html.shift-sidebar-collapsed-pending .shift-favorites,
+html.shift-sidebar-collapsed-pending .shift-sidebar-footer {
+  padding: 0 var(--shift-sidebar-pad-collapsed);
+}
+
+body.shift-sidebar-collapsed .shift-sidebar-section-title,
+body.shift-sidebar-collapsed .shift-favorite-remove,
+html.shift-sidebar-collapsed-pending .shift-sidebar-section-title,
+html.shift-sidebar-collapsed-pending .shift-favorite-remove {
+  display: none;
+}
+
+body.shift-sidebar-collapsed .shift-favorite-link,
+html.shift-sidebar-collapsed-pending .shift-favorite-link {
+  padding-right: 8px;
+}
+
+body.shift-sidebar-collapsed .shift-nav-link,
+html.shift-sidebar-collapsed-pending .shift-nav-link {
   justify-content: center;
   padding: 8px;
 }
 
-.shift-sidebar-toggle {
-  display: none;
-  position: fixed;
+/* Tailwind's `.container` steps its max-width at each viewport breakpoint, so
+   the catalog width lurched between fixed sizes while the panel beside the rail
+   changed continuously. One fluid cap lets the grid track the space it has. */
+body:not(.simple-mode):has(#shift-sidebar) #app.container {
+  max-width: 1400px;
+}
+
+.shift-promise-banner {
+  position: relative;
+}
+
+.shift-promise-dismiss {
+  position: absolute;
   top: 12px;
-  left: 12px;
-  z-index: 50;
+  right: 12px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  border: 1px solid var(--border-divider-secondary);
+  color: var(--action-text-neutral-default);
+  border: none;
   border-radius: var(--radius-8);
-  background: var(--background-secondary);
-  color: var(--text-primary);
+  background: transparent;
   cursor: pointer;
 }
 
-.shift-sidebar-backdrop {
-  display: none;
+.shift-promise-dismiss:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-promise-dismiss:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
 }
 
 /* ---- Tool cards / categories (override dark Bento) ---- */
 
+/* Column count follows the space the grid actually has, not the viewport width.
+   Bento's `grid-cols-2 sm:3 md:4 lg:5` measured the window while the panel is
+   276px narrower than it, so tiles were sized against a width they never had and
+   jumped a whole column at each breakpoint. Here a tile never goes below
+   --shift-tile-min, and a column is only added once one more fits. */
+/* The floor eases down on phone widths so the panel still fits two readable
+   tiles, and holds at 176px from roughly 520px up. A media query here would put
+   back the same abrupt step this grid exists to avoid. */
+.shift-tool-grid {
+  --shift-tile-min: clamp(132px, 34vw, 176px);
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(var(--shift-tile-min), 100%), 1fr)
+  );
+  gap: 1.25rem;
+}
+
 .tool-card {
+  position: relative;
+  padding: 0;
   border: 1px solid var(--border-outer-primary);
   background-color: var(--background-secondary);
   border-radius: var(--radius-8);
   color: var(--text-primary);
+}
+
+/* On the category hubs the card is the link, with no .shift-tool-card-link
+   inside to hold the padding — so the label sat almost against the border.
+   These match the home tiles rather than inventing a second card metric.
+   Compact mode's two-class selectors still win, so its rows stay flush. */
+a.tool-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 10rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+a.tool-card:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+.shift-tool-card-link {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  /* Floor the tile so a reflow changes the column count without also resizing
+     every row; the tallest description in a row still sets the final height. */
+  min-height: 10rem;
+  padding: 1.5rem;
+  color: inherit;
+  text-align: center;
+}
+
+.shift-tool-card-link:focus-visible {
+  border-radius: inherit;
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+.shift-tool-favorite {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--action-text-neutral-default);
+  border: none;
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.shift-tool-favorite:hover {
+  color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-tool-favorite:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+.shift-tool-favorite svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.shift-tool-favorite[aria-pressed='true'] {
+  color: var(--action-button-surface-primary-default);
+}
+
+.shift-tool-favorite[aria-pressed='true'] svg {
+  fill: currentColor;
 }
 
 .tool-card:hover {
@@ -729,8 +965,22 @@ input#tool-search {
 }
 
 .compact-mode .tool-card {
+  min-height: 0;
   border-bottom: 1px solid var(--border-divider-secondary);
   background-color: transparent;
+}
+
+.compact-mode .shift-tool-card-link {
+  flex-direction: row;
+  min-height: 0;
+  justify-content: flex-start;
+  padding: 0.75rem 3rem 0.75rem 1rem;
+  text-align: left;
+}
+
+.compact-mode .shift-tool-favorite {
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Compact rows shrink Bento's <i> icons, but the design-system glyphs render as
@@ -745,7 +995,7 @@ input#tool-search {
   font-size: 1.25rem;
 }
 
-/* Hide Bento marketing chrome in this experiment */
+/* Hide Bento marketing chrome */
 #donation-ribbon {
   display: none !important;
 }
@@ -772,6 +1022,270 @@ input#tool-search {
   background-color: var(--action-button-surface-primary-hover) !important;
 }
 
+/* A height-stable shell is injected before paint, then tool-back.ts moves the
+   page's existing translated control into its slot. It is a direct child of
+   the panel scrollport, so sticky follows the panel rather than the document.
+   Its 64px trim, container inset, and divider mirror the shared footer. */
+.shift-tool-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex: 0 0 64px;
+  align-items: center;
+  min-height: 64px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-divider-secondary);
+  background-color: var(--background-secondary);
+}
+
+.shift-tool-header > .container {
+  width: 100%;
+}
+
+/* The control sits at the end of the bar, on the same container inset the
+   footer uses, so both bars stop on the same right edge. Logical alignment, so
+   the Arabic build moves it to the left with the rest of the layout. */
+.shift-tool-header-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 40px;
+}
+
+/* Anchored to the group's end edge instead of its start: the group is now flush
+   with the panel's inner edge, where a start-anchored menu would hang past it.
+   The min-width is dropped and the box sized to its own label, then capped at
+   what the panel can actually show — the rail keeps its width at every viewport,
+   so the panel is whatever is left of the viewport beside it, less the inset the
+   control already carries. */
+.shift-tool-header .shift-tool-back-menu {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  min-width: 0;
+  width: max-content;
+  max-width: calc(100vw - var(--shift-sidebar-width) - 2 * var(--radius-8));
+}
+
+body.shift-sidebar-collapsed .shift-tool-header .shift-tool-back-menu {
+  max-width: calc(
+    100vw - var(--shift-sidebar-width-collapsed) - 2 * var(--radius-8)
+  );
+}
+
+/* Only reached once the cap above bites: a label held on one line would push
+   straight back out of the panel the cap just kept it inside. */
+.shift-tool-header .shift-tool-back-menu-item {
+  min-width: 0;
+  white-space: normal;
+}
+
+/* Hide authored in-card/toolbar controls from the first paint. The header keeps
+   the page geometry stable while the runtime moves one control into the slot. */
+body:has(> .shift-tool-header) [id^='back-to-tools'],
+body:has(> .shift-tool-header) [data-tool-back] {
+  display: none;
+  margin-bottom: 0 !important;
+}
+
+body:has(> .shift-tool-header) > .shift-tool-header [id^='back-to-tools'],
+body:has(> .shift-tool-header) > .shift-tool-header [data-tool-back] {
+  display: inline-flex;
+}
+
+/* The rail intentionally stays expanded on narrow viewports, leaving a 114px
+   panel at 390px. Keep the translated label in the accessibility tree while
+   reducing its visual width so the split control still fits that panel. */
+@media (max-width: 640px) {
+  .shift-tool-header .shift-tool-back {
+    gap: 0;
+  }
+
+  .shift-tool-header .shift-tool-back > span {
+    display: inline-block;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+/* Back control at the top of a tool workspace. main.ts owns the behaviour and
+   tags every control with this class, so the geometry can mirror
+   .shift-nav-link and the workspace reads as one system with the rail.
+   The colours are !important because the Bento markup on these pages still
+   carries `text-indigo-400 hover:text-indigo-300`, and the hover variant is the
+   more specific selector of the two. */
+.shift-tool-back {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px var(--radius-12);
+  color: var(--action-text-neutral-default) !important;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  border: none;
+  border-radius: var(--radius-8);
+  background: var(--action-controls-surface-primary-default);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 300ms,
+    background 300ms,
+    box-shadow 300ms;
+}
+
+.shift-tool-back:hover {
+  color: var(--action-text-neutral-hover) !important;
+  background: var(--action-controls-surface-primary-hover);
+  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
+}
+
+.shift-tool-back:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+.shift-tool-back svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* The control is a split control: the button retraces the visitor's own steps,
+   and the caret next to it opens the ways back that are not "the page before"
+   — today only the full catalog. tool-back-menu.ts builds the group, so the
+   pages keep shipping a lone button.
+   The two halves share one surface and one outer silhouette, so they read as a
+   single segmented control rather than as a button with a satellite: they touch,
+   a hairline marks the seam, and only the outer corners are round. */
+.shift-tool-back-group {
+  position: relative;
+  display: inline-flex;
+  /* Both halves get the same height from the taller of the two rather than from
+     their shared min-height, so neither can end up a pixel short. This is only
+     safe because tool-back-menu.ts moves the page's own bottom margin off the
+     button and onto this wrapper: left on the button, that margin would be part
+     of the line's cross size and would stretch the caret through it. */
+  align-items: stretch;
+}
+
+/* Scoped a class deeper than the base rule so the squared inner corners also
+   beat the `rounded-*` some pages carry on the button, which the colours above
+   already need an !important for. Logical corners, so Arabic flips the whole
+   silhouette rather than inverting it. */
+.shift-tool-back-group > .shift-tool-back {
+  border-start-start-radius: var(--radius-8);
+  border-end-start-radius: var(--radius-8);
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.shift-tool-back-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 33px;
+  min-height: 40px;
+  padding: 0;
+  color: var(--action-text-neutral-default);
+  border: none;
+  /* The seam. A border on the caret rather than a shared outline or a pseudo-
+     element because hovering either half only repaints that half's background,
+     which leaves this line standing.
+     Mixed from the neutral ink rather than taken from --border-outer-primary:
+     that token is light-300 (#d1d5db), which is a divider between white sheets
+     and disappears against this control's light-100 fill at 100% zoom. Mixing
+     keeps the line themed — it darkens against a light surface and lightens
+     against a dark one — and translucent means it also holds up over the
+     hover fill of whichever half is under the pointer. */
+  border-inline-start: 1px solid
+    color-mix(in srgb, var(--action-text-neutral-default) 28%, transparent);
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: var(--radius-8);
+  border-end-end-radius: var(--radius-8);
+  background: var(--action-controls-surface-primary-default);
+  cursor: pointer;
+  transition:
+    color 300ms,
+    background 300ms,
+    box-shadow 300ms;
+}
+
+.shift-tool-back-more:hover,
+.shift-tool-back-more[aria-expanded='true'] {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-hover);
+  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
+}
+
+/* Inside the group the ring is drawn just inside the segment instead of around
+   it: an outer ring would be cut off along the seam by the other half, and in
+   the 44px toolbar on pdf-workflow.html there is no room above or below for it
+   either. The z-index keeps the ring above its neighbour regardless. */
+.shift-tool-back-group > .shift-tool-back:focus-visible,
+.shift-tool-back-more:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: -2px;
+}
+
+.shift-tool-back-more svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The group is now exactly as tall as the two halves, so the menu can hang off
+   its bottom edge and stay put whatever margin the page gave the control. */
+.shift-tool-back-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 50;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  box-shadow: 0 8px 24px rgb(17 24 39 / 0.12);
+}
+
+.shift-tool-back-menu[hidden] {
+  display: none;
+}
+
+.shift-tool-back-menu-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 8px var(--radius-12);
+  color: var(--action-text-neutral-default) !important;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  border-radius: var(--radius-8);
+  text-decoration: none;
+}
+
+.shift-tool-back-menu-item:hover {
+  color: var(--action-text-neutral-hover) !important;
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-tool-back-menu-item:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: -2px;
+}
+
+.shift-tool-back-menu-item svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Transparent so the panel stays one white sheet to its rounded bottom edge —
    the rail-grey fill used to dissolve into the identical backdrop behind it. */
 .shift-footer {
@@ -792,7 +1306,7 @@ input#tool-search {
    there while longer content scrolls underneath. Sticky rather than fixed means
    it still comes to rest in flow at maximum scroll, so the last of the content
    is never permanently covered, and it needs no manual tracking of the rail
-   width or the mobile drawer.
+   width at any breakpoint.
    Gated on the body actually carrying the footer: pdf-workflow and
    pdf-multi-tool run their own h-screen flex column and ship no footer. */
 body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer) {
@@ -816,6 +1330,15 @@ body:not(.simple-mode):has(#shift-sidebar) > .shift-footer {
   /* Opaque now that content passes behind it, in the panel's white rather than
      the rail grey; the panel's own rounded overflow clips the bottom corners. */
   background-color: var(--background-secondary);
+  /* A trim strip: it is permanently on screen, so height here is height the
+     content never gets back. */
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+}
+
+body:not(.simple-mode):has(#shift-sidebar) > .shift-footer > .container {
+  width: 100%;
 }
 
 /* Every page wraps its content in a `min-h-screen` element — #uploader on the
@@ -837,67 +1360,4 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
   > .min-h-screen {
   min-height: 0;
   flex-grow: 1;
-}
-
-@media (max-width: 768px) {
-  /* Full-bleed drawer layout: the rail no longer reserves space, and the
-     padding clears the fixed hamburger. */
-  body:not(.simple-mode):has(#shift-sidebar),
-  body.shift-sidebar-collapsed:not(.simple-mode):has(#shift-sidebar) {
-    margin-left: 0;
-    padding-top: 56px;
-    border-radius: 0;
-  }
-
-  /* Off-canvas drawer takes over from the collapse rail on small screens.
-     It sits above the toggle so the open drawer covers it rather than having
-     the button float over the drawer's own logo. */
-  .shift-sidebar,
-  body.shift-sidebar-collapsed .shift-sidebar {
-    width: var(--shift-sidebar-width);
-    max-width: var(--shift-sidebar-width);
-    transform: translateX(-100%);
-    transition: transform 0.2s ease;
-    z-index: 60;
-  }
-
-  body.shift-sidebar-open .shift-sidebar {
-    transform: translateX(0);
-  }
-
-  /* Scrim dims the page behind the drawer and closes it on tap. */
-  body.shift-sidebar-open .shift-sidebar-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 55;
-    background-color: rgb(17 24 39 / 0.5);
-  }
-
-  body.shift-sidebar-collapsed .shift-sidebar-header {
-    flex-direction: row;
-    margin: 0 var(--shift-sidebar-pad);
-  }
-
-  body.shift-sidebar-collapsed .shift-logo-text,
-  body.shift-sidebar-collapsed .shift-nav-label {
-    display: revert;
-  }
-
-  body.shift-sidebar-collapsed .shift-primary-nav {
-    padding: 0 var(--shift-sidebar-pad);
-  }
-
-  body.shift-sidebar-collapsed .shift-nav-link {
-    justify-content: flex-start;
-    padding: 8px 8px 8px var(--radius-12);
-  }
-
-  .shift-collapse-btn {
-    display: none;
-  }
-
-  .shift-sidebar-toggle {
-    display: inline-flex;
-  }
 }

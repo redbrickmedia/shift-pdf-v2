@@ -60,7 +60,8 @@
     "toolsLabel": "Alat",
     "subtitle": "Klik alat untuk membuka pengunggah file",
     "searchPlaceholder": "Cari alat (contoh, 'pisah', 'organisir'...)",
-    "backToTools": "Kembali ke Alat",
+    "backToTools": "Kembali",
+    "backOptions": "Cara lain untuk kembali",
     "firstLoadNotice": "Pemuatan pertama memerlukan waktu sebentar karena kami mengunduh mesin konversi kami. Setelah itu, semua pemuatan akan instan."
   },
   "upload": {
