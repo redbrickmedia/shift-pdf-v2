@@ -1,0 +1,5 @@
+{
+  "pdfjsVersion": "4.3.136",
+  "status": "pinned-legacy-exception",
+  "reason": "The Shift annotation extension is not published as a refreshable npm distribution. Keep this tested bundle intact until a compatible upstream artifact is available."
+}

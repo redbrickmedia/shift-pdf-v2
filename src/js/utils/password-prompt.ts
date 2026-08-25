@@ -1,7 +1,7 @@
 import { decryptPdfBytes } from './pdf-decrypt.js';
 import { readFileAsArrayBuffer, getPDFDocument } from './helpers.js';
 import { createIcons, icons } from 'lucide';
-import { PasswordResponses } from 'pdfjs-dist';
+import { PasswordResponses } from './pdfjs.js';
 import type { LoadedPdf } from '@/types';
 
 let cachedPassword: string | null = null;

@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+
 ## Main toolbar buttons (tooltips and alt text for images)
 
 pdfjs-previous-button =
@@ -10,21 +11,17 @@ pdfjs-previous-button-label = 上一頁
 pdfjs-next-button =
     .title = 下一頁
 pdfjs-next-button-label = 下一頁
-
 # .title: Tooltip for the pageNumber input.
 pdfjs-page-input =
     .title = 第
-
 # Variables:
 #   $pagesCount (Number) - the total number of pages in the document
 # This string follows an input field with the number of the page currently displayed.
 pdfjs-of-pages = 頁，共 { $pagesCount } 頁
-
 # Variables:
 #   $pageNumber (Number) - the currently visible page
 #   $pagesCount (Number) - the total number of pages in the document
 pdfjs-page-of-pages = （第 { $pageNumber } 頁，共 { $pagesCount } 頁）
-
 pdfjs-zoom-out-button =
     .title = 縮小
 pdfjs-zoom-out-button-label = 縮小
@@ -45,15 +42,12 @@ pdfjs-print-button-label = 列印
 pdfjs-save-button =
     .title = 儲存
 pdfjs-save-button-label = 儲存
-
 # Used in Firefox for Android as a tooltip for the download button (“download” is a verb).
 pdfjs-download-button =
     .title = 下載
-
 # Used in Firefox for Android as a label for the download button (“download” is a verb).
 # Length of the translation matters since we are in a mobile context, with limited screen estate.
 pdfjs-download-button-label = 下載
-
 pdfjs-bookmark-button =
     .title = 目前頁面（含目前檢視頁面的網址）
 pdfjs-bookmark-button-label = 目前頁面
@@ -62,7 +56,6 @@ pdfjs-bookmark-button-label = 目前頁面
 
 pdfjs-tools-button =
     .title = 工具
-
 pdfjs-tools-button-label = 工具
 pdfjs-first-page-button =
     .title = 跳到第一頁
@@ -111,28 +104,23 @@ pdfjs-document-properties-button =
 pdfjs-document-properties-button-label = 文件內容…
 pdfjs-document-properties-file-name = 檔案名稱：
 pdfjs-document-properties-file-size = 檔案大小：
-
 # Variables:
 #   $kb (Number) - the PDF file size in kilobytes
 #   $b (Number) - the PDF file size in bytes
 pdfjs-document-properties-size-kb = { NUMBER($kb, maximumSignificantDigits: 3) } KB（{ $b } 位元組）
-
 # Variables:
 #   $mb (Number) - the PDF file size in megabytes
 #   $b (Number) - the PDF file size in bytes
 pdfjs-document-properties-size-mb = { NUMBER($mb, maximumSignificantDigits: 3) } MB（{ $b } 位元組）
-
 pdfjs-document-properties-title = 標題：
 pdfjs-document-properties-author = 作者：
 pdfjs-document-properties-subject = 主旨：
 pdfjs-document-properties-keywords = 關鍵字：
 pdfjs-document-properties-creation-date = 建立日期：
 pdfjs-document-properties-modification-date = 修改日期：
-
 # Variables:
 #   $dateObj (Date) - the creation/modification date and time of the PDF file
 pdfjs-document-properties-date-time-string = { DATETIME($dateObj, dateStyle: "short", timeStyle: "medium") }
-
 pdfjs-document-properties-creator = 建立者：
 pdfjs-document-properties-producer = PDF 產生器：
 pdfjs-document-properties-version = PDF 版本：
@@ -165,15 +153,30 @@ pdfjs-document-properties-linearized = 快速 Web 檢視：
 pdfjs-document-properties-linearized-yes = 是
 pdfjs-document-properties-linearized-no = 否
 pdfjs-document-properties-close-button = 關閉
+pdfjs-digital-signature-properties-view-certificate = 檢視憑證
+# Shown beneath an invalid signature card to explain why verification
+# failed. The text comes from NSS (e.g. "Signature integrity has been
+# compromised", "PKCS#7 signature could not be parsed") and is not
+# itself localized — it is the underlying error message produced by
+# the verification backend.
+# Variables:
+#   $reason (String) - error message describing why the signature
+#                      could not be verified.
+pdfjs-digital-signature-properties-reason = 原因：{ $reason }
+# Variables:
+#   $dateObj (Date) - the signing time from the /Sig dict's /M entry.
+pdfjs-digital-signature-properties-timestamp = 時間戳記：{ DATETIME($dateObj, dateStyle: "short", timeStyle: "medium") }
+# Variables:
+#   $count (Number) - number of nested sub-signatures (one per earlier
+#                     incremental revision of the document).
+pdfjs-digital-signature-properties-sub-signatures = 子簽章（{ $count }）
 
 ## Print
 
 pdfjs-print-progress-message = 正在準備列印文件…
-
 # Variables:
 #   $progress (Number) - percent value
 pdfjs-print-progress-percent = { $progress }%
-
 pdfjs-print-progress-close-button = 取消
 pdfjs-printing-not-supported = 警告：此瀏覽器未完整支援列印功能。
 pdfjs-printing-not-ready = 警告：此 PDF 未完成下載以供列印。
@@ -211,11 +214,19 @@ pdfjs-additional-layers = 其他圖層
 #   $page (Number) - the page number
 pdfjs-thumb-page-title =
     .title = 第 { $page } 頁
-
 # Variables:
 #   $page (Number) - the page number
 pdfjs-thumb-page-canvas =
     .aria-label = 第 { $page } 頁的縮圖
+# Variables:
+#   $page (Number) - the page number
+pdfjs-thumb-page-checkbox1 =
+    .title = 選擇第 { $page } 頁
+# Variables:
+#   $page (Number) - the page number
+#   $total (Number) - the number of pages
+pdfjs-thumb-page-title1 =
+    .title = 第 { $page } 頁，共 { $total } 頁
 
 ## Find panel button title and messages
 
@@ -234,24 +245,13 @@ pdfjs-find-match-diacritics-checkbox-label = 符合變音符號
 pdfjs-find-entire-word-checkbox-label = 符合整個字
 pdfjs-find-reached-top = 已搜尋至文件頂端，自底端繼續搜尋
 pdfjs-find-reached-bottom = 已搜尋至文件底端，自頂端繼續搜尋
-
 # Variables:
 #   $current (Number) - the index of the currently active find result
 #   $total (Number) - the total number of matches in the document
-pdfjs-find-match-count =
-    { $total ->
-        [one] { $current } / { $total } 筆相符
-       *[other] { $current } / { $total } 筆相符
-    }
-
+pdfjs-find-match-count = 第 { $current } 筆符合，共符合 { $total } 筆
 # Variables:
 #   $limit (Number) - the maximum number of matches
-pdfjs-find-match-count-limit =
-    { $limit ->
-        [one] 符合超過 { $limit } 項
-       *[other] 符合超過 { $limit } 項
-    }
-
+pdfjs-find-match-count-limit = 符合超過 { $limit } 項
 pdfjs-find-not-found = 找不到指定文字
 
 ## Predefined zoom values
@@ -260,7 +260,6 @@ pdfjs-page-scale-width = 頁面寬度
 pdfjs-page-scale-fit = 縮放至頁面大小
 pdfjs-page-scale-auto = 自動縮放
 pdfjs-page-scale-actual = 實際大小
-
 # Variables:
 #   $scale (Number) - percent value for page scale
 pdfjs-page-scale-percent = { $scale }%
@@ -282,10 +281,6 @@ pdfjs-rendering-error = 描繪頁面時發生錯誤。
 
 ## Annotations
 
-# Variables:
-#   $dateObj (Date) - the modification date and time of the annotation
-pdfjs-annotation-date-time-string = { DATETIME($dateObj, dateStyle: "short", timeStyle: "medium") }
-
 # .alt: This is used as a tooltip.
 # Variables:
 #   $type (String) - an annotation type from a list defined in the PDF spec
@@ -293,6 +288,9 @@ pdfjs-annotation-date-time-string = { DATETIME($dateObj, dateStyle: "short", tim
 # Some common types are e.g.: "Check", "Text", "Comment", "Note"
 pdfjs-text-annotation-type =
     .alt = [{ $type } 註解]
+# Variables:
+#   $dateObj (Date) - the modification date and time of the annotation
+pdfjs-annotation-date-time-string = { DATETIME($dateObj, dateStyle: "short", timeStyle: "medium") }
 
 ## Password
 
@@ -344,13 +342,11 @@ pdfjs-editor-highlight-editor =
 # “Drawing” is a noun, the string is used on the editor for drawings.
 pdfjs-editor-ink-editor =
     .aria-label = 繪圖編輯器
-
 # Used when a signature editor is selected/hovered.
 # Variables:
 #   $description (String) - a string describing/labeling the signature.
 pdfjs-editor-signature-editor1 =
     .aria-description = 簽章編輯器：{ $description }
-
 pdfjs-editor-stamp-editor =
     .aria-label = 圖片編輯器
 
@@ -387,43 +383,30 @@ pdfjs-editor-add-signature-container =
 pdfjs-editor-signature-add-signature-button =
     .title = 新增簽章
 pdfjs-editor-signature-add-signature-button-label = 新增簽章
-
 # Used on the button to use an already saved signature.
 # Variables:
 #   $description (String) - a string describing/labeling the signature.
 pdfjs-editor-add-saved-signature-button =
     .title = 已儲存簽章：{ $description }
-
 # .default-content is used as a placeholder in an empty text editor.
 pdfjs-free-text2 =
     .aria-label = 文字編輯器
     .default-content = 請打字…
-
 # Used to show how many comments are present in the pdf file.
 # Variables:
 #   $count (Number) - the number of comments.
-pdfjs-editor-comments-sidebar-title =
-    { $count ->
-        [one] 註解
-       *[other] 註解
-    }
-
+pdfjs-editor-comments-sidebar-title = 註解
 pdfjs-editor-comments-sidebar-close-button =
     .title = 關閉側邊欄
     .aria-label = 關閉側邊欄
 pdfjs-editor-comments-sidebar-close-button-label = 關閉側邊欄
-
 # Instructional copy to add a comment by selecting text or an annotations.
-pdfjs-editor-comments-sidebar-no-comments1 = 看到值得注意的內容嗎？將其標註並留下註解。
-pdfjs-editor-comments-sidebar-no-comments-link = 進一步了解
+pdfjs-editor-comments-sidebar-no-comments1 = 想把哪個部分記下來？可以畫螢光強調，並且留下註解。
+pdfjs-editor-comments-sidebar-no-comments-link = 更多資訊
 
 ## Alt-text dialog
 
-# Alternative text (alt text) helps when people can't see the image.
-pdfjs-editor-alt-text-button =
-    .aria-label = 替代文字
 pdfjs-editor-alt-text-button-label = 替代文字
-
 pdfjs-editor-alt-text-edit-button =
     .aria-label = 編輯替代文字
 pdfjs-editor-alt-text-dialog-label = 挑選一種
@@ -435,10 +418,12 @@ pdfjs-editor-alt-text-mark-decorative-description = 這是裝飾性圖片，例�
 pdfjs-editor-alt-text-cancel-button = 取消
 pdfjs-editor-alt-text-save-button = 儲存
 pdfjs-editor-alt-text-decorative-tooltip = 已標示為裝飾性內容
-
 # .placeholder: This is a placeholder for the alt text input area
 pdfjs-editor-alt-text-textarea =
     .placeholder = 例如：「有一位年輕男人坐在桌子前面吃飯」
+# Alternative text (alt text) helps when people can't see the image.
+pdfjs-editor-alt-text-button =
+    .aria-label = 替代文字
 
 ## Editor resizers
 ## This is used in an aria label to help to understand the role of the resizer.
@@ -464,7 +449,6 @@ pdfjs-editor-resizer-middle-left =
 
 # This means "Color used to highlight text"
 pdfjs-editor-highlight-colorpicker-label = 強調色彩
-
 pdfjs-editor-colorpicker-button =
     .title = 更改色彩
 pdfjs-editor-colorpicker-dropdown =
@@ -492,47 +476,37 @@ pdfjs-editor-highlight-show-all-button =
 
 # Modal header positioned above a text box where users can edit the alt text.
 pdfjs-editor-new-alt-text-dialog-edit-label = 編輯替代文字（圖片描述）
-
 # Modal header positioned above a text box where users can add the alt text.
 pdfjs-editor-new-alt-text-dialog-add-label = 新增替代文字（圖片描述）
-
 pdfjs-editor-new-alt-text-textarea =
     .placeholder = 在此寫下您的描述文字…
-
 # This text refers to the alt text box above this description. It offers a definition of alt text.
 pdfjs-editor-new-alt-text-description = 為看不到圖片的讀者，或圖片無法載入時顯示的簡短描述。
-
 # This is a required legal disclaimer that refers to the automatically created text inside the alt text box above this text. It disappears if the text is edited by a human.
 pdfjs-editor-new-alt-text-disclaimer1 = 此替代文字是自動產生的，可能不夠精確。
 pdfjs-editor-new-alt-text-disclaimer-learn-more-url = 更多資訊
-
 pdfjs-editor-new-alt-text-create-automatically-button-label = 自動產生替代文字
 pdfjs-editor-new-alt-text-not-now-button = 暫時不要
 pdfjs-editor-new-alt-text-error-title = 無法自動產生替代文字
 pdfjs-editor-new-alt-text-error-description = 請自行填寫替代文字，或稍後再試一次。
 pdfjs-editor-new-alt-text-error-close-button = 關閉
-
 # Variables:
 #   $totalSize (Number) - the total size (in MB) of the AI model.
 #   $downloadedSize (Number) - the downloaded size (in MB) of the AI model.
 pdfjs-editor-new-alt-text-ai-model-downloading-progress = 正在下載替代文字 AI 模型（{ $downloadedSize } / { $totalSize } MB）
     .aria-valuetext = 正在下載替代文字 AI 模型（{ $downloadedSize } / { $totalSize } MB）
-
 # This is a button that users can click to edit the alt text they have already added.
 pdfjs-editor-new-alt-text-added-button =
     .aria-label = 已新增替代文字
 pdfjs-editor-new-alt-text-added-button-label = 已新增替代文字
-
 # This is a button that users can click to open the alt text editor and add alt text when it is not present.
 pdfjs-editor-new-alt-text-missing-button =
     .aria-label = 缺少替代文字
 pdfjs-editor-new-alt-text-missing-button-label = 缺少替代文字
-
 # This is a button that opens up the alt text modal where users should review the alt text that was automatically generated.
 pdfjs-editor-new-alt-text-to-review-button =
     .aria-label = 確認替代文字
 pdfjs-editor-new-alt-text-to-review-button-label = 確認替代文字
-
 # "Created automatically" is a prefix that will be added to the beginning of any alt text that has been automatically generated. After the colon, the user will see/hear the actual alt text description. If the alt text has been edited by a human, this prefix will not appear.
 # Variables:
 #   $generatedAltText (String) - the generated alt-text.
@@ -543,21 +517,17 @@ pdfjs-editor-new-alt-text-generated-alt-text-with-disclaimer = 自動產生：{ 
 pdfjs-image-alt-text-settings-button =
     .title = 圖片替代文字設定
 pdfjs-image-alt-text-settings-button-label = 圖片替代文字設定
-
 pdfjs-editor-alt-text-settings-dialog-label = 圖片替代文字設定
 pdfjs-editor-alt-text-settings-automatic-title = 自動化替代文字
 pdfjs-editor-alt-text-settings-create-model-button-label = 自動產生替代文字
 pdfjs-editor-alt-text-settings-create-model-description = 為您建議圖片描述，幫助看不到圖片的讀者，或於圖片無法載入時顯示。
-
 # Variables:
 #   $totalSize (Number) - the total size (in MB) of the AI model.
 pdfjs-editor-alt-text-settings-download-model-label = 替代文字 AI 模型（{ $totalSize } MB）
-
 pdfjs-editor-alt-text-settings-ai-model-description = 在您的本機裝置上運作，以確保您的資料隱私。必須下載此模型才可以自動產生替代文字。
 pdfjs-editor-alt-text-settings-delete-model-button = 刪除
 pdfjs-editor-alt-text-settings-download-model-button = 下載
 pdfjs-editor-alt-text-settings-downloading-model-button = 下載中…
-
 pdfjs-editor-alt-text-settings-editor-title = 替代文字編輯器
 pdfjs-editor-alt-text-settings-show-dialog-button-label = 新增圖片後立即顯示替代文字編輯器
 pdfjs-editor-alt-text-settings-show-dialog-description = 幫助您確保所有圖片都有替代文字。
@@ -578,14 +548,10 @@ pdfjs-editor-undo-bar-message-freetext = 已移除文字
 pdfjs-editor-undo-bar-message-ink = 已移除繪圖
 pdfjs-editor-undo-bar-message-stamp = 已移除圖片
 pdfjs-editor-undo-bar-message-signature = 已移除簽章
+pdfjs-editor-undo-bar-message-comment = 已移除註解
 # Variables:
 #   $count (Number) - the number of removed annotations.
-pdfjs-editor-undo-bar-message-multiple =
-    { $count ->
-        [one] { $count } 個註解已移除
-       *[other] { $count } 個註解已移除
-    }
-
+pdfjs-editor-undo-bar-message-multiple = 已移除 { $count } 筆註解
 pdfjs-editor-undo-bar-undo-button =
     .title = 還原
 pdfjs-editor-undo-bar-undo-button-label = 還原
@@ -616,12 +582,10 @@ pdfjs-editor-add-signature-type-input =
     .placeholder = 輸入簽章
 pdfjs-editor-add-signature-draw-placeholder = 手繪簽章
 pdfjs-editor-add-signature-draw-thickness-range-label = 線條粗細
-
 # Variables:
 #   $thickness (Number) - the thickness (in pixels) of the line used to draw a signature.
 pdfjs-editor-add-signature-draw-thickness-range =
     .title = 繪製時的線條粗細：{ $thickness }
-
 pdfjs-editor-add-signature-image-placeholder = 將檔案拖曳到此處即可上傳
 pdfjs-editor-add-signature-image-browse-link =
     { PLATFORM() ->
@@ -635,8 +599,6 @@ pdfjs-editor-add-signature-description-label = 描述（替代文字）
 pdfjs-editor-add-signature-description-input =
     .title = 描述（替代文字）
 pdfjs-editor-add-signature-description-default-when-drawing = 簽章
-
-
 pdfjs-editor-add-signature-clear-button-label = 清除簽章
 pdfjs-editor-add-signature-clear-button =
     .title = 清除簽章
@@ -652,6 +614,156 @@ pdfjs-editor-add-signature-error-close-button = 關閉
 
 pdfjs-editor-add-signature-cancel-button = 取消
 pdfjs-editor-add-signature-add-button = 新增
+pdfjs-editor-edit-signature-update-button = 更新
+
+## Comment popup
+
+pdfjs-editor-edit-comment-popup-button-label = 編輯註解
+pdfjs-editor-edit-comment-popup-button =
+    .title = 編輯註解
+pdfjs-editor-delete-comment-popup-button-label = 移除註解
+pdfjs-editor-delete-comment-popup-button =
+    .title = 移除註解
+pdfjs-show-comment-button =
+    .title = 顯示註解
+
+##  Edit a comment dialog
+
+# An existing comment is edited
+pdfjs-editor-edit-comment-dialog-title-when-editing = 編輯註解
+pdfjs-editor-edit-comment-dialog-save-button-when-editing = 更新
+# No existing comment
+pdfjs-editor-edit-comment-dialog-title-when-adding = 新增註解
+pdfjs-editor-edit-comment-dialog-save-button-when-adding = 新增
+pdfjs-editor-edit-comment-dialog-text-input =
+    .placeholder = 在此打字…
+pdfjs-editor-edit-comment-dialog-cancel-button = 取消
+
+## Edit a comment button in the editor toolbar
+
+pdfjs-editor-add-comment-button =
+    .title = 新增註解
+
+## The view manager is a sidebar displaying different views:
+##  - thumbnails;
+##  - outline;
+##  - attachments;
+##  - layers.
+## The thumbnails view is used to edit the pdf: remove/insert pages, ...
+
+pdfjs-toggle-views-manager-notification-button =
+    .title = 切換側邊欄（包含縮圖、大綱、附件、圖層的文件）
+pdfjs-toggle-views-manager-button1-label = 管理頁面
+pdfjs-views-manager-sidebar =
+    .aria-label = 側邊欄
+pdfjs-views-manager-sidebar-resizer =
+    .aria-label = 調整側邊欄大小
+pdfjs-views-manager-view-selector-button =
+    .title = 畫面
+pdfjs-views-manager-view-selector-button-label = 畫面
+pdfjs-views-manager-pages-title = 頁面
+pdfjs-views-manager-outlines-title1 = 文件大綱
+    .title = 文件大綱（點兩下即可展開/摺疊所有項目）
+pdfjs-views-manager-attachments-title = 附件
+pdfjs-views-manager-layers-title1 = 圖層
+    .title = 圖層（點兩下即可將所有圖層重設回預設狀態）
+pdfjs-views-manager-pages-option-label = 頁面
+pdfjs-views-manager-outlines-option-label = 文件大綱
+pdfjs-views-manager-attachments-option-label = 附件
+pdfjs-views-manager-layers-option-label = 圖層
+pdfjs-views-manager-add-file-button =
+    .title = 新增檔案
+pdfjs-views-manager-add-file-button-label = 新增檔案
+# Variables:
+#   $count (Number) - the number of selected pages.
+pdfjs-views-manager-pages-status-action-label = 已選擇 { $count } 頁
+pdfjs-views-manager-pages-status-none-action-label = 選擇頁面
+pdfjs-views-manager-pages-status-action-button-label = 管理
+pdfjs-views-manager-pages-status-copy-button-label = 複製
+pdfjs-views-manager-pages-status-cut-button-label = 剪下
+pdfjs-views-manager-pages-status-delete-button-label = 刪除
+pdfjs-views-manager-pages-status-export-selected-button-label = 匯出選擇項目…
+# Variables:
+#   $count (Number) - the number of selected pages to be cut.
+pdfjs-views-manager-status-undo-cut-label = 已剪下 { $count } 頁
+# Variables:
+#   $count (Number) - the number of selected pages to be copied.
+pdfjs-views-manager-pages-status-undo-copy-label = 已複製 { $count } 頁
+# Variables:
+#   $count (Number) - the number of selected pages to be deleted.
+pdfjs-views-manager-pages-status-undo-delete-label = 已刪除 { $count } 頁
+pdfjs-views-manager-pages-status-waiting-ready-label = 正在準備您的檔案…
+pdfjs-views-manager-pages-status-waiting-uploading-label = 正在上傳檔案…
+pdfjs-views-manager-status-warning-cut-label = 無法剪下頁面，請重新整理頁面後再試一次。
+pdfjs-views-manager-status-warning-copy-label = 無法複製頁面，請重新整理頁面後再試一次。
+pdfjs-views-manager-status-warning-delete-label = 無法刪除頁面，請重新整理頁面後再試一次。
+pdfjs-views-manager-status-warning-save-label = 無法儲存頁面，請重新整理頁面後再試一次。
+pdfjs-views-manager-status-undo-button-label = 還原
+pdfjs-views-manager-status-done-button-label = 完成
+pdfjs-views-manager-status-close-button =
+    .title = 關閉
+pdfjs-views-manager-status-close-button-label = 關閉
+pdfjs-views-manager-paste-button-label = 貼上
+pdfjs-views-manager-paste-button-before =
+    .title = 貼到第一頁前
+# Variables:
+#   $page (Number) - the page number after which the paste button is.
+pdfjs-views-manager-paste-button-after =
+    .title = 貼到第 { $page } 頁後
+# Badge used to promote a new feature in the UI, keep it as short as possible.
+# It's spelled uppercase for English, but it can be translated as usual.
+pdfjs-new-badge-content = 新功能
+pdfjs-views-manager-waiting-for-file = 正在上傳檔案…
+pdfjs-toggle-views-manager-button1 =
+    .title = 管理頁面
+
+## Digital signature properties (signature verification panel)
+
+pdfjs-digital-signature-properties-button =
+    .title = 數位簽章屬性
+    .aria-label = 數位簽章屬性
+pdfjs-digital-signature-properties-button-label = 數位簽章屬性
+
+## Banner shown above the signature list summarising the overall
+## verification state of the document. Each variant is selected by the
+## viewer based on the worst per-signature status; one signature is
+## enough to lower the banner.
+##
+## Variables:
+##   $count (Number) - number of signatures at the worst level.
+
+pdfjs-digital-signature-properties-banner-verified = 文件使用有效的數位簽章進行簽署
+pdfjs-digital-signature-properties-banner-unknown = 文件已進行簽署，但無法驗證當中的 { $count } 筆數位簽章
+pdfjs-digital-signature-properties-banner-untrusted = 文件已進行簽署，但當中的 { $count } 筆數位簽章不受信任
+pdfjs-digital-signature-properties-banner-expired = 文件已進行簽署，但當中的 { $count } 筆數位簽章已過期
+pdfjs-digital-signature-properties-banner-invalid = 文件中有 { $count } 筆無效的數位簽章
+pdfjs-digital-signature-properties-banner-revoked = 文件已進行簽署，但當中的 { $count } 筆數位簽章已廢止
+
+## Per-signature status row. Only three distinct strings are needed:
+## the signature crypto either verified (the cert chain may still be
+## untrusted/expired/revoked, but that's surfaced on the cert row
+## below), or it failed, or its sub-format isn't supported.
+
+pdfjs-digital-signature-properties-status-verified = 狀態：已驗證簽章
+pdfjs-digital-signature-properties-status-invalid = 狀態：簽章無效
+pdfjs-digital-signature-properties-status-unknown = 狀態：無法驗證（不支援）
+
+## Per-signature certificate row. The variants with an issuer / date in
+## parentheses embed fully-localized context — no English fall-through.
+##
+## Variables:
+##   $issuer (String) - issuer or subject common name from the cert.
+##   $dateObj (Date)  - notAfter date for the expired-with-date form.
+
+pdfjs-digital-signature-properties-certificate-trusted = 憑證：受信任（{ $issuer }）
+pdfjs-digital-signature-properties-certificate-unknown = 憑證：無法使用
+pdfjs-digital-signature-properties-certificate-untrusted = 憑證：未受信任
+pdfjs-digital-signature-properties-certificate-untrusted-unknown-issuer = 憑證：未知的簽發者（{ $issuer }）
+pdfjs-digital-signature-properties-certificate-untrusted-self-signed = 憑證：自行簽署（{ $issuer }）
+pdfjs-digital-signature-properties-certificate-untrusted-untrusted-issuer = 憑證：未受信任的簽發者（{ $issuer }）
+pdfjs-digital-signature-properties-certificate-expired = 憑證：已過期
+pdfjs-digital-signature-properties-certificate-expired-with-date = 憑證：已過期（{ DATETIME($dateObj, dateStyle: "medium") }）
+pdfjs-digital-signature-properties-certificate-revoked = 憑證：已廢止
 
 ## Main menu for adding/removing signatures
 
@@ -666,39 +778,3 @@ pdfjs-editor-add-signature-edit-button-label = 編輯描述
 ## Edit signature description dialog
 
 pdfjs-editor-edit-signature-dialog-title = 編輯描述
-
-## Dialog buttons
-
-pdfjs-editor-edit-signature-update-button = 更新
-
-## Comment popup
-
-pdfjs-show-comment-button =
-    .title = 顯示註解
-
-pdfjs-editor-edit-comment-popup-button-label = 編輯註解
-pdfjs-editor-edit-comment-popup-button =
-    .title = 編輯註解
-pdfjs-editor-delete-comment-popup-button-label = 移除註解
-pdfjs-editor-delete-comment-popup-button =
-    .title = 移除註解
-
-##  Edit a comment dialog
-
-# An existing comment is edited
-pdfjs-editor-edit-comment-dialog-title-when-editing = 編輯註解
-pdfjs-editor-edit-comment-dialog-save-button-when-editing = 更新
-
-# No existing comment
-pdfjs-editor-edit-comment-dialog-title-when-adding = 新增註解
-pdfjs-editor-edit-comment-dialog-save-button-when-adding = 新增
-
-pdfjs-editor-edit-comment-dialog-text-input =
-    .placeholder = 開始輸入…
-
-pdfjs-editor-edit-comment-dialog-cancel-button = 取消
-
-## Edit a comment button in the editor toolbar
-
-pdfjs-editor-edit-comment-button =
-    .title = 編輯註解

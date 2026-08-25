@@ -3,7 +3,7 @@ import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
 import '@phosphor-icons/web/regular';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import '../css/styles.css';
 import {
   escapeHtml,
@@ -38,6 +38,7 @@ import {
 } from './logic/promise-banner.js';
 import { initToolBackNavigation } from './logic/tool-back.js';
 import { initToolBackMenu } from './logic/tool-back-menu.js';
+import { trackPdfEngineExperience } from './analytics/index.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -242,6 +243,11 @@ const init = async () => {
   applyTranslations();
 
   initShiftShell();
+  trackPdfEngineExperience(
+    new Set(
+      categories.flatMap((category) => category.tools.map((tool) => tool.id))
+    )
+  );
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
@@ -262,10 +268,6 @@ const init = async () => {
     return;
   }
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
   if (__SIMPLE_MODE__) {
     const hideBrandingSections = () => {
       const githubLink = document.querySelector(
@@ -312,8 +314,8 @@ const init = async () => {
         (divider as HTMLElement).style.display = 'none';
       });
 
-      const brandName = __BRAND_NAME__ || 'BentoPDF';
-      document.title = `${brandName} - ${t('simpleMode.title')}`;
+      const brandName = __BRAND_NAME__ || 'Shift PDF';
+      document.title = `${t('simpleMode.title')} | ${brandName}`;
 
       const toolsHeader = document.getElementById('tools-header');
       if (toolsHeader) {

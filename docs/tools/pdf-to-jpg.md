@@ -13,6 +13,7 @@ Converts each page of a PDF into a JPG image. Single-page documents download as 
 2. Adjust the **Quality** slider to control JPG compression.
 3. Click **Convert** to start processing.
 4. The result downloads automatically -- a single JPG for one-page PDFs, or a ZIP file for multi-page documents.
+5. Use **Download again** until you choose **Start over**.
 
 ## Options
 

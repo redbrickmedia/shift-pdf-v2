@@ -1,3 +1,3 @@
 export interface ExtractAttachmentsState {
-    files: File[];
+  files: File[];
 }

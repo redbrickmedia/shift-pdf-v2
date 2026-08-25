@@ -7,9 +7,22 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { t } from '../i18n/i18n';
-import { loadPdfDocument } from '../utils/load-pdf-document.js';
-import { flattenAnnotations } from '../utils/flatten-annotations.js';
 import type { SignState, PDFViewerWindow } from '@/types';
+import {
+  completionTiming,
+  createDefaultToolCompletionPanel,
+  type ToolCompletionPanel,
+} from '../utils/tool-completion.js';
+import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
+import {
+  exportFlattenedSignedPdf,
+  exportPdfJsAnnotations,
+  getSignedPdfFilename,
+} from '../utils/sign-pdf-export.js';
+import {
+  configureSessionOnlySignatureUi,
+  waitForPdfJsSignViewer,
+} from '../utils/pdfjs-sign-viewer.js';
 
 const signState: SignState = {
   file: null,
@@ -18,6 +31,8 @@ const signState: SignState = {
   viewerReady: false,
   blobUrl: null,
 };
+let completionPanel: ToolCompletionPanel | null = null;
+let fileLoadVersion = 0;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializePage);
@@ -27,13 +42,16 @@ if (document.readyState === 'loading') {
 
 function initializePage() {
   createIcons({ icons });
+  completionPanel = createDefaultToolCompletionPanel(resetState);
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
 
   if (fileInput) {
-    fileInput.addEventListener('change', handleFileUpload);
+    fileInput.addEventListener('change', (event) => {
+      void handleFileUpload(event);
+    });
   }
 
   if (dropZone) {
@@ -51,7 +69,7 @@ function initializePage() {
       dropZone.classList.remove('bg-gray-700');
       const droppedFiles = e.dataTransfer?.files;
       if (droppedFiles && droppedFiles.length > 0) {
-        handleFile(droppedFiles[0]);
+        void handleFile(droppedFiles[0]);
       }
     });
 
@@ -65,20 +83,29 @@ function initializePage() {
     processBtn.addEventListener('click', applyAndSaveSignatures);
   }
 
+  document
+    .getElementById('print-signed-pdf')
+    ?.addEventListener('click', printSignedPdf);
+
+  document
+    .getElementById('flatten-signature-toggle')
+    ?.addEventListener('change', updateDownloadButtonLabel);
+
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
     cleanup();
     window.location.href = import.meta.env.BASE_URL;
   });
+  window.addEventListener('pagehide', cleanup, { once: true });
 }
 
-function handleFileUpload(e: Event) {
+async function handleFileUpload(e: Event) {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    handleFile(input.files[0]);
+    await handleFile(input.files[0]);
   }
 }
 
-function handleFile(file: File) {
+async function handleFile(file: File) {
   if (
     file.type !== 'application/pdf' &&
     !file.name.toLowerCase().endsWith('.pdf')
@@ -87,15 +114,24 @@ function handleFile(file: File) {
     return;
   }
 
+  const loadVersion = ++fileLoadVersion;
+  signState.viewerReady = false;
+  signState.viewerIframe?.remove();
+  signState.viewerIframe = null;
+  cleanup();
   signState.file = file;
-  updateFileDisplay();
-  setupSignTool();
+  if (await updateFileDisplay(file, loadVersion)) {
+    await setupSignTool(loadVersion);
+  }
 }
 
-async function updateFileDisplay() {
+async function updateFileDisplay(
+  requestedFile: File,
+  loadVersion: number
+): Promise<boolean> {
   const fileDisplayArea = document.getElementById('file-display-area');
 
-  if (!fileDisplayArea || !signState.file) return;
+  if (!fileDisplayArea || signState.file !== requestedFile) return false;
 
   fileDisplayArea.innerHTML = '';
 
@@ -120,8 +156,12 @@ async function updateFileDisplay() {
   removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
   removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
+    fileLoadVersion++;
+    cleanup();
     signState.file = null;
     signState.pdfDoc = null;
+    signState.viewerIframe = null;
+    signState.viewerReady = false;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
   };
@@ -130,21 +170,26 @@ async function updateFileDisplay() {
   fileDisplayArea.appendChild(fileDiv);
   createIcons({ icons });
 
-  const result = await loadPdfWithPasswordPrompt(signState.file);
+  const result = await loadPdfWithPasswordPrompt(requestedFile);
+  if (loadVersion !== fileLoadVersion) {
+    await result?.pdf.destroy();
+    return false;
+  }
   if (!result) {
     signState.file = null;
     signState.pdfDoc = null;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
-    return;
+    return false;
   }
   signState.file = result.file;
   nameSpan.textContent = result.file.name;
   metaSpan.textContent = `${formatBytes(result.file.size)} • ${result.pdf.numPages} pages`;
-  result.pdf.destroy();
+  await result.pdf.destroy();
+  return true;
 }
 
-async function setupSignTool() {
+async function setupSignTool(loadVersion: number) {
   const signatureEditor = document.getElementById('signature-editor');
   if (signatureEditor) {
     signatureEditor.classList.remove('hidden');
@@ -166,7 +211,10 @@ async function setupSignTool() {
   }
 
   container.textContent = '';
+  cleanup();
+  signState.viewerReady = false;
   const iframe = document.createElement('iframe');
+  iframe.title = 'Visual signature editor';
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
@@ -174,86 +222,81 @@ async function setupSignTool() {
   signState.viewerIframe = iframe;
 
   const pdfBytes = await readFileAsArrayBuffer(signState.file);
+  if (loadVersion !== fileLoadVersion) {
+    hideLoader();
+    return;
+  }
   const blob = new Blob([new Uint8Array(pdfBytes as ArrayBuffer)], {
     type: 'application/pdf',
   });
   signState.blobUrl = URL.createObjectURL(blob);
 
-  try {
-    const existingPrefsRaw = localStorage.getItem('pdfjs.preferences');
-    const existingPrefs: Record<string, unknown> = existingPrefsRaw
-      ? JSON.parse(existingPrefsRaw)
-      : {};
-    delete existingPrefs.annotationEditorMode;
-    const newPrefs = {
-      ...existingPrefs,
-      enableSignatureEditor: true,
-      enablePermissions: false,
-    };
-    localStorage.setItem('pdfjs.preferences', JSON.stringify(newPrefs));
-  } catch (e) {
-    console.warn('Failed to update pdfjs.preferences in localStorage', e);
-  }
-
   const viewerUrl = new URL(
-    `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html`,
+    `${import.meta.env.BASE_URL}pdfjs-viewer/sign-viewer.html`,
     window.location.origin
   );
-  const query = new URLSearchParams({ file: signState.blobUrl });
+  const query = new URLSearchParams({
+    file: signState.blobUrl,
+    bentoSign: '1',
+  });
   iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
 
-  iframe.onload = () => {
-    hideLoader();
-    signState.viewerReady = true;
+  iframe.onload = async () => {
+    if (signState.viewerIframe !== iframe) return;
     try {
-      const viewerWindow = iframe.contentWindow as PDFViewerWindow | null;
-      if (viewerWindow && viewerWindow.PDFViewerApplication) {
-        const app = viewerWindow.PDFViewerApplication;
-        const doc = viewerWindow.document;
-        const eventBus = app.eventBus;
-        eventBus?._on('annotationeditoruimanager', () => {
-          const editorModeButtons = doc.getElementById('editorModeButtons');
-          editorModeButtons?.classList.remove('hidden');
-          const editorSignature = doc.getElementById('editorSignature');
-          editorSignature?.removeAttribute('hidden');
-          const editorSignatureButton = doc.getElementById(
-            'editorSignatureButton'
-          ) as HTMLButtonElement | null;
-          if (editorSignatureButton) {
-            editorSignatureButton.disabled = false;
-          }
-          const editorStamp = doc.getElementById('editorStamp');
-          editorStamp?.removeAttribute('hidden');
-          const editorStampButton = doc.getElementById(
-            'editorStampButton'
-          ) as HTMLButtonElement | null;
-          if (editorStampButton) {
-            editorStampButton.disabled = false;
-          }
-          try {
-            const highlightBtn = doc.getElementById(
-              'editorHighlightButton'
-            ) as HTMLButtonElement | null;
-            highlightBtn?.click();
-          } catch (e) {
-            console.warn(
-              'Failed to auto-click highlight button in PDF viewer',
-              e
-            );
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Could not initialize PDF.js viewer for signing:', e);
-    }
+      const app = await waitForPdfJsSignViewer(iframe);
+      configureSessionOnlySignatureUi(iframe, app);
+      signState.viewerReady = true;
 
-    const saveBtn = document.getElementById(
-      'process-btn'
-    ) as HTMLButtonElement | null;
-    if (saveBtn) {
-      saveBtn.style.display = '';
+      const saveBtn = document.getElementById(
+        'process-btn'
+      ) as HTMLButtonElement | null;
+      if (saveBtn) {
+        saveBtn.style.display = '';
+      }
+      document.getElementById('print-signed-pdf')?.classList.remove('hidden');
+    } catch (error) {
+      console.error('Could not initialize PDF.js viewer for signing:', error);
+      showAlert(
+        'Viewer failed to load',
+        error instanceof Error
+          ? error.message
+          : 'Could not initialize the signature editor.'
+      );
+    } finally {
+      hideLoader();
     }
   };
+}
+
+async function printSignedPdf() {
+  if (!signState.viewerIframe) return;
+  try {
+    const application = await waitForPdfJsSignViewer(signState.viewerIframe);
+    if (!application.triggerPrinting) {
+      throw new Error('Printing is unavailable in this browser.');
+    }
+    await application.triggerPrinting();
+  } catch (error) {
+    showAlert(
+      'Print failed',
+      error instanceof Error ? error.message : 'Could not print this PDF.'
+    );
+  }
+}
+
+function updateDownloadButtonLabel() {
+  const flatten = (
+    document.getElementById(
+      'flatten-signature-toggle'
+    ) as HTMLInputElement | null
+  )?.checked;
+  const processButton = document.getElementById('process-btn');
+  if (processButton) {
+    processButton.textContent = flatten
+      ? t('tools:signPdf.downloadFlattened')
+      : t('tools:signPdf.download');
+  }
 }
 
 async function applyAndSaveSignatures() {
@@ -262,6 +305,8 @@ async function applyAndSaveSignatures() {
     return;
   }
 
+  let operation: ToolOperation | null = null;
+  const startedAt = performance.now();
   try {
     const viewerWindow = signState.viewerIframe
       .contentWindow as PDFViewerWindow | null;
@@ -275,52 +320,44 @@ async function applyAndSaveSignatures() {
       'flatten-signature-toggle'
     ) as HTMLInputElement | null;
     const shouldFlatten = flattenCheckbox?.checked;
+    operation = pdfEngineAnalytics?.startToolOperation('sign-pdf') ?? null;
+    showLoader(
+      shouldFlatten ? 'Flattening and saving PDF...' : 'Saving signed PDF...'
+    );
 
-    if (shouldFlatten) {
-      showLoader('Flattening and saving PDF...');
-
-      const rawPdfBytes = await app.pdfDocument.saveDocument(
-        app.pdfDocument.annotationStorage
-      );
-      const pdfBytes = new Uint8Array(rawPdfBytes);
-      const pdfDoc = await loadPdfDocument(pdfBytes);
-      try {
-        pdfDoc.getForm().flatten();
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (!msg.includes('getForm')) {
-          throw e;
-        }
-      }
-      try {
-        flattenAnnotations(pdfDoc);
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        console.warn('Could not flatten annotations:', msg);
-      }
-      const flattenedPdfBytes = await pdfDoc.save();
-
-      const blob = new Blob([new Uint8Array(flattenedPdfBytes)], {
-        type: 'application/pdf',
-      });
-      downloadFile(blob, signState.file?.name || 'document.pdf');
-
-      hideLoader();
-      showAlert('Success', 'Signed PDF saved successfully!', 'success', () => {
-        resetState();
-      });
-    } else {
-      app.eventBus?.dispatch('download', { source: app });
-      showAlert(
-        'Success',
-        'Signed PDF downloaded successfully!',
-        'success',
-        () => {
-          resetState();
-        }
-      );
+    if (!app.pdfDocument) {
+      throw new Error('The PDF.js document is unavailable.');
     }
+    const outputBytes = shouldFlatten
+      ? await exportFlattenedSignedPdf(app.pdfDocument)
+      : await exportPdfJsAnnotations(app.pdfDocument);
+
+    const blob = new Blob([Uint8Array.from(outputBytes)], {
+      type: 'application/pdf',
+    });
+    const filename = getSignedPdfFilename(signState.file?.name, shouldFlatten);
+    downloadFile(blob, filename);
+    hideLoader();
+    completionPanel?.show({
+      blob,
+      filename,
+      summary: shouldFlatten
+        ? t('tools:signPdf.flattenedReady')
+        : t('tools:signPdf.ready'),
+      timing: completionTiming(startedAt),
+    });
+    operation?.finish({
+      result: 'success',
+      inputCount: 1,
+      outputCount: 1,
+    });
   } catch (error) {
+    operation?.finish({
+      result: 'error',
+      inputCount: 1,
+      outputCount: 0,
+      errorCategory: 'processing',
+    });
     console.error('Failed to export the signed PDF:', error);
     hideLoader();
     showAlert(
@@ -331,6 +368,7 @@ async function applyAndSaveSignatures() {
 }
 
 function resetState() {
+  fileLoadVersion++;
   cleanup();
   signState.file = null;
   signState.viewerIframe = null;
@@ -356,7 +394,9 @@ function resetState() {
   ) as HTMLButtonElement | null;
   if (processBtn) {
     processBtn.style.display = 'none';
+    processBtn.textContent = t('tools:signPdf.download');
   }
+  document.getElementById('print-signed-pdf')?.classList.add('hidden');
 
   const flattenCheckbox = document.getElementById(
     'flatten-signature-toggle'

@@ -1,682 +1,765 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile } from '../utils/helpers.js';
+import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
+import { createIcons, icons } from 'lucide';
+import Sortable from 'sortablejs';
+import type { MergeFile, MergeJob, MergeMessage, MergeResponse } from '@/types';
+import {
+  pdfEngineAnalytics,
+  type ErrorCategory,
+  type ToolOperation,
+} from '../analytics/index.js';
 import { state } from '../state.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { BoundedHistory } from '../utils/bounded-history.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper.js';
+import { downloadFile } from '../utils/helpers.js';
+import { validateMergePageRange } from '../utils/merge-pdf-validation.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import {
-  renderPagesProgressively,
   cleanupLazyRendering,
+  renderPageToCanvas,
 } from '../utils/render-utils.js';
-import { initPagePreview } from '../utils/page-preview.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
+import {
+  completionTiming,
+  createDefaultToolCompletionPanel,
+  type ToolCompletionPanel,
+} from '../utils/tool-completion.js';
 import {
   showWasmRequiredDialog,
   WasmProvider,
 } from '../utils/wasm-provider.js';
 
-import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
-import Sortable from 'sortablejs';
-import type { MergeJob, MergeFile, MergeMessage, MergeResponse } from '@/types';
+type MergeMode = 'file' | 'page';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
-
-interface MergeState {
-  pdfDocs: Record<string, pdfjsLib.PDFDocumentProxy>;
-  pdfBytes: Record<string, ArrayBuffer>;
-  activeMode: 'file' | 'page';
-  sortableInstances: {
-    fileList?: Sortable;
-    pageThumbnails?: Sortable;
-  };
-  isRendering: boolean;
-  cachedThumbnails: boolean | null;
-  lastFileHash: string | null;
-  mergeSuccess: boolean;
+interface MergeSource {
+  id: string;
+  file: File;
+  range: string;
 }
 
-const mergeState: MergeState = {
-  pdfDocs: {},
-  pdfBytes: {},
+interface MergePage {
+  fileId: string;
+  pageIndex: number;
+}
+
+interface MergeSnapshot {
+  files: MergeSource[];
+  pageOrder: MergePage[];
+  activeMode: MergeMode;
+  retainPageLabels: boolean;
+}
+
+interface RuntimeState {
+  pdfDocs: Map<string, pdfjsLib.PDFDocumentProxy>;
+  pdfBytes: Map<string, ArrayBuffer>;
+  thumbnails: Map<string, string>;
+  fileListSortable: Sortable | null;
+  pageSortable: Sortable | null;
+  renderVersion: number;
+}
+
+let mergeModel: MergeSnapshot = {
+  files: [],
+  pageOrder: [],
   activeMode: 'file',
-  sortableInstances: {},
-  isRendering: false,
-  cachedThumbnails: null,
-  lastFileHash: null,
-  mergeSuccess: false,
+  retainPageLabels: false,
 };
 
+const runtime: RuntimeState = {
+  pdfDocs: new Map(),
+  pdfBytes: new Map(),
+  thumbnails: new Map(),
+  fileListSortable: null,
+  pageSortable: null,
+  renderVersion: 0,
+};
+
+const cloneSnapshot = (snapshot: MergeSnapshot): MergeSnapshot => ({
+  files: snapshot.files.map((source) => ({ ...source })),
+  pageOrder: snapshot.pageOrder.map((page) => ({ ...page })),
+  activeMode: snapshot.activeMode,
+  retainPageLabels: snapshot.retainPageLabels,
+});
+
+const history = new BoundedHistory<MergeSnapshot>(cloneSnapshot, 20);
 const mergeWorker = new Worker(
   import.meta.env.BASE_URL + 'workers/merge.worker.js'
 );
+let completionPanel: ToolCompletionPanel | null = null;
+let activeMergeOperation = 0;
 
-function initializeFileListSortable() {
-  const fileList = document.getElementById('file-list');
-  if (!fileList) return;
+function generateId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  );
+}
 
-  if (mergeState.sortableInstances.fileList) {
-    mergeState.sortableInstances.fileList.destroy();
+function thumbnailKey(page: MergePage): string {
+  return `${page.fileId}:${page.pageIndex}`;
+}
+
+function syncSharedFiles(): void {
+  state.files = mergeModel.files.map(({ file }) => file);
+}
+
+function updateHistoryButtons(): void {
+  const undo = document.getElementById('undo-merge-btn') as HTMLButtonElement;
+  const redo = document.getElementById('redo-merge-btn') as HTMLButtonElement;
+  const status = history.status;
+  if (undo) undo.disabled = !status.canUndo;
+  if (redo) redo.disabled = !status.canRedo;
+}
+
+function snapshot(): void {
+  history.snapshot(mergeModel);
+  updateHistoryButtons();
+}
+
+function destroySortables(): void {
+  runtime.fileListSortable?.destroy();
+  runtime.pageSortable?.destroy();
+  runtime.fileListSortable = null;
+  runtime.pageSortable = null;
+}
+
+async function releaseRuntimeDocuments(): Promise<void> {
+  const documents = Array.from(runtime.pdfDocs.values());
+  runtime.pdfDocs.clear();
+  runtime.pdfBytes.clear();
+  runtime.thumbnails.clear();
+  await Promise.allSettled(documents.map((document) => document.destroy()));
+}
+
+async function resetState(): Promise<void> {
+  if (activeMergeOperation !== 0) {
+    showAlert('Merge in progress', 'Wait for the current merge to finish.');
+    return;
   }
+  runtime.renderVersion++;
+  destroySortables();
+  cleanupLazyRendering();
+  await releaseRuntimeDocuments();
+  history.clear();
+  mergeModel = {
+    files: [],
+    pageOrder: [],
+    activeMode: 'file',
+    retainPageLabels: false,
+  };
+  state.files = [];
+  state.pdfDoc = null;
 
-  mergeState.sortableInstances.fileList = Sortable.create(fileList, {
+  const fileInput = document.getElementById('file-input') as HTMLInputElement;
+  if (fileInput) fileInput.value = '';
+  document.getElementById('file-list')?.replaceChildren();
+  document.getElementById('page-merge-preview')?.replaceChildren();
+  await renderMergeUI();
+}
+
+async function loadRuntimeSource(source: MergeSource): Promise<void> {
+  if (runtime.pdfDocs.has(source.id) && runtime.pdfBytes.has(source.id)) return;
+
+  const bytes = await source.file.arrayBuffer();
+  const document = await getPDFDocument({ data: bytes.slice(0) }).promise;
+  runtime.pdfBytes.set(source.id, bytes);
+  runtime.pdfDocs.set(source.id, document);
+}
+
+async function ensureRuntimeDocuments(): Promise<void> {
+  for (const source of mergeModel.files) {
+    await loadRuntimeSource(source);
+  }
+}
+
+async function addFiles(files: File[]): Promise<void> {
+  if (files.length === 0) return;
+
+  showLoader('Loading PDF documents...');
+  const added: MergeSource[] = [];
+  try {
+    const decrypted = await batchDecryptIfNeeded(files);
+    for (const file of decrypted) {
+      const source = { id: generateId(), file, range: '' };
+      await loadRuntimeSource(source);
+      added.push(source);
+    }
+    if (added.length === 0) return;
+
+    snapshot();
+    mergeModel.files.push(...added);
+    for (const source of added) {
+      const document = runtime.pdfDocs.get(source.id);
+      if (!document) continue;
+      for (let pageIndex = 0; pageIndex < document.numPages; pageIndex++) {
+        mergeModel.pageOrder.push({ fileId: source.id, pageIndex });
+      }
+    }
+    syncSharedFiles();
+    await renderMergeUI();
+  } catch (error) {
+    console.error('Error loading PDFs:', error);
+    await Promise.allSettled(
+      added.map(async ({ id }) => {
+        await runtime.pdfDocs.get(id)?.destroy();
+        runtime.pdfDocs.delete(id);
+        runtime.pdfBytes.delete(id);
+      })
+    );
+    showAlert('Error', 'Failed to load one or more PDF files.');
+  } finally {
+    hideLoader();
+  }
+}
+
+function createFileListSortable(): void {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  runtime.fileListSortable?.destroy();
+  runtime.fileListSortable = Sortable.create(list, {
     handle: '.drag-handle',
     animation: 150,
     ghostClass: 'sortable-ghost',
     chosenClass: 'sortable-chosen',
     dragClass: 'sortable-drag',
-    onStart: function (evt: Sortable.SortableEvent) {
-      evt.item.style.opacity = '0.5';
-    },
-    onEnd: function (evt: Sortable.SortableEvent) {
-      evt.item.style.opacity = '1';
+    onEnd: ({ oldIndex, newIndex }) => {
+      if (
+        oldIndex === undefined ||
+        newIndex === undefined ||
+        oldIndex === newIndex
+      )
+        return;
+      snapshot();
+      const [moved] = mergeModel.files.splice(oldIndex, 1);
+      mergeModel.files.splice(newIndex, 0, moved);
+      syncSharedFiles();
+      void renderMergeUI();
     },
   });
 }
 
-function initializePageThumbnailsSortable() {
-  const container = document.getElementById('page-merge-preview');
-  if (!container) return;
-
-  if (mergeState.sortableInstances.pageThumbnails) {
-    mergeState.sortableInstances.pageThumbnails.destroy();
-  }
-
-  mergeState.sortableInstances.pageThumbnails = Sortable.create(container, {
+function createPageSortable(): void {
+  const list = document.getElementById('page-merge-preview');
+  if (!list) return;
+  runtime.pageSortable?.destroy();
+  runtime.pageSortable = Sortable.create(list, {
     animation: 150,
     ghostClass: 'sortable-ghost',
     chosenClass: 'sortable-chosen',
     dragClass: 'sortable-drag',
-    onStart: function (evt: Sortable.SortableEvent) {
-      evt.item.style.opacity = '0.5';
-    },
-    onEnd: function (evt: Sortable.SortableEvent) {
-      evt.item.style.opacity = '1';
+    onEnd: ({ oldIndex, newIndex }) => {
+      if (
+        oldIndex === undefined ||
+        newIndex === undefined ||
+        oldIndex === newIndex
+      )
+        return;
+      snapshot();
+      const [moved] = mergeModel.pageOrder.splice(oldIndex, 1);
+      mergeModel.pageOrder.splice(newIndex, 0, moved);
+      void renderPageThumbnails();
     },
   });
 }
 
-function generateFileHash() {
-  return (state.files as File[])
-    .map((f) => `${f.name}-${f.size}-${f.lastModified}`)
-    .join('|');
+function renderFileList(): void {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  list.replaceChildren();
+
+  for (const source of mergeModel.files) {
+    const pdfDocument = runtime.pdfDocs.get(source.id);
+    const item = document.createElement('li');
+    item.dataset.fileId = source.id;
+    item.className =
+      'bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors';
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between';
+    const name = document.createElement('span');
+    name.className = 'truncate font-medium text-white flex-1 mr-2';
+    name.title = source.file.name;
+    name.textContent = source.file.name;
+    const handle = document.createElement('div');
+    handle.className =
+      'drag-handle cursor-move text-gray-400 hover:text-white p-1 rounded';
+    handle.setAttribute('aria-label', `Reorder ${source.file.name}`);
+    handle.innerHTML = '<i data-lucide="grip-vertical" class="w-4 h-4"></i>';
+    header.append(name, handle);
+
+    const controls = document.createElement('div');
+    controls.className = 'mt-2 flex items-center gap-2';
+    const inputWrapper = document.createElement('div');
+    inputWrapper.className = 'flex-1';
+    const label = document.createElement('label');
+    label.htmlFor = `range-${source.id}`;
+    label.className = 'text-xs text-gray-400';
+    label.textContent = `Pages (e.g., 1-3, 5) - Total: ${pdfDocument?.numPages ?? 'N/A'}`;
+    const input = document.createElement('input');
+    input.id = `range-${source.id}`;
+    input.type = 'text';
+    input.value = source.range;
+    input.placeholder = 'Leave blank for all pages';
+    input.className =
+      'w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm mt-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+    input.addEventListener('change', () => {
+      if (input.value === source.range) return;
+      snapshot();
+      source.range = input.value;
+    });
+    inputWrapper.append(label, input);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className =
+      'text-red-400 hover:text-red-300 p-2 flex-shrink-0 self-end';
+    remove.title = `Remove ${source.file.name}`;
+    remove.setAttribute('aria-label', `Remove ${source.file.name}`);
+    remove.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+    remove.addEventListener('click', () => {
+      snapshot();
+      mergeModel.files = mergeModel.files.filter(({ id }) => id !== source.id);
+      mergeModel.pageOrder = mergeModel.pageOrder.filter(
+        ({ fileId }) => fileId !== source.id
+      );
+      syncSharedFiles();
+      void renderMergeUI();
+    });
+    controls.append(inputWrapper, remove);
+    item.append(header, controls);
+    list.append(item);
+  }
+  createFileListSortable();
 }
 
-async function renderPageMergeThumbnails() {
+function createThumbnail(page: MergePage, dataUrl: string): HTMLElement {
+  const source = mergeModel.files.find(({ id }) => id === page.fileId);
+  const wrapper = document.createElement('div');
+  wrapper.className =
+    'page-thumbnail relative cursor-move flex flex-col items-center gap-1 p-2 border-2 border-gray-600 hover:border-indigo-500 rounded-lg bg-gray-700';
+  wrapper.dataset.fileId = page.fileId;
+  wrapper.dataset.pageIndex = String(page.pageIndex);
+
+  const image = document.createElement('img');
+  image.src = dataUrl;
+  image.alt = `${source?.file.name ?? 'PDF'}, page ${page.pageIndex + 1}`;
+  image.className = 'rounded-md shadow-md max-w-full h-auto';
+  const label = document.createElement('p');
+  label.className = 'text-xs text-gray-400 truncate w-full text-center';
+  label.title = image.alt;
+  label.textContent = `${source?.file.name.slice(0, 10) ?? 'PDF'} (p${page.pageIndex + 1})`;
+  wrapper.append(image, label);
+  return wrapper;
+}
+
+async function renderPageThumbnails(): Promise<void> {
   const container = document.getElementById('page-merge-preview');
   if (!container) return;
+  const renderVersion = ++runtime.renderVersion;
+  runtime.pageSortable?.destroy();
+  runtime.pageSortable = null;
+  container.replaceChildren();
+  if (mergeModel.activeMode !== 'page') return;
 
-  const currentFileHash = generateFileHash();
-  const filesChanged = currentFileHash !== mergeState.lastFileHash;
-
-  if (!filesChanged && mergeState.cachedThumbnails !== null) {
-    // Simple check to see if it's already rendered to avoid flicker.
-    if (container.firstChild) {
-      initializePageThumbnailsSortable();
-      return;
-    }
-  }
-
-  if (mergeState.isRendering) {
-    return;
-  }
-
-  mergeState.isRendering = true;
-  container.textContent = '';
-
-  cleanupLazyRendering();
-
-  let totalPages = 0;
-  for (let i = 0; i < state.files.length; i++) {
-    const fileKey = `${i}_${state.files[i].name}`;
-    const doc = mergeState.pdfDocs[fileKey];
-    if (doc) totalPages += doc.numPages;
-  }
-
+  showLoader('Rendering page previews...');
   try {
-    let currentPageNumber = 0;
-
-    // Function to create wrapper element for each page
-    const createWrapper = (
-      canvas: HTMLCanvasElement,
-      pageNumber: number,
-      fileKey: string,
-      displayName: string
-    ) => {
-      const wrapper = document.createElement('div');
-      wrapper.className =
-        'page-thumbnail relative cursor-move flex flex-col items-center gap-1 p-2 border-2 border-gray-600 hover:border-indigo-500 rounded-lg bg-gray-700 transition-colors';
-      wrapper.dataset.fileName = fileKey;
-      wrapper.dataset.pageIndex = (pageNumber - 1).toString();
-
-      const imgContainer = document.createElement('div');
-      imgContainer.className = 'relative';
-
-      const img = document.createElement('img');
-      img.src = canvas.toDataURL();
-      img.className = 'rounded-md shadow-md max-w-full h-auto';
-
-      const pageNumDiv = document.createElement('div');
-      pageNumDiv.className =
-        'absolute top-1 left-1 bg-indigo-600 text-white text-xs px-2 py-1 rounded-md font-semibold shadow-lg';
-      pageNumDiv.textContent = pageNumber.toString();
-
-      imgContainer.append(img, pageNumDiv);
-
-      const fileNamePara = document.createElement('p');
-      fileNamePara.className =
-        'text-xs text-gray-400 truncate w-full text-center';
-      const fullTitle = displayName
-        ? `${displayName} (page ${pageNumber})`
-        : `Page ${pageNumber}`;
-      fileNamePara.title = fullTitle;
-      fileNamePara.textContent = displayName
-        ? `${displayName.substring(0, 10)}... (p${pageNumber})`
-        : `Page ${pageNumber}`;
-
-      wrapper.append(imgContainer, fileNamePara);
-      return wrapper;
-    };
-
-    for (let idx = 0; idx < state.files.length; idx++) {
-      const file = state.files[idx];
-      const fileKey = `${idx}_${file.name}`;
-      const pdfjsDoc = mergeState.pdfDocs[fileKey];
-      if (!pdfjsDoc) continue;
-
-      const createWrapperWithFileName = (
-        canvas: HTMLCanvasElement,
-        pageNumber: number
-      ) => {
-        return createWrapper(canvas, pageNumber, fileKey, file.name);
-      };
-
-      // Render pages progressively with lazy loading
-      await renderPagesProgressively(
-        pdfjsDoc,
-        container,
-        createWrapperWithFileName,
-        {
-          batchSize: 8,
-          useLazyLoading: true,
-          lazyLoadMargin: '300px',
-          onProgress: () => {
-            currentPageNumber++;
-            showLoader(`Rendering page previews...`);
-          },
-          onBatchComplete: () => {
-            createIcons({ icons });
-          },
-        }
-      );
-
-      initPagePreview(container, pdfjsDoc);
+    for (const page of mergeModel.pageOrder) {
+      if (renderVersion !== runtime.renderVersion) return;
+      const document = runtime.pdfDocs.get(page.fileId);
+      if (
+        !document ||
+        page.pageIndex < 0 ||
+        page.pageIndex >= document.numPages
+      )
+        continue;
+      const key = thumbnailKey(page);
+      let dataUrl = runtime.thumbnails.get(key);
+      if (!dataUrl) {
+        const canvas = await renderPageToCanvas(
+          document,
+          page.pageIndex + 1,
+          0.25
+        );
+        dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        runtime.thumbnails.set(key, dataUrl);
+      }
+      container.append(createThumbnail(page, dataUrl));
     }
-
-    mergeState.cachedThumbnails = true;
-    mergeState.lastFileHash = currentFileHash;
-
-    initializePageThumbnailsSortable();
+    if (renderVersion === runtime.renderVersion) createPageSortable();
   } catch (error) {
     console.error('Error rendering page thumbnails:', error);
-    showAlert('Error', 'Failed to render page thumbnails');
+    showAlert('Error', 'Failed to render page thumbnails.');
   } finally {
-    hideLoader();
-    mergeState.isRendering = false;
+    if (renderVersion === runtime.renderVersion) hideLoader();
+    createIcons({ icons });
   }
 }
 
-const updateUI = async () => {
-  const fileControls = document.getElementById('file-controls');
-  const mergeOptions = document.getElementById('merge-options');
-
-  if (state.files.length > 0) {
-    if (fileControls) fileControls.classList.remove('hidden');
-    if (mergeOptions) mergeOptions.classList.remove('hidden');
-    await refreshMergeUI();
-  } else {
-    if (fileControls) fileControls.classList.add('hidden');
-    if (mergeOptions) mergeOptions.classList.add('hidden');
-    // Clear file list UI
-    const fileList = document.getElementById('file-list');
-    if (fileList) fileList.innerHTML = '';
-  }
-};
-
-const resetState = async () => {
-  state.files = [];
-  state.pdfDoc = null;
-
-  mergeState.pdfDocs = {};
-  mergeState.pdfBytes = {};
-  mergeState.activeMode = 'file';
-  mergeState.cachedThumbnails = null;
-  mergeState.lastFileHash = null;
-  mergeState.mergeSuccess = false;
-
-  const fileList = document.getElementById('file-list');
-  if (fileList) fileList.innerHTML = '';
-
-  const pageMergePreview = document.getElementById('page-merge-preview');
-  if (pageMergePreview) pageMergePreview.innerHTML = '';
-
-  const fileModeBtn = document.getElementById('file-mode-btn');
-  const pageModeBtn = document.getElementById('page-mode-btn');
+function renderMode(): void {
+  const fileButton = document.getElementById('file-mode-btn');
+  const pageButton = document.getElementById('page-mode-btn');
   const filePanel = document.getElementById('file-mode-panel');
   const pagePanel = document.getElementById('page-mode-panel');
+  const inFileMode = mergeModel.activeMode === 'file';
+  filePanel?.classList.toggle('hidden', !inFileMode);
+  pagePanel?.classList.toggle('hidden', inFileMode);
+  fileButton?.classList.toggle('bg-indigo-600', inFileMode);
+  fileButton?.classList.toggle('text-white', inFileMode);
+  pageButton?.classList.toggle('bg-indigo-600', !inFileMode);
+  pageButton?.classList.toggle('text-white', !inFileMode);
+  fileButton?.setAttribute('aria-pressed', String(inFileMode));
+  pageButton?.setAttribute('aria-pressed', String(!inFileMode));
+}
 
-  if (fileModeBtn && pageModeBtn && filePanel && pagePanel) {
-    fileModeBtn.classList.add('bg-indigo-600', 'text-white');
-    fileModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-    pageModeBtn.classList.remove('bg-indigo-600', 'text-white');
-    pageModeBtn.classList.add('bg-gray-700', 'text-gray-300');
+async function renderMergeUI(): Promise<void> {
+  syncSharedFiles();
+  const hasFiles = mergeModel.files.length > 0;
+  document
+    .getElementById('file-controls')
+    ?.classList.toggle('hidden', !hasFiles);
+  document
+    .getElementById('merge-options')
+    ?.classList.toggle('hidden', !hasFiles);
+  const process = document.getElementById('process-btn') as HTMLButtonElement;
+  if (process) process.disabled = mergeModel.files.length < 2;
+  const retain = document.getElementById(
+    'retain-page-labels'
+  ) as HTMLInputElement;
+  if (retain) retain.checked = mergeModel.retainPageLabels;
+  renderMode();
+  renderFileList();
+  updateHistoryButtons();
+  createIcons({ icons });
+  if (mergeModel.activeMode === 'page') await renderPageThumbnails();
+  else {
+    runtime.renderVersion++;
+    runtime.pageSortable?.destroy();
+    runtime.pageSortable = null;
+    document.getElementById('page-merge-preview')?.replaceChildren();
+  }
+}
 
-    filePanel.classList.remove('hidden');
-    pagePanel.classList.add('hidden');
+async function restore(snapshotToRestore: MergeSnapshot): Promise<void> {
+  mergeModel = cloneSnapshot(snapshotToRestore);
+  syncSharedFiles();
+  showLoader('Restoring merge state...');
+  try {
+    await ensureRuntimeDocuments();
+    await renderMergeUI();
+  } catch (error) {
+    console.error('Failed to restore merge state:', error);
+    showAlert('Error', 'Failed to restore the previous merge state.');
+  } finally {
+    hideLoader();
+  }
+}
+
+async function undo(): Promise<void> {
+  const previous = history.undo(mergeModel);
+  if (previous) await restore(previous);
+  updateHistoryButtons();
+}
+
+async function redo(): Promise<void> {
+  const next = history.redo(mergeModel);
+  if (next) await restore(next);
+  updateHistoryButtons();
+}
+
+function validatePageMode(): string | null {
+  if (mergeModel.pageOrder.length === 0) {
+    return 'Select at least one page to merge.';
+  }
+  for (const page of mergeModel.pageOrder) {
+    const source = mergeModel.files.find(({ id }) => id === page.fileId);
+    const document = runtime.pdfDocs.get(page.fileId);
+    if (
+      !source ||
+      !document ||
+      !Number.isInteger(page.pageIndex) ||
+      page.pageIndex < 0 ||
+      page.pageIndex >= document.numPages
+    ) {
+      return 'The page selection is no longer valid. Please reload the files.';
+    }
+  }
+  return null;
+}
+
+function buildMergeJobs(): {
+  jobs: MergeJob[];
+  files: MergeFile[];
+  error?: string;
+} {
+  const jobs: MergeJob[] = [];
+  const usedFileIds = new Set<string>();
+
+  if (mergeModel.activeMode === 'file') {
+    for (const source of mergeModel.files) {
+      const document = runtime.pdfDocs.get(source.id);
+      if (!document) return { jobs, files: [], error: 'A PDF is not loaded.' };
+      const validation = validateMergePageRange(
+        source.range,
+        document.numPages
+      );
+      if ('error' in validation) {
+        return {
+          jobs,
+          files: [],
+          error: `${source.file.name}: ${validation.error}`,
+        };
+      }
+      usedFileIds.add(source.id);
+      jobs.push(
+        validation.normalized
+          ? {
+              fileName: source.id,
+              rangeType: 'specific',
+              rangeString: validation.normalized,
+            }
+          : { fileName: source.id, rangeType: 'all' }
+      );
+    }
+  } else {
+    const error = validatePageMode();
+    if (error) return { jobs, files: [], error };
+    for (let index = 0; index < mergeModel.pageOrder.length; index++) {
+      const current = mergeModel.pageOrder[index];
+      usedFileIds.add(current.fileId);
+      let endPage = current.pageIndex;
+      while (
+        index + 1 < mergeModel.pageOrder.length &&
+        mergeModel.pageOrder[index + 1].fileId === current.fileId &&
+        mergeModel.pageOrder[index + 1].pageIndex === endPage + 1
+      ) {
+        endPage++;
+        index++;
+      }
+      jobs.push(
+        endPage === current.pageIndex
+          ? {
+              fileName: current.fileId,
+              rangeType: 'single',
+              pageIndex: current.pageIndex,
+            }
+          : {
+              fileName: current.fileId,
+              rangeType: 'range',
+              startPage: current.pageIndex + 1,
+              endPage: endPage + 1,
+            }
+      );
+    }
   }
 
-  await updateUI();
-};
+  const files: MergeFile[] = [];
+  for (const source of mergeModel.files) {
+    if (!usedFileIds.has(source.id)) continue;
+    const bytes = runtime.pdfBytes.get(source.id);
+    if (!bytes)
+      return { jobs, files, error: `${source.file.name} is not loaded.` };
+    files.push({ name: source.id, data: bytes.slice(0) });
+  }
+  return { jobs, files };
+}
 
-export async function merge() {
-  // Check if CPDF is configured
+export async function merge(): Promise<void> {
+  if (activeMergeOperation !== 0) {
+    showAlert('Merge in progress', 'Wait for the current merge to finish.');
+    return;
+  }
+  const inputCount = mergeModel.files.length;
+  const startedAt = performance.now();
+  const operation: ToolOperation | null =
+    pdfEngineAnalytics?.startToolOperation('merge-pdf') ?? null;
+  const fail = (message: string, category: ErrorCategory = 'invalid-input') => {
+    operation?.finish({
+      result: 'error',
+      inputCount,
+      outputCount: 0,
+      errorCategory: category,
+    });
+    showAlert('Cannot merge PDFs', message);
+  };
+
+  if (inputCount < 2) {
+    fail('Add at least two PDF files before merging.');
+    return;
+  }
   if (!isCpdfAvailable()) {
+    operation?.finish({
+      result: 'error',
+      inputCount,
+      outputCount: 0,
+      errorCategory: 'engine-load',
+    });
     showWasmRequiredDialog('cpdf');
     return;
   }
 
+  const prepared = buildMergeJobs();
+  if (prepared.error) {
+    fail(prepared.error);
+    return;
+  }
+
   showLoader('Merging PDFs...');
-  try {
-    const jobs: MergeJob[] = [];
-    const filesToMerge: MergeFile[] = [];
-    const uniqueFileNames = new Set<string>();
-
-    if (mergeState.activeMode === 'file') {
-      const fileList = document.getElementById('file-list');
-      if (!fileList) throw new Error('File list not found');
-
-      const sortedFileKeys = Array.from(fileList.children)
-        .map((li) => (li as HTMLElement).dataset.fileName)
-        .filter((key): key is string => !!key);
-
-      for (const fileKey of sortedFileKeys) {
-        const safeFileName = fileKey.replace(/[^a-zA-Z0-9]/g, '_');
-        const rangeInput = document.getElementById(
-          `range-${safeFileName}`
-        ) as HTMLInputElement;
-
-        uniqueFileNames.add(fileKey);
-
-        if (rangeInput && rangeInput.value.trim()) {
-          jobs.push({
-            fileName: fileKey,
-            rangeType: 'specific',
-            rangeString: rangeInput.value.trim(),
-          });
-        } else {
-          jobs.push({
-            fileName: fileKey,
-            rangeType: 'all',
-          });
-        }
-      }
-    } else {
-      // Page Mode
-      const pageContainer = document.getElementById('page-merge-preview');
-      if (!pageContainer) throw new Error('Page container not found');
-      const pageElements = Array.from(pageContainer.children);
-
-      const rawPages: { fileName: string; pageIndex: number }[] = [];
-      for (const el of pageElements) {
-        const element = el as HTMLElement;
-        const fileName = element.dataset.fileName;
-        const pageIndex = parseInt(element.dataset.pageIndex || '', 10); // 0-based index from dataset
-
-        if (fileName && !isNaN(pageIndex)) {
-          uniqueFileNames.add(fileName);
-          rawPages.push({ fileName, pageIndex });
-        }
-      }
-
-      // Group contiguous pages
-      for (let i = 0; i < rawPages.length; i++) {
-        const current = rawPages[i];
-        let endPage = current.pageIndex;
-
-        while (
-          i + 1 < rawPages.length &&
-          rawPages[i + 1].fileName === current.fileName &&
-          rawPages[i + 1].pageIndex === endPage + 1
-        ) {
-          endPage++;
-          i++;
-        }
-
-        if (endPage === current.pageIndex) {
-          // Single page
-          jobs.push({
-            fileName: current.fileName,
-            rangeType: 'single',
-            pageIndex: current.pageIndex,
-          });
-        } else {
-          // Range of pages
-          jobs.push({
-            fileName: current.fileName,
-            rangeType: 'range',
-            startPage: current.pageIndex + 1,
-            endPage: endPage + 1,
-          });
-        }
-      }
-    }
-
-    if (jobs.length === 0) {
-      showAlert('Error', 'No files or pages selected to merge.');
-      hideLoader();
+  const message: MergeMessage = {
+    command: 'merge',
+    files: prepared.files,
+    jobs: prepared.jobs,
+    cpdfUrl: `${WasmProvider.getUrl('cpdf')}coherentpdf.browser.min.js`,
+    retainPageLabels: mergeModel.retainPageLabels,
+  };
+  const operationId = Date.now() + Math.random();
+  activeMergeOperation = operationId;
+  const processButton = document.getElementById(
+    'process-btn'
+  ) as HTMLButtonElement | null;
+  if (processButton) processButton.disabled = true;
+  const finishWorkerOperation = () => {
+    if (activeMergeOperation !== operationId) return false;
+    activeMergeOperation = 0;
+    if (processButton) processButton.disabled = mergeModel.files.length < 2;
+    return true;
+  };
+  mergeWorker.onmessage = (event: MessageEvent<MergeResponse>) => {
+    if (!finishWorkerOperation()) return;
+    hideLoader();
+    if (event.data.status !== 'success') {
+      operation?.finish({
+        result: 'error',
+        inputCount,
+        outputCount: 0,
+        errorCategory: 'processing',
+      });
+      showAlert('Error', event.data.message || 'Failed to merge PDFs.');
       return;
     }
-
-    for (const name of uniqueFileNames) {
-      const bytes = mergeState.pdfBytes[name];
-      if (bytes) {
-        filesToMerge.push({ name, data: bytes });
-      }
-    }
-
-    const retainCheckbox = document.getElementById(
-      'retain-page-labels'
-    ) as HTMLInputElement | null;
-
-    const message: MergeMessage = {
-      command: 'merge',
-      files: filesToMerge,
-      jobs: jobs,
-      cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-      retainPageLabels: retainCheckbox?.checked ?? false,
-    };
-
+    const blob = new Blob([event.data.pdfBytes], { type: 'application/pdf' });
+    downloadFile(blob, 'merged.pdf');
+    completionPanel?.show({
+      blob,
+      filename: 'merged.pdf',
+      summary: `Merged ${inputCount} PDFs into one document.`,
+      timing: completionTiming(startedAt),
+    });
+    operation?.finish({ result: 'success', inputCount, outputCount: 1 });
+  };
+  mergeWorker.onerror = (error) => {
+    if (!finishWorkerOperation()) return;
+    hideLoader();
+    console.error('Worker error:', error);
+    operation?.finish({
+      result: 'error',
+      inputCount,
+      outputCount: 0,
+      errorCategory: 'processing',
+    });
+    showAlert('Error', 'An unexpected error occurred in the merge worker.');
+  };
+  try {
     mergeWorker.postMessage(
       message,
-      filesToMerge.map((f) => f.data)
+      prepared.files.map(({ data }) => data)
     );
-
-    mergeWorker.onmessage = (e: MessageEvent<MergeResponse>) => {
-      hideLoader();
-      if (e.data.status === 'success') {
-        const blob = new Blob([e.data.pdfBytes], { type: 'application/pdf' });
-        downloadFile(blob, 'merged.pdf');
-        mergeState.mergeSuccess = true;
-        showAlert(
-          'Success',
-          'PDFs merged successfully!',
-          'success',
-          async () => {
-            await resetState();
-          }
-        );
-      } else {
-        console.error('Worker merge error:', e.data.message);
-        showAlert('Error', e.data.message || 'Failed to merge PDFs.');
-      }
-    };
-
-    mergeWorker.onerror = (e) => {
-      hideLoader();
-      console.error('Worker error:', e);
-      showAlert('Error', 'An unexpected error occurred in the merge worker.');
-    };
-  } catch (e) {
-    console.error('Merge error:', e);
-    showAlert(
-      'Error',
-      'Failed to merge PDFs. Please check that all files are valid and not password-protected.'
-    );
+  } catch (error) {
+    finishWorkerOperation();
     hideLoader();
+    console.error('Failed to start merge worker:', error);
+    operation?.finish({
+      result: 'error',
+      inputCount,
+      outputCount: 0,
+      errorCategory: 'processing',
+    });
+    showAlert('Error', 'Could not start the merge operation.');
   }
 }
 
-export async function refreshMergeUI() {
-  document.getElementById('merge-options')?.classList.remove('hidden');
-  const processBtn = document.getElementById(
-    'process-btn'
-  ) as HTMLButtonElement;
-  if (processBtn) processBtn.disabled = false;
-
-  const wasInPageMode = mergeState.activeMode === 'page';
-
-  showLoader('Loading PDF documents...');
-  try {
-    mergeState.pdfDocs = {};
-    mergeState.pdfBytes = {};
-
-    hideLoader();
-    state.files = await batchDecryptIfNeeded(state.files);
-    showLoader('Loading PDF documents...');
-
-    for (let i = 0; i < state.files.length; i++) {
-      const file = state.files[i];
-      const fileKey = `${i}_${file.name}`;
-
-      const bytes = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
-      mergeState.pdfBytes[fileKey] = bytes;
-      mergeState.pdfDocs[fileKey] = pdf;
-    }
-
-    if (state.files.length === 0) {
-      hideLoader();
-      return;
-    }
-  } catch (error) {
-    console.error('Error loading PDFs:', error);
-    showAlert('Error', 'Failed to load one or more PDF files');
-    return;
-  } finally {
-    hideLoader();
-  }
-
-  const fileModeBtn = document.getElementById('file-mode-btn');
-  const pageModeBtn = document.getElementById('page-mode-btn');
-  const filePanel = document.getElementById('file-mode-panel');
-  const pagePanel = document.getElementById('page-mode-panel');
-  const fileList = document.getElementById('file-list');
-
-  if (!fileModeBtn || !pageModeBtn || !filePanel || !pagePanel || !fileList)
-    return;
-
-  fileList.textContent = ''; // Clear list safely
-  (state.files as File[]).forEach((f, index) => {
-    const fileKey = `${index}_${f.name}`;
-    const doc = mergeState.pdfDocs[fileKey];
-    const pageCount = doc ? doc.numPages : 'N/A';
-    const safeFileName = fileKey.replace(/[^a-zA-Z0-9]/g, '_');
-
-    const li = document.createElement('li');
-    li.className =
-      'bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors';
-    li.dataset.fileName = fileKey;
-
-    const mainDiv = document.createElement('div');
-    mainDiv.className = 'flex items-center justify-between';
-
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'truncate font-medium text-white flex-1 mr-2';
-    nameSpan.title = f.name;
-    nameSpan.textContent = f.name;
-
-    const dragHandle = document.createElement('div');
-    dragHandle.className =
-      'drag-handle cursor-move text-gray-400 hover:text-white p-1 rounded transition-colors';
-    dragHandle.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>`; // Safe: static content
-
-    mainDiv.append(nameSpan, dragHandle);
-
-    const rangeDiv = document.createElement('div');
-    rangeDiv.className = 'mt-2 flex items-center gap-2';
-
-    const inputWrapper = document.createElement('div');
-    inputWrapper.className = 'flex-1';
-
-    const label = document.createElement('label');
-    label.htmlFor = `range-${safeFileName}`;
-    label.className = 'text-xs text-gray-400';
-    label.textContent = `Pages (e.g., 1-3, 5) - Total: ${pageCount}`;
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.id = `range-${safeFileName}`;
-    input.className =
-      'w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm mt-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors';
-    input.placeholder = 'Leave blank for all pages';
-
-    inputWrapper.append(label, input);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className =
-      'text-red-400 hover:text-red-300 p-2 flex-shrink-0 self-end';
-    deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-    deleteBtn.title = 'Remove file';
-    deleteBtn.onclick = (e) => {
-      e.stopPropagation();
-      state.files = state.files.filter((_, i) => i !== index);
-      updateUI();
-    };
-
-    rangeDiv.append(inputWrapper, deleteBtn);
-    li.append(mainDiv, rangeDiv);
-    fileList.appendChild(li);
-  });
-
-  createIcons({ icons });
-  initializeFileListSortable();
-
-  const newFileModeBtn = fileModeBtn.cloneNode(true) as HTMLElement;
-  const newPageModeBtn = pageModeBtn.cloneNode(true) as HTMLElement;
-  fileModeBtn.replaceWith(newFileModeBtn);
-  pageModeBtn.replaceWith(newPageModeBtn);
-
-  newFileModeBtn.addEventListener('click', () => {
-    if (mergeState.activeMode === 'file') return;
-
-    mergeState.activeMode = 'file';
-    filePanel.classList.remove('hidden');
-    pagePanel.classList.add('hidden');
-
-    newFileModeBtn.classList.add('bg-indigo-600', 'text-white');
-    newFileModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-    newPageModeBtn.classList.remove('bg-indigo-600', 'text-white');
-    newPageModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-  });
-
-  newPageModeBtn.addEventListener('click', async () => {
-    if (mergeState.activeMode === 'page') return;
-
-    mergeState.activeMode = 'page';
-    filePanel.classList.add('hidden');
-    pagePanel.classList.remove('hidden');
-
-    newPageModeBtn.classList.add('bg-indigo-600', 'text-white');
-    newPageModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-    newFileModeBtn.classList.remove('bg-indigo-600', 'text-white');
-    newFileModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-
-    await renderPageMergeThumbnails();
-  });
-
-  if (wasInPageMode) {
-    mergeState.activeMode = 'page';
-    filePanel.classList.add('hidden');
-    pagePanel.classList.remove('hidden');
-
-    newPageModeBtn.classList.add('bg-indigo-600', 'text-white');
-    newPageModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-    newFileModeBtn.classList.remove('bg-indigo-600', 'text-white');
-    newFileModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-
-    await renderPageMergeThumbnails();
-  } else {
-    newFileModeBtn.classList.add('bg-indigo-600', 'text-white');
-    newPageModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-  }
+export async function refreshMergeUI(): Promise<void> {
+  await renderMergeUI();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
+  completionPanel = createDefaultToolCompletionPanel(resetState);
 
-  const fileControls = document.getElementById('file-controls');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const mergeOptions = document.getElementById('merge-options');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files && files.length > 0) {
-        state.files = [...state.files, ...Array.from(files)];
-        await updateUI();
-      }
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        const pdfFiles = Array.from(files).filter(
-          (f) =>
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
-        );
-        if (pdfFiles.length > 0) {
-          state.files = [...state.files, ...pdfFiles];
-          await updateUI();
-        }
-      }
+  document.getElementById('back-to-tools')?.addEventListener('click', () => {
+    window.location.href = import.meta.env.BASE_URL;
+  });
+  fileInput?.addEventListener('change', () => {
+    void addFiles(Array.from(fileInput.files ?? []));
+  });
+  fileInput?.addEventListener('click', () => {
+    fileInput.value = '';
+  });
+  document.getElementById('add-more-btn')?.addEventListener('click', () => {
+    fileInput.value = '';
+    fileInput.click();
+  });
+  document.getElementById('clear-files-btn')?.addEventListener('click', () => {
+    void resetState();
+  });
+  document.getElementById('process-btn')?.addEventListener('click', () => {
+    void merge();
+  });
+  document.getElementById('undo-merge-btn')?.addEventListener('click', () => {
+    void undo();
+  });
+  document.getElementById('redo-merge-btn')?.addEventListener('click', () => {
+    void redo();
+  });
+  document.getElementById('file-mode-btn')?.addEventListener('click', () => {
+    if (mergeModel.activeMode === 'file') return;
+    snapshot();
+    mergeModel.activeMode = 'file';
+    void renderMergeUI();
+  });
+  document.getElementById('page-mode-btn')?.addEventListener('click', () => {
+    if (mergeModel.activeMode === 'page') return;
+    snapshot();
+    mergeModel.activeMode = 'page';
+    void renderMergeUI();
+  });
+  document
+    .getElementById('retain-page-labels')
+    ?.addEventListener('change', (event) => {
+      const checked = (event.target as HTMLInputElement).checked;
+      if (checked === mergeModel.retainPageLabels) return;
+      snapshot();
+      mergeModel.retainPageLabels = checked;
     });
 
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
+  dropZone?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.classList.add('bg-gray-700');
+  });
+  dropZone?.addEventListener('dragleave', () => {
+    dropZone.classList.remove('bg-gray-700');
+  });
+  dropZone?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('bg-gray-700');
+    const files = Array.from(event.dataTransfer?.files ?? []).filter(
+      (file) =>
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
+    );
+    void addFiles(files);
+  });
 
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.value = '';
-      fileInput.click();
-    });
-  }
+  document.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const key = event.key.toLowerCase();
+    if (key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      void undo();
+    } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+      event.preventDefault();
+      void redo();
+    }
+  });
 
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', async () => {
-      state.files = [];
-      await updateUI();
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', async () => {
-      await merge();
-    });
-  }
+  void renderMergeUI();
 });

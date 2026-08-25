@@ -1,3 +1,3 @@
 export interface PageNumbersState {
-    file: File | null;
+  file: File | null;
 }

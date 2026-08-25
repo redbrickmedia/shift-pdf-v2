@@ -8,17 +8,19 @@ import {
 } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
-import * as pdfjsLib from 'pdfjs-dist';
-import { PDFPageProxy } from 'pdfjs-dist';
+
+import type { PDFPageProxy } from 'pdfjs-dist';
 import { t } from '../i18n/i18n';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import {
+  completionTiming,
+  createDefaultToolCompletionPanel,
+  type ToolCompletionPanel,
+} from '../utils/tool-completion.js';
+import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
 
 let files: File[] = [];
+let completionPanel: ToolCompletionPanel | null = null;
 
 const updateUI = () => {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -104,9 +106,19 @@ async function convert() {
     );
     return;
   }
+  const startedAt = performance.now();
+  const operation: ToolOperation | null =
+    pdfEngineAnalytics?.startToolOperation('pdf-to-jpg') ?? null;
   try {
     const result = await loadPdfWithPasswordPrompt(files[0], files, 0);
-    if (!result) return;
+    if (!result) {
+      operation?.finish({
+        result: 'cancelled',
+        inputCount: 1,
+        outputCount: 0,
+      });
+      return;
+    }
     showLoader(t('tools:pdfToJpg.loader.converting'));
     const { pdf } = result;
 
@@ -115,10 +127,14 @@ async function convert() {
     ) as HTMLInputElement;
     const quality = qualityInput ? parseFloat(qualityInput.value) : 0.9;
 
+    let outputBlob: Blob;
+    let outputFilename: string;
     if (pdf.numPages === 1) {
       const page = await pdf.getPage(1);
       const blob = await renderPage(page, quality);
-      downloadFile(blob, getCleanPdfFilename(files[0].name) + '.jpg');
+      if (!blob) throw new Error('JPG rendering returned no output');
+      outputBlob = blob;
+      outputFilename = getCleanPdfFilename(files[0].name) + '.jpg';
     } else {
       const zip = new JSZip();
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -130,18 +146,29 @@ async function convert() {
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, getCleanPdfFilename(files[0].name) + '_jpgs.zip');
+      outputBlob = zipBlob;
+      outputFilename = getCleanPdfFilename(files[0].name) + '_jpgs.zip';
     }
 
-    showAlert(
-      t('common.success'),
-      t('tools:pdfToJpg.alert.conversionSuccess'),
-      'success',
-      () => {
-        resetState();
-      }
-    );
+    downloadFile(outputBlob, outputFilename);
+    completionPanel?.show({
+      blob: outputBlob,
+      filename: outputFilename,
+      summary: `${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'} converted to JPG.`,
+      timing: completionTiming(startedAt),
+    });
+    operation?.finish({
+      result: 'success',
+      inputCount: 1,
+      outputCount: pdf.numPages,
+    });
   } catch (e) {
+    operation?.finish({
+      result: 'error',
+      inputCount: 1,
+      outputCount: 0,
+      errorCategory: 'processing',
+    });
     console.error(e);
     showAlert(t('common.error'), t('tools:pdfToJpg.alert.conversionError'));
   } finally {
@@ -180,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'jpg-quality'
   ) as HTMLInputElement;
   const qualityValue = document.getElementById('jpg-quality-value');
+  completionPanel = createDefaultToolCompletionPanel(resetState);
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {

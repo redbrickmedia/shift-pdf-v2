@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>
-      Compress PDF Online Free - Reduce PDF Size Up to 90% | BentoPDF
-    </title>
-    <meta
-      name="title"
-      content="Compress PDF Online Free - Reduce PDF Size Up to 90% | BentoPDF"
-    />
+    <title>Compress PDF | Shift PDF</title>
+    <meta name="title" content="Compress PDF | Shift PDF" />
     <meta
       name="description"
       content="★ Compress PDF files for free - Reduce size by up to 90% ★ No signup required ★ Works offline in browser ★ Unlimited files ★ Privacy-first ★ Multiple compression levels"
@@ -20,47 +15,28 @@
       name="keywords"
       content="compress pdf, reduce pdf size, pdf compressor, shrink pdf, pdf optimizer, free pdf compression, online pdf reducer"
     />
-    <meta name="author" content="BentoPDF" />
-    <meta
-      name="robots"
-      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-    />
-
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://www.bentopdf.com/compress-pdf" />
+    <meta name="author" content="Shift PDF" />
+    <meta name="robots" content="noindex, nofollow" />
 
     <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.bentopdf.com/compress-pdf" />
-    <meta
-      property="og:title"
-      content="Compress PDF Free Online - Reduce PDF File Size | BentoPDF"
-    />
+
+    <meta property="og:title" content="Compress PDF | Shift PDF" />
     <meta
       property="og:description"
       content="Free PDF compressor - reduce file size by up to 90%. No signup, works in browser, unlimited files, privacy-first."
     />
-    <meta
-      property="og:image"
-      content="https://www.bentopdf.com/images/og-compress-pdf.png"
-    />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="BentoPDF" />
+
+    <meta property="og:site_name" content="Shift PDF" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://www.bentopdf.com/compress-pdf" />
-    <meta name="twitter:title" content="Compress PDF Free - Reduce PDF Size" />
+    <meta name="twitter:card" content="summary" />
+
+    <meta name="twitter:title" content="Compress PDF | Shift PDF" />
     <meta
       name="twitter:description"
       content="Free PDF compression tool. Reduce file size up to 90%, no signup, privacy-first."
     />
-    <meta
-      name="twitter:image"
-      content="https://www.bentopdf.com/images/twitter-compress-pdf.png"
-    />
-    <meta name="twitter:site" content="@BentoPDF" />
 
     <!-- Mobile Web App -->
     <meta name="mobile-web-app-capable" content="yes" />
@@ -361,6 +337,55 @@
             Compress PDF
           </button>
         </div>
+
+        <section
+          id="completion-panel"
+          class="hidden bg-green-900/30 border border-green-600/50 rounded-lg p-4 mt-6"
+          aria-live="polite"
+        >
+          <div class="flex items-start gap-3">
+            <i
+              data-lucide="check-circle"
+              class="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5"
+              aria-hidden="true"
+            ></i>
+            <div class="flex-1">
+              <h2
+                class="text-green-200 font-semibold"
+                data-i18n="tools:compressPdf.complete"
+              >
+                Compression complete
+              </h2>
+              <p
+                id="completion-summary"
+                class="text-green-200/90 text-sm mt-1"
+              ></p>
+              <p class="text-gray-400 text-xs mt-1">
+                <span data-i18n="common.completion.completedIn"
+                  >Completed in</span
+                >
+                <span id="completion-timing"></span>
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 mt-4">
+            <a
+              id="completion-download"
+              class="btn-gradient flex-1 text-center"
+              href="#"
+              ><span data-i18n="common.completion.downloadAgain"
+                >Download again</span
+              ></a
+            >
+            <button
+              id="completion-start-over"
+              type="button"
+              class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg flex-1"
+            >
+              <span data-i18n="common.completion.startOver">Start over</span>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -412,48 +437,5 @@
     <script type="module" src="/src/js/main.ts"></script>
 
     <!-- JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Compress PDF - BentoPDF",
-        "applicationCategory": "PDF Compression Tool",
-        "operatingSystem": "Any - Web Browser",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        },
-        "featureList": [
-          "Reduce PDF file size",
-          "Multiple compression algorithms",
-          "Batch processing",
-          "No file size limits",
-          "Condense algorithm for smart compression",
-          "Photon algorithm for image-heavy PDFs"
-        ]
-      }
-    </script>
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https://www.bentopdf.com"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Compress PDF",
-            "item": "https://www.bentopdf.com/compress-pdf"
-          }
-        ]
-      }
-    </script>
   </body>
 </html>

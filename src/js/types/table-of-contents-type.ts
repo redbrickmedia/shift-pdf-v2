@@ -1,18 +1,18 @@
 export interface GenerateTOCMessage {
-    type: 'generateTOC';
-    pdfBytes: ArrayBuffer;
-    title: string;
-    headerColor: string;
-    fontColor: string;
-    fontSize: number;
+  type: 'generateTOC';
+  pdfBytes: ArrayBuffer;
+  title: string;
+  headerColor: string;
+  fontColor: string;
+  fontSize: number;
 }
 
 export interface TOCSuccessResponse {
-    type: 'success';
-    pdfBytes: ArrayBuffer;
+  type: 'success';
+  pdfBytes: ArrayBuffer;
 }
 
 export interface TOCErrorResponse {
-    type: 'error';
-    message: string;
+  type: 'error';
+  message: string;
 }

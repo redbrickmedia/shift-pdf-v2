@@ -24,16 +24,10 @@ import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { downloadFile, escapeHtml, hexToRgb } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import * as bwipjs from 'bwip-js/browser';
-import 'pdfjs-dist/web/pdf_viewer.css';
-
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import 'pdfjs-dist/legacy/web/pdf_viewer.css';
 
 import {
   ExtractExistingFieldsResult,
@@ -2199,7 +2193,7 @@ downloadBtn.addEventListener('click', async () => {
 
     // Set document metadata for accessibility
     pdfDoc.setTitle('Fillable Form');
-    pdfDoc.setAuthor('BentoPDF');
+    pdfDoc.setAuthor('Shift PDF');
     pdfDoc.setLanguage('en-US');
 
     const radioGroups = new Map<

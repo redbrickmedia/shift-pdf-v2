@@ -1,3 +1,3 @@
 export interface ChangePermissionsState {
-    file: File | null;
+  file: File | null;
 }

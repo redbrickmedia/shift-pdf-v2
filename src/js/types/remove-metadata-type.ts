@@ -1,3 +1,3 @@
 export interface RemoveMetadataState {
-    file: File | null;
+  file: File | null;
 }

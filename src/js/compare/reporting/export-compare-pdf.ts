@@ -1,5 +1,6 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { PDFDocument, rgb } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import type {
   CompareCaches,
   ComparePagePair,

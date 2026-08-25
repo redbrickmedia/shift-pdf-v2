@@ -13,8 +13,9 @@ Add your signature to any PDF document. The tool embeds a full PDF viewer with b
 2. The document opens in an integrated PDF viewer with annotation tools.
 3. Use the viewer's signature tool to create your signature by drawing, typing, or uploading an image.
 4. Click on the page where you want to place the signature and adjust its size and position.
-5. Optionally check **Flatten PDF** to permanently embed the signature into the document.
-6. Click **Save & Download Signed PDF** to get your signed file.
+5. Optionally check **Flatten signatures into page content** to burn the signature into the page.
+6. Print from the editor, or click **Download Signed PDF** to get your signed file.
+7. The result remains available through **Download again** until you choose **Start over**.
 
 ## Options
 
@@ -27,6 +28,18 @@ Add your signature to any PDF document. The tool embeds a full PDF viewer with b
 - Drag to position and resize signatures on any page
 - Optional flattening to permanently embed signatures
 - Support for multiple signatures on the same document
+- Viewer navigation and keyboard controls remain available while signing
+- Existing signatures can be selected, edited, moved, resized, or deleted
+
+## Privacy and signature type
+
+Sign PDF creates a visual signature. It does not create a certificate-backed
+digital signature or prove signer identity. Use the separate Digital Signature
+tool when certificate validation is required.
+
+The uploaded PDF and created signatures remain only in the current browser
+session. The tool disables PDF.js signature-library persistence and does not
+store the PDF for later use.
 
 ## Use Cases
 

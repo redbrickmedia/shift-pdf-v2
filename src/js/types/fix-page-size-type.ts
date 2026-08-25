@@ -1,3 +1,3 @@
 export interface FixPageSizeState {
-    file: File | null;
+  file: File | null;
 }

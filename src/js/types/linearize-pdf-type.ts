@@ -1,3 +1,3 @@
 export interface LinearizePdfState {
-    files: File[];
+  files: File[];
 }

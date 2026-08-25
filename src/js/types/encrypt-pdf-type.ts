@@ -1,3 +1,3 @@
 export interface EncryptPdfState {
-    file: File | null;
+  file: File | null;
 }

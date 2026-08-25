@@ -1,15 +1,11 @@
+import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { createIcons, icons } from 'lucide';
 import { initPagePreview } from '../utils/page-preview.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { escapeHtml } from '../utils/helpers.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 // State
 const pageState: {
@@ -192,7 +188,7 @@ async function detectBlankPages() {
   showLoader('Detecting blank pages...');
   try {
     const pdfData = await pageState.file.arrayBuffer();
-    const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const pdfDoc = await getPDFDocument({ data: pdfData }).promise;
     const totalPages = pdfDoc.numPages;
 
     pageState.detectedBlankPages = [];

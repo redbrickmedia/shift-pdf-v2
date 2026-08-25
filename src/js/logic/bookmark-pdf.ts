@@ -1,6 +1,6 @@
 import { PDFDocument, PDFName, PDFNumber, PDFHexString, PDFRef } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
-import { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
+
+import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import Sortable from 'sortablejs';
 import { createIcons, icons } from 'lucide';
 import '../../css/bookmark.css';
@@ -31,11 +31,6 @@ import {
   HEX_COLOR_MAP,
   PDF_COLOR_MAP,
 } from '@/types';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const modalContainer = document.getElementById(
   'modal-container'

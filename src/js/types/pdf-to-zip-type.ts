@@ -1,3 +1,3 @@
 export interface PdfToZipState {
-    files: File[];
+  files: File[];
 }

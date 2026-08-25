@@ -1,3 +1,4 @@
+import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import {
@@ -13,14 +14,9 @@ import {
   parsePageRange,
 } from '../utils/pdf-operations.js';
 import { AddWatermarkState, PageWatermarkConfig } from '@/types';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const pageState: AddWatermarkState = {
   file: null,
@@ -965,7 +961,7 @@ async function applyWatermark() {
       'flatten-watermark'
     ) as HTMLInputElement;
     if (flattenCheckbox?.checked) {
-      const watermarkedPdf = await pdfjsLib.getDocument({
+      const watermarkedPdf = await getPDFDocument({
         data: resultBytes.slice(),
       }).promise;
       const flattenedDoc = await PDFLibDocument.create();

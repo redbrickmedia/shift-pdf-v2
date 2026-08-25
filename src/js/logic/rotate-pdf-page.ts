@@ -1,3 +1,4 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
@@ -8,13 +9,8 @@ import {
 } from '../utils/render-utils.js';
 import { rotatePdfPages } from '../utils/pdf-operations.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-import * as pdfjsLib from 'pdfjs-dist';
-import { loadPdfDocument } from '../utils/load-pdf-document.js';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import { loadPdfDocument } from '../utils/load-pdf-document.js';
 
 interface RotateState {
   file: File | null;

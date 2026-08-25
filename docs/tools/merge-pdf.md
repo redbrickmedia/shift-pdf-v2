@@ -13,7 +13,9 @@ Combine multiple PDF files into a single document. You can merge entire files in
 2. Choose between **File Mode** and **Page Mode** using the toggle at the top.
 3. In File Mode, drag files to reorder them and optionally specify page ranges (e.g., `1-3, 5`) for each file. Leave the range blank to include all pages.
 4. In Page Mode, drag and drop individual page thumbnails to build your exact page sequence.
-5. Click **Merge PDFs** to combine everything into one file. The merged PDF downloads automatically.
+5. Use **Undo** and **Redo** or their keyboard shortcuts to revise up to 20 changes.
+6. Click **Merge PDFs** to combine everything into one file. The merged PDF downloads automatically.
+7. Use **Download again** until you choose **Start over**.
 
 ## Features
 
@@ -23,6 +25,8 @@ Combine multiple PDF files into a single document. You can merge entire files in
 - Lazy-loaded page thumbnails keep the UI responsive even with large documents
 - No limit on number of files or total page count
 - Preserves original PDF quality with no re-encoding
+- Strict, 1-based page ranges; malformed, descending, and out-of-bounds ranges are rejected
+- Undo and redo restore file IDs, order, ranges, page order, mode, and page-label settings together
 
 ## Options
 

@@ -1,3 +1,4 @@
+import { getPDFDocument } from '@/js/utils/pdfjs.js';
 import { ClassicPreset } from 'rete';
 import { BaseWorkflowNode } from './base-node';
 import { pdfSocket } from '../sockets';
@@ -6,7 +7,7 @@ import { requirePdfInput, processBatch } from '../types';
 import { addTextWatermark, parsePageRange } from '../../utils/pdf-operations';
 import { PDFDocument } from 'pdf-lib';
 import { hexToRgb } from '../../utils/helpers.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { loadPdfDocument } from '../../utils/load-pdf-document.js';
 import { wfError } from '../errors';
 
@@ -120,7 +121,7 @@ export class WatermarkNode extends BaseWorkflowNode {
         });
 
         if (shouldFlatten) {
-          const watermarkedPdf = await pdfjsLib.getDocument({
+          const watermarkedPdf = await getPDFDocument({
             data: resultBytes.slice(),
           }).promise;
           const flattenedDoc = await PDFDocument.create();

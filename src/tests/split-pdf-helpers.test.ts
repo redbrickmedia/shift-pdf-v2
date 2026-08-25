@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import createModule from '@neslinesli93/qpdf-wasm';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib';
 import type { QpdfInstanceExtended } from '@/types';
 import {
   parseRangeGroups,
@@ -16,7 +16,61 @@ import {
   extractPagesWithQpdf,
 } from '@/js/utils/split-pdf-helpers';
 
-const FIXTURES = path.resolve(__dirname, './fixtures');
+async function makeSharedResourcePdf(): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  const page = document.addPage([200, 200]);
+  const xObjects = document.context.obj({}) as PDFDict;
+
+  for (let index = 0; index < 24; index++) {
+    let seed = index + 1;
+    let content = '';
+    for (let line = 0; line < 96; line++) {
+      content += '%';
+      for (let column = 0; column < 80; column++) {
+        seed ^= seed << 13;
+        seed ^= seed >>> 17;
+        seed ^= seed << 5;
+        content += String.fromCharCode(33 + ((seed >>> 0) % 90));
+      }
+      content += '\n';
+    }
+    const stream = document.context.flateStream(content, {
+      Type: 'XObject',
+      Subtype: 'Form',
+      BBox: [0, 0, 1, 1],
+    });
+    xObjects.set(
+      PDFName.of(`Unused${index}`),
+      document.context.register(stream)
+    );
+  }
+
+  page.node.set(
+    PDFName.of('Resources'),
+    document.context.obj({ XObject: xObjects })
+  );
+  return document.save({ useObjectStreams: false });
+}
+
+async function makeBookmarkedPdf(): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  const pages = [document.addPage(), document.addPage(), document.addPage()];
+  const outlines = document.context.obj({
+    Type: 'Outlines',
+    Count: 1,
+  }) as PDFDict;
+  const outlinesRef = document.context.register(outlines);
+  const item = document.context.obj({
+    Title: PDFString.of('Section one'),
+    Parent: outlinesRef,
+    Dest: [pages[0].ref, 'Fit'],
+  }) as PDFDict;
+  const itemRef = document.context.register(item);
+  outlines.set(PDFName.of('First'), itemRef);
+  outlines.set(PDFName.of('Last'), itemRef);
+  document.catalog.set(PDFName.of('Outlines'), outlinesRef);
+  return document.save({ useObjectStreams: false });
+}
 
 describe('split-pdf-helpers (pure planning)', () => {
   describe('parseRangeGroups', () => {
@@ -332,9 +386,7 @@ describe('split modes end-to-end with real qpdf', () => {
   });
 
   it('fixes resource bloat: a single-page extract is far smaller than pdf-lib copyPages', async () => {
-    const src = new Uint8Array(
-      fs.readFileSync(path.join(FIXTURES, 'shared-resources.pdf'))
-    );
+    const src = await makeSharedResourcePdf();
 
     const srcDoc = await PDFDocument.load(src);
     const plDoc = await PDFDocument.create();
@@ -347,9 +399,7 @@ describe('split modes end-to-end with real qpdf', () => {
   });
 
   it('preserves the document outline that pdf-lib copyPages drops', async () => {
-    const src = new Uint8Array(
-      fs.readFileSync(path.join(FIXTURES, 'bookmarked.pdf'))
-    );
+    const src = await makeBookmarkedPdf();
 
     const srcDoc = await PDFDocument.load(src);
     const plDoc = await PDFDocument.create();
