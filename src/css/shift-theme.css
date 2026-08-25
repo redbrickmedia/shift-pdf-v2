@@ -434,8 +434,19 @@ html.shift-sidebar-collapsed-pending .shift-favorite-remove {
   display: none;
 }
 
+/* The remove control is hidden on the rail, so nothing needs the end padding
+   the expanded pin reserves on hover. Left unmatched, that reservation is more
+   specific than this rule and squeezed the 40px tile's content box to nothing,
+   sliding the icon out from under the pointer and clipping it. The hover and
+   focus states are spelled out here so they outweigh it rather than race it. */
 body.shift-sidebar-collapsed .shift-favorite-link,
-html.shift-sidebar-collapsed-pending .shift-favorite-link {
+body.shift-sidebar-collapsed
+  .shift-favorite-item:is(:hover, :focus-within)
+  .shift-favorite-link,
+html.shift-sidebar-collapsed-pending .shift-favorite-link,
+html.shift-sidebar-collapsed-pending
+  .shift-favorite-item:is(:hover, :focus-within)
+  .shift-favorite-link {
   padding-right: 8px;
 }
 
@@ -665,6 +676,65 @@ a.tool-card:focus-visible {
   color: var(--text-primary);
 }
 
+.shift-favorites-heading {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.shift-favorites-count {
+  min-width: 24px;
+  padding: 2px 7px;
+  color: var(--action-button-surface-primary-default);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--brand-50);
+}
+
+.shift-favorites-empty {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-height: 112px;
+  padding: 20px;
+  color: var(--text-secondary);
+  text-align: center;
+  border: 1px dashed var(--border-outer-primary);
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
+}
+
+.shift-favorites-empty[hidden] {
+  display: none;
+}
+
+.shift-favorites-empty svg {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 4px;
+  color: var(--action-button-surface-primary-default);
+  fill: none;
+  stroke: currentColor;
+}
+
+.shift-favorites-empty strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.shift-favorites-empty span {
+  max-width: 420px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
 /* ---- Ramp corrections ----
  * A few utilities read the ramp the opposite way to the dominant usage above:
  * these levels are used as ink where the remap makes them surfaces, or as
@@ -818,6 +888,42 @@ input#tool-search {
   border-color: var(--border-outer-primary) !important;
 }
 
+/* ---- Dropdowns ----
+ * Every select on the tool pages is authored as a bordered box with symmetric
+ * padding (`p-2.5` and friends), and the browser then draws its own arrow at
+ * the inline end of the content box: the arrow ends up crowding the border,
+ * with a gap that changes per platform and that padding utilities cannot tune.
+ * Dropping the native appearance and drawing the caret here fixes the gap on
+ * both sides of it — 12px to the border, 12px to the longest label.
+ *
+ * The caret is two gradient halves rather than an SVG because a data URI
+ * cannot read `currentColor`; built this way it inherits the label's ink and
+ * so keeps following the theme when the toolkit switches light/dark.
+ *
+ * List boxes are excluded: they are open already and have nothing to point at.
+ */
+select:not([multiple]):not([size]) {
+  padding-inline-end: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 22px center,
+    right 17px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Mirrored for Arabic, since background-position takes no logical keyword. The
+   caret's left half is still its left half here, so it takes the near offset. */
+[dir='rtl'] select:not([multiple]):not([size]) {
+  background-position:
+    left 12px center,
+    left 17px center;
+}
+
 /* Tool catalog search — mirrors Shift SearchField (secondary) geometry */
 .shift-tool-search {
   display: flex;
@@ -922,7 +1028,7 @@ input#tool-search {
 }
 
 .shift-search-settings {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 24px;

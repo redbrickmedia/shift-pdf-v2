@@ -110,7 +110,9 @@ describe('PDF.js visual signature mode', () => {
       'utf8'
     );
     const storageStart = viewerBundle.indexOf('class SignatureStorage');
-    const storageEnd = viewerBundle.indexOf(';// ./web/genericcom.js');
+    const storageEnd = viewerBundle.indexOf('// ./web/genericcom.js');
+    expect(storageStart).toBeGreaterThanOrEqual(0);
+    expect(storageEnd).toBeGreaterThan(storageStart);
     const signatureStorage = viewerBundle.slice(storageStart, storageEnd);
 
     expect(signatureStorage).not.toContain('pdfjs.signature');

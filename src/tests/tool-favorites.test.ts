@@ -3,6 +3,7 @@ import {
   applyFavoritePinTitles,
   loadFavoriteToolIds,
   parseFavoriteToolIds,
+  partitionToolIdsByFavorites,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   titleForFavoritePin,
@@ -73,6 +74,21 @@ describe('tool favorites', () => {
     expect(
       toggleFavoriteToolId(['merge-pdf', 'split-pdf'], 'merge-pdf')
     ).toEqual(['split-pdf']);
+  });
+
+  it('assigns each tool to favorites or the catalog exactly once', () => {
+    const partition = partitionToolIdsByFavorites(
+      ['merge-pdf', 'split-pdf', 'compress-pdf'],
+      ['split-pdf', 'missing-tool']
+    );
+
+    expect(partition).toEqual({
+      favoriteIds: ['split-pdf'],
+      catalogIds: ['merge-pdf', 'compress-pdf'],
+    });
+    expect([...partition.favoriteIds, ...partition.catalogIds]).toHaveLength(
+      new Set([...partition.favoriteIds, ...partition.catalogIds]).size
+    );
   });
 
   it('caches the rail pins the boot script paints from', () => {

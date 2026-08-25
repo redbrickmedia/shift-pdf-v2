@@ -159,6 +159,20 @@ export function toggleFavoriteToolId(
   ].slice(-MAX_FAVORITES);
 }
 
+export function partitionToolIdsByFavorites(
+  toolIds: readonly string[],
+  favoriteIds: readonly string[]
+): { favoriteIds: string[]; catalogIds: string[] } {
+  const available = new Set(toolIds);
+  const favorites = favoriteIds.filter((toolId) => available.has(toolId));
+  const favoriteSet = new Set(favorites);
+
+  return {
+    favoriteIds: favorites,
+    catalogIds: toolIds.filter((toolId) => !favoriteSet.has(toolId)),
+  };
+}
+
 function getLocalStorage(): Storage | undefined {
   if (typeof window === 'undefined') return undefined;
 

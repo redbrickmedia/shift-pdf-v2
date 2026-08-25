@@ -46,4 +46,4 @@ and `/merge-pdf.html` must resolve to their own files.
 
 ## Visual shell
 
-Concept A (sidebar) — see `design/explorations/DECISION.md`.
+The app uses a persistent sidebar shell (not a top-bar-only layout).

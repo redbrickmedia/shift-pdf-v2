@@ -70,7 +70,7 @@ assertVersion(
 assertVersion(
   extractVersion(
     viewerBundle,
-    /const viewerVersion = "([0-9.]+)"/,
+    /const viewerVersion = ['"]([0-9.]+)['"]/,
     'viewer bundle'
   ),
   lockVersion,

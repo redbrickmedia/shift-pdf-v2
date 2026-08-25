@@ -1,0 +1,261 @@
+/* Shift theme for the embedded PDF.js signing viewer.
+ *
+ * The viewer runs in an iframe, so it is a separate document: it inherits no
+ * custom properties from src/css/shift-theme.css and it resolves
+ * `prefers-color-scheme` against the OS, which is why stock PDF.js renders its
+ * dark chrome inside the light Shift shell.
+ *
+ * Two things happen below:
+ *   1. `color-scheme: only light` pins every `light-dark()` value in viewer.css
+ *      to its light branch, so nothing follows the OS setting any more.
+ *   2. PDF.js chrome variables are re-pointed at Shift design-system tokens.
+ *
+ * Token names match @redbrickmedia/shift-design-system (the same names used in
+ * src/css/shift-theme.css) so the Shift browser toolkit can re-theme this
+ * document by toggling those properties. Hex values are the light/default-brand
+ * resolutions, repeated here because the iframe cannot read the app's copy.
+ *
+ * Scoped to `[data-shift-viewer='sign']`, which shift-viewer-theme.js sets from
+ * the `bentoSign` query parameter, so the form-filler embed of viewer.html is
+ * untouched. Page rendering (canvas, text layer, page geometry) is left alone;
+ * only the surrounding chrome is restyled.
+ */
+
+html[data-shift-viewer='sign'] {
+  color-scheme: only light;
+
+  /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
+  --background-bar-primary: #f3f4f6; /* light-100 */
+  --background-secondary: #ffffff; /* basic-white */
+  --text-primary: #111827; /* light-900 */
+  --text-secondary: #374151; /* light-700 */
+  --border-divider-secondary: #e6e9ef; /* light-200 */
+  --border-outer-primary: #d1d5db; /* light-300 */
+  --action-button-surface-primary-default: #2563eb; /* brand-600 */
+  --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
+  --brand-50: #eff6ff;
+  --brand-500: #3b82f6;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
+  --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
+  --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
+  --action-text-neutral-default: #374151; /* light-700 */
+  --action-text-neutral-hover: #1f2937; /* light-800 */
+  --action-text-neutral-selected: #111827; /* light-900 */
+
+  /* App-local geometry, matching --shift-font in src/css/shift-theme.css. The
+     iframe has no @font-face for Inter, so this resolves to the system stack
+     unless Inter is installed locally; both beat PDF.js's `font: menu`. */
+  --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- PDF.js chrome, mapped onto the tokens above ---- */
+
+  /* Toolbar surface and the workspace behind the pages. The workspace uses
+     light-200 rather than light-100 so white pages stay visible against it
+     without touching page borders or margins. */
+  --main-color: var(--text-primary);
+  --body-bg-color: var(--action-controls-surface-primary-hover);
+  --toolbar-bg-color: var(--background-secondary);
+  --toolbar-border-color: var(--border-divider-secondary);
+  --sidebar-toolbar-bg-color: var(--background-bar-primary);
+  --separator-color: var(--border-outer-primary);
+  --doorhanger-separator-color: var(--border-divider-secondary);
+
+  /* Toolbar icons are masked shapes, so their "background" is the ink colour.
+     Full opacity keeps them exactly on the neutral action tokens. */
+  --toolbar-icon-opacity: 1;
+  --doorhanger-icon-opacity: 1;
+  --toolbar-icon-bg-color: var(--action-text-neutral-default);
+  --toolbar-icon-hover-bg-color: var(--action-text-neutral-hover);
+  --button-hover-color: var(--action-controls-surface-primary-hover);
+
+  /* Active tool (the signature button stays toggled for the whole session). */
+  --toggled-btn-color: var(--action-button-surface-primary-default);
+  --toggled-btn-bg-color: var(--brand-50);
+  --toggled-hover-active-btn-color: var(--brand-50);
+
+  /* Page-number field and the zoom dropdown. */
+  --field-color: var(--text-primary);
+  --field-bg-color: var(--background-secondary);
+  --field-border-color: var(--border-outer-primary);
+  --dropdown-btn-bg-color: var(--action-controls-surface-primary-default);
+  --dropdown-btn-border: 1px solid var(--border-outer-primary);
+
+  /* Secondary toolbar and the "Add new signature" popover. */
+  --doorhanger-bg-color: var(--background-secondary);
+  --doorhanger-border-color: var(--border-outer-primary);
+  --doorhanger-hover-color: var(--action-text-neutral-hover);
+  --dialog-button-bg-color: var(--action-controls-surface-primary-default);
+  --dialog-button-hover-bg-color: var(--action-controls-surface-primary-hover);
+
+  --focus-ring-color: var(--action-button-surface-primary-default);
+  --link-fg-color: var(--action-button-surface-primary-default);
+  --progressBar-color: var(--action-button-surface-primary-default);
+  --progressBar-bg-color: var(--background-bar-primary);
+  --progressBar-blend-color: var(--brand-500);
+
+  /* Floating toolbar attached to a placed signature. */
+  --editor-toolbar-bg-color: var(--background-secondary);
+  --editor-toolbar-fg-color: var(--action-text-neutral-default);
+  --editor-toolbar-border-color: var(--border-outer-primary);
+  --editor-toolbar-hover-bg-color: var(--action-controls-surface-primary-hover);
+  --editor-toolbar-hover-fg-color: var(--action-text-neutral-hover);
+  --editor-toolbar-focus-outline-color: var(
+    --action-button-surface-primary-default
+  );
+  --editor-toolbar-shadow: 0 2px 6px 0 rgb(17 24 39 / 0.12);
+
+  /* Saved-signature rows inside the signature popover. */
+  --signature-bg: var(--background-bar-primary);
+  --signature-hover-bg: var(--action-controls-surface-primary-hover);
+  --button-signature-color: var(--action-text-neutral-default);
+  --button-signature-hover-bg: var(--action-controls-surface-primary-hover);
+  --button-signature-hover-color: var(--action-text-neutral-hover);
+  --button-signature-active-bg: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --button-signature-active-color: var(--action-text-neutral-selected);
+}
+
+/* These components re-declare `color-scheme: light dark` on themselves, which
+   would otherwise re-enable the dark branch inside them. */
+html[data-shift-viewer='sign'] :is(.commentPopup, .annotationCommentButton) {
+  color-scheme: only light;
+}
+
+html[data-shift-viewer='sign'] body {
+  font-family: var(--shift-font);
+}
+
+/* PDF.js sizes toolbar buttons at 2px radius; Shift controls are 8px. */
+html[data-shift-viewer='sign']
+  :is(
+    .toolbarButton,
+    .secondaryToolbarButton,
+    .dropdownToolbarButton,
+    .toolbarField,
+    .dialogButton
+  ) {
+  border-radius: var(--radius-8);
+}
+
+/* The page-number field hardcodes a focus border colour upstream. */
+html[data-shift-viewer='sign'] .toolbarField:focus {
+  border-color: var(--action-button-surface-primary-default);
+}
+
+html[data-shift-viewer='sign'] :is(.doorHanger, .doorHangerRight) {
+  border-radius: var(--radius-12);
+  box-shadow:
+    0 1px 2px rgb(17 24 39 / 0.06),
+    0 8px 24px rgb(17 24 39 / 0.12),
+    0 0 0 1px var(--border-divider-secondary);
+}
+
+/* "Signature removed / Undo" toast. Its own scope re-declares the message-bar
+   variables, so they have to be overridden here rather than on the root. */
+html[data-shift-viewer='sign'] #editorUndoBar {
+  --text-primary-color: var(--text-primary);
+  --message-bar-icon-color: var(--action-button-surface-primary-default);
+  --message-bar-bg-color: var(--brand-50);
+  --message-bar-border-color: var(--border-outer-primary);
+
+  --undo-button-bg-color: var(--background-secondary);
+  --undo-button-bg-color-hover: var(--action-controls-surface-primary-hover);
+  --undo-button-bg-color-active: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --undo-button-border: 1px solid var(--action-button-surface-primary-default);
+  --undo-button-fg-color: var(--action-button-surface-primary-default);
+
+  border-radius: var(--radius-8);
+  box-shadow: 0 8px 24px rgb(17 24 39 / 0.12);
+}
+
+html[data-shift-viewer='sign'] #editorUndoBar #editorUndoBarUndoButton {
+  border-radius: var(--radius-8);
+}
+
+/* "Add a signature" dialog: white surface, Shift blue primary action. */
+html[data-shift-viewer='sign'] .dialog {
+  --dialog-bg-color: var(--background-secondary);
+  --dialog-border-color: var(--border-divider-secondary);
+  --dialog-shadow: 0 8px 32px 0 rgb(17 24 39 / 0.16);
+  --text-primary-color: var(--text-primary);
+  --text-secondary-color: var(--text-secondary);
+  --separator-color: var(--border-divider-secondary);
+  /* Hover states darken a light surface; the stock dark rule brightens it. */
+  --hover-filter: brightness(0.95);
+  --button-disabled-opacity: 0.4;
+  --link-fg-color: var(--action-button-surface-primary-default);
+  --link-hover-fg-color: var(--action-button-surface-primary-hover);
+
+  --textarea-border-color: var(--border-outer-primary);
+  --textarea-bg-color: var(--background-secondary);
+
+  --radio-bg-color: var(--background-bar-primary);
+  --radio-checked-bg-color: var(--background-secondary);
+  --radio-border-color: var(--border-outer-primary);
+  --radio-checked-border-color: var(--action-button-surface-primary-default);
+
+  --button-secondary-bg-color: var(--action-controls-surface-primary-default);
+  --button-secondary-fg-color: var(--action-text-neutral-default);
+  --button-secondary-border-color: var(--border-outer-primary);
+  --button-secondary-hover-bg-color: var(
+    --action-controls-surface-primary-hover
+  );
+  --button-secondary-hover-border-color: var(--border-outer-primary);
+  --button-secondary-active-bg-color: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --button-secondary-active-border-color: var(--border-outer-primary);
+
+  --button-primary-bg-color: var(--action-button-surface-primary-default);
+  --button-primary-fg-color: var(--background-secondary);
+  --button-primary-hover-bg-color: var(--action-button-surface-primary-hover);
+  --button-primary-active-bg-color: var(--action-button-surface-primary-hover);
+
+  --input-text-bg-color: var(--background-secondary);
+
+  border-radius: var(--radius-12);
+}
+
+html[data-shift-viewer='sign'] .dialog :is(button, input[type='text']) {
+  border-radius: var(--radius-8);
+}
+
+/* The signature dialog is the one component that branches on
+   `prefers-color-scheme` directly instead of `light-dark()`, so `color-scheme`
+   cannot pin it and its id-level rules outrank the `.dialog` block above. */
+html[data-shift-viewer='sign'] #addSignatureDialog {
+  --dialog-bg-color: var(--background-secondary);
+  --primary-color: var(--text-primary);
+  --secondary-color: var(--text-secondary);
+  --border-color: var(--border-outer-primary);
+  --bg-hover: var(--action-controls-surface-primary-hover);
+  --hover-filter: brightness(0.95);
+
+  --tab-top-line-active-color: var(--action-button-surface-primary-default);
+  --tab-top-line-hover-color: var(--border-outer-primary);
+  --tab-top-line-inactive-color: var(--border-divider-secondary);
+  --tab-panel-border-radius: var(--radius-8);
+
+  --clear-signature-button-bg-active: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --clear-signature-button-bg-focus: var(--background-bar-primary);
+  --clear-signature-button-bg-disabled: var(--background-bar-primary);
+}
+
+/* Shift's own font/colour strip inside the signature dialog sits on a dark
+   scrim, which reads as a grey band once the dialog is light. */
+html[data-shift-viewer='sign'] #signatureTypeControls {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+}
+
+html[data-shift-viewer='sign'] #signatureTypeControls label {
+  color: var(--text-secondary);
+}

@@ -1,5 +1,6 @@
 {
   "categories": {
+    "favoriteTools": "Favorite Tools",
     "popularTools": "Popular Tools",
     "editAnnotate": "Edit & Annotate",
     "convertToPdf": "Convert to PDF",
@@ -9,6 +10,10 @@
     "securePdf": "Secure PDF",
     "input": "Input",
     "output": "Output"
+  },
+  "favorites": {
+    "emptyTitle": "Keep your go-to tools close",
+    "emptyDescription": "Select the star on any tool to add it here. Favorites stay in this browser."
   },
   "convertToPdf": "Convert to PDF",
   "pdfMultiTool": {

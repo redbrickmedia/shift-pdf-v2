@@ -25,6 +25,7 @@ import {
 import {
   applyFavoritePinTitles,
   loadFavoriteToolIds,
+  partitionToolIdsByFavorites,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
@@ -593,7 +594,9 @@ const init = async () => {
         favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
         saveFavoriteToolIds(favoriteToolIds);
         renderSidebarFavorites();
+        renderGridFavorites();
         updateGridFavoriteControls();
+        refreshGridSearch();
       });
 
       item.append(link, removeButton);
@@ -614,11 +617,16 @@ const init = async () => {
     );
   };
 
+  let renderGridFavorites = () => {};
+  let refreshGridSearch = () => {};
+
   const toggleFavorite = (toolId: string) => {
     favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
     saveFavoriteToolIds(favoriteToolIds);
     renderSidebarFavorites();
+    renderGridFavorites();
     updateGridFavoriteControls();
+    refreshGridSearch();
   };
 
   renderSidebarFavorites();
@@ -648,6 +656,124 @@ const init = async () => {
         tools: category.tools.filter((tool) => !isToolDisabled(tool.id)),
       }))
       .filter((category) => category.tools.length > 0);
+
+    const toolCards = new Map<string, HTMLElement>();
+    const originalToolContainers = new Map<string, HTMLElement>();
+
+    // Favorites is always the first category. It owns favorited cards rather
+    // than cloning them, so a tool can never appear twice in the catalog.
+    const favoritesGroup = document.createElement('div');
+    favoritesGroup.id = 'favorite-tools';
+    favoritesGroup.className =
+      'category-group shift-favorites-category col-span-full';
+    favoritesGroup.dataset.categoryType = 'favorites';
+
+    const favoritesHeader = document.createElement('button');
+    favoritesHeader.className = 'category-header';
+    favoritesHeader.type = 'button';
+
+    const favoritesHeading = document.createElement('span');
+    favoritesHeading.className = 'shift-favorites-heading';
+    const favoritesTitle = document.createElement('span');
+    favoritesTitle.textContent = t('tools:categories.favoriteTools');
+    const favoritesCount = document.createElement('span');
+    favoritesCount.className = 'shift-favorites-count';
+    favoritesCount.setAttribute('aria-hidden', 'true');
+    favoritesHeading.append(favoritesTitle, favoritesCount);
+
+    const favoritesChevron = document.createElement('i');
+    favoritesChevron.setAttribute('data-lucide', 'chevron-down');
+    favoritesChevron.className =
+      'category-chevron w-5 h-5 text-gray-400 transition-transform duration-300';
+    favoritesHeader.append(favoritesHeading, favoritesChevron);
+
+    const favoritesToolsContainer = document.createElement('div');
+    favoritesToolsContainer.className = 'category-tools shift-tool-grid';
+
+    const favoritesEmpty = document.createElement('div');
+    favoritesEmpty.className = 'shift-favorites-empty';
+    const favoritesEmptyIcon = createInlineIcon(
+      'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+    );
+    favoritesEmptyIcon.setAttribute('aria-hidden', 'true');
+    const favoritesEmptyTitle = document.createElement('strong');
+    favoritesEmptyTitle.textContent = t('tools:favorites.emptyTitle');
+    const favoritesEmptyCopy = document.createElement('span');
+    favoritesEmptyCopy.textContent = t('tools:favorites.emptyDescription');
+    favoritesEmpty.append(
+      favoritesEmptyIcon,
+      favoritesEmptyTitle,
+      favoritesEmptyCopy
+    );
+    favoritesToolsContainer.appendChild(favoritesEmpty);
+
+    let favoritesCollapsed = favoriteToolIds.length > 0;
+    try {
+      const storedFavoritesCollapsed = localStorage.getItem(
+        'shiftFavoritesCategoryCollapsed'
+      );
+      if (storedFavoritesCollapsed !== null) {
+        favoritesCollapsed = storedFavoritesCollapsed === 'true';
+      }
+    } catch {
+      // Storage can be unavailable in locked-down browser contexts.
+    }
+
+    const setFavoritesCollapsed = (
+      collapsed: boolean,
+      persist = true,
+      animate = true
+    ) => {
+      favoritesCollapsed = collapsed;
+      favoritesHeader.setAttribute('aria-expanded', String(!collapsed));
+
+      if (collapsed) {
+        favoritesGroup.classList.add('collapsed');
+        if (animate) {
+          favoritesToolsContainer.style.maxHeight =
+            favoritesToolsContainer.scrollHeight + 'px';
+          favoritesToolsContainer.style.overflow = 'hidden';
+          requestAnimationFrame(() => {
+            favoritesToolsContainer.style.maxHeight = '0px';
+          });
+        } else {
+          favoritesToolsContainer.style.maxHeight = '0px';
+          favoritesToolsContainer.style.overflow = 'hidden';
+        }
+      } else {
+        favoritesGroup.classList.remove('collapsed');
+        favoritesToolsContainer.style.overflow = animate ? 'hidden' : 'visible';
+        favoritesToolsContainer.style.maxHeight = animate
+          ? favoritesToolsContainer.scrollHeight + 'px'
+          : 'none';
+      }
+
+      if (persist) {
+        try {
+          localStorage.setItem(
+            'shiftFavoritesCategoryCollapsed',
+            String(collapsed)
+          );
+        } catch {
+          // The visual state still works when storage is unavailable.
+        }
+      }
+    };
+
+    favoritesToolsContainer.addEventListener('transitionend', (event) => {
+      if ((event as TransitionEvent).propertyName !== 'max-height') return;
+      if (!favoritesCollapsed) {
+        favoritesToolsContainer.style.maxHeight = 'none';
+        favoritesToolsContainer.style.overflow = 'visible';
+      }
+    });
+    favoritesHeader.addEventListener('click', () => {
+      setFavoritesCollapsed(!favoritesCollapsed);
+    });
+
+    favoritesGroup.append(favoritesHeader, favoritesToolsContainer);
+    dom.toolGrid.appendChild(favoritesGroup);
+    setFavoritesCollapsed(favoritesCollapsed, false, false);
 
     filteredCategories.forEach((category) => {
       const categoryGroup = document.createElement('div');
@@ -708,9 +834,15 @@ const init = async () => {
 
       category.tools.forEach((tool) => {
         const toolId = getToolId(tool);
+        // Some tools are intentionally listed in more than one source
+        // category. The catalog still gives each stable tool ID one owner.
+        if (toolCards.has(toolId)) return;
+
         const toolCard = document.createElement('div');
         toolCard.className = 'tool-card';
         toolCard.dataset.toolId = toolId;
+        toolCards.set(toolId, toolCard);
+        originalToolContainers.set(toolId, toolsContainer);
 
         let toolContent: HTMLDivElement | HTMLAnchorElement;
 
@@ -788,6 +920,41 @@ const init = async () => {
       }
     });
 
+    renderGridFavorites = () => {
+      const partition = partitionToolIdsByFavorites(
+        [...toolCards.keys()],
+        favoriteToolIds
+      );
+
+      // Append in saved order so the category reflects the order in which
+      // favorites were added.
+      partition.favoriteIds.forEach((toolId) => {
+        const card = toolCards.get(toolId);
+        if (card) favoritesToolsContainer.appendChild(card);
+      });
+
+      partition.catalogIds.forEach((toolId) => {
+        const card = toolCards.get(toolId);
+        if (!card) return;
+        originalToolContainers.get(toolId)?.appendChild(card);
+      });
+
+      favoritesCount.textContent = favoriteToolIds.length
+        ? String(favoriteToolIds.length)
+        : '';
+      favoritesCount.hidden = favoriteToolIds.length === 0;
+      favoritesEmpty.hidden = favoriteToolIds.length > 0;
+      favoritesGroup.classList.toggle(
+        'has-favorites',
+        favoriteToolIds.length > 0
+      );
+
+      if (!favoritesCollapsed) {
+        favoritesToolsContainer.style.maxHeight = 'none';
+        favoritesToolsContainer.style.overflow = 'visible';
+      }
+    };
+    renderGridFavorites();
     updateGridFavoriteControls();
 
     const searchBar = document.getElementById(
@@ -803,6 +970,7 @@ const init = async () => {
 
       categoryGroups.forEach((group) => {
         const groupEl = group as HTMLElement;
+        const isFavoritesGroup = groupEl.dataset.categoryType === 'favorites';
         const toolCards = group.querySelectorAll('.tool-card');
         let groupMatches = 0;
 
@@ -829,10 +997,17 @@ const init = async () => {
 
         matchCount += groupMatches;
 
-        // Hide empty sections while searching; restore the full catalog when cleared.
-        groupEl.hidden = Boolean(searchTerm) && groupMatches === 0;
+        // Favorites remains a stable first category. Other empty sections can
+        // disappear during search without moving that anchor out of the view.
+        groupEl.hidden = !isFavoritesGroup && groupMatches === 0;
         groupEl.classList.toggle('is-tool-searching', Boolean(searchTerm));
       });
+
+      favoritesEmpty.hidden = Boolean(searchTerm) || favoriteToolIds.length > 0;
+      favoritesHeader.setAttribute(
+        'aria-expanded',
+        String(Boolean(searchTerm) || !favoritesCollapsed)
+      );
 
       if (searchStatus) {
         if (!searchTerm) {
@@ -852,6 +1027,7 @@ const init = async () => {
         searchEmpty.classList.toggle('hidden', !showEmpty);
       }
     };
+    refreshGridSearch = () => applyToolSearch(searchBar?.value ?? '');
 
     if (searchBar) {
       searchBar.addEventListener('input', () => {
