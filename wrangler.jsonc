@@ -1,5 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // Git-connected Pages project. Do not add a sibling wrangler.toml —
+  // a second config with a different name fails the Pages build immediately.
+  // This app is an MPA: do not add SPA /* → /index.html redirects.
   "name": "shift-pdf-neo",
   "compatibility_date": "2026-08-20",
   "pages_build_output_dir": "./dist"

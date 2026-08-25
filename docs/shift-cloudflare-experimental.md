@@ -7,19 +7,23 @@ fallback redirects (`/* /index.html 200`) — each tool is its own HTML file.
 
 ```bash
 npm ci
-npm run build
-npx wrangler pages deploy dist --project-name=shift-pdf-v2
+npm run pages:build
+npx wrangler pages deploy dist --project-name=shift-pdf-neo
 ```
+
+Git integration uses the root `wrangler.jsonc` (`name: shift-pdf-neo`). Do not add a
+second `wrangler.toml` — a name mismatch with the Pages project fails the build
+before the app compiles.
 
 Or connect the GitHub repo in the Cloudflare dashboard:
 
-| Setting                | Value           |
-| ---------------------- | --------------- |
-| Framework preset       | None            |
-| Build command          | `npm run build` |
-| Build output directory | `dist`          |
-| Root directory         | `/`             |
-| `NODE_VERSION`         | `20`            |
+| Setting                | Value                  |
+| ---------------------- | ---------------------- |
+| Framework preset       | None                   |
+| Build command          | `npm run pages:build`  |
+| Build output directory | `dist`                 |
+| Root directory         | `/`                    |
+| `NODE_VERSION`         | `20`                   |
 
 ## Environment variables (Pages)
 

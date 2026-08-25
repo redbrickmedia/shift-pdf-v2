@@ -1,8 +1,0 @@
-# Experimental Cloudflare Pages project for shift-pdf-v2 (Bento fork).
-# Deploy: npm run build && npx wrangler pages deploy dist --project-name=shift-pdf-v2
-#
-# Do NOT use SPA /* → /index.html redirects — this app is an MPA.
-
-name = "shift-pdf-v2"
-compatibility_date = "2026-04-01"
-pages_build_output_dir = "dist"
