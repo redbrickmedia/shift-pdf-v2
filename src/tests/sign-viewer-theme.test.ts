@@ -1,14 +1,19 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const readText = (path: string) =>
   readFile(resolve(process.cwd(), path), 'utf8');
 
+/** viewer.html loads this as a classic script, not an ES module. */
+async function runThemeScript() {
+  const source = await readText('public/pdfjs-viewer/shift-viewer-theme.js');
+  new Function(source)();
+}
+
 describe('Shift theme for the PDF.js viewer', () => {
   beforeEach(() => {
     delete document.documentElement.dataset.shiftViewer;
-    vi.resetModules();
   });
 
   it('loads the theme before the viewer bundle so no dark chrome paints first', async () => {
@@ -42,7 +47,7 @@ describe('Shift theme for the PDF.js viewer', () => {
       '/pdfjs-viewer/viewer.html?bentoSign=1'
     );
 
-    await import('../../public/pdfjs-viewer/shift-viewer-theme.js');
+    await runThemeScript();
 
     expect(document.documentElement.dataset.shiftViewer).toBe('sign');
   });
@@ -50,7 +55,7 @@ describe('Shift theme for the PDF.js viewer', () => {
   it('leaves other embeds of the viewer untouched', async () => {
     window.history.replaceState({}, '', '/pdfjs-viewer/viewer.html?file=x.pdf');
 
-    await import('../../public/pdfjs-viewer/shift-viewer-theme.js?plain');
+    await runThemeScript();
 
     expect(document.documentElement.dataset.shiftViewer).toBeUndefined();
   });
