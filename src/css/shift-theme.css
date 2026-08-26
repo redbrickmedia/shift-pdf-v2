@@ -941,8 +941,6 @@ select:not([multiple]):not([size]) {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 640px;
-  margin-inline: auto;
 }
 
 .shift-search-bar {
@@ -956,11 +954,12 @@ select:not([multiple]):not([size]) {
   position: relative;
   display: flex;
   flex: 1;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   width: 100%;
-  height: 40px;
-  padding-inline: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding-inline: 12px;
   color: var(--text-primary);
   border: 1px solid var(--border-outer-primary);
   border-radius: var(--radius-8);
@@ -982,7 +981,7 @@ select:not([multiple]):not([size]) {
 .shift-search-field:focus-within {
   border-color: var(--action-button-surface-primary-default);
   border-width: 2px;
-  padding-inline: 7px;
+  padding-inline: 11px;
   box-shadow:
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 4px 6px -1px rgba(0, 0, 0, 0.1);
