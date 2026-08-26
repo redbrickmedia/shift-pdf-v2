@@ -27,6 +27,7 @@ import {
   showWasmRequiredDialog,
   WasmProvider,
 } from '../utils/wasm-provider.js';
+import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
 
 type MergeMode = 'file' | 'page';
 
@@ -762,4 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   void renderMergeUI();
+
+  loadOpenShiftFile((file) => {
+    void addFiles([file]);
+  });
 });

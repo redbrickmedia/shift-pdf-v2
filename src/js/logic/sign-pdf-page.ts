@@ -23,6 +23,7 @@ import {
   configureSessionOnlySignatureUi,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
+import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
 
 const signState: SignState = {
   file: null,
@@ -96,6 +97,10 @@ function initializePage() {
     window.location.href = import.meta.env.BASE_URL;
   });
   window.addEventListener('pagehide', cleanup, { once: true });
+
+  loadOpenShiftFile((file) => {
+    void handleFile(file);
+  });
 }
 
 async function handleFileUpload(e: Event) {

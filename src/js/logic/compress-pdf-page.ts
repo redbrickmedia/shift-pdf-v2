@@ -6,6 +6,7 @@ import {
   getPDFDocument,
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -654,4 +655,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', compress);
   }
+
+  loadOpenShiftFile((file) => {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    handleFileSelect(dataTransfer.files);
+  });
 });
