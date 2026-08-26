@@ -544,7 +544,7 @@ export default defineConfig(({ mode }) => {
           brandLogo: process.env.VITE_BRAND_LOGO || 'images/shift-pdf-logo.svg',
           footerText:
             process.env.VITE_FOOTER_TEXT ||
-            'Shift PDF — files stay in your browser',
+            'Shift PDF — files stay on your machine',
           appVersion: process.env.npm_package_version || 'Unknown',
         },
       }),

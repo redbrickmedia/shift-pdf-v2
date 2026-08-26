@@ -24,8 +24,9 @@ import {
 } from './utils/disabled-tools.js';
 import {
   applyFavoritePinTitles,
+  FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
-  partitionToolIdsByFavorites,
+  placeFavoriteToolCards,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
@@ -657,11 +658,12 @@ const init = async () => {
       }))
       .filter((category) => category.tools.length > 0);
 
-    const toolCards = new Map<string, HTMLElement>();
-    const originalToolContainers = new Map<string, HTMLElement>();
+    const toolCards = new Map<string, HTMLElement[]>();
+    const originalToolContainers = new Map<HTMLElement, HTMLElement>();
 
-    // Favorites is always the first category. It owns favorited cards rather
-    // than cloning them, so a tool can never appear twice in the catalog.
+    // Favorites is always the first category. It owns one card per favorited
+    // tool rather than cloning it. Extra catalog copies of the same ID stay in
+    // their source sections and hide only while that tool is favorited.
     const favoritesGroup = document.createElement('div');
     favoritesGroup.id = 'favorite-tools';
     favoritesGroup.className =
@@ -834,15 +836,14 @@ const init = async () => {
 
       category.tools.forEach((tool) => {
         const toolId = getToolId(tool);
-        // Some tools are intentionally listed in more than one source
-        // category. The catalog still gives each stable tool ID one owner.
-        if (toolCards.has(toolId)) return;
 
         const toolCard = document.createElement('div');
         toolCard.className = 'tool-card';
         toolCard.dataset.toolId = toolId;
-        toolCards.set(toolId, toolCard);
-        originalToolContainers.set(toolId, toolsContainer);
+        const cardsForTool = toolCards.get(toolId) ?? [];
+        cardsForTool.push(toolCard);
+        toolCards.set(toolId, cardsForTool);
+        originalToolContainers.set(toolCard, toolsContainer);
 
         let toolContent: HTMLDivElement | HTMLAnchorElement;
 
@@ -921,23 +922,12 @@ const init = async () => {
     });
 
     renderGridFavorites = () => {
-      const partition = partitionToolIdsByFavorites(
-        [...toolCards.keys()],
-        favoriteToolIds
+      placeFavoriteToolCards(
+        toolCards,
+        originalToolContainers,
+        favoriteToolIds,
+        favoritesToolsContainer
       );
-
-      // Append in saved order so the category reflects the order in which
-      // favorites were added.
-      partition.favoriteIds.forEach((toolId) => {
-        const card = toolCards.get(toolId);
-        if (card) favoritesToolsContainer.appendChild(card);
-      });
-
-      partition.catalogIds.forEach((toolId) => {
-        const card = toolCards.get(toolId);
-        if (!card) return;
-        originalToolContainers.get(toolId)?.appendChild(card);
-      });
 
       favoritesCount.textContent = favoriteToolIds.length
         ? String(favoriteToolIds.length)
@@ -954,8 +944,6 @@ const init = async () => {
         favoritesToolsContainer.style.overflow = 'visible';
       }
     };
-    renderGridFavorites();
-    updateGridFavoriteControls();
 
     const searchBar = document.getElementById(
       'search-bar'
@@ -976,6 +964,11 @@ const init = async () => {
 
         toolCards.forEach((card) => {
           const cardEl = card as HTMLElement;
+          if (cardEl.getAttribute(FAVORITE_CATALOG_COPY_ATTR) === 'hidden') {
+            cardEl.hidden = true;
+            return;
+          }
+
           if (!searchTerm) {
             cardEl.hidden = false;
             groupMatches++;
@@ -1028,6 +1021,9 @@ const init = async () => {
       }
     };
     refreshGridSearch = () => applyToolSearch(searchBar?.value ?? '');
+    renderGridFavorites();
+    updateGridFavoriteControls();
+    refreshGridSearch();
 
     if (searchBar) {
       searchBar.addEventListener('input', () => {

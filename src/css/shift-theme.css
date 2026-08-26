@@ -46,6 +46,11 @@
   --shift-sidebar-width-collapsed: 64px;
   --shift-sidebar-pad: 30px;
   --shift-sidebar-pad-collapsed: 12px;
+  /* Homepage tiles grow past their 10rem floor when a subtitle wraps, and
+     CSS grid stretches every card in that row to the tallest one (212px with
+     the current Popular copy). Favorites uses this so the empty state and the
+     first starred card stay the same height. */
+  --shift-tool-card-row-height: 212px;
   --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
   /* ---- Bento grey ramp, reinterpreted for a light shell ----
@@ -696,18 +701,24 @@ a.tool-card:focus-visible {
 
 .shift-favorites-empty {
   display: flex;
+  box-sizing: border-box;
   grid-column: 1 / -1;
   flex-direction: column;
   gap: 4px;
   align-items: center;
   justify-content: center;
-  min-height: 112px;
+  height: var(--shift-tool-card-row-height);
+  min-height: var(--shift-tool-card-row-height);
   padding: 20px;
   color: var(--text-secondary);
   text-align: center;
   border: 1px dashed var(--border-outer-primary);
   border-radius: var(--radius-8);
   background: var(--background-bar-primary);
+}
+
+.shift-favorites-category .shift-tool-card-link {
+  min-height: var(--shift-tool-card-row-height);
 }
 
 .shift-favorites-empty[hidden] {
@@ -1090,6 +1101,12 @@ select:not([multiple]):not([size]) {
   justify-content: flex-start;
   padding: 0.75rem 3rem 0.75rem 1rem;
   text-align: left;
+}
+
+.compact-mode .shift-favorites-empty,
+.compact-mode .shift-favorites-category .shift-tool-card-link {
+  height: auto;
+  min-height: 0;
 }
 
 .compact-mode .shift-tool-favorite {

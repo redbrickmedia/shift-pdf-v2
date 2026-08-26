@@ -173,6 +173,51 @@ export function partitionToolIdsByFavorites(
   };
 }
 
+/** Marks extra catalog copies of a favorited tool so search does not unhide them. */
+export const FAVORITE_CATALOG_COPY_ATTR = 'data-favorite-catalog-copy';
+
+/**
+ * Move one card per favorited tool into the favorites category. Extra catalog
+ * copies of that same ID stay in their original sections and are hidden, so a
+ * tool listed in Popular and Organize still appears in Organize when it is not
+ * a favorite.
+ */
+export function placeFavoriteToolCards(
+  cardsByToolId: ReadonlyMap<string, readonly HTMLElement[]>,
+  originalContainers: ReadonlyMap<HTMLElement, HTMLElement>,
+  favoriteIds: readonly string[],
+  favoritesContainer: HTMLElement
+): void {
+  const partition = partitionToolIdsByFavorites(
+    [...cardsByToolId.keys()],
+    favoriteIds
+  );
+
+  partition.favoriteIds.forEach((toolId) => {
+    const cards = cardsByToolId.get(toolId) ?? [];
+    cards.forEach((card, index) => {
+      if (index === 0) {
+        card.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
+        card.hidden = false;
+        favoritesContainer.appendChild(card);
+        return;
+      }
+
+      card.setAttribute(FAVORITE_CATALOG_COPY_ATTR, 'hidden');
+      card.hidden = true;
+      originalContainers.get(card)?.appendChild(card);
+    });
+  });
+
+  partition.catalogIds.forEach((toolId) => {
+    for (const card of cardsByToolId.get(toolId) ?? []) {
+      card.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
+      card.hidden = false;
+      originalContainers.get(card)?.appendChild(card);
+    }
+  });
+}
+
 function getLocalStorage(): Storage | undefined {
   if (typeof window === 'undefined') return undefined;
 

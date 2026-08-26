@@ -16,6 +16,7 @@
 @import '@fontsource/cedarville-cursive/400.css';
 @import 'cropperjs/dist/cropper.css';
 @import 'tailwindcss';
+/* Shift shell chrome and tokens. */
 @import './shift-theme.css';
 
 @theme {

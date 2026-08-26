@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyFavoritePinTitles,
+  FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
   parseFavoriteToolIds,
   partitionToolIdsByFavorites,
+  placeFavoriteToolCards,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   titleForFavoritePin,
@@ -89,6 +91,54 @@ describe('tool favorites', () => {
     expect([...partition.favoriteIds, ...partition.catalogIds]).toHaveLength(
       new Set([...partition.favoriteIds, ...partition.catalogIds]).size
     );
+  });
+
+  it('keeps extra catalog copies in place and hides them only when favorited', () => {
+    const favorites = document.createElement('div');
+    const popular = document.createElement('div');
+    const organize = document.createElement('div');
+    const popularMerge = document.createElement('div');
+    popularMerge.dataset.toolId = 'merge-pdf';
+    const organizeMerge = document.createElement('div');
+    organizeMerge.dataset.toolId = 'merge-pdf';
+    const compress = document.createElement('div');
+    compress.dataset.toolId = 'compress-pdf';
+    popular.append(popularMerge);
+    organize.append(organizeMerge, compress);
+
+    const cardsByToolId = new Map<string, HTMLElement[]>([
+      ['merge-pdf', [popularMerge, organizeMerge]],
+      ['compress-pdf', [compress]],
+    ]);
+    const originalContainers = new Map<HTMLElement, HTMLElement>([
+      [popularMerge, popular],
+      [organizeMerge, organize],
+      [compress, organize],
+    ]);
+
+    placeFavoriteToolCards(cardsByToolId, originalContainers, [], favorites);
+
+    expect(popular.contains(popularMerge)).toBe(true);
+    expect(organize.contains(organizeMerge)).toBe(true);
+    expect(organizeMerge.hidden).toBe(false);
+
+    placeFavoriteToolCards(
+      cardsByToolId,
+      originalContainers,
+      ['merge-pdf'],
+      favorites
+    );
+
+    expect(favorites.contains(popularMerge)).toBe(true);
+    expect(organize.contains(organizeMerge)).toBe(true);
+    expect(organizeMerge.hidden).toBe(true);
+    expect(organizeMerge.getAttribute(FAVORITE_CATALOG_COPY_ATTR)).toBe(
+      'hidden'
+    );
+    expect(organize.contains(compress)).toBe(true);
+    expect(
+      favorites.querySelectorAll('[data-tool-id="merge-pdf"]')
+    ).toHaveLength(1);
   });
 
   it('caches the rail pins the boot script paints from', () => {
