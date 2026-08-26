@@ -14,12 +14,14 @@ type ShiftFilesApi = {
   read: (options?: { tabId?: number }) => Promise<ShiftFileReadResult>;
 };
 
-declare global {
-  interface Window {
-    shift?: {
-      files?: ShiftFilesApi;
-    };
-  }
+type ShiftHostWindow = Window & {
+  shift?: {
+    files?: ShiftFilesApi;
+  };
+};
+
+function shiftHostWindow(): ShiftHostWindow {
+  return window as ShiftHostWindow;
 }
 
 export function getSourceTabIdFromLocation(
@@ -60,12 +62,12 @@ export function sanitizeIncomingPdfFilename(value: string | undefined): string {
 export async function waitForShiftFilesApi(
   timeoutMs = SHIFT_FILES_READY_TIMEOUT_MS
 ): Promise<boolean> {
-  if (window.shift?.files?.read) return true;
+  if (shiftHostWindow().shift?.files?.read) return true;
 
   return await new Promise((resolve) => {
     const timer = window.setTimeout(() => {
       window.removeEventListener('shift-files:ready', onReady);
-      resolve(Boolean(window.shift?.files?.read));
+      resolve(Boolean(shiftHostWindow().shift?.files?.read));
     }, timeoutMs);
 
     const onReady = () => {
@@ -110,8 +112,9 @@ export function loadOpenShiftFile(
 }
 
 async function readFromShiftApi(tabId?: number): Promise<ShiftFileReadResult> {
-  if (window.shift?.files?.read) {
-    return window.shift.files.read({ tabId });
+  const files = shiftHostWindow().shift?.files;
+  if (files?.read) {
+    return files.read({ tabId });
   }
 
   return readViaCustomEvents(tabId);
