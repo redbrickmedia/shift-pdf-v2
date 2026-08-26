@@ -6,14 +6,9 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { PDFDocument, PageSizes } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { createIcons, icons } from 'lucide';
 import { PosterizeState } from '@/types';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const pageState: PosterizeState = {
   file: null,

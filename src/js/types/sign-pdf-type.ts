@@ -14,9 +14,10 @@ export interface PDFViewerEventBus {
 export interface PDFViewerApplication {
   eventBus?: PDFViewerEventBus;
   pdfDocument?: {
-    saveDocument: (storage: unknown) => Promise<ArrayBuffer>;
+    saveDocument: (storage?: unknown) => Promise<ArrayBuffer | Uint8Array>;
     annotationStorage: unknown;
   };
+  triggerPrinting?: () => Promise<void>;
 }
 
 export interface PDFViewerWindow extends Window {

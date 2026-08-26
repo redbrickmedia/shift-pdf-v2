@@ -1,5 +1,5 @@
 import { PDFDocument as PDFLibDocument, PDFRef } from 'pdf-lib';
-import { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
+import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 
 // Core bookmark types
 export type BookmarkColor =

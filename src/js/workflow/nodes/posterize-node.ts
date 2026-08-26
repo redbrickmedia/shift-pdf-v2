@@ -1,10 +1,11 @@
+import { getPDFDocument } from '@/js/utils/pdfjs.js';
 import { ClassicPreset } from 'rete';
 import { BaseWorkflowNode } from './base-node';
 import { pdfSocket } from '../sockets';
 import type { SocketData } from '../types';
 import { requirePdfInput, processBatch } from '../types';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { wfError } from '../errors';
 
 export class PosterizeNode extends BaseWorkflowNode {
@@ -45,8 +46,7 @@ export class PosterizeNode extends BaseWorkflowNode {
 
     return {
       pdf: await processBatch(pdfInputs, async (input) => {
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: input.bytes })
-          .promise;
+        const pdfjsDoc = await getPDFDocument({ data: input.bytes }).promise;
         const newDoc = await PDFDocument.create();
 
         for (let i = 1; i <= pdfjsDoc.numPages; i++) {

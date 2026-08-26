@@ -11,14 +11,9 @@ import {
   getRotationState,
   updateRotationState,
 } from './utils/rotation-state.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 // Centralizing DOM element selection
 export const dom = {
@@ -141,10 +136,10 @@ export const switchView = (view: string) => {
   if (view === 'grid') {
     dom.gridView.classList.remove('hidden');
     dom.toolInterface.classList.add('hidden');
-    // show hero and features and header
-    dom.heroSection.classList.remove('hidden');
-    dom.featuresSection.classList.remove('hidden');
-    dom.toolsHeader.classList.remove('hidden');
+    // show features and header
+    dom.heroSection?.classList.remove('hidden');
+    dom.featuresSection?.classList.remove('hidden');
+    dom.toolsHeader?.classList.remove('hidden');
     // show dividers
     dom.dividers.forEach((divider) => {
       divider.classList.remove('hidden');
@@ -158,9 +153,9 @@ export const switchView = (view: string) => {
   } else {
     dom.gridView.classList.add('hidden');
     dom.toolInterface.classList.remove('hidden');
-    dom.featuresSection.classList.add('hidden');
-    dom.heroSection.classList.add('hidden');
-    dom.toolsHeader.classList.add('hidden');
+    dom.featuresSection?.classList.add('hidden');
+    dom.heroSection?.classList.add('hidden');
+    dom.toolsHeader?.classList.add('hidden');
     dom.dividers.forEach((divider) => {
       divider.classList.add('hidden');
     });

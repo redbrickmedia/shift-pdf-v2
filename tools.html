@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>
-      All PDF Tools Directory - 100+ Free Online PDF Tools | BentoPDF
+      All PDF Tools Directory - 100+ Free Online PDF Tools | Shift PDF
     </title>
     <meta
       name="description"
@@ -15,26 +15,18 @@
       name="keywords"
       content="pdf tools, pdf converter, pdf editor, pdf security, free pdf tools, online pdf tools"
     />
-    <meta name="robots" content="index, follow" />
-
-    <link rel="canonical" href="https://www.bentopdf.com/tools" />
+    <meta name="robots" content="noindex, nofollow" />
 
     <meta
       property="og:title"
-      content="All PDF Tools Directory - 100+ Free Tools | BentoPDF"
+      content="All PDF Tools Directory - 100+ Free Tools | Shift PDF"
     />
     <meta
       property="og:description"
       content="Browse 100+ free online PDF tools. Converters, editors, security tools, and more. No signup required."
     />
-    <meta property="og:url" content="https://www.bentopdf.com/tools" />
+
     <meta property="og:type" content="website" />
-    <meta
-      property="og:image"
-      content="https://www.bentopdf.com/images/og-tools.png"
-    />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
 
     <link href="/src/css/styles.css" rel="stylesheet" />
     <script type="module">
@@ -860,9 +852,12 @@
       .category-filter {
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
-        background-color: #1f2937;
-        color: #9ca3af;
-        border: 1px solid #374151;
+        background-color: var(
+          --action-controls-surface-primary-default,
+          #f3f4f6
+        );
+        color: var(--action-text-neutral-default, #374151);
+        border: 1px solid var(--border-outer-primary, #d1d5db);
         cursor: pointer;
         transition: all 0.2s;
         font-size: 0.875rem;
@@ -870,14 +865,14 @@
       }
 
       .category-filter:hover {
-        background-color: #374151;
-        color: #fff;
+        background-color: var(--action-controls-surface-primary-hover, #e6e9ef);
+        color: var(--text-primary, #111827);
       }
 
       .category-filter.active {
-        background-color: #4f46e5;
+        background-color: var(--action-button-surface-primary-default, #2563eb);
         color: #fff;
-        border-color: #4f46e5;
+        border-color: var(--action-button-surface-primary-default, #2563eb);
       }
     </style>
   </body>

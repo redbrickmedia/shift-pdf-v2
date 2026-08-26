@@ -1,17 +1,13 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { formatBytes, downloadFile } from '../utils/helpers.js';
 import { initPagePreview } from '../utils/page-preview.js';
 import { PDFDocument } from 'pdf-lib';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import Sortable from 'sortablejs';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 interface OrganizeState {
   file: File | null;

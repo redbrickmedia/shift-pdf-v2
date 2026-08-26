@@ -3,7 +3,7 @@ import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
 import '@phosphor-icons/web/regular';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import '../css/styles.css';
 import {
   escapeHtml,
@@ -22,13 +22,234 @@ import {
   isToolDisabled,
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
+import {
+  applyFavoritePinTitles,
+  FAVORITE_CATALOG_COPY_ATTR,
+  loadFavoriteToolIds,
+  placeFavoriteToolCards,
+  saveFavoriteRailSnapshot,
+  saveFavoriteToolIds,
+  toggleFavoriteToolId,
+  type FavoriteRailPin,
+} from './logic/tool-favorites.js';
+import {
+  dismissPromiseBanner,
+  markPromiseBannerSeen,
+  readPromiseBannerState,
+  shouldShowPromiseBanner,
+} from './logic/promise-banner.js';
+import { initToolBackNavigation } from './logic/tool-back.js';
+import { initToolBackMenu } from './logic/tool-back-menu.js';
+import { trackPdfEngineExperience } from './analytics/index.js';
+
 declare const __BRAND_NAME__: string;
+
+const SIDEBAR_COLLAPSED_KEY = 'shiftSidebarCollapsed';
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Applied at module scope so a stored collapse is set before first paint where possible.
+if (typeof document !== 'undefined' && readSidebarCollapsed()) {
+  document.documentElement.classList.add('shift-sidebar-collapsed-pending');
+}
+
+// At module scope rather than in init(): init() waits for `load`, and the tool
+// pages bind their own back handlers on DOMContentLoaded, so the shared one has
+// to be in place before that window opens.
+if (typeof document !== 'undefined') {
+  initToolBackNavigation();
+  // After, not before: the menu hangs off the class the call above adds.
+  initToolBackMenu();
+}
+
+/**
+ * Element that actually scrolls. The Shift shell makes the main panel a fixed
+ * height scrollport so its rounded corners stay on screen; pages without the
+ * rail (and browsers without :has()) keep the document scrolling as Bento
+ * shipped it. Read back from the computed style so this can't drift from the
+ * conditions the stylesheet applies it under.
+ */
+function getShellScroller(): HTMLElement {
+  return getComputedStyle(document.body).overflowY === 'auto'
+    ? document.body
+    : document.documentElement;
+}
+
+function getToolId(tool: { id?: string; href?: string }): string {
+  if (tool.id) return tool.id;
+  if (tool.href) {
+    const match = tool.href.match(/\/([^/]+)\.html$/);
+    return match ? match[1] : tool.href;
+  }
+  return 'unknown';
+}
+
+/**
+ * Every tool keeps its own Phosphor/Lucide artwork, in the catalog and on the
+ * rail pins alike. The Shift design-system glyphs are reserved for the chrome
+ * that is hand-authored for this shell: the primary rail items in navbar.html.
+ */
+function createToolIcon(
+  tool: { id?: string; href?: string; icon: string },
+  extraClass = ''
+): HTMLElement {
+  const icon = document.createElement('i');
+  if (tool.icon.startsWith('ph-')) {
+    icon.className = `ph ${tool.icon} shift-tool-icon shift-tool-icon-ph ${extraClass}`;
+  } else {
+    icon.className = `shift-tool-icon shift-tool-icon-ph ${extraClass}`;
+    icon.setAttribute('data-lucide', tool.icon);
+  }
+  return icon;
+}
+
+function createInlineIcon(pathData: string): SVGSVGElement {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(namespace, 'svg');
+  const path = document.createElementNS(namespace, 'path');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  path.setAttribute('d', pathData);
+  svg.appendChild(path);
+  return svg;
+}
+
+function initShiftShell() {
+  const donationRibbon = document.getElementById('donation-ribbon');
+  if (donationRibbon) {
+    donationRibbon.classList.add('hidden');
+    donationRibbon.style.display = 'none';
+  }
+
+  const promiseBanner = document.getElementById('shift-promise-banner');
+  if (promiseBanner) {
+    const until = import.meta.env.VITE_PROMISE_BANNER_UNTIL;
+    const now = Date.now();
+    const state = readPromiseBannerState(localStorage);
+    if (shouldShowPromiseBanner(now, state, until)) {
+      markPromiseBannerSeen(localStorage, now, state.firstSeenAt);
+      promiseBanner.hidden = false;
+      promiseBanner
+        .querySelector('#shift-promise-dismiss')
+        ?.addEventListener('click', () => {
+          dismissPromiseBanner(localStorage);
+          promiseBanner.hidden = true;
+        });
+    }
+  }
+
+  const collapseBtn = document.getElementById('shift-sidebar-collapse');
+  if (collapseBtn) {
+    const applyCollapsed = (collapsed: boolean) => {
+      document.body.classList.toggle('shift-sidebar-collapsed', collapsed);
+      document.documentElement.classList.remove(
+        'shift-sidebar-collapsed-pending'
+      );
+      collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      collapseBtn.setAttribute(
+        'title',
+        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+      );
+      const label = collapseBtn.querySelector('.shift-nav-label');
+      if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
+      requestAnimationFrame(() =>
+        applyFavoritePinTitles(
+          document.getElementById('shift-favorites-nav') ?? document,
+          collapsed
+        )
+      );
+    };
+
+    applyCollapsed(readSidebarCollapsed());
+
+    collapseBtn.addEventListener('click', () => {
+      const collapsed = !document.body.classList.contains(
+        'shift-sidebar-collapsed'
+      );
+      applyCollapsed(collapsed);
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+      } catch {
+        // storage unavailable (private mode) — collapse still works for the session
+      }
+    });
+  }
+
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const file = path.split('/').pop() || 'index.html';
+  const navMap: Record<string, string> = {
+    'index.html': 'home',
+    '': 'home',
+    'compress-pdf.html': 'compress',
+    'merge-pdf.html': 'merge',
+    'pdf-converter.html': 'convert',
+    'sign-pdf.html': 'esign',
+  };
+  // Clean URLs without .html (Cloudflare / nginx)
+  const cleanMap: Record<string, string> = {
+    'compress-pdf': 'compress',
+    'merge-pdf': 'merge',
+    'pdf-converter': 'convert',
+    'sign-pdf': 'esign',
+  };
+  const key =
+    navMap[file] ||
+    cleanMap[file.replace(/\.html$/, '')] ||
+    (file === 'index' || path.endsWith('/') ? 'home' : '');
+  if (key) {
+    document
+      .querySelectorAll(`.shift-nav-link[data-nav="${key}"]`)
+      .forEach((el) => {
+        el.classList.add('is-active');
+        el.setAttribute('aria-current', 'page');
+      });
+  }
+
+  markActiveNavLinks();
+}
+
+function navPageId(pathname: string): string {
+  const file = pathname.replace(/\/+$/, '').split('/').pop() || '';
+  const page = file.replace(/\.html$/, '');
+  return page === '' || page === 'index' ? 'index' : page;
+}
+
+/* Primary rail items are keyed by data-nav because their hrefs are aliased —
+   pdf-converter.html serves "Convert". Favourites come from the catalog and
+   only have an href, so they are matched by page instead. Both routes only
+   add, so neither clears what the other marked. */
+function markActiveNavLinks() {
+  const current = navPageId(window.location.pathname);
+  document
+    .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
+    .forEach((link) => {
+      const target = navPageId(
+        new URL(link.href, window.location.href).pathname
+      );
+      if (target !== current) return;
+      link.classList.add('is-active');
+      link.setAttribute('aria-current', 'page');
+    });
+}
 
 const init = async () => {
   await initI18n();
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
+
+  initShiftShell();
+  trackPdfEngineExperience(
+    new Set(
+      categories.flatMap((category) => category.tools.map((tool) => tool.id))
+    )
+  );
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
@@ -49,27 +270,13 @@ const init = async () => {
     return;
   }
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-  ).toString();
   if (__SIMPLE_MODE__) {
     const hideBrandingSections = () => {
-      const heroSection = document.getElementById('hero-section');
-      if (heroSection) {
-        heroSection.style.display = 'none';
-      }
-
       const githubLink = document.querySelector(
         'a[href*="github.com/alam00000/bentopdf"]'
       );
       if (githubLink) {
         (githubLink as HTMLElement).style.display = 'none';
-      }
-
-      const featuresSection = document.getElementById('features-section');
-      if (featuresSection) {
-        featuresSection.style.display = 'none';
       }
 
       const securitySection = document.getElementById(
@@ -109,8 +316,8 @@ const init = async () => {
         (divider as HTMLElement).style.display = 'none';
       });
 
-      const brandName = __BRAND_NAME__ || 'BentoPDF';
-      document.title = `${brandName} - ${t('simpleMode.title')}`;
+      const brandName = __BRAND_NAME__ || 'Shift PDF';
+      document.title = `${t('simpleMode.title')} | ${brandName}`;
 
       const toolsHeader = document.getElementById('tools-header');
       if (toolsHeader) {
@@ -284,6 +491,147 @@ const init = async () => {
     'Rasterize PDF': 'tools:rasterizePdf',
   };
 
+  /* The rail's own items, pinned for everyone. They are excluded from the
+     favourites list and carry no star, because a control that offers to pin
+     something already permanently pinned has nothing to toggle. 'pdf-converter'
+     is the Convert item; it is a hub page rather than a catalog entry, so it
+     never reaches the grid, but it belongs here for the rail's sake. */
+  const primaryToolIds = new Set([
+    'compress-pdf',
+    'merge-pdf',
+    'pdf-converter',
+    'sign-pdf',
+  ]);
+  const toolsById = new Map<
+    string,
+    (typeof categories)[number]['tools'][number]
+  >();
+  categories.forEach((category) => {
+    category.tools.forEach((tool) => {
+      if (!isToolDisabled(tool.id) && !toolsById.has(tool.id)) {
+        toolsById.set(tool.id, tool);
+      }
+    });
+  });
+
+  const validToolIds = new Set(toolsById.keys());
+  let favoriteToolIds = loadFavoriteToolIds(validToolIds);
+
+  const getToolName = (tool: (typeof categories)[number]['tools'][number]) => {
+    const toolKey = toolTranslationKeys[tool.name];
+    return toolKey ? t(`${toolKey}.name`) : tool.name;
+  };
+
+  const updateGridFavoriteControls = () => {
+    document
+      .querySelectorAll<HTMLButtonElement>('.shift-tool-favorite')
+      .forEach((button) => {
+        const toolId = button.dataset.toolId;
+        const tool = toolId ? toolsById.get(toolId) : undefined;
+        if (!toolId || !tool) return;
+
+        const isFavorite = favoriteToolIds.includes(toolId);
+        const toolName = getToolName(tool);
+        button.setAttribute('aria-pressed', String(isFavorite));
+        button.setAttribute(
+          'aria-label',
+          `${isFavorite ? 'Remove' : 'Add'} ${toolName} ${
+            isFavorite ? 'from' : 'to'
+          } favorites`
+        );
+        button.setAttribute(
+          'title',
+          `${isFavorite ? 'Remove from' : 'Add to'} favorites`
+        );
+      });
+  };
+
+  const renderSidebarFavorites = () => {
+    const section = document.getElementById('shift-favorites');
+    const nav = document.getElementById('shift-favorites-nav');
+    if (!section || !nav) return;
+
+    nav.textContent = '';
+    const sidebarFavoriteIds = favoriteToolIds.filter(
+      (toolId) => !primaryToolIds.has(toolId)
+    );
+    section.hidden = sidebarFavoriteIds.length === 0;
+    const pins: FavoriteRailPin[] = [];
+
+    sidebarFavoriteIds.forEach((toolId) => {
+      const tool = toolsById.get(toolId);
+      if (!tool) return;
+
+      const item = document.createElement('div');
+      item.className = 'shift-favorite-item';
+
+      const link = document.createElement('a');
+      link.href = tool.href;
+      link.className = 'shift-nav-link shift-favorite-link';
+      link.addEventListener('mouseenter', () => {
+        applyFavoritePinTitles(
+          nav,
+          document.body.classList.contains('shift-sidebar-collapsed')
+        );
+      });
+
+      const icon = createToolIcon(tool, 'shift-nav-icon');
+      const label = document.createElement('span');
+      label.className = 'shift-nav-label';
+      label.textContent = getToolName(tool);
+      link.append(icon, label);
+
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'shift-favorite-remove';
+      removeButton.dataset.toolId = toolId;
+      removeButton.setAttribute(
+        'aria-label',
+        `Remove ${getToolName(tool)} from favorites`
+      );
+      removeButton.title = 'Remove from favorites';
+      removeButton.appendChild(createInlineIcon('m6 6 12 12M18 6 6 18'));
+      removeButton.addEventListener('click', () => {
+        favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
+        saveFavoriteToolIds(favoriteToolIds);
+        renderSidebarFavorites();
+        renderGridFavorites();
+        updateGridFavoriteControls();
+        refreshGridSearch();
+      });
+
+      item.append(link, removeButton);
+      nav.appendChild(item);
+      pins.push({ name: getToolName(tool), href: tool.href, icon: tool.icon });
+    });
+
+    // Lucide glyphs arrive as <i data-lucide> placeholders, and a re-render
+    // makes new ones, so they have to be materialised every time.
+    createIcons({ icons });
+    saveFavoriteRailSnapshot(pins);
+    markActiveNavLinks();
+    requestAnimationFrame(() =>
+      applyFavoritePinTitles(
+        nav,
+        document.body.classList.contains('shift-sidebar-collapsed')
+      )
+    );
+  };
+
+  let renderGridFavorites = () => {};
+  let refreshGridSearch = () => {};
+
+  const toggleFavorite = (toolId: string) => {
+    favoriteToolIds = toggleFavoriteToolId(favoriteToolIds, toolId);
+    saveFavoriteToolIds(favoriteToolIds);
+    renderSidebarFavorites();
+    renderGridFavorites();
+    updateGridFavoriteControls();
+    refreshGridSearch();
+  };
+
+  renderSidebarFavorites();
+
   // Homepage-only tool grid rendering (not used on individual tool pages)
   if (dom.toolGrid) {
     dom.toolGrid.textContent = '';
@@ -310,6 +658,125 @@ const init = async () => {
       }))
       .filter((category) => category.tools.length > 0);
 
+    const toolCards = new Map<string, HTMLElement[]>();
+    const originalToolContainers = new Map<HTMLElement, HTMLElement>();
+
+    // Favorites is always the first category. It owns one card per favorited
+    // tool rather than cloning it. Extra catalog copies of the same ID stay in
+    // their source sections and hide only while that tool is favorited.
+    const favoritesGroup = document.createElement('div');
+    favoritesGroup.id = 'favorite-tools';
+    favoritesGroup.className =
+      'category-group shift-favorites-category col-span-full';
+    favoritesGroup.dataset.categoryType = 'favorites';
+
+    const favoritesHeader = document.createElement('button');
+    favoritesHeader.className = 'category-header';
+    favoritesHeader.type = 'button';
+
+    const favoritesHeading = document.createElement('span');
+    favoritesHeading.className = 'shift-favorites-heading';
+    const favoritesTitle = document.createElement('span');
+    favoritesTitle.textContent = t('tools:categories.favoriteTools');
+    const favoritesCount = document.createElement('span');
+    favoritesCount.className = 'shift-favorites-count';
+    favoritesCount.setAttribute('aria-hidden', 'true');
+    favoritesHeading.append(favoritesTitle, favoritesCount);
+
+    const favoritesChevron = document.createElement('i');
+    favoritesChevron.setAttribute('data-lucide', 'chevron-down');
+    favoritesChevron.className =
+      'category-chevron w-5 h-5 text-gray-400 transition-transform duration-300';
+    favoritesHeader.append(favoritesHeading, favoritesChevron);
+
+    const favoritesToolsContainer = document.createElement('div');
+    favoritesToolsContainer.className = 'category-tools shift-tool-grid';
+
+    const favoritesEmpty = document.createElement('div');
+    favoritesEmpty.className = 'shift-favorites-empty';
+    const favoritesEmptyIcon = createInlineIcon(
+      'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+    );
+    favoritesEmptyIcon.setAttribute('aria-hidden', 'true');
+    const favoritesEmptyTitle = document.createElement('strong');
+    favoritesEmptyTitle.textContent = t('tools:favorites.emptyTitle');
+    const favoritesEmptyCopy = document.createElement('span');
+    favoritesEmptyCopy.textContent = t('tools:favorites.emptyDescription');
+    favoritesEmpty.append(
+      favoritesEmptyIcon,
+      favoritesEmptyTitle,
+      favoritesEmptyCopy
+    );
+    favoritesToolsContainer.appendChild(favoritesEmpty);
+
+    let favoritesCollapsed = favoriteToolIds.length > 0;
+    try {
+      const storedFavoritesCollapsed = localStorage.getItem(
+        'shiftFavoritesCategoryCollapsed'
+      );
+      if (storedFavoritesCollapsed !== null) {
+        favoritesCollapsed = storedFavoritesCollapsed === 'true';
+      }
+    } catch {
+      // Storage can be unavailable in locked-down browser contexts.
+    }
+
+    const setFavoritesCollapsed = (
+      collapsed: boolean,
+      persist = true,
+      animate = true
+    ) => {
+      favoritesCollapsed = collapsed;
+      favoritesHeader.setAttribute('aria-expanded', String(!collapsed));
+
+      if (collapsed) {
+        favoritesGroup.classList.add('collapsed');
+        if (animate) {
+          favoritesToolsContainer.style.maxHeight =
+            favoritesToolsContainer.scrollHeight + 'px';
+          favoritesToolsContainer.style.overflow = 'hidden';
+          requestAnimationFrame(() => {
+            favoritesToolsContainer.style.maxHeight = '0px';
+          });
+        } else {
+          favoritesToolsContainer.style.maxHeight = '0px';
+          favoritesToolsContainer.style.overflow = 'hidden';
+        }
+      } else {
+        favoritesGroup.classList.remove('collapsed');
+        favoritesToolsContainer.style.overflow = animate ? 'hidden' : 'visible';
+        favoritesToolsContainer.style.maxHeight = animate
+          ? favoritesToolsContainer.scrollHeight + 'px'
+          : 'none';
+      }
+
+      if (persist) {
+        try {
+          localStorage.setItem(
+            'shiftFavoritesCategoryCollapsed',
+            String(collapsed)
+          );
+        } catch {
+          // The visual state still works when storage is unavailable.
+        }
+      }
+    };
+
+    favoritesToolsContainer.addEventListener('transitionend', (event) => {
+      if ((event as TransitionEvent).propertyName !== 'max-height') return;
+      if (!favoritesCollapsed) {
+        favoritesToolsContainer.style.maxHeight = 'none';
+        favoritesToolsContainer.style.overflow = 'visible';
+      }
+    });
+    favoritesHeader.addEventListener('click', () => {
+      setFavoritesCollapsed(!favoritesCollapsed);
+    });
+
+    favoritesGroup.append(favoritesHeader, favoritesToolsContainer);
+    dom.toolGrid.appendChild(favoritesGroup);
+    setFavoritesCollapsed(favoritesCollapsed, false, false);
+
     filteredCategories.forEach((category) => {
       const categoryGroup = document.createElement('div');
       categoryGroup.className = 'category-group col-span-full';
@@ -330,8 +797,7 @@ const init = async () => {
       header.append(title, chevron);
 
       const toolsContainer = document.createElement('div');
-      toolsContainer.className =
-        'category-tools grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6';
+      toolsContainer.className = 'category-tools shift-tool-grid';
 
       const isCollapsed = collapsedCategories.includes(category.name);
       if (isCollapsed) {
@@ -369,49 +835,84 @@ const init = async () => {
       });
 
       category.tools.forEach((tool) => {
-        let toolCard: HTMLDivElement | HTMLAnchorElement;
+        const toolId = getToolId(tool);
+
+        const toolCard = document.createElement('div');
+        toolCard.className = 'tool-card';
+        toolCard.dataset.toolId = toolId;
+        const cardsForTool = toolCards.get(toolId) ?? [];
+        cardsForTool.push(toolCard);
+        toolCards.set(toolId, cardsForTool);
+        originalToolContainers.set(toolCard, toolsContainer);
+
+        let toolContent: HTMLDivElement | HTMLAnchorElement;
 
         if (tool.href) {
-          toolCard = document.createElement('a');
-          toolCard.href = tool.href;
-          toolCard.className =
-            'tool-card block bg-gray-800 rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center no-underline hover:shadow-lg transition duration-200';
+          toolContent = document.createElement('a');
+          toolContent.href = tool.href;
+          toolContent.className =
+            'shift-tool-card-link no-underline transition duration-200';
         } else {
-          toolCard = document.createElement('div');
-          toolCard.className =
-            'tool-card bg-gray-800 rounded-xl p-4 cursor-pointer flex flex-col items-center justify-center text-center hover:shadow-lg transition duration-200';
-          toolCard.dataset.toolId = getToolId(tool);
+          toolContent = document.createElement('div');
+          toolContent.className =
+            'shift-tool-card-link cursor-pointer transition duration-200';
+          toolContent.dataset.toolId = toolId;
         }
 
-        const icon = document.createElement('i');
-        icon.className = 'w-10 h-10 mb-3 text-indigo-400';
-
-        if (tool.icon.startsWith('ph-')) {
-          icon.className = `ph ${tool.icon} text-4xl mb-3 text-indigo-400`;
-        } else {
-          icon.setAttribute('data-lucide', tool.icon);
-        }
+        const icon = createToolIcon(tool, 'mb-3');
 
         const toolName = document.createElement('h3');
-        toolName.className = 'font-semibold text-white';
+        toolName.className = 'font-semibold shift-tool-name';
         const toolKey = toolTranslationKeys[tool.name];
         toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
 
-        toolCard.append(icon, toolName);
+        toolContent.append(icon, toolName);
 
         if (tool.subtitle) {
           const toolSubtitle = document.createElement('p');
-          toolSubtitle.className = 'text-xs text-gray-400 mt-1 px-2';
+          toolSubtitle.className = 'text-xs shift-tool-subtitle mt-1 px-2';
           toolSubtitle.textContent = toolKey
             ? t(`${toolKey}.subtitle`)
             : tool.subtitle;
-          toolCard.appendChild(toolSubtitle);
+          toolContent.appendChild(toolSubtitle);
+        }
+
+        if (primaryToolIds.has(toolId)) {
+          toolCard.appendChild(toolContent);
+        } else {
+          const favoriteButton = document.createElement('button');
+          favoriteButton.type = 'button';
+          favoriteButton.className = 'shift-tool-favorite';
+          favoriteButton.dataset.toolId = toolId;
+          favoriteButton.appendChild(
+            createInlineIcon(
+              'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+            )
+          );
+          favoriteButton.addEventListener('click', () =>
+            toggleFavorite(toolId)
+          );
+          toolCard.append(toolContent, favoriteButton);
         }
 
         toolsContainer.appendChild(toolCard);
       });
 
       categoryGroup.append(header, toolsContainer);
+      // Stable anchors for Shift sidebar category links
+      const categoryAnchorIds: Record<string, string> = {
+        'Popular Tools': 'popular-tools',
+        'Edit & Annotate': 'edit-annotate',
+        'Convert to PDF': 'convert-to-pdf',
+        'Convert from PDF': 'convert-from-pdf',
+        'Organize & Manage': 'organize-manage',
+        'Optimize & Repair': 'optimize-repair',
+        'Secure PDF': 'secure-pdf',
+      };
+      const anchorId = categoryAnchorIds[category.name];
+      if (anchorId) {
+        categoryGroup.id = anchorId;
+      }
       dom.toolGrid.appendChild(categoryGroup);
 
       if (!isCollapsed) {
@@ -420,89 +921,127 @@ const init = async () => {
       }
     });
 
-    const searchBar = document.getElementById('search-bar');
-    const categoryGroups = dom.toolGrid.querySelectorAll('.category-group');
+    renderGridFavorites = () => {
+      placeFavoriteToolCards(
+        toolCards,
+        originalToolContainers,
+        favoriteToolIds,
+        favoritesToolsContainer
+      );
 
-    const searchResultsContainer = document.createElement('div');
-    searchResultsContainer.id = 'search-results';
-    searchResultsContainer.className =
-      'hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 col-span-full';
-    dom.toolGrid.insertBefore(searchResultsContainer, dom.toolGrid.firstChild);
+      favoritesCount.textContent = favoriteToolIds.length
+        ? String(favoriteToolIds.length)
+        : '';
+      favoritesCount.hidden = favoriteToolIds.length === 0;
+      favoritesEmpty.hidden = favoriteToolIds.length > 0;
+      favoritesGroup.classList.toggle(
+        'has-favorites',
+        favoriteToolIds.length > 0
+      );
 
-    searchBar.addEventListener('input', () => {
-      // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-      const searchTerm = searchBar.value.toLowerCase().trim();
-
-      if (!searchTerm) {
-        searchResultsContainer.classList.add('hidden');
-        searchResultsContainer.innerHTML = '';
-        categoryGroups.forEach((group) => {
-          (group as HTMLElement).style.display = '';
-          const toolCards = group.querySelectorAll('.tool-card');
-          toolCards.forEach((card) => {
-            (card as HTMLElement).style.display = '';
-          });
-        });
-        return;
+      if (!favoritesCollapsed) {
+        favoritesToolsContainer.style.maxHeight = 'none';
+        favoritesToolsContainer.style.overflow = 'visible';
       }
+    };
+
+    const searchBar = document.getElementById(
+      'search-bar'
+    ) as HTMLInputElement | null;
+    const categoryGroups = dom.toolGrid.querySelectorAll('.category-group');
+    const searchStatus = document.getElementById('tool-search-status');
+    const searchEmpty = document.getElementById('tool-search-empty');
+
+    const applyToolSearch = (rawQuery: string) => {
+      const searchTerm = rawQuery.toLowerCase().trim();
+      let matchCount = 0;
 
       categoryGroups.forEach((group) => {
-        (group as HTMLElement).style.display = 'none';
-      });
-
-      searchResultsContainer.innerHTML = '';
-      searchResultsContainer.classList.remove('hidden');
-
-      const seenToolIds = new Set<string>();
-      const allTools: HTMLElement[] = [];
-
-      categoryGroups.forEach((group) => {
-        const toolCards = Array.from(group.querySelectorAll('.tool-card'));
+        const groupEl = group as HTMLElement;
+        const isFavoritesGroup = groupEl.dataset.categoryType === 'favorites';
+        const toolCards = group.querySelectorAll('.tool-card');
+        let groupMatches = 0;
 
         toolCards.forEach((card) => {
+          const cardEl = card as HTMLElement;
+          if (cardEl.getAttribute(FAVORITE_CATALOG_COPY_ATTR) === 'hidden') {
+            cardEl.hidden = true;
+            return;
+          }
+
+          if (!searchTerm) {
+            cardEl.hidden = false;
+            groupMatches++;
+            return;
+          }
+
           const toolName = (
             card.querySelector('h3')?.textContent || ''
           ).toLowerCase();
           const toolSubtitle = (
             card.querySelector('p')?.textContent || ''
           ).toLowerCase();
-          const toolHref =
-            (card as HTMLAnchorElement).href ||
-            (card as HTMLElement).dataset.toolId ||
-            '';
-
-          const toolId =
-            toolHref.split('/').pop()?.replace('.html', '') || toolName;
-
           const isMatch =
             toolName.includes(searchTerm) || toolSubtitle.includes(searchTerm);
-          const isDuplicate = seenToolIds.has(toolId);
 
-          if (isMatch && !isDuplicate) {
-            seenToolIds.add(toolId);
-            allTools.push(card.cloneNode(true) as HTMLElement);
-          }
+          cardEl.hidden = !isMatch;
+          if (isMatch) groupMatches++;
         });
+
+        matchCount += groupMatches;
+
+        // Favorites remains a stable first category. Other empty sections can
+        // disappear during search without moving that anchor out of the view.
+        groupEl.hidden = !isFavoritesGroup && groupMatches === 0;
+        groupEl.classList.toggle('is-tool-searching', Boolean(searchTerm));
       });
 
-      allTools.forEach((tool) => {
-        searchResultsContainer.appendChild(tool);
-      });
+      favoritesEmpty.hidden = Boolean(searchTerm) || favoriteToolIds.length > 0;
+      favoritesHeader.setAttribute(
+        'aria-expanded',
+        String(Boolean(searchTerm) || !favoritesCollapsed)
+      );
 
-      createIcons({ icons });
-    });
-
-    window.addEventListener('keydown', function (e) {
-      const key = e.key.toLowerCase();
-      const isMac = navigator.userAgent.toUpperCase().includes('MAC');
-      const isCtrlK = e.ctrlKey && key === 'k';
-      const isCmdK = isMac && e.metaKey && key === 'k';
-
-      if (isCtrlK || isCmdK) {
-        e.preventDefault();
-        searchBar.focus();
+      if (searchStatus) {
+        if (!searchTerm) {
+          searchStatus.textContent = '';
+        } else if (matchCount === 0) {
+          searchStatus.textContent = 'No tools match your search.';
+        } else {
+          searchStatus.textContent = `${matchCount} tool${
+            matchCount === 1 ? '' : 's'
+          } match your search.`;
+        }
       }
-    });
+
+      if (searchEmpty) {
+        const showEmpty = Boolean(searchTerm) && matchCount === 0;
+        searchEmpty.hidden = !showEmpty;
+        searchEmpty.classList.toggle('hidden', !showEmpty);
+      }
+    };
+    refreshGridSearch = () => applyToolSearch(searchBar?.value ?? '');
+    renderGridFavorites();
+    updateGridFavoriteControls();
+    refreshGridSearch();
+
+    if (searchBar) {
+      searchBar.addEventListener('input', () => {
+        applyToolSearch(searchBar.value);
+      });
+
+      window.addEventListener('keydown', function (e) {
+        const key = e.key.toLowerCase();
+        const isMac = navigator.userAgent.toUpperCase().includes('MAC');
+        const isCtrlK = e.ctrlKey && key === 'k';
+        const isCmdK = isMac && e.metaKey && key === 'k';
+
+        if (isCtrlK || isCmdK) {
+          e.preventDefault();
+          searchBar.focus();
+        }
+      });
+    }
 
     dom.toolGrid.addEventListener('click', () => {
       // All tools now use href and navigate directly - no modal handling needed
@@ -894,15 +1433,6 @@ const init = async () => {
     });
   }
 
-  function getToolId(tool: { id?: string; href?: string }): string {
-    if (tool.id) return tool.id;
-    if (tool.href) {
-      const match = tool.href.match(/\/([^/]+)\.html$/);
-      return match ? match[1] : tool.href;
-    }
-    return 'unknown';
-  }
-
   function renderShortcutsList() {
     if (!dom.shortcutsList) return;
     dom.shortcutsList.innerHTML = '';
@@ -946,13 +1476,7 @@ const init = async () => {
         const left = document.createElement('div');
         left.className = 'flex items-center gap-3';
 
-        const icon = document.createElement('i');
-        if (tool.icon.startsWith('ph-')) {
-          icon.className = `ph ${tool.icon} w-5 h-5 text-indigo-400`;
-        } else {
-          icon.className = 'w-5 h-5 text-indigo-400';
-          icon.setAttribute('data-lucide', tool.icon);
-        }
+        const icon = createToolIcon(tool, 'shift-tool-icon-sm');
 
         const name = document.createElement('span');
         name.className = 'text-gray-200 font-medium';
@@ -1140,10 +1664,15 @@ const init = async () => {
   const scrollToTopBtn = document.getElementById('scroll-to-top-btn');
 
   if (scrollToTopBtn) {
-    let lastScrollY = window.scrollY;
+    // In the Shift shell the main panel scrolls itself, so the document never
+    // moves and window scroll position would always read 0.
+    const scroller = getShellScroller();
+    const scrollTarget: EventTarget =
+      scroller === document.documentElement ? window : scroller;
+    let lastScrollY = scroller.scrollTop;
 
-    window.addEventListener('scroll', () => {
-      const currentScrollY = window.scrollY;
+    scrollTarget.addEventListener('scroll', () => {
+      const currentScrollY = scroller.scrollTop;
 
       if (currentScrollY < lastScrollY && currentScrollY > 300) {
         scrollToTopBtn.classList.add('visible');
@@ -1155,7 +1684,7 @@ const init = async () => {
     });
 
     scrollToTopBtn.addEventListener('click', () => {
-      window.scrollTo({
+      scroller.scrollTo({
         top: 0,
         behavior: 'instant',
       });

@@ -1,15 +1,11 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, degrees, PageSizes } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).toString();
 
 interface BookletState {
   file: File | null;

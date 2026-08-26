@@ -27,13 +27,8 @@ import {
   simpleTools,
   singlePdfLoadTools,
 } from '../config/pdf-tools.js';
-import * as pdfjsLib from 'pdfjs-dist';
-import { loadPdfDocument } from '../utils/load-pdf-document.js';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import { loadPdfDocument } from '../utils/load-pdf-document.js';
 
 export {
   getRotationState,
@@ -732,7 +727,7 @@ async function handleMultiFileUpload(toolId: string) {
 
       const p = document.createElement('p');
       p.className =
-        'absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center truncate p-1';
+        'absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center truncate p-1';
       p.textContent = file.name;
 
       wrapper.appendChild(img);

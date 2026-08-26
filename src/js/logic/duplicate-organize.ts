@@ -9,12 +9,6 @@ import {
 import Sortable from 'sortablejs';
 import { icons, createIcons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const duplicateOrganizeState: {
   sortableInstances: { pageGrid?: Sortable };
@@ -128,7 +122,7 @@ export async function renderDuplicateOrganizeThumbnails() {
 
     const pageNumberSpan = document.createElement('span');
     pageNumberSpan.className =
-      'page-number absolute top-1 left-1 bg-gray-900 bg-opacity-75 text-white text-xs rounded-full px-2 py-1';
+      'page-number absolute top-1 left-1 bg-gray-900/75 text-white text-xs rounded-full px-2 py-1';
     pageNumberSpan.textContent = pageNumber.toString();
 
     const controlsDiv = document.createElement('div');

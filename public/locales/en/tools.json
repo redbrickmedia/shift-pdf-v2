@@ -1,5 +1,6 @@
 {
   "categories": {
+    "favoriteTools": "Favorite Tools",
     "popularTools": "Popular Tools",
     "editAnnotate": "Edit & Annotate",
     "convertToPdf": "Convert to PDF",
@@ -10,6 +11,10 @@
     "input": "Input",
     "output": "Output"
   },
+  "favorites": {
+    "emptyTitle": "Keep your go-to tools close",
+    "emptyDescription": "Select the star on any tool to add it here. Favorites stay on your machine."
+  },
   "convertToPdf": "Convert to PDF",
   "pdfMultiTool": {
     "name": "PDF Multi Tool",
@@ -19,7 +24,11 @@
     "name": "Merge PDF",
     "subtitle": "Combine multiple PDFs into one file. Preserves Bookmarks.",
     "retainPageLabels": "Keep original page labels from each file",
-    "retainPageLabelsHint": "Off (default): the merged PDF uses natural page numbering 1–N. On: each file's original page labels are preserved (may produce duplicate labels)."
+    "retainPageLabelsHint": "Off (default): the merged PDF uses natural page numbering 1–N. On: each file's original page labels are preserved (may produce duplicate labels).",
+    "historyLabel": "Merge history",
+    "undo": "Undo",
+    "redo": "Redo",
+    "complete": "Merge complete"
   },
   "splitPdf": {
     "name": "Split PDF",
@@ -49,7 +58,8 @@
     "removeMetadata": "Remove metadata",
     "subsetFonts": "Subset fonts (remove unused glyphs)",
     "removeThumbnails": "Remove embedded thumbnails",
-    "compressButton": "Compress PDF"
+    "compressButton": "Compress PDF",
+    "complete": "Compression complete"
   },
   "pdfEditor": {
     "name": "PDF Editor",
@@ -61,7 +71,17 @@
   },
   "signPdf": {
     "name": "Sign PDF",
-    "subtitle": "Draw, type, or upload your signature."
+    "subtitle": "Draw, type, or upload your signature.",
+    "visualSignatureNotice": "Sign PDF adds a visual signature to the page. It is not a certificate-backed Digital Signature. Use the Digital Signature tool when certificate validation is required.",
+    "sessionOnlyNotice": "Signatures and PDFs stay in this browser session and are not saved for later use.",
+    "flattenLabel": "Flatten signatures into page content",
+    "flattenHint": "Flattened output visibly burns signatures into pages and removes their edit controls.",
+    "print": "Print",
+    "download": "Download Signed PDF",
+    "downloadFlattened": "Flatten & Download Signed PDF",
+    "complete": "Signed PDF ready",
+    "ready": "Your signed PDF is ready.",
+    "flattenedReady": "Your signed and flattened PDF is ready."
   },
   "cropPdf": {
     "name": "Crop PDF",
@@ -243,7 +263,7 @@
     "subtitle": "Fill in forms directly in the browser. Also supports XFA forms.",
     "uploadHint": "Upload a PDF with form fields. Fill them directly in the viewer below, then click the button to save and download the filled form. Also supports XFA forms.",
     "xfaNoteTitle": "Note on XFA Forms:",
-    "xfaNoteDescription": "XFA (XML Forms Architecture) is a legacy format that's only supported by certain PDF viewers like BentoPDF and Firefox. If you open an XFA PDF in other software and see blank pages or no form fields, it means that viewer doesn't support XFA. To view and fill XFA forms properly, use Firefox or BentoPDF's Form Filler."
+    "xfaNoteDescription": "XFA (XML Forms Architecture) is a legacy format that's only supported by certain PDF viewers like Shift PDF and Firefox. If you open an XFA PDF in other software and see blank pages or no form fields, it means that viewer doesn't support XFA. To view and fill XFA forms properly, use Firefox or Shift PDF's Form Filler."
   },
   "createPdfForm": {
     "name": "Create PDF Form",
@@ -321,6 +341,7 @@
     "subtitle": "Convert each PDF page into a JPG image.",
     "imageQuality": "Image Quality",
     "imageQualityExplanation": "Higher quality = larger file size",
+    "complete": "Conversion complete",
     "alert": {
       "invalidFile": "Invalid File",
       "invalidFileExplanation": "Please upload a PDF file.",
@@ -845,7 +866,7 @@
   },
   "digitalSignPdf": {
     "name": "Digital Signature PDF",
-    "pageTitle": "Digital Signature PDF - Add Cryptographic Signature | BentoPDF",
+    "pageTitle": "Digital Signature PDF - Add Cryptographic Signature | Shift PDF",
     "subtitle": "Add a cryptographic digital signature to your PDF using X.509 certificates. Supports PKCS#12 (.pfx, .p12) and PEM formats. Your private key never leaves your browser.",
     "certificateSection": "Certificate",
     "uploadCert": "Upload certificate (.pfx, .p12, .pem)",
@@ -931,12 +952,12 @@
   },
   "validateSignaturePdf": {
     "name": "Validate PDF Signature",
-    "pageTitle": "Validate PDF Signature - Verify Digital Signatures | BentoPDF",
+    "pageTitle": "Validate PDF Signature - Verify Digital Signatures | Shift PDF",
     "subtitle": "Verify digital signatures in your PDF files. Check certificate validity, view signer details, and confirm document integrity. All processing happens in your browser."
   },
   "timestampPdf": {
     "name": "Timestamp PDF",
-    "pageTitle": "Timestamp PDF Online Free - RFC 3161 Document Timestamp | BentoPDF",
+    "pageTitle": "Timestamp PDF Online Free - RFC 3161 Document Timestamp | Shift PDF",
     "subtitle": "Add an RFC 3161 document timestamp to your PDF using a trusted Time Stamp Authority (TSA) server. Proves your document existed at a specific point in time. No certificate required.",
     "tsaSectionTitle": "Timestamp Server (TSA)",
     "selectTsa": "Select a TSA server",
@@ -1122,7 +1143,7 @@
     "resetWithDefaults": "Custom overrides cleared. Pre-configured defaults are active.",
     "resetNoDefaults": "All configurations and cached modules have been cleared.",
     "licenseTitle": "License Notice:",
-    "licenseDescription": "The external modules (PyMuPDF, Ghostscript, CoherentPDF) are licensed under AGPL-3.0 or similar copyleft licenses. By configuring and using these modules, you agree to their respective license terms. BentoPDF is compatible with any Ghostscript WASM and PyMuPDF WASM implementation that follows the expected interface."
+    "licenseDescription": "The external modules (PyMuPDF, Ghostscript, CoherentPDF) are licensed under AGPL-3.0 or similar copyleft licenses. By configuring and using these modules, you agree to their respective license terms. Shift PDF is compatible with any Ghostscript WASM and PyMuPDF WASM implementation that follows the expected interface."
   },
   "pdfOverlay": {
     "name": "PDF Overlay",

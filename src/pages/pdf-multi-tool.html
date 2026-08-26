@@ -7,7 +7,7 @@
     <!-- Primary Meta Tags -->
     <meta
       name="title"
-      content="Pdf Multi Tool Online Free - Pdf Multi Tool Tool | BentoPDF"
+      content="Pdf Multi Tool Online Free - Pdf Multi Tool Tool | Shift PDF"
     />
     <meta
       name="description"
@@ -17,57 +17,38 @@
       name="keywords"
       content="pdf multi tool, pdf multi tool, online pdf"
     />
-    <meta name="author" content="BentoPDF" />
-    <meta
-      name="robots"
-      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-    />
-
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://www.bentopdf.com/pdf-multi-tool" />
+    <meta name="author" content="Shift PDF" />
+    <meta name="robots" content="noindex, nofollow" />
 
     <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://www.bentopdf.com/pdf-multi-tool" />
+
     <meta
       property="og:title"
-      content="Pdf Multi Tool Online Free - Pdf Multi Tool Tool | BentoPDF"
+      content="Pdf Multi Tool Online Free - Pdf Multi Tool Tool | Shift PDF"
     />
     <meta
       property="og:description"
       content="★ Pdf Multi Tool online free - Pdf multi tool PDFs easily ★ No signup ★ Unlimited files ★ Privacy-first ★ Works in browser ★ Fast & secure"
     />
-    <meta
-      property="og:image"
-      content="https://www.bentopdf.com/images/og-pdf-multi-tool.png"
-    />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="BentoPDF" />
+
+    <meta property="og:site_name" content="Shift PDF" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta
-      name="twitter:url"
-      content="https://www.bentopdf.com/pdf-multi-tool"
-    />
+    <meta name="twitter:card" content="summary" />
+
     <meta name="twitter:title" content="Pdf Multi Tool Free" />
     <meta
       name="twitter:description"
       content="★ Pdf Multi Tool online free - Pdf multi tool PDFs easily ★ No signup ★ Unlimited files ★ Privacy-first ★ Works in brows"
     />
-    <meta
-      name="twitter:image"
-      content="https://www.bentopdf.com/images/twitter-pdf-multi-tool.png"
-    />
-    <meta name="twitter:site" content="@BentoPDF" />
 
     <!-- Mobile Web App -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Pdf Multi Tool" />
 
-    <title>PDF Multi Tool - BentoPDF</title>
+    <title>PDF Multi Tool | Shift PDF</title>
 
     <link href="/src/css/styles.css" rel="stylesheet" />
 
@@ -126,31 +107,23 @@
   <body
     class="antialiased bg-gray-900 h-[100dvh] overflow-hidden flex flex-col"
   >
-    <!-- Navigation -->
+    {{> navbar }}
+
+    <!-- Tool header (branding lives in the Shift sidebar) -->
     <nav class="bg-gray-800 border-b border-gray-700 flex-none z-30">
-      <div class="container mx-auto px-4">
+      <div class="px-4">
         <div class="flex justify-between items-center h-16">
           <div class="flex-shrink-0 flex items-center">
-            <img
-              src="{{baseUrl}}{{#if brandLogo}}{{brandLogo}}{{else}}images/favicon-no-bg.svg{{/if}}"
-              alt="{{#if brandName}}{{brandName}}{{else}}Bento PDF{{/if}} Logo"
-              class="h-8 w-8"
-            />
-            <span class="text-white font-bold text-xl ml-2">
-              <a href="/"
-                >{{#if brandName}}{{brandName}}{{else}}BentoPDF{{/if}}</a
-              >
-            </span>
-            <span class="text-gray-400 ml-3 text-sm sm:text-base"
-              >PDF Multi Tool</span
-            >
+            <span class="text-white font-bold text-lg">PDF Multi Tool</span>
           </div>
           <button
             id="close-tool-btn"
-            class="flex items-center gap-1 bg-gray-700 hover:bg-gray-600 text-white px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 rounded text-xs sm:text-sm md:text-base"
+            class="shift-tool-back"
+            type="button"
+            data-tool-back
           >
-            <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-            <span data-i18n="common.close">Close</span>
+            <i data-lucide="arrow-left"></i>
+            <span data-i18n="tools.backToTools">Back</span>
           </button>
         </div>
       </div>
@@ -481,69 +454,5 @@
     <script type="module" src="/src/js/main.ts"></script>
 
     <!-- JSON-LD Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Pdf Multi Tool - BentoPDF",
-        "applicationCategory": "PDF Tool",
-        "operatingSystem": "Any - Web Browser",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
-      }
-    </script>
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "HowTo",
-        "name": "How to pdf multi tool online",
-        "description": "Learn how to pdf multi tool using BentoPDF",
-        "step": [
-          {
-            "@type": "HowToStep",
-            "position": 1,
-            "name": "Upload File",
-            "text": "Click or drag and drop your file"
-          },
-          {
-            "@type": "HowToStep",
-            "position": 2,
-            "name": "Process",
-            "text": "Click the process button"
-          },
-          {
-            "@type": "HowToStep",
-            "position": 3,
-            "name": "Download",
-            "text": "Download your processed file"
-          }
-        ]
-      }
-    </script>
-
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https://www.bentopdf.com"
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Pdf Multi Tool",
-            "item": "https://www.bentopdf.com/pdf-multi-tool"
-          }
-        ]
-      }
-    </script>
   </body>
 </html>

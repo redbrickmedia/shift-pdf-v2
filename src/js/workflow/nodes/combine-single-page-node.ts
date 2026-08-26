@@ -1,10 +1,11 @@
+import { getPDFDocument } from '@/js/utils/pdfjs.js';
 import { ClassicPreset } from 'rete';
 import { BaseWorkflowNode } from './base-node';
 import { pdfSocket } from '../sockets';
 import type { SocketData } from '../types';
 import { requirePdfInput, processBatch } from '../types';
 import { PDFDocument, rgb } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { hexToRgb } from '../../utils/helpers.js';
 import { wfError } from '../errors';
 
@@ -72,8 +73,7 @@ export class CombineSinglePageNode extends BaseWorkflowNode {
 
     return {
       pdf: await processBatch(pdfInputs, async (input) => {
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: input.bytes })
-          .promise;
+        const pdfjsDoc = await getPDFDocument({ data: input.bytes }).promise;
         const newDoc = await PDFDocument.create();
 
         const pageDims: { width: number; height: number }[] = [];

@@ -6,14 +6,9 @@ import {
 } from '../utils/helpers.js';
 import { state } from '../state.js';
 import Cropper from 'cropperjs';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 // --- Global State for the Cropper Tool ---
 import type { CropPercentages } from '@/types';

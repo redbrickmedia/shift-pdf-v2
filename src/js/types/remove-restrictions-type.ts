@@ -1,3 +1,3 @@
 export interface RemoveRestrictionsState {
-    file: File | null;
+  file: File | null;
 }

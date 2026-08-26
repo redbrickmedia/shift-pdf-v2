@@ -1,4 +1,4 @@
-import * as pdfjsLib from 'pdfjs-dist';
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import type {
   ComparePageModel,
   ComparePagePair,

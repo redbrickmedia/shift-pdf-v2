@@ -1,156 +1,198 @@
 {{#if simpleMode}} {{> navbar-simple}} {{else}}
-<nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-30">
-  <div class="container mx-auto px-4">
-    <div class="flex justify-between items-center h-16">
-      <div
-        class="flex-shrink-0 flex items-center cursor-pointer"
-        id="home-logo"
-      >
+<aside
+  id="shift-sidebar"
+  class="shift-sidebar"
+  aria-label="Shift PDF navigation"
+>
+  <div class="shift-sidebar-content">
+    <div class="shift-sidebar-header">
+      <a href="{{baseUrl}}index.html" class="shift-logo" id="home-logo">
         <img
           id="nav-logo"
-          src="{{baseUrl}}{{#if brandLogo}}{{brandLogo}}{{else}}images/favicon-no-bg.svg{{/if}}"
-          alt="{{#if brandName}}{{brandName}}{{else}}Bento PDF{{/if}} Logo"
-          class="h-8 w-8"
+          src="{{baseUrl}}{{#if brandLogo}}{{brandLogo}}{{else}}images/shift-pdf-logo.svg{{/if}}"
+          alt="{{#if brandName}}{{brandName}}{{else}}Shift PDF{{/if}} Logo"
+          class="shift-logo-img"
         />
-        <span id="nav-brand" class="text-white font-bold text-xl ml-2">
-          <a href="index.html"
-            >{{#if brandName}}{{brandName}}{{else}}BentoPDF{{/if}}</a
-          >
+        <span id="nav-brand" class="shift-logo-text">
+          {{#if brandName}}{{brandName}}{{else}}PDF{{/if}}
         </span>
-      </div>
-
-      <!-- Desktop Navigation -->
-      <div class="hidden md:flex items-center space-x-8">
-        <a href="index.html" class="nav-link" data-i18n="nav.home">Home</a>
-        <a href="about.html" class="nav-link" data-i18n="nav.about">About</a>
-        <a href="contact.html" class="nav-link" data-i18n="nav.contact"
-          >Contact</a
-        >
-        <a href="licensing.html" class="nav-link" data-i18n="nav.licensing"
-          >Licensing</a
-        >
-        <a
-          href="https://bentopdf.com/docs/"
-          class="nav-link"
-          data-i18n="nav.docs"
-          >Docs</a
-        >
-        <a
-          href="https://github.com/alam00000/bentopdf/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 text-sm font-medium bg-gray-800 text-gray-200 border border-gray-600 pl-2.5 pr-3 py-1 rounded-full transition-colors duration-200 shadow-sm hover:shadow-md hover:bg-gray-700"
-        >
-          <svg
-            class="w-4 h-4 flex-shrink-0 text-gray-200"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span id="github-stars-desktop">-</span>
-        </a>
-      </div>
-
-      <!-- Mobile Hamburger Button -->
-      <div class="md:hidden flex items-center gap-4">
-        <a
-          href="https://github.com/alam00000/bentopdf/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 text-sm font-medium bg-gray-800 text-gray-200 border border-gray-600 pl-2.5 pr-3 py-1 rounded-full transition-colors duration-200 shadow-sm hover:shadow-md hover:bg-gray-700"
-        >
-          <svg
-            class="w-4 h-4 flex-shrink-0 text-gray-200"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span id="github-stars-mobile">-</span>
-        </a>
-        <button
-          id="mobile-menu-button"
-          type="button"
-          class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition-colors"
-          aria-controls="mobile-menu"
-          aria-expanded="false"
-        >
-          <span class="sr-only" data-i18n="nav.openMainMenu"
-            >Open main menu</span
-          >
-          <!-- Hamburger Icon -->
-          <svg
-            id="menu-icon"
-            class="block h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
-          <!-- Close Icon -->
-          <svg
-            id="close-icon"
-            class="hidden h-6 w-6"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
+      </a>
     </div>
-  </div>
 
-  <!-- Mobile Menu Dropdown -->
-  <div
-    id="mobile-menu"
-    class="hidden md:hidden bg-gray-800 border-t border-gray-700"
-  >
-    <div class="px-2 pt-2 pb-3 space-y-1 text-center">
-      <a href="index.html" class="mobile-nav-link" data-i18n="nav.home">Home</a>
-      <a href="about.html" class="mobile-nav-link" data-i18n="nav.about"
-        >About</a
-      >
-      <a href="contact.html" class="mobile-nav-link" data-i18n="nav.contact"
-        >Contact</a
-      >
-      <a href="licensing.html" class="mobile-nav-link" data-i18n="nav.licensing"
-        >Licensing</a
-      >
+    <nav class="shift-primary-nav" aria-label="Primary tools">
       <a
-        href="https://bentopdf.com/docs/"
-        class="mobile-nav-link"
-        data-i18n="nav.docs"
-        >Docs</a
+        href="{{baseUrl}}index.html"
+        class="shift-nav-link"
+        data-nav="home"
+        title="All tools"
       >
+        <svg
+          class="shift-nav-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M19.25 19.25 15.5 15.5M4.75 11a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0"
+          />
+        </svg>
+        <span class="shift-nav-label">All tools</span>
+      </a>
+      <a
+        href="{{baseUrl}}compress-pdf.html"
+        class="shift-nav-link"
+        data-nav="compress"
+        title="Compress"
+      >
+        <svg
+          class="shift-nav-icon with-padding"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          fill="none"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M7 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2M5 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2M7 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+          />
+          <path
+            fill="currentColor"
+            fill-rule="evenodd"
+            d="M2.75 0A2.75 2.75 0 0 0 0 2.75v10.5A2.75 2.75 0 0 0 2.75 16h10.5A2.75 2.75 0 0 0 16 13.25V2.75A2.75 2.75 0 0 0 13.25 0zM1.5 2.75c0-.69.56-1.25 1.25-1.25h1.384a1 1 0 1 0 1.732 0h7.384c.69 0 1.25.56 1.25 1.25v10.5c0 .69-.56 1.25-1.25 1.25H2.75c-.69 0-1.25-.56-1.25-1.25z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span class="shift-nav-label">Compress</span>
+      </a>
+      <a
+        href="{{baseUrl}}merge-pdf.html"
+        class="shift-nav-link"
+        data-nav="merge"
+        title="Merge"
+      >
+        <svg
+          class="shift-nav-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            fill-rule="evenodd"
+            d="M11 4.75a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .53.22l5.5 5.5c.141.14.22.331.22.53v5A2.75 2.75 0 0 1 17.25 18h-1.354a2.75 2.75 0 0 1-2.646 2h-6.5A2.75 2.75 0 0 1 4 17.25v-8.5A2.75 2.75 0 0 1 6.75 6h3a.75.75 0 0 1 .53.22l5.5 5.5c.141.14.22.331.22.53v4.25h1.25a1.25 1.25 0 0 0 1.25-1.25v-4.69L13.44 5.5h-1.69a.75.75 0 0 1-.75-.75M6.75 7.5A1.25 1.25 0 0 0 5.5 8.75v8.5a1.25 1.25 0 0 0 1.25 1.25h6.5a1.25 1.25 0 0 0 1.25-1.25V13h-2.75A2.75 2.75 0 0 1 9 10.25V7.5zm3.75 1.06 2.94 2.94h-1.69a1.25 1.25 0 0 1-1.25-1.25z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span class="shift-nav-label">Merge</span>
+      </a>
+      <a
+        href="{{baseUrl}}pdf-converter.html"
+        class="shift-nav-link"
+        data-nav="convert"
+        title="Convert"
+      >
+        <svg
+          class="shift-nav-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            fill-rule="evenodd"
+            d="M7.807 4.248a.75.75 0 0 1-.055 1.06l-1.048.942h9.546A3.75 3.75 0 0 1 20 10v1.25a.75.75 0 0 1-1.5 0V10a2.25 2.25 0 0 0-2.25-2.25H6.704l1.048.943a.75.75 0 1 1-1.004 1.114L4.251 7.56a.748.748 0 0 1 0-1.12l2.497-2.247a.75.75 0 0 1 1.06.055M4.75 12a.75.75 0 0 1 .75.75V14a2.25 2.25 0 0 0 2.25 2.25h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.497 2.247q.025.022.048.047a.75.75 0 0 1-.048 1.073l-2.497 2.248a.75.75 0 1 1-1.004-1.116l1.047-.942H7.75A3.75 3.75 0 0 1 4 14v-1.25a.75.75 0 0 1 .75-.75"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <span class="shift-nav-label">Convert</span>
+      </a>
+      <a
+        href="{{baseUrl}}sign-pdf.html"
+        class="shift-nav-link"
+        data-nav="esign"
+        title="E-sign"
+      >
+        <svg
+          class="shift-nav-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="m4.75 19.25 4.25-1 9.293-9.293a1 1 0 0 0 0-1.414l-1.836-1.836a1 1 0 0 0-1.414 0L5.75 15zM19.25 19.25h-5.5"
+          />
+        </svg>
+        <span class="shift-nav-label">E-sign</span>
+      </a>
+    </nav>
+
+    <section
+      id="shift-favorites"
+      class="shift-favorites"
+      aria-labelledby="shift-favorites-heading"
+      hidden
+    >
+      <h2 id="shift-favorites-heading" class="shift-sidebar-section-title">
+        Favorites
+      </h2>
+      <nav
+        id="shift-favorites-nav"
+        class="shift-favorites-nav"
+        aria-label="Favorite tools"
+      ></nav>
+    </section>
+
+    <div class="shift-sidebar-footer">
+      <button
+        id="shift-sidebar-collapse"
+        type="button"
+        class="shift-nav-link shift-collapse-btn"
+        aria-controls="shift-sidebar"
+        aria-expanded="true"
+        title="Collapse sidebar"
+      >
+        <svg
+          class="shift-nav-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M4.75 6.75a2 2 0 0 1 2-2h10.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2H6.75a2 2 0 0 1-2-2zM9.75 5v14"
+          />
+        </svg>
+        <span class="shift-nav-label">Collapse</span>
+      </button>
     </div>
   </div>
-</nav>
+</aside>
 {{/if}}

@@ -1,3 +1,4 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
@@ -7,7 +8,7 @@ import {
   cleanupLazyRendering,
 } from '../utils/render-utils.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import {
   ROTATION_MIN,
@@ -17,11 +18,6 @@ import {
   roundToStep,
   parseAngleInput,
 } from '../utils/rotation-utils.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 interface RotateState {
   file: File | null;
@@ -104,7 +100,7 @@ function createPageWrapper(
 
   const pageLabel = document.createElement('div');
   pageLabel.className =
-    'absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded';
+    'absolute top-1 left-1 bg-black/60 text-white text-xs px-2 py-1 rounded';
   pageLabel.textContent = `${pageNumber}`;
 
   container.appendChild(canvasWrapper);

@@ -16,9 +16,11 @@
 @import '@fontsource/cedarville-cursive/400.css';
 @import 'cropperjs/dist/cropper.css';
 @import 'tailwindcss';
+/* Shift shell chrome and tokens. */
+@import './shift-theme.css';
 
 @theme {
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-dancing: 'Dancing Script', cursive;
   --font-vibes: 'Great Vibes', cursive;
   --font-kalam: 'Kalam', cursive;
@@ -35,7 +37,7 @@
 }
 
 @theme {
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui;
+  --font-sans: 'Inter', ui-sans-serif, system-ui;
   --font-dancing: 'Dancing Script', cursive;
   --font-vibes: 'Great Vibes', cursive;
   --font-kalam: 'Kalam', cursive;
@@ -49,19 +51,19 @@ html {
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
-  background-color: #111827;
-  color: #d1d5db;
+  /* Typography and colours come from shift-theme.css for the Shift shell.
+     This rule is unlayered, so it would otherwise win over the theme. */
+  font-family: var(--shift-font);
 }
 
 .tool-card {
   transition:
     transform 0.2s ease-in-out,
     box-shadow 0.2s ease-in-out;
-  border: 1px solid #374151;
-  background-color: #1f2937;
-  padding: 1.5rem;
-  border-radius: 0.5rem;
+  border: 1px solid var(--border-outer-primary, #d1d5db);
+  background-color: var(--background-secondary, #ffffff);
+  padding: 0;
+  border-radius: var(--radius-8, 0.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -69,11 +71,9 @@ body {
 }
 
 .tool-card:hover {
-  transform: translateY(-5px);
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.2),
-    0 4px 6px -2px rgba(0, 0, 0, 0.1);
-  border-color: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: none;
+  border-color: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .category-header {
@@ -89,7 +89,7 @@ body {
   cursor: pointer;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #111827);
   text-align: left;
 }
 
@@ -98,11 +98,11 @@ body {
 }
 
 .category-header:hover {
-  color: #818cf8;
+  color: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .category-header:hover .category-chevron {
-  color: #818cf8;
+  color: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .category-tools {
@@ -114,19 +114,22 @@ body {
   transform: rotate(-90deg);
 }
 
+/* Compact rows read as a list, so they take a wider floor than the tiles and
+   add columns the same way once the panel can hold them. */
 .compact-mode .category-tools {
-  grid-template-columns: 1fr !important;
-  gap: 0 !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 0;
 }
 
 .compact-mode .tool-card {
   flex-direction: row;
-  padding: 0.75rem 1rem;
+  min-height: 0;
+  padding: 0;
   border-radius: 0;
   border-left: none;
   border-right: none;
   border-top: none;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--border-divider-secondary, #e6e9ef);
   background-color: transparent;
   align-items: center;
   justify-content: flex-start;
@@ -160,20 +163,8 @@ body {
 .compact-mode .tool-card:hover {
   transform: none;
   box-shadow: none;
-  background-color: #1f2937;
-  border-color: #1f2937;
-}
-
-@media (min-width: 640px) {
-  .compact-mode .category-tools {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  .compact-mode .category-tools {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
+  background-color: var(--action-controls-surface-primary-hover, #e6e9ef);
+  border-color: var(--border-divider-secondary, #e6e9ef);
 }
 
 .btn {
@@ -197,23 +188,22 @@ input[type='file']::file-selector-button {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: var(--background-bar-primary, #f3f4f6);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4f46e5;
+  background: var(--border-outer-primary, #d1d5db);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4338ca;
-  /* indigo-700 */
+  background: var(--text-secondary, #374151);
 }
 
 /* Style for drag-and-drop placeholder */
 .sortable-ghost {
   opacity: 0.4;
-  border: 2px dashed #4f46e5;
+  border: 2px dashed var(--action-button-surface-primary-default, #2563eb);
 }
 
 #embed-pdf-container > div {
@@ -251,9 +241,10 @@ input[type='file']::file-selector-button {
   min-width: 0;
   overflow: auto;
   height: 75vh;
-  border: 2px solid #374151;
+  border: 2px solid var(--border-outer-primary, #d1d5db);
   border-radius: 0.5rem;
-  background-color: #1f2937;
+  /* Tinted so the white PDF pages inside read as pages. */
+  background-color: var(--background-bar-primary, #f3f4f6);
 }
 
 /* This rule ensures canvases in side-by-side panels display at their natural rendered size. */
@@ -285,10 +276,8 @@ footer a {
 }
 
 .pill {
-  background-color: #374151;
-  /* bg-gray-700 */
-  color: #d1d5db;
-  /* text-gray-300 */
+  background-color: var(--action-controls-surface-primary-default, #f3f4f6);
+  color: var(--action-text-neutral-default, #374151);
   padding: 8px 16px;
   border-radius: 9999px;
   /* rounded-full */
@@ -297,8 +286,7 @@ footer a {
 }
 
 .cta-button {
-  background-color: #4f46e5;
-  /* indigo-600 */
+  background-color: var(--action-button-surface-primary-default, #2563eb);
   color: white;
   font-weight: 600;
   padding: 12px 24px;
@@ -308,8 +296,7 @@ footer a {
 }
 
 .cta-button:hover {
-  background-color: #4338ca;
-  /* indigo-700 */
+  background-color: var(--action-button-surface-primary-hover, #1d4ed8);
 }
 
 .marker-text {
@@ -319,8 +306,7 @@ footer a {
 }
 
 .feature-card {
-  background-color: #1f2937;
-  /* bg-gray-800 */
+  background-color: var(--background-bar-primary, #f3f4f6);
   padding: 24px;
   border-radius: 8px;
   /* rounded-lg */
@@ -353,8 +339,12 @@ footer a {
 
 .section-divider {
   height: 1px;
-  background: linear-gradient(to right, transparent, #4d44f7, transparent);
-  /* Fades from transparent to indigo and back */
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--action-button-surface-primary-default, #2563eb),
+    transparent
+  );
   margin: 2rem auto;
   /* my-16 */
   max-width: 42rem;
@@ -368,10 +358,12 @@ footer a {
   /* py-3 px-8 */
   border-radius: 0.5rem;
   /* rounded-lg */
-  background-image: linear-gradient(to bottom, #6366f1, #4f46e5);
-  /* from-indigo-500 to-indigo-600 */
+  background-image: linear-gradient(
+    to bottom,
+    var(--action-button-surface-primary-default, #2563eb),
+    var(--action-button-surface-primary-hover, #1d4ed8)
+  );
   color: #ffffff;
-  /* text-white */
   font-weight: 600;
   /* font-semibold */
   transition-property: all;
@@ -388,10 +380,11 @@ footer a {
 .btn-gradient:focus {
   outline: 2px solid transparent;
   outline-offset: 2px;
+  /* Offset ring sits on the light panel, so it matches the page rather than
+     the dark background this was originally drawn against. */
   box-shadow:
-    0 0 0 2px #111827,
-    0 0 0 4px #818cf8;
-  /* focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-400 */
+    0 0 0 2px var(--background-secondary, #ffffff),
+    0 0 0 4px var(--action-button-surface-primary-default, #2563eb);
 }
 
 .btn-gradient:disabled {
@@ -406,10 +399,8 @@ footer a {
   /* w-16 */
   height: 64px;
   /* h-16 */
-  border: 5px solid #374151;
-  /* border-gray-700 */
-  border-bottom-color: #4f46e5;
-  /* border-indigo-600 */
+  border: 5px solid var(--border-divider-secondary, #e6e9ef);
+  border-bottom-color: var(--action-button-surface-primary-default, #2563eb);
   border-radius: 50%;
   display: inline-block;
   box-sizing: border-box;
@@ -438,9 +429,8 @@ footer a {
 
 /* Highlight for selected signature in the saved list */
 .saved-signature.selected {
-  border-color: #4f46e5;
-  /* indigo-600 */
-  box-shadow: 0 0 10px rgba(79, 70, 229, 0.5);
+  border-color: var(--action-button-surface-primary-default, #2563eb);
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
 }
 
 /* Cursor change when hovering over a placed signature */
@@ -475,22 +465,18 @@ footer a {
 
 /* Testimonial Card Styles */
 .testimonial-card {
-  background-color: #1f2937;
-  /* bg-gray-800 */
+  background-color: var(--background-secondary, #ffffff);
   padding: 24px;
   border-radius: 0.75rem;
   /* rounded-xl */
-  border: 1px solid #374151;
-  /* border-gray-700 */
+  border: 1px solid var(--border-outer-primary, #d1d5db);
   display: flex;
   flex-direction: column;
 }
 
 .pill {
-  background-color: #374151;
-  /* bg-gray-700 */
-  color: #d1d5db;
-  /* text-gray-300 */
+  background-color: var(--action-controls-surface-primary-default, #f3f4f6);
+  color: var(--action-text-neutral-default, #374151);
   padding: 8px 16px;
   border-radius: 9999px;
   /* rounded-full */
@@ -499,10 +485,8 @@ footer a {
 }
 
 .pill {
-  background-color: #374151;
-  /* bg-gray-700 */
-  color: #d1d5db;
-  /* text-gray-300 */
+  background-color: var(--action-controls-surface-primary-default, #f3f4f6);
+  color: var(--action-text-neutral-default, #374151);
   /* Smaller padding and font size by default for mobile */
   padding: 6px 12px;
   font-size: 12px;
@@ -626,11 +610,11 @@ button:disabled,
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
   line-height: 1;
-  color: #e5e7eb;
-  background-color: #374151;
-  border: 1px solid #4b5563;
+  color: var(--text-primary, #111827);
+  background-color: var(--action-controls-surface-primary-default, #f3f4f6);
+  border: 1px solid var(--border-outer-primary, #d1d5db);
   border-radius: 0.25rem;
-  box-shadow: 0 1px 0 0 #1f2937;
+  box-shadow: 0 1px 0 0 var(--border-outer-primary, #d1d5db);
 }
 
 .shortcut-input {
@@ -642,8 +626,8 @@ button:disabled,
 
 .shortcut-input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  border-color: var(--action-button-surface-primary-default, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 /* Custom Scrollbar for Modal Content */
@@ -652,16 +636,16 @@ button:disabled,
 }
 
 #shortcuts-list::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: var(--background-bar-primary, #f3f4f6);
 }
 
 #shortcuts-list::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: var(--border-outer-primary, #d1d5db);
   border-radius: 3px;
 }
 
 #shortcuts-list::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: var(--text-secondary, #374151);
 }
 
 /* Scroll to Top Button Visibility */
@@ -693,7 +677,7 @@ input[type='color'] {
   width: 2.5rem;
   height: 2.5rem;
   padding: 0;
-  border: 2px solid #4b5563;
+  border: 2px solid var(--border-outer-primary, #d1d5db);
   border-radius: 9999px;
   background: transparent;
   cursor: pointer;

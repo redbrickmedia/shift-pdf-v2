@@ -1,3 +1,3 @@
 export interface FlattenPdfState {
-    files: File[];
+  files: File[];
 }

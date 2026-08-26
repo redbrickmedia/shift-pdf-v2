@@ -1,3 +1,4 @@
+import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import {
   downloadFile,
@@ -8,15 +9,10 @@ import {
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
 import { applyColorAdjustments } from '../utils/image-effects.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import type { AdjustColorsSettings } from '../types/adjust-colors-type.js';
 import { t } from '../i18n/i18n';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 let files: File[] = [];
 let cachedBaselineData: ImageData | null = null;

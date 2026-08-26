@@ -12,7 +12,7 @@
     "noLanguagesFound": "Không tìm thấy ngôn ngữ"
   },
   "donation": {
-    "message": "Bạn yêu thích BentoPDF? Hãy giúp chúng tôi giữ nó miễn phí và mã nguồn mở!",
+    "message": "Bạn yêu thích Shift PDF? Hãy giúp chúng tôi giữ nó miễn phí và mã nguồn mở!",
     "button": "Quyên góp"
   },
   "hero": {
@@ -29,7 +29,7 @@
   },
   "features": {
     "title": "Tại sao chọn",
-    "bentoPdf": "BentoPDF?",
+    "bentoPdf": "Shift PDF?",
     "noSignup": {
       "title": "Không cần đăng ký",
       "description": "Bắt đầu ngay lập tức, không cần tài khoản hay email."
@@ -60,7 +60,8 @@
     "toolsLabel": "Công cụ",
     "subtitle": "Nhấp vào một công cụ để mở trình tải tệp lên",
     "searchPlaceholder": "Tìm kiếm công cụ (ví dụ: 'chia', 'sắp xếp'...)",
-    "backToTools": "Quay lại Công cụ",
+    "backToTools": "Quay lại",
+    "backOptions": "Cách quay lại khác",
     "firstLoadNotice": "Lần tải đầu tiên sẽ mất một chút thời gian vì chúng tôi đang tải xuống công cụ chuyển đổi. Sau đó, mọi lần tải sẽ ngay lập tức."
   },
   "upload": {
@@ -187,8 +188,8 @@
     "questions": "Thường gặp",
     "sectionTitle": "Câu hỏi thường gặp",
     "isFree": {
-      "question": "BentoPDF có thực sự miễn phí không?",
-      "answer": "Có, hoàn toàn miễn phí. Tất cả các công cụ trên BentoPDF đều 100% miễn phí sử dụng, không giới hạn tệp, không cần đăng ký và không có watermark. Chúng tôi tin rằng mọi người đều xứng đáng được tiếp cận với các công cụ PDF đơn giản, mạnh mẽ mà không có tường phí."
+      "question": "Shift PDF có thực sự miễn phí không?",
+      "answer": "Có, hoàn toàn miễn phí. Tất cả các công cụ trên Shift PDF đều 100% miễn phí sử dụng, không giới hạn tệp, không cần đăng ký và không có watermark. Chúng tôi tin rằng mọi người đều xứng đáng được tiếp cận với các công cụ PDF đơn giản, mạnh mẽ mà không có tường phí."
     },
     "areFilesSecure": {
       "question": "Tệp của tôi có an toàn không? Chúng được xử lý ở đâu?",
@@ -196,27 +197,27 @@
     },
     "platforms": {
       "question": "Nó có hoạt động trên Mac, Windows và Mobile không?",
-      "answer": "Có! Vì BentoPDF chạy hoàn toàn trong trình duyệt của bạn, nó hoạt động trên bất kỳ hệ điều hành nào có trình duyệt web hiện đại, bao gồm Windows, macOS, Linux, iOS và Android."
+      "answer": "Có! Vì Shift PDF chạy hoàn toàn trong trình duyệt của bạn, nó hoạt động trên bất kỳ hệ điều hành nào có trình duyệt web hiện đại, bao gồm Windows, macOS, Linux, iOS và Android."
     },
     "gdprCompliant": {
-      "question": "BentoPDF có tuân thủ GDPR không?",
-      "answer": "Có. BentoPDF hoàn toàn tuân thủ GDPR. Vì tất cả quá trình xử lý tệp diễn ra cục bộ trong trình duyệt của bạn và chúng tôi không bao giờ thu thập hoặc truyền tệp của bạn đến bất kỳ máy chủ nào, chúng tôi không có quyền truy cập vào dữ liệu của bạn. Điều này đảm bảo bạn luôn kiểm soát tài liệu của mình."
+      "question": "Shift PDF có tuân thủ GDPR không?",
+      "answer": "Có. Shift PDF hoàn toàn tuân thủ GDPR. Vì tất cả quá trình xử lý tệp diễn ra cục bộ trong trình duyệt của bạn và chúng tôi không bao giờ thu thập hoặc truyền tệp của bạn đến bất kỳ máy chủ nào, chúng tôi không có quyền truy cập vào dữ liệu của bạn. Điều này đảm bảo bạn luôn kiểm soát tài liệu của mình."
     },
     "dataStorage": {
       "question": "Bạn có lưu trữ hoặc theo dõi bất kỳ tệp nào của tôi không?",
-      "answer": "Không. Chúng tôi không bao giờ lưu trữ, theo dõi hoặc ghi nhật ký tệp của bạn. Mọi thứ bạn làm trên BentoPDF diễn ra trong bộ nhớ trình duyệt của bạn và biến mất khi bạn đóng trang. Không có tải lên, không có nhật ký lịch sử và không có máy chủ liên quan."
+      "answer": "Không. Chúng tôi không bao giờ lưu trữ, theo dõi hoặc ghi nhật ký tệp của bạn. Mọi thứ bạn làm trên Shift PDF diễn ra trong bộ nhớ trình duyệt của bạn và biến mất khi bạn đóng trang. Không có tải lên, không có nhật ký lịch sử và không có máy chủ liên quan."
     },
     "different": {
-      "question": "Điều gì làm cho BentoPDF khác biệt so với các công cụ PDF khác?",
-      "answer": "Hầu hết các công cụ PDF tải tệp của bạn lên máy chủ để xử lý. BentoPDF không bao giờ làm điều đó. Chúng tôi sử dụng công nghệ web hiện đại, an toàn để xử lý tệp của bạn trực tiếp trong trình duyệt. Điều này có nghĩa là hiệu suất nhanh hơn, quyền riêng tư mạnh mẽ hơn và hoàn toàn yên tâm."
+      "question": "Điều gì làm cho Shift PDF khác biệt so với các công cụ PDF khác?",
+      "answer": "Hầu hết các công cụ PDF tải tệp của bạn lên máy chủ để xử lý. Shift PDF không bao giờ làm điều đó. Chúng tôi sử dụng công nghệ web hiện đại, an toàn để xử lý tệp của bạn trực tiếp trong trình duyệt. Điều này có nghĩa là hiệu suất nhanh hơn, quyền riêng tư mạnh mẽ hơn và hoàn toàn yên tâm."
     },
     "browserBased": {
       "question": "Xử lý dựa trên trình duyệt giữ tôi an toàn như thế nào?",
-      "answer": "Bằng cách chạy hoàn toàn bên trong trình duyệt của bạn, BentoPDF đảm bảo rằng tệp của bạn không bao giờ rời khỏi thiết bị. Điều này loại bỏ các rủi ro về hack máy chủ, vi phạm dữ liệu hoặc truy cập trái phép. Tệp của bạn vẫn thuộc về bạn—luôn luôn."
+      "answer": "Bằng cách chạy hoàn toàn bên trong trình duyệt của bạn, Shift PDF đảm bảo rằng tệp của bạn không bao giờ rời khỏi thiết bị. Điều này loại bỏ các rủi ro về hack máy chủ, vi phạm dữ liệu hoặc truy cập trái phép. Tệp của bạn vẫn thuộc về bạn—luôn luôn."
     },
     "analytics": {
       "question": "Bạn có sử dụng cookie hoặc phân tích để theo dõi tôi không?",
-      "answer": "Chúng tôi quan tâm đến quyền riêng tư của bạn. BentoPDF không theo dõi thông tin cá nhân. Chúng tôi chỉ sử dụng Simple Analytics để xem số lượt truy cập ẩn danh. Điều này có nghĩa là chúng tôi có thể biết có bao nhiêu người dùng truy cập trang web của chúng tôi, nhưng chúng tôi không bao giờ biết bạn là ai. Simple Analytics hoàn toàn tuân thủ GDPR và tôn trọng quyền riêng tư của bạn."
+      "answer": "Chúng tôi quan tâm đến quyền riêng tư của bạn. Shift PDF không theo dõi thông tin cá nhân. Chúng tôi chỉ sử dụng Simple Analytics để xem số lượt truy cập ẩn danh. Điều này có nghĩa là chúng tôi có thể biết có bao nhiêu người dùng truy cập trang web của chúng tôi, nhưng chúng tôi không bao giờ biết bạn là ai. Simple Analytics hoàn toàn tuân thủ GDPR và tôn trọng quyền riêng tư của bạn."
     }
   },
   "testimonials": {
@@ -226,11 +227,11 @@
   },
   "support": {
     "title": "Thích công việc của tôi?",
-    "description": "BentoPDF là một dự án đam mê, được xây dựng để cung cấp bộ công cụ PDF miễn phí, riêng tư và mạnh mẽ cho mọi người. Nếu bạn thấy nó hữu ích, hãy cân nhắc hỗ trợ phát triển của nó. Mỗi ly cà phê đều giúp ích!",
+    "description": "Shift PDF là một dự án đam mê, được xây dựng để cung cấp bộ công cụ PDF miễn phí, riêng tư và mạnh mẽ cho mọi người. Nếu bạn thấy nó hữu ích, hãy cân nhắc hỗ trợ phát triển của nó. Mỗi ly cà phê đều giúp ích!",
     "buyMeCoffee": "Mua cho tôi một ly cà phê"
   },
   "footer": {
-    "copyright": "© 2026 BentoPDF. Bảo lưu mọi quyền.",
+    "copyright": "© 2026 Shift PDF. Bảo lưu mọi quyền.",
     "version": "Phiên bản",
     "company": "Công ty",
     "aboutUs": "Về chúng tôi",
@@ -322,7 +323,7 @@
   "contact": {
     "title": "Liên hệ",
     "subtitle": "Chúng tôi rất muốn nghe từ bạn. Cho dù bạn có câu hỏi, phản hồi hay yêu cầu tính năng, vui lòng đừng ngần ngại liên hệ.",
-    "email": "Bạn có thể liên hệ trực tiếp với chúng tôi qua email tại:"
+    "feedback": "Hãy dùng tùy chọn phản hồi tích hợp trong trình duyệt Shift để liên hệ với chúng tôi."
   },
   "licensing": {
     "title": "Giấy phép cho",

@@ -1,7 +1,7 @@
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import {
   downloadFile,
   getPDFDocument,
@@ -30,11 +30,6 @@ import {
   uniqueZipName,
   extractPagesWithQpdf,
 } from '../utils/split-pdf-helpers.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 document.addEventListener('DOMContentLoaded', () => {
   let visualSelectorRendered = false;

@@ -1,0 +1,308 @@
+// Static Shift Design System SVG artwork for the tool grid. Tools absent from this map fall back to their existing Phosphor icon.
+// Static SVG artwork lifted from @redbrickmedia/shift-design-system so the tool
+// grid can use real Shift icons. Tools absent from this map fall back to their
+// existing Phosphor icon.
+
+export interface ShiftToolIcon {
+  /** Native DS grid (16/24/64), used to size the glyph optically. */
+  grid: number;
+  svg: string;
+}
+
+export const shiftToolIcons: Record<string, ShiftToolIcon> = {
+  // JourneyIcon
+  'pdf-workflow': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="m7 19.25-.557.502a.75.75 0 0 0 1.114 0zm-1.693-3.002a.75.75 0 1 0-1.114 1.004zm4.5 1.004a.75.75 0 1 0-1.114-1.004zM17 4.75l.558-.502a.75.75 0 0 0-1.116 0zm-2.807 1.998a.75.75 0 1 0 1.114 1.004zm4.5 1.004a.75.75 0 0 0 1.114-1.004zM7.75 19.25v-12h-1.5v12zm3.5-12v9.5h1.5v-9.5zM7.557 18.748l-2.25-2.5-1.114 1.004 2.25 2.5zm0 1.004 2.25-2.5-1.114-1.004-2.25 2.5zM16.25 4.75v12h1.5v-12zm.192-.502-2.25 2.5 1.115 1.004 2.25-2.5zm0 1.004 2.25 2.5 1.116-1.004-2.25-2.5zM14.5 20a3.25 3.25 0 0 0 3.25-3.25h-1.5a1.75 1.75 0 0 1-1.75 1.75zm-3.25-3.25A3.25 3.25 0 0 0 14.5 20v-1.5a1.75 1.75 0 0 1-1.75-1.75zM9.5 5.5c.966 0 1.75.784 1.75 1.75h1.5A3.25 3.25 0 0 0 9.5 4zM7.75 7.25c0-.966.784-1.75 1.75-1.75V4a3.25 3.25 0 0 0-3.25 3.25z"></path></svg>',
+  },
+  // AppsIcon
+  'pdf-multi-tool': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.75 6.75v1.5a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-1.5a2 2 0 0 0-2-2h-1.5a2 2 0 0 0-2 2M14.75 7h4.5M17 4.75v4.5M4.75 15.75v1.5a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-1.5a2 2 0 0 0-2-2h-1.5a2 2 0 0 0-2 2M13.75 15.75v1.5a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-1.5a2 2 0 0 0-2-2h-1.5a2 2 0 0 0-2 2"></path></svg>',
+  },
+  // MergeIcon
+  'merge-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M11 4.75a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 .53.22l5.5 5.5c.141.14.22.331.22.53v5A2.75 2.75 0 0 1 17.25 18h-1.354a2.75 2.75 0 0 1-2.646 2h-6.5A2.75 2.75 0 0 1 4 17.25v-8.5A2.75 2.75 0 0 1 6.75 6h3a.75.75 0 0 1 .53.22l5.5 5.5c.141.14.22.331.22.53v4.25h1.25a1.25 1.25 0 0 0 1.25-1.25v-4.69L13.44 5.5h-1.69a.75.75 0 0 1-.75-.75M6.75 7.5A1.25 1.25 0 0 0 5.5 8.75v8.5a1.25 1.25 0 0 0 1.25 1.25h6.5a1.25 1.25 0 0 0 1.25-1.25V13h-2.75A2.75 2.75 0 0 1 9 10.25V7.5zm3.75 1.06 2.94 2.94h-1.69a1.25 1.25 0 0 1-1.25-1.25z" clip-rule="evenodd"></path></svg>',
+  },
+  // UngroupIcon
+  'split-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.25 4.25v-.5a2 2 0 0 0-2-2H2.75a2 2 0 0 0-2 2v.5m14.5 0H.75m14.5 0v4m-14.5-4v8a2 2 0 0 0 2 2h5.5m3.5-2.5 1.75 1.75m0 0 1.75 1.75M13.5 13.5l1.75-1.75M13.5 13.5l-1.75 1.75"></path></svg>',
+  },
+  // CompressIcon
+  'compress-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M7 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2M5 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2M7 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2"></path><path fill="currentColor" fill-rule="evenodd" d="M2.75 0A2.75 2.75 0 0 0 0 2.75v10.5A2.75 2.75 0 0 0 2.75 16h10.5A2.75 2.75 0 0 0 16 13.25V2.75A2.75 2.75 0 0 0 13.25 0zM1.5 2.75c0-.69.56-1.25 1.25-1.25h1.384a1 1 0 1 0 1.732 0h7.384c.69 0 1.25.56 1.25 1.25v10.5c0 .69-.56 1.25-1.25 1.25H2.75c-.69 0-1.25-.56-1.25-1.25z" clip-rule="evenodd"></path></svg>',
+  },
+  // EditIcon
+  'edit-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m4.75 19.25 4.25-1 9.293-9.293a1 1 0 0 0 0-1.414l-1.836-1.836a1 1 0 0 0-1.414 0L5.75 15zM19.25 19.25h-5.5"></path></svg>',
+  },
+  // DrawSignatureIcon
+  'sign-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m4.75 19.25 4.25-1 9.293-9.293a1 1 0 0 0 0-1.414l-1.836-1.836a1 1 0 0 0-1.414 0L5.75 15zM19.25 19.25h-5.5"></path></svg>',
+  },
+  // ESignIcon
+  'digital-sign-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8.73.825a.75.75 0 0 0-1.46 0 1.74 1.74 0 0 0-.67.542l-4.11 5.48a1.75 1.75 0 0 0-.22 1.71l1.403 3.445A1.75 1.75 0 0 0 2 13.75v.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0 0 14 14.25v-.5a1.75 1.75 0 0 0-1.673-1.748l1.404-3.444a1.75 1.75 0 0 0-.22-1.711L9.4 1.367a1.74 1.74 0 0 0-.672-.542M7.25 3v5.25a.75.75 0 0 0 1.5 0V3l3.56 4.747a.25.25 0 0 1 .032.244L10.708 12H5.293L3.658 7.991a.25.25 0 0 1 .032-.244zm-3.5 10.5a.25.25 0 0 0-.25.25v.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-.5a.25.25 0 0 0-.25-.25z" clip-rule="evenodd"></path></svg>',
+  },
+  // CheckCircleIcon
+  'validate-signature-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><g id="check-circle_svg-Toast"><path id="check-circle_svg-Union" fill="currentColor" fill-rule="evenodd" d="M5.5 12a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16m2.9 6.123a.75.75 0 1 0-1.3-.746l-2.294 3.997a.25.25 0 0 1-.443-.018l-.434-.925a.75.75 0 0 0-1.358.638l.434.924c.601 1.282 2.397 1.356 3.102.128z" clip-rule="evenodd"></path></g></svg>',
+  },
+  // CalendarIcon
+  'timestamp-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><g id="calendar_svg-calendars" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path id="calendar_svg-Vector" d="M4.75 8.75a2 2 0 0 1 2-2h10.5a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H6.75a2 2 0 0 1-2-2z"></path><path id="calendar_svg-Vector_2" d="M8 4.75v3.5"></path><path id="calendar_svg-Vector_3" d="M16 4.75v3.5"></path><path id="calendar_svg-Vector_4" d="M7.75 10.75h8.5"></path></g></svg>',
+  },
+  // ReorganiseIcon
+  'organize-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7.807.248a.75.75 0 0 1-.055 1.06l-1.048.942H9.25A6.75 6.75 0 0 1 16 9v.25a.75.75 0 0 1-1.5 0V9c0-2.9-2.35-5.25-5.25-5.25H6.704l1.048.943a.75.75 0 1 1-1.004 1.114l-2.5-2.25a.75.75 0 0 1 0-1.114l2.5-2.25a.75.75 0 0 1 1.06.055M.75 6a.75.75 0 0 1 .75.75V7c0 2.9 2.35 5.25 5.25 5.25h2.546l-1.048-.943a.75.75 0 0 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A6.75 6.75 0 0 1 0 7v-.25A.75.75 0 0 1 .75 6" clip-rule="evenodd"></path></svg>',
+  },
+  // PageThumbnailsIcon
+  'extract-pages': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.75.75h4.5a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2h-4.5m-8-2V2.75a2 2 0 0 1 2-2h2.5v14.5h-2.5a2 2 0 0 1-2-2"></path></svg>',
+  },
+  // TrashIcon
+  'delete-pages': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25" d="m5.625 6.459.701 8.06a1.667 1.667 0 0 0 1.66 1.523h4.028c.864 0 1.585-.661 1.66-1.523l.701-8.06M8.125 6.25v-.625c0-.92.746-1.666 1.667-1.666h.416c.92 0 1.667.746 1.667 1.666v.625"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.25" d="M4.167 6.459h11.666"></path></svg>',
+  },
+  // AddIcon
+  'add-blank-page': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 5.75v12.5M18.25 12H5.75"></path></svg>',
+  },
+  // SortIcon
+  'reverse-pages': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m4.75 10.25.818-2m0 0L7 4.75l1.432 3.5m-2.864 0h2.864m0 0 .818 2m-4.5 4.5h4.5l-4.5 4.5h4.5m5.5-12L17 4.75m0 0 2.25 2.5M17 4.75v14.5m0 0-2.25-2.5m2.25 2.5 2.25-2.5"></path></svg>',
+  },
+  // RedoIcon
+  'rotate-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.75.75 15.25 5l-4.5 4.25"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.25 5H4.75a4 4 0 0 0-4 4v6.25"></path></svg>',
+  },
+  // RedoIcon
+  'rotate-custom': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.75.75 15.25 5l-4.5 4.25"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.25 5H4.75a4 4 0 0 0-4 4v6.25"></path></svg>',
+  },
+  // GridIcon
+  'n-up-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M.75 1.75a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1zM.75 10.75a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1zM9.75 1.75a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1zM9.75 10.75a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1v3.5a1 1 0 0 1-1 1h-3.5a1 1 0 0 1-1-1z"></path></svg>',
+  },
+  // UnionIcon
+  'combine-single-page': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M7.47 1.47a4.993 4.993 0 0 1 7.06 7.06l-1.25 1.25a.75.75 0 0 1-1.06-1.06l1.25-1.25a3.493 3.493 0 1 0-4.94-4.94L7.28 3.78a.75.75 0 0 1-1.06-1.06zM3.78 6.22a.75.75 0 0 1 0 1.06L2.53 8.53a3.493 3.493 0 1 0 4.94 4.94l1.25-1.25a.75.75 0 1 1 1.06 1.06l-1.25 1.25a4.993 4.993 0 1 1-7.06-7.06l1.25-1.25a.75.75 0 0 1 1.06 0m7 .06a.75.75 0 1 0-1.06-1.06l-4.5 4.5a.75.75 0 1 0 1.06 1.06z" clip-rule="evenodd"></path></svg>',
+  },
+  // FolderIcon
+  'pdf-to-zip': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.25 17.25v-7.5a2 2 0 0 0-2-2H4.75v9.5a2 2 0 0 0 2 2h10.5a2 2 0 0 0 2-2"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m13.5 7.5-.931-1.708a2 2 0 0 0-1.756-1.042H6.75a2 2 0 0 0-2 2V11"></path></svg>',
+  },
+  // BookmarkIcon
+  bookmark: {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 6.75a2 2 0 0 1 2-2h6.5a2 2 0 0 1 2 2v12.5L12 14.75l-5.25 4.5z"></path></svg>',
+  },
+  // ListIcon
+  'table-of-contents': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6.5 6a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M6.5 12a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M6.5 18a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 6h8.5M9.75 12h8.5M9.75 18h8.5"></path></svg>',
+  },
+  // PageSettingsIcon
+  'page-numbers': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M.75 4h2.5M8.75 4h6.5M.75 12h7.5M13.75 12h1.5M6 6.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5M11 14.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5"></path></svg>',
+  },
+  // AddTextIcon
+  'add-watermark': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M15.25 16c-.82 0-1.671-.15-2.252-.5-.58.36-1.43.5-2.25.5a.75.75 0 1 1 0-1.5c.6 0 1.31-.15 1.5-.31V9h-.5c-.41 0-.75-.34-.75-.75s.34-.75.75-.75h.5V1.81c-.19-.16-.9-.3-1.5-.31a.75.75 0 1 1 0-1.5c.82 0 1.67.15 2.25.5.58-.36 1.431-.5 2.252-.5a.75.75 0 1 1 0 1.5c-.6 0-1.311.15-1.501.31V7.5h.5c.41 0 .75.34.75.75s-.34.75-.75.75h-.5v5.19c.19.16.9.3 1.5.31a.75.75 0 1 1 0 1.5m-8.005-3c-.3 0-.59-.18-.7-.48L5.585 10H2.412l-.961 2.52c-.15.39-.58.58-.97.43a.746.746 0 0 1-.43-.97l3.241-8.5c.22-.58 1.18-.58 1.4 0l3.253 8.5a.754.754 0 0 1-.7 1.02M2.983 8.5h2.031l-1.01-2.65L2.992 8.5z"></path></svg>',
+  },
+  // ClipboardIcon
+  'form-filler': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6.75H7.75a2 2 0 0 0-2 2v8.5a2 2 0 0 0 2 2h8.5a2 2 0 0 0 2-2v-8.5a2 2 0 0 0-2-2H15"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 8.25h-4a1 1 0 0 1-1-1v-1.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1M9.75 12.25h4.5M9.75 15.25h4.5"></path></svg>',
+  },
+  // DarkIcon
+  'invert-colors': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.25 11.031a7 7 0 0 1-1.53.172c-3.912 0-7.084-3.284-7.084-7.336 0-1.114.24-2.171.67-3.117C3.128 1.474.75 4.407.75 7.914c0 4.052 3.172 7.336 7.085 7.336 2.836 0 5.283-1.726 6.415-4.219"></path></svg>',
+  },
+  // AppearanceIcon
+  'adjust-colors': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.25 4.75h-2l-3 3.5v-3.5h-5.5v7.5h10.5z"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.25 11v2.25a2 2 0 0 1-2 2h-1v3a1 1 0 0 1-1 1h-2.5a1 1 0 0 1-1-1v-3h-1a2 2 0 0 1-2-2V11"></path></svg>',
+  },
+  // TypeWordIcon
+  'word-to-pdf': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path fill="#41A5EE" d="M61.228 3.968H18.902a2.645 2.645 0 0 0-2.645 2.644v11.244L40.065 24.8l23.808-6.944V6.612a2.645 2.645 0 0 0-2.645-2.644"></path><path fill="#2B7CD3" d="M63.873 17.856H16.257v13.888l23.808 6.944 23.808-6.944z"></path><path fill="#185ABD" d="M63.873 31.744H16.257v13.888l23.808 6.944 23.808-6.944z"></path><path fill="#103F91" d="M63.873 45.632H16.257v11.243A2.645 2.645 0 0 0 18.9 59.52h42.327a2.644 2.644 0 0 0 2.645-2.645z"></path><path fill="#000" d="M33.452 13.888H16.257v37.696h17.195a2.653 2.653 0 0 0 2.645-2.645V16.532a2.653 2.653 0 0 0-2.645-2.644" opacity="0.1"></path><path fill="#000" d="M31.468 15.872H16.257v37.696h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M31.468 15.872H16.257V49.6h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M29.484 15.872H16.257V49.6h13.227a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#185ABD" d="M3.03 15.872h26.454a2.645 2.645 0 0 1 2.645 2.645V44.97a2.645 2.645 0 0 1-2.645 2.645H3.03a2.645 2.645 0 0 1-2.644-2.645V18.517a2.644 2.644 0 0 1 2.644-2.645"></path><path fill="#fff" d="M24.094 41.664h-3.572l-4.166-13.69-4.365 13.69h-3.57l-3.969-19.84h3.571l2.778 13.888 4.166-13.491h2.976l3.968 13.491 2.778-13.888h3.373z"></path></svg>',
+  },
+  // TypeWordIcon
+  'pdf-to-docx': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path fill="#41A5EE" d="M61.228 3.968H18.902a2.645 2.645 0 0 0-2.645 2.644v11.244L40.065 24.8l23.808-6.944V6.612a2.645 2.645 0 0 0-2.645-2.644"></path><path fill="#2B7CD3" d="M63.873 17.856H16.257v13.888l23.808 6.944 23.808-6.944z"></path><path fill="#185ABD" d="M63.873 31.744H16.257v13.888l23.808 6.944 23.808-6.944z"></path><path fill="#103F91" d="M63.873 45.632H16.257v11.243A2.645 2.645 0 0 0 18.9 59.52h42.327a2.644 2.644 0 0 0 2.645-2.645z"></path><path fill="#000" d="M33.452 13.888H16.257v37.696h17.195a2.653 2.653 0 0 0 2.645-2.645V16.532a2.653 2.653 0 0 0-2.645-2.644" opacity="0.1"></path><path fill="#000" d="M31.468 15.872H16.257v37.696h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M31.468 15.872H16.257V49.6h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M29.484 15.872H16.257V49.6h13.227a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#185ABD" d="M3.03 15.872h26.454a2.645 2.645 0 0 1 2.645 2.645V44.97a2.645 2.645 0 0 1-2.645 2.645H3.03a2.645 2.645 0 0 1-2.644-2.645V18.517a2.644 2.644 0 0 1 2.644-2.645"></path><path fill="#fff" d="M24.094 41.664h-3.572l-4.166-13.69-4.365 13.69h-3.57l-3.969-19.84h3.571l2.778 13.888 4.166-13.491h2.976l3.968 13.491 2.778-13.888h3.373z"></path></svg>',
+  },
+  // TypeExcelIcon
+  'excel-to-pdf': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path fill="#21A366" d="M40.065 3.968H18.902a2.645 2.645 0 0 0-2.645 2.644v11.244l23.808 13.888 11.904 5.023 11.904-5.023V17.856z"></path><path fill="#107C41" d="M16.257 17.856h23.808v13.888H16.257z"></path><path fill="#33C481" d="M61.228 3.968H40.065v13.888h23.808V6.612a2.645 2.645 0 0 0-2.645-2.644"></path><path fill="#185C37" d="M40.065 31.744H16.257v25.132A2.645 2.645 0 0 0 18.9 59.52h42.327a2.644 2.644 0 0 0 2.645-2.645V45.633z"></path><path fill="#107C41" d="M40.065 31.744h23.808v13.888H40.065z"></path><path fill="#000" d="M33.452 13.888H16.257v37.696h17.195a2.653 2.653 0 0 0 2.645-2.645V16.532a2.653 2.653 0 0 0-2.645-2.644" opacity="0.1"></path><path fill="#000" d="M31.468 15.872H16.257v37.696h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M31.468 15.872H16.257V49.6h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M29.484 15.872H16.257V49.6h13.227a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#107C41" d="M3.03 15.872h26.454a2.645 2.645 0 0 1 2.645 2.645V44.97a2.645 2.645 0 0 1-2.645 2.645H3.03a2.645 2.645 0 0 1-2.644-2.645V18.517a2.644 2.644 0 0 1 2.644-2.645"></path><path fill="#fff" d="m7.395 41.664 6.42-9.948-5.88-9.892h4.731l3.21 6.323q.442.9.61 1.341h.04q.318-.718.666-1.396l3.43-6.268h4.343l-6.032 9.837 6.185 10.003h-4.623l-3.708-6.944a6 6 0 0 1-.443-.928h-.055a4.4 4.4 0 0 1-.429.898l-3.815 6.974z"></path></svg>',
+  },
+  // TypeExcelIcon
+  'pdf-to-excel': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path fill="#21A366" d="M40.065 3.968H18.902a2.645 2.645 0 0 0-2.645 2.644v11.244l23.808 13.888 11.904 5.023 11.904-5.023V17.856z"></path><path fill="#107C41" d="M16.257 17.856h23.808v13.888H16.257z"></path><path fill="#33C481" d="M61.228 3.968H40.065v13.888h23.808V6.612a2.645 2.645 0 0 0-2.645-2.644"></path><path fill="#185C37" d="M40.065 31.744H16.257v25.132A2.645 2.645 0 0 0 18.9 59.52h42.327a2.644 2.644 0 0 0 2.645-2.645V45.633z"></path><path fill="#107C41" d="M40.065 31.744h23.808v13.888H40.065z"></path><path fill="#000" d="M33.452 13.888H16.257v37.696h17.195a2.653 2.653 0 0 0 2.645-2.645V16.532a2.653 2.653 0 0 0-2.645-2.644" opacity="0.1"></path><path fill="#000" d="M31.468 15.872H16.257v37.696h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M31.468 15.872H16.257V49.6h15.211a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#000" d="M29.484 15.872H16.257V49.6h13.227a2.653 2.653 0 0 0 2.645-2.645V18.517a2.653 2.653 0 0 0-2.645-2.645" opacity="0.2"></path><path fill="#107C41" d="M3.03 15.872h26.454a2.645 2.645 0 0 1 2.645 2.645V44.97a2.645 2.645 0 0 1-2.645 2.645H3.03a2.645 2.645 0 0 1-2.644-2.645V18.517a2.644 2.644 0 0 1 2.644-2.645"></path><path fill="#fff" d="m7.395 41.664 6.42-9.948-5.88-9.892h4.731l3.21 6.323q.442.9.61 1.341h.04q.318-.718.666-1.396l3.43-6.268h4.343l-6.032 9.837 6.185 10.003h-4.623l-3.708-6.944a6 6 0 0 1-.443-.928h-.055a4.4 4.4 0 0 1-.429.898l-3.815 6.974z"></path></svg>',
+  },
+  // TypePowerpointIcon
+  'powerpoint-to-pdf': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path fill="#ED6C47" d="M36.071 3.965A27.835 27.835 0 0 0 8.317 31.718l35.162 7.409z"></path><path fill="#FF8F6B" d="M36.071 3.965a27.835 27.835 0 0 1 27.754 27.753l-13.877 9.433-13.877-9.433z"></path><path fill="#D35230" d="M36.071 59.472A27.835 27.835 0 0 0 63.825 31.72H8.317a27.835 27.835 0 0 0 27.754 27.753"></path><path fill="#000" d="M33.427 13.877H14.872a27.583 27.583 0 0 0 1.843 37.666h16.712A2.65 2.65 0 0 0 36.07 48.9V16.52a2.65 2.65 0 0 0-2.644-2.643" opacity="0.1"></path><path fill="#000" d="M31.444 15.86H13.353a27.567 27.567 0 0 0 5.64 37.665h12.453a2.65 2.65 0 0 0 2.642-2.643v-32.38a2.65 2.65 0 0 0-2.644-2.643" opacity="0.2"></path><path fill="#000" d="M31.445 15.86H13.353a27.535 27.535 0 0 0 1.519 33.7h16.575a2.65 2.65 0 0 0 2.642-2.642V18.502a2.65 2.65 0 0 0-2.644-2.643" opacity="0.2"></path><path fill="#000" d="M29.462 15.86H13.353a27.535 27.535 0 0 0 1.519 33.7h14.592a2.65 2.65 0 0 0 2.643-2.642V18.502a2.65 2.65 0 0 0-2.645-2.643" opacity="0.2"></path><path fill="#C43E1C" d="M3.03 15.86h26.434a2.64 2.64 0 0 1 2.642 2.642v26.433a2.64 2.64 0 0 1-2.642 2.643H3.03a2.64 2.64 0 0 1-2.642-2.643V18.502a2.64 2.64 0 0 1 2.642-2.643"></path><path fill="#F9F7F7" d="M16.241 21.807a8.26 8.26 0 0 1 5.462 1.596 5.7 5.7 0 0 1 1.895 4.62 5.4 5.4 0 0 1-.938 3.149 6.27 6.27 0 0 1-2.664 2.35 9.06 9.06 0 0 1-4.005.841h-3.786v7.268H8.317V21.807zm-4.038 9.283h3.344a4.35 4.35 0 0 0 2.958-.88 2.19 2.19 0 0 0 1-2.034q0-3.289-3.833-3.289h-3.47z"></path></svg>',
+  },
+  // TypePagesIcon
+  'pages-to-pdf': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><rect fill="url(#type-pages_svg-paint0_linear_2523_50150)" rx="16"></rect><path fill="#fff" fill-rule="evenodd" d="M64 50.313v1.75H14a.875.875 0 1 1 0-1.75zM15.645 45.39l1.752 1.752-2.795 1.822a.563.563 0 0 1-.778-.779zm28.763-30.104 3.093 3.094-25.79 25.79a6.3 6.3 0 0 1-1.007.817l-2.825 1.841-1.92-1.92 1.842-2.825q.355-.546.816-1.007zm7.115-4.022c.854.855.854 2.24 0 3.094l-3.491 3.491-3.094-3.093 3.491-3.492a2.19 2.19 0 0 1 3.094 0" clip-rule="evenodd"></path><defs><linearGradient id="type-pages_svg-paint0_linear_2523_50150" x1="31.971" x2="32.033" y1="63.747" y2="0.778" gradientUnits="userSpaceOnUse"><stop stop-color="#FF8500"></stop><stop offset="1" stop-color="#FFB900"></stop></linearGradient></defs></svg>',
+  },
+  // TypeImageIcon
+  'jpg-to-pdf': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="m12.667 42.667 7.323-9.315c2.077-2.642 6.05-2.728 8.239-.18l6.438 7.495m-5.56-6.472c2.766-3.518 6.62-8.503 6.87-8.827l.027-.034c2.08-2.624 6.04-2.705 8.225-.162l6.438 7.495M18 51.334h28A5.333 5.333 0 0 0 51.334 46V18A5.333 5.333 0 0 0 46 12.667H18A5.333 5.333 0 0 0 12.667 18v28A5.333 5.333 0 0 0 18 51.334"></path></svg>',
+  },
+  // TypeImageIcon
+  'pdf-to-jpg': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 64 64"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="m12.667 42.667 7.323-9.315c2.077-2.642 6.05-2.728 8.239-.18l6.438 7.495m-5.56-6.472c2.766-3.518 6.62-8.503 6.87-8.827l.027-.034c2.08-2.624 6.04-2.705 8.225-.162l6.438 7.495M18 51.334h28A5.333 5.333 0 0 0 51.334 46V18A5.333 5.333 0 0 0 46 12.667H18A5.333 5.333 0 0 0 12.667 18v28A5.333 5.333 0 0 0 18 51.334"></path></svg>',
+  },
+  // ImageIcon
+  'png-to-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m.75 12 2.746-3.493a2 2 0 0 1 3.09-.067L9 11.25M6.915 8.823c1.037-1.32 2.482-3.188 2.576-3.31l.01-.013a2 2 0 0 1 3.085-.06L15 8.25m-12.25 7h10.5a2 2 0 0 0 2-2V2.75a2 2 0 0 0-2-2H2.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2"></path></svg>',
+  },
+  // ImageIcon
+  'pdf-to-png': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m.75 12 2.746-3.493a2 2 0 0 1 3.09-.067L9 11.25M6.915 8.823c1.037-1.32 2.482-3.188 2.576-3.31l.01-.013a2 2 0 0 1 3.085-.06L15 8.25m-12.25 7h10.5a2 2 0 0 0 2-2V2.75a2 2 0 0 0-2-2H2.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2"></path></svg>',
+  },
+  // PhotoIcon
+  'image-to-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m4.75 16 2.746-3.493a2 2 0 0 1 3.09-.067L13 15.25m-2.085-2.427c1.037-1.32 2.482-3.188 2.576-3.31l.01-.013a2 2 0 0 1 3.085-.06L19 12.25m-12.25 7h10.5a2 2 0 0 0 2-2V6.75a2 2 0 0 0-2-2H6.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2"></path></svg>',
+  },
+  // PhotoIcon
+  'extract-images': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m4.75 16 2.746-3.493a2 2 0 0 1 3.09-.067L13 15.25m-2.085-2.427c1.037-1.32 2.482-3.188 2.576-3.31l.01-.013a2 2 0 0 1 3.085-.06L19 12.25m-12.25 7h10.5a2 2 0 0 0 2-2V6.75a2 2 0 0 0-2-2H6.75a2 2 0 0 0-2 2v10.5a2 2 0 0 0 2 2"></path></svg>',
+  },
+  // TextIcon
+  'txt-to-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.75 5a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 0 1.5 0V6.5h4.75v11h-.5a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-.5v-11h4.75v.75a.75.75 0 0 0 1.5 0v-1.5a.75.75 0 0 0-.75-.75z" clip-rule="evenodd"></path></svg>',
+  },
+  // TextIcon
+  'pdf-to-text': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.75 5a.75.75 0 0 0-.75.75v1.5a.75.75 0 0 0 1.5 0V6.5h4.75v11h-.5a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-.5v-11h4.75v.75a.75.75 0 0 0 1.5 0v-1.5a.75.75 0 0 0-.75-.75z" clip-rule="evenodd"></path></svg>',
+  },
+  // TableIcon
+  'csv-to-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 15.25h5.25a2 2 0 0 0 2-2V8M8 15.25H2.75a2 2 0 0 1-2-2V8M8 15.25V.75M15.25 8V2.75a2 2 0 0 0-2-2H8M15.25 8H.75m0 0V2.75a2 2 0 0 1 2-2H8"></path></svg>',
+  },
+  // TableIcon
+  'pdf-to-csv': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 15.25h5.25a2 2 0 0 0 2-2V8M8 15.25H2.75a2 2 0 0 1-2-2V8M8 15.25V.75M15.25 8V2.75a2 2 0 0 0-2-2H8M15.25 8H.75m0 0V2.75a2 2 0 0 1 2-2H8"></path></svg>',
+  },
+  // TableIcon
+  'extract-tables': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 15.25h5.25a2 2 0 0 0 2-2V8M8 15.25H2.75a2 2 0 0 1-2-2V8M8 15.25V.75M15.25 8V2.75a2 2 0 0 0-2-2H8M15.25 8H.75m0 0V2.75a2 2 0 0 1 2-2H8"></path></svg>',
+  },
+  // EmailIcon
+  'email-to-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19.25a7.25 7.25 0 1 1 0-14.5c6.813 0 7.25 4.375 7.25 7.25v1.25a2 2 0 1 1-4 0v-4.5"></path></svg>',
+  },
+  // ColorGreyIcon
+  'pdf-to-greyscale': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><rect fill="#CECECE" rx="8"></rect><rect x="1" fill="url(#color-grey_svg-paint0_linear_2523_50059)" fill-opacity="0.3" rx="7"></rect><defs><linearGradient id="color-grey_svg-paint0_linear_2523_50059" x1="8" x2="8" y1="0" y2="14" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"></stop><stop offset="1" stop-color="#fff" stop-opacity="0"></stop></linearGradient></defs></svg>',
+  },
+  // PdfIcon
+  'pdf-to-pdfa': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.75 15.25v-3m0 0v-3.5h1.5a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1zM11.25 8.75h-1.5v6.5h1.5a2 2 0 0 0 2-2v-2.5a2 2 0 0 0-2-2M18.25 8.75h-2.5v3m0 0v3.5m0-3.5h2.5"></path></svg>',
+  },
+  // AiSparkleIcon
+  'prepare-pdf-for-ai': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 88 88"><path fill="var(--action-text-link-active)" d="M48.512 25.19c.357-1.587 2.619-1.587 2.976 0l1.798 7.98c.173.77.775 1.37 1.545 1.544l7.978 1.798c1.588.357 1.588 2.619 0 2.976l-7.978 1.798a2.04 2.04 0 0 0-1.545 1.545l-1.798 7.978c-.357 1.588-2.619 1.588-2.976 0l-1.798-7.978a2.04 2.04 0 0 0-1.545-1.545l-7.978-1.798c-1.588-.357-1.588-2.619 0-2.976l7.978-1.798a2.04 2.04 0 0 0 1.545-1.545z" shape-rendering="geometricPrecision"></path><path fill="var(--action-text-link-hover)" d="M32.937 44.85c.255-1.133 1.87-1.133 2.126 0l1.284 5.7c.124.55.553.98 1.103 1.103l5.7 1.284c1.133.255 1.133 1.87 0 2.126l-5.7 1.284a1.46 1.46 0 0 0-1.103 1.103l-1.284 5.7c-.255 1.133-1.87 1.133-2.126 0l-1.284-5.7a1.46 1.46 0 0 0-1.103-1.103l-5.7-1.284c-1.133-.255-1.133-1.87 0-2.126l5.7-1.284a1.46 1.46 0 0 0 1.103-1.103z" shape-rendering="geometricPrecision"></path></svg>',
+  },
+  // ScanPdfIcon
+  'ocr-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M17.5 10.25a.75.75 0 0 0 1.5 0v-3.5A2.75 2.75 0 0 0 16.25 4h-8.5A2.75 2.75 0 0 0 5 6.75v3.5a.75.75 0 0 0 1.5 0v-3.5c0-.69.56-1.25 1.25-1.25h8.5c.69 0 1.25.56 1.25 1.25zM19 16.75a.75.75 0 0 0-1.5 0v.5c0 .69-.56 1.25-1.25 1.25h-8.5c-.69 0-1.25-.56-1.25-1.25v-.5a.75.75 0 0 0-1.5 0v.5A2.75 2.75 0 0 0 7.75 20h8.5A2.75 2.75 0 0 0 19 17.25zM4 13.25a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H4.75a.75.75 0 0 1-.75-.75"></path></svg>',
+  },
+  // WrenchIcon
+  'repair-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.464 8.95a1 1 0 0 1 0-1.414l2.37-2.37a4.25 4.25 0 0 0-5.67 5.67l-6 6a1.414 1.414 0 1 0 2 2l6.001-6.001a4.25 4.25 0 0 0 5.68-5.648L16.48 9.55a1 1 0 0 1-1.414 0z"></path></svg>',
+  },
+  // SpeedIcon
+  'linearize-pdf': {
+    grid: 16,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 0 0-4.358 11.323c.417-.528.99-.93 1.595-1.215A6.6 6.6 0 0 1 8 11c.933 0 1.918.21 2.763.608.605.285 1.178.687 1.595 1.215A6.5 6.5 0 0 0 8 1.5m0 13a6.5 6.5 0 0 1-3.134-.804c.233-.273.574-.525 1.01-.731.636-.3 1.4-.465 2.124-.465.723 0 1.488.165 2.123.465.437.206.778.458 1.01.731A6.5 6.5 0 0 1 8 14.5M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m10.78-1.72a.75.75 0 1 0-1.06-1.06l-2.5 2.5a.75.75 0 0 0 1.06 1.06z" clip-rule="evenodd"></path></svg>',
+  },
+  // InfoIcon
+  'view-metadata': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><g id="info_svg-Toast"><path id="info_svg-Union" fill="currentColor" fill-rule="evenodd" d="M5.5 12a6.5 6.5 0 1 1 13 0 6.5 6.5 0 0 1-13 0M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16m0 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2m0 2a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1" clip-rule="evenodd"></path></g></svg>',
+  },
+  // SettingsIcon
+  'edit-metadata': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.75 8h2.5M12.75 8h6.5M4.75 16h7.5M17.75 16h1.5M10 10.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5M15 18.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5"></path></svg>',
+  },
+  // DeleteIcon
+  'remove-metadata': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6.25 7.75.841 9.673a2 2 0 0 0 1.993 1.827h5.832a2 2 0 0 0 1.993-1.827l.841-9.673zM10.5 10.75v5.5M13.5 10.75v5.5M9.25 7.75v-1a2 2 0 0 1 2-2h1.5a2 2 0 0 1 2 2v1M5.25 7.75h13.5"></path></svg>',
+  },
+  // LockIcon
+  'encrypt-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.75 11.75a1 1 0 0 1 1-1h10.5a1 1 0 0 1 1 1v5.5a2 2 0 0 1-2 2h-8.5a2 2 0 0 1-2-2zM7.75 10.5v-.157c0-1.562-.094-3.302.996-4.42C9.368 5.288 10.374 4.75 12 4.75s2.632.537 3.254 1.174c1.09 1.117.996 2.857.996 4.419v.157"></path></svg>',
+  },
+  // LockOffIcon
+  'decrypt-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><g id="lock-off_svg-Lock OFF" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path id="lock-off_svg-Vector" d="M5.75 11.75a1 1 0 0 1 1-1h10.5a1 1 0 0 1 1 1v5.5a2 2 0 0 1-2 2h-8.5a2 2 0 0 1-2-2z"></path><path id="lock-off_svg-Vector_2" d="M7.75 10.5v-.157c0-1.562-.094-3.302.996-4.42C9.368 5.288 10.374 4.75 12 4.75s2.632.537 3.254 1.174"></path></g></svg>',
+  },
+  // UnprotectedIcon
+  'remove-restrictions': {
+    grid: 64,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 25 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12.5 4.75 5.25 8S4.5 19.25 12.5 19.25 19.75 8 19.75 8zM10.25 14.25l4.5-4.5M14.75 14.25l-4.5-4.5"></path></svg>',
+  },
+  // ShieldIcon
+  'sanitize-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.75 4.75 8S4 19.25 12 19.25 19.25 8 19.25 8z"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m9.75 12.75 1.25 1.5 3.25-4.5"></path></svg>',
+  },
+  // PasswordsIcon
+  'change-permissions': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13.25a4.25 4.25 0 1 0-4.154-3.346L4.75 16v3.25H8l.75-.75v-1.75h1.75l1.25-1.25v-1.75h1.75l.596-.596q.438.095.904.096"></path><path stroke="currentColor" d="M16.5 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z"></path></svg>',
+  },
+};

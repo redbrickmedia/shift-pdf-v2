@@ -11,13 +11,13 @@ import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
-import * as pdfjsLib from 'pdfjs-dist';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import {
+  completionTiming,
+  createDefaultToolCompletionPanel,
+} from '../utils/tool-completion.js';
+import { pdfEngineAnalytics } from '../analytics/index.js';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 const CONDENSE_PRESETS = {
   light: {
@@ -341,6 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUI();
   };
 
+  const completionPanel = createDefaultToolCompletionPanel(resetState);
+
   const compress = async () => {
     const level = (
       document.getElementById('compression-level') as HTMLSelectElement
@@ -400,18 +402,32 @@ document.addEventListener('DOMContentLoaded', () => {
       customSettings = convertToGrayscale ? { convertToGrayscale } : undefined;
     }
 
+    const operation =
+      pdfEngineAnalytics?.startToolOperation('compress-pdf') ?? null;
+    const startedAt = performance.now();
+    const inputCount = state.files.length;
+
     try {
       if (state.files.length === 0) {
+        operation?.finish({
+          result: 'error',
+          inputCount,
+          outputCount: 0,
+          errorCategory: 'invalid-input',
+        });
         showAlert('No Files', 'Please select at least one PDF file.');
         hideLoader();
         return;
       }
 
       // Check WASM availability for Condense mode
-      const algorithm = (
-        document.getElementById('compression-algorithm') as HTMLSelectElement
-      ).value;
       if (algorithm === 'condense' && !isPyMuPDFAvailable()) {
+        operation?.finish({
+          result: 'error',
+          inputCount,
+          outputCount: 0,
+          errorCategory: 'engine-load',
+        });
         showWasmRequiredDialog('pymupdf');
         return;
       }
@@ -449,7 +465,14 @@ document.addEventListener('DOMContentLoaded', () => {
             level,
             originalFile
           );
-          if (!resultBytes) return;
+          if (!resultBytes) {
+            operation?.finish({
+              result: 'cancelled',
+              inputCount,
+              outputCount: 0,
+            });
+            return;
+          }
           const buffer = resultBytes.buffer.slice(
             resultBytes.byteOffset,
             resultBytes.byteOffset + resultBytes.byteLength
@@ -469,21 +492,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         hideLoader();
 
-        if (savings > 0) {
-          showAlert(
-            'Compression Complete',
-            `Method: ${usedMethod}. File size reduced from ${originalSize} to ${compressedSize} (Saved ${savingsPercent}%).`,
-            'success',
-            () => resetState()
-          );
-        } else {
-          showAlert(
-            'Compression Finished',
-            `Method: ${usedMethod}. Could not reduce file size further. Original: ${originalSize}, New: ${compressedSize}.`,
-            'warning',
-            () => resetState()
-          );
-        }
+        const summary =
+          savings > 0
+            ? `Method: ${usedMethod}. Reduced ${originalSize} to ${compressedSize} and saved ${savingsPercent}%.`
+            : `Method: ${usedMethod}. The file is already optimized (${compressedSize}).`;
+        completionPanel.show({
+          blob: resultBlob,
+          filename: originalFile.name,
+          summary,
+          timing: completionTiming(startedAt),
+        });
+        operation?.finish({
+          result: 'success',
+          inputCount,
+          outputCount: 1,
+        });
       } else {
         showLoader('Compressing multiple PDFs...');
         const JSZip = (await import('jszip')).default;
@@ -515,7 +538,14 @@ document.addEventListener('DOMContentLoaded', () => {
               level,
               file
             );
-            if (!photonResult) return;
+            if (!photonResult) {
+              operation?.finish({
+                result: 'cancelled',
+                inputCount,
+                outputCount: 0,
+              });
+              return;
+            }
             resultBytes = photonResult;
           }
 
@@ -534,24 +564,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         hideLoader();
 
-        if (totalSavings > 0) {
-          showAlert(
-            'Compression Complete',
-            `Compressed ${state.files.length} PDF(s). Total size reduced from ${formatBytes(totalOriginalSize)} to ${formatBytes(totalCompressedSize)} (Saved ${totalSavingsPercent}%).`,
-            'success',
-            () => resetState()
-          );
-        } else {
-          showAlert(
-            'Compression Finished',
-            `Compressed ${state.files.length} PDF(s). Total size: ${formatBytes(totalCompressedSize)}.`,
-            'info',
-            () => resetState()
-          );
-        }
+        const summary =
+          totalSavings > 0
+            ? `Compressed ${inputCount} PDFs from ${formatBytes(totalOriginalSize)} to ${formatBytes(totalCompressedSize)} and saved ${totalSavingsPercent}%.`
+            : `Compressed ${inputCount} PDFs. Total size: ${formatBytes(totalCompressedSize)}.`;
+        completionPanel.show({
+          blob: zipBlob,
+          filename: 'compressed-pdfs.zip',
+          summary,
+          timing: completionTiming(startedAt),
+        });
+        operation?.finish({
+          result: 'success',
+          inputCount,
+          outputCount: 1,
+        });
       }
     } catch (e: unknown) {
       hideLoader();
+      operation?.finish({
+        result: 'error',
+        inputCount,
+        outputCount: 0,
+        errorCategory: 'processing',
+      });
       console.error('[CompressPDF] Error:', e);
       showAlert(
         'Error',

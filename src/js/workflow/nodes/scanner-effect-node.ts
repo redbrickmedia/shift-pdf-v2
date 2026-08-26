@@ -1,3 +1,4 @@
+import { getPDFDocument } from '@/js/utils/pdfjs.js';
 import { ClassicPreset } from 'rete';
 import { BaseWorkflowNode } from './base-node';
 import { pdfSocket } from '../sockets';
@@ -5,7 +6,7 @@ import type { SocketData } from '../types';
 import { requirePdfInput, processBatch } from '../types';
 import { applyScannerEffect } from '../../utils/image-effects';
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import type { ScanSettings } from '../../types/scanner-effect-type';
 import { wfError } from '../errors';
 
@@ -95,8 +96,7 @@ export class ScannerEffectNode extends BaseWorkflowNode {
     return {
       pdf: await processBatch(pdfInputs, async (input) => {
         const newPdfDoc = await PDFDocument.create();
-        const pdfjsDoc = await pdfjsLib.getDocument({ data: input.bytes })
-          .promise;
+        const pdfjsDoc = await getPDFDocument({ data: input.bytes }).promise;
         const dpiScale = settings.resolution / 72;
 
         for (let i = 1; i <= pdfjsDoc.numPages; i++) {

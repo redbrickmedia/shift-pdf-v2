@@ -53,3 +53,9 @@ bentopdf-*.tgz
 # test 
 dist-test
 test
+
+# Isolated Playwright install for scripts/smoke-shift-pages.mjs
+.smoke-tools
+
+# Local browser verification dumps (Chrome profiles, one-off screenshots)
+.tmp-verify

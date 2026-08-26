@@ -320,6 +320,7 @@ pdfjs-editor-stamp-add-image-button-label = Добавяне на изображ
 pdfjs-free-text2 =
     .aria-label = Текстов редактор
     .default-content = Започнете да пишете…
+pdfjs-editor-comments-sidebar-close-button-label = Затваряне на страничната лента
 
 ## Alt-text dialog
 
@@ -379,4 +380,22 @@ pdfjs-editor-colorpicker-red =
 ## New alt-text dialog
 ## Group note for entire feature: Alternative text (alt text) helps when people can't see the image. This feature includes a tool to create alt text automatically using an AI model that works locally on the user's device to preserve privacy.
 
+pdfjs-editor-new-alt-text-disclaimer-learn-more-url = Научете повече
 pdfjs-editor-new-alt-text-not-now-button = Не сега
+
+## Image alt-text settings
+
+pdfjs-editor-alt-text-settings-delete-model-button = Изтриване
+
+## Controls
+
+pdfjs-editor-add-signature-image-upload-error-description = Проверете мрежовата си връзка или опитайте с друго изображение.
+
+## Per-signature certificate row. The variants with an issuer / date in
+## parentheses embed fully-localized context — no English fall-through.
+##
+## Variables:
+##   $issuer (String) - issuer or subject common name from the cert.
+##   $dateObj (Date)  - notAfter date for the expired-with-date form.
+
+pdfjs-digital-signature-properties-certificate-expired = Сертификат: с изтекъл срок на валидност

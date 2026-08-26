@@ -3,9 +3,8 @@ import type { QpdfInstanceExtended } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { createIcons } from 'lucide';
 import { state, resetState } from '../state.js';
-import * as pdfjsLib from 'pdfjs-dist';
 import DOMPurify from 'dompurify';
-import type { DocumentInitParameters } from 'pdfjs-dist/types/src/display/api';
+export { getPDFDocument } from './pdfjs.js';
 
 const STANDARD_SIZES = {
   A4: { width: 595.28, height: 841.89 },
@@ -264,31 +263,6 @@ export function resetAndReloadTool(preResetCallback?: () => void) {
     ) as HTMLElement;
     if (element) element.click();
   }
-}
-
-/**
- * Wrapper for pdfjsLib.getDocument that adds the required wasmUrl configuration.
- * Use this instead of calling pdfjsLib.getDocument directly.
- * @param src The source to load (url string, typed array, or parameters object)
- * @returns The PDF loading task
- */
-export function getPDFDocument(
-  src: string | Uint8Array | ArrayBuffer | DocumentInitParameters
-) {
-  let params: DocumentInitParameters;
-
-  if (typeof src === 'string') {
-    params = { url: src };
-  } else if (src instanceof Uint8Array || src instanceof ArrayBuffer) {
-    params = { data: src };
-  } else {
-    params = src;
-  }
-
-  return pdfjsLib.getDocument({
-    ...params,
-    wasmUrl: import.meta.env.BASE_URL + 'pdfjs-viewer/wasm/',
-  });
 }
 
 /**

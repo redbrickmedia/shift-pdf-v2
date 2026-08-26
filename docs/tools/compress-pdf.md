@@ -14,6 +14,7 @@ Shrink your PDF files without destroying them. BentoPDF offers two distinct comp
 3. Pick a **Compression Level** from Light to Extreme.
 4. Optionally toggle **Convert to Grayscale** or expand **Custom Settings** for fine-grained control.
 5. Click **Compress PDF**. For multiple files, you get a single ZIP download.
+6. Use **Download again** until you choose **Start over**.
 
 ## Compression Algorithms
 

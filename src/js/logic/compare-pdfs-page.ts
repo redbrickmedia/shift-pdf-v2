@@ -1,7 +1,7 @@
 import { showLoader, hideLoader, showAlert } from '../ui.ts';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { icons, createIcons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { CompareState } from '@/types';
 import type {
   CompareFilterType,
@@ -24,11 +24,6 @@ import {
   computeComparisonForPair,
   getComparisonCacheKey,
 } from './compare-render.ts';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const pageState: CompareState = {
   pdfDoc1: null,

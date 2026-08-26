@@ -7,14 +7,9 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { deletePdfPages } from '../utils/pdf-operations.js';
-import * as pdfjsLib from 'pdfjs-dist';
+
 import { DeletePagesState } from '@/types';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
 
 const deleteState: DeletePagesState = {
   file: null,
