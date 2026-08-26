@@ -1,8 +1,13 @@
 import { showAlert } from '../ui.js';
+import { getRememberedSourceTabId } from '../logic/open-file-store.js';
+import { markFileFromExtension } from '../logic/workspace-files.js';
 
 export const PDF_FILE_SIZE_LIMIT_BYTES = 16 * 1024 * 1024;
 export const PDF_FILE_READ_TIMEOUT_MS = 60_000;
 export const SHIFT_FILES_READY_TIMEOUT_MS = 3_000;
+export const SHIFT_FILES_HANDOFF_READY_TIMEOUT_MS = 8_000;
+export const SHIFT_FILE_READ_RETRY_ATTEMPTS = 6;
+export const SHIFT_FILE_READ_RETRY_DELAY_MS = 150;
 
 export type ShiftFileReadResult = {
   bytesBase64: string;
@@ -12,6 +17,7 @@ export type ShiftFileReadResult = {
 
 type ShiftFilesApi = {
   read: (options?: { tabId?: number }) => Promise<ShiftFileReadResult>;
+  reveal?: (options?: { tabId?: number }) => Promise<void>;
 };
 
 type ShiftHostWindow = Window & {
@@ -22,6 +28,13 @@ type ShiftHostWindow = Window & {
 
 function shiftHostWindow(): ShiftHostWindow {
   return window as ShiftHostWindow;
+}
+
+export function isShiftFilesBridgeReady(root: Document = document): boolean {
+  return Boolean(
+    shiftHostWindow().shift?.files?.read ||
+    root.documentElement?.getAttribute('data-shift-files') === 'ready'
+  );
 }
 
 export function getSourceTabIdFromLocation(
@@ -62,39 +75,72 @@ export function sanitizeIncomingPdfFilename(value: string | undefined): string {
 export async function waitForShiftFilesApi(
   timeoutMs = SHIFT_FILES_READY_TIMEOUT_MS
 ): Promise<boolean> {
-  if (shiftHostWindow().shift?.files?.read) return true;
+  if (isShiftFilesBridgeReady()) return true;
 
   return await new Promise((resolve) => {
-    const timer = window.setTimeout(() => {
+    let settled = false;
+    const finish = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.clearInterval(poll);
       window.removeEventListener('shift-files:ready', onReady);
-      resolve(Boolean(shiftHostWindow().shift?.files?.read));
-    }, timeoutMs);
+      resolve(ready);
+    };
 
     const onReady = () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('shift-files:ready', onReady);
-      resolve(true);
+      finish(true);
     };
+
+    const poll = window.setInterval(() => {
+      if (isShiftFilesBridgeReady()) finish(true);
+    }, 50);
+
+    const timer = window.setTimeout(() => {
+      finish(isShiftFilesBridgeReady());
+    }, timeoutMs);
 
     window.addEventListener('shift-files:ready', onReady);
   });
 }
 
+export function isRetryableShiftFileError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : '';
+  return (
+    message.includes('does not have access to an open file') ||
+    message.includes('could not read the PDF in time') ||
+    message.includes('empty or could not be read') ||
+    message.includes('could not connect to this PDF')
+  );
+}
+
+export function getHandoffSourceTabId(
+  search = window.location.search
+): number | undefined {
+  return getSourceTabIdFromLocation(search) ?? getRememberedSourceTabId();
+}
+
 export async function readOpenShiftFile(): Promise<File | null> {
-  const ready = await waitForShiftFilesApi();
-  if (!ready) return null;
+  const tabId = getHandoffSourceTabId();
+  const ready = await waitForShiftFilesApi(
+    tabId === undefined
+      ? SHIFT_FILES_READY_TIMEOUT_MS
+      : SHIFT_FILES_HANDOFF_READY_TIMEOUT_MS
+  );
+  if (!ready) {
+    if (tabId !== undefined) {
+      throw new Error('Shift could not connect to this PDF.');
+    }
+    return null;
+  }
 
-  const tabId = getSourceTabIdFromLocation();
-  const result = await Promise.race([
-    readFromShiftApi(tabId),
-    timeoutError(PDF_FILE_READ_TIMEOUT_MS),
-  ]);
-
-  return fileFromShiftReadResult(result);
+  const result = await readFromShiftApiWithRetry(tabId);
+  return markFileFromExtension(fileFromShiftReadResult(result), tabId);
 }
 
 export function loadOpenShiftFile(
-  onFile: (file: File) => void | Promise<void>
+  onFile: (file: File) => void | Promise<void>,
+  options?: { silent?: boolean }
 ): void {
   void (async () => {
     try {
@@ -102,6 +148,7 @@ export function loadOpenShiftFile(
       if (!file) return;
       await onFile(file);
     } catch (error) {
+      if (options?.silent) return;
       const message =
         error instanceof Error
           ? error.message
@@ -109,6 +156,38 @@ export function loadOpenShiftFile(
       showAlert('PDF from Shift', message);
     }
   })();
+}
+
+async function readFromShiftApiWithRetry(
+  tabId?: number
+): Promise<ShiftFileReadResult> {
+  let lastError: unknown;
+
+  for (
+    let attempt = 1;
+    attempt <= SHIFT_FILE_READ_RETRY_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      return await Promise.race([
+        readFromShiftApi(tabId),
+        timeoutError(PDF_FILE_READ_TIMEOUT_MS),
+      ]);
+    } catch (error) {
+      lastError = error;
+      if (
+        !isRetryableShiftFileError(error) ||
+        attempt === SHIFT_FILE_READ_RETRY_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await delay(SHIFT_FILE_READ_RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Shift could not load this PDF.');
 }
 
 async function readFromShiftApi(tabId?: number): Promise<ShiftFileReadResult> {
@@ -151,6 +230,12 @@ function timeoutError(timeoutMs: number): Promise<never> {
     window.setTimeout(() => {
       reject(new Error('Shift could not read the PDF in time.'));
     }, timeoutMs);
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
   });
 }
 

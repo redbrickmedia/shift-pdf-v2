@@ -23,7 +23,7 @@ import {
   configureSessionOnlySignatureUi,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
-import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
+import { setWorkspaceFiles } from './workspace-files.js';
 
 const signState: SignState = {
   file: null,
@@ -97,10 +97,6 @@ function initializePage() {
     window.location.href = import.meta.env.BASE_URL;
   });
   window.addEventListener('pagehide', cleanup, { once: true });
-
-  loadOpenShiftFile((file) => {
-    void handleFile(file);
-  });
 }
 
 async function handleFileUpload(e: Event) {
@@ -169,11 +165,13 @@ async function updateFileDisplay(
     signState.viewerReady = false;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
+    setWorkspaceFiles([]);
   };
 
   fileDiv.append(infoContainer, removeBtn);
   fileDisplayArea.appendChild(fileDiv);
   createIcons({ icons });
+  if (signState.file) setWorkspaceFiles([signState.file]);
 
   const result = await loadPdfWithPasswordPrompt(requestedFile);
   if (loadVersion !== fileLoadVersion) {
@@ -185,11 +183,13 @@ async function updateFileDisplay(
     signState.pdfDoc = null;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
+    setWorkspaceFiles([]);
     return false;
   }
   signState.file = result.file;
   nameSpan.textContent = result.file.name;
   metaSpan.textContent = `${formatBytes(result.file.size)} • ${result.pdf.numPages} pages`;
+  setWorkspaceFiles([result.file]);
   await result.pdf.destroy();
   return true;
 }

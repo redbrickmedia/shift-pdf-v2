@@ -188,16 +188,27 @@ function createLanguageMiddleware(isDev: boolean): Connect.NextHandleFunction {
       return next();
     }
 
-    if (isDev && pathname.endsWith('.html') && !pathname.startsWith('/src/')) {
-      const pageName = pathname.slice(1).replace('.html', '');
-      if (PAGES.has(pageName)) {
-        const srcPath = resolve(__dirname, 'src/pages', `${pageName}.html`);
-        if (fs.existsSync(srcPath)) {
-          req.url =
-            `/src/pages/${pageName}.html` +
-            (queryString ? `?${queryString}` : '');
-          return next();
+    // Hub pages (Convert, Editor, …) link with clean URLs such as
+    // /word-to-pdf. Without this rewrite Vite serves index.html — All tools.
+    if (!pathname.startsWith('/src/')) {
+      const pageName = pathname
+        .replace(/^\//, '')
+        .replace(/\/$/, '')
+        .replace(/\.html$/, '');
+      const isSingleSegmentPage =
+        pageName.length > 0 && !pageName.includes('/') && PAGES.has(pageName);
+
+      if (isSingleSegmentPage) {
+        const suffix = queryString ? `?${queryString}` : '';
+        if (isDev) {
+          const srcPath = resolve(__dirname, 'src/pages', `${pageName}.html`);
+          req.url = fs.existsSync(srcPath)
+            ? `/src/pages/${pageName}.html${suffix}`
+            : `/${pageName}.html${suffix}`;
+        } else {
+          req.url = `/${pageName}.html${suffix}`;
         }
+        return next();
       }
     }
 

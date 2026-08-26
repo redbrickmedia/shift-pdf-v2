@@ -32,6 +32,26 @@ import {
   toggleFavoriteToolId,
   type FavoriteRailPin,
 } from './logic/tool-favorites.js';
+import { initHomeFiles } from './logic/home-files.js';
+import {
+  isHomeDocument,
+  seedToolOpenFile,
+} from './logic/seed-tool-open-file.js';
+import {
+  getRememberedSourceTabId,
+  hasOpenFileFlag,
+} from './logic/open-file-store.js';
+import { getSourceTabIdFromLocation } from './embedder/shift-file-access.js';
+import {
+  setToolCatalogOpen,
+  shouldShowCategoryGroup,
+  shouldShowToolCatalog,
+  toggleSelectedCategory,
+} from './logic/home-catalog.js';
+import {
+  initWorkspaceFileIndicator,
+  pickerAcceptsPdf,
+} from './logic/workspace-files.js';
 import {
   dismissPromiseBanner,
   markPromiseBannerSeen,
@@ -121,6 +141,18 @@ function createInlineIcon(pathData: string): SVGSVGElement {
 }
 
 function initShiftShell() {
+  if (
+    !isHomeDocument() &&
+    (hasOpenFileFlag() ||
+      getSourceTabIdFromLocation() !== undefined ||
+      getRememberedSourceTabId() !== undefined)
+  ) {
+    document.body.classList.add('shift-has-open-file');
+    if (pickerAcceptsPdf()) {
+      document.body.classList.add('shift-open-file-in-tool');
+    }
+  }
+
   const donationRibbon = document.getElementById('donation-ribbon');
   if (donationRibbon) {
     donationRibbon.classList.add('hidden');
@@ -180,6 +212,8 @@ function initShiftShell() {
       }
     });
   }
+
+  initWorkspaceFileIndicator();
 
   const path = window.location.pathname.replace(/\/+$/, '');
   const file = path.split('/').pop() || 'index.html';
@@ -245,6 +279,8 @@ const init = async () => {
   applyTranslations();
 
   initShiftShell();
+  initHomeFiles();
+  await seedToolOpenFile();
   trackPdfEngineExperience(
     new Set(
       categories.flatMap((category) => category.tools.map((tool) => tool.id))
@@ -709,7 +745,7 @@ const init = async () => {
     );
     favoritesToolsContainer.appendChild(favoritesEmpty);
 
-    let favoritesCollapsed = favoriteToolIds.length > 0;
+    let favoritesCollapsed = false;
     try {
       const storedFavoritesCollapsed = localStorage.getItem(
         'shiftFavoritesCategoryCollapsed'
@@ -780,6 +816,7 @@ const init = async () => {
     filteredCategories.forEach((category) => {
       const categoryGroup = document.createElement('div');
       categoryGroup.className = 'category-group col-span-full';
+      categoryGroup.dataset.categoryName = category.name;
 
       const header = document.createElement('button');
       header.className = 'category-header';
@@ -948,9 +985,52 @@ const init = async () => {
     const searchBar = document.getElementById(
       'search-bar'
     ) as HTMLInputElement | null;
+    const gridView = document.getElementById('grid-view');
     const categoryGroups = dom.toolGrid.querySelectorAll('.category-group');
     const searchStatus = document.getElementById('tool-search-status');
     const searchEmpty = document.getElementById('tool-search-empty');
+    const categoryChips = document.getElementById('home-category-chips');
+    let selectedCategory: string | null = null;
+
+    const syncToolCatalog = (searchFocused: boolean, searchQuery: string) => {
+      setToolCatalogOpen(
+        gridView,
+        shouldShowToolCatalog({
+          searchFocused,
+          searchQuery,
+          selectedCategory,
+        })
+      );
+    };
+
+    const syncCategoryChips = () => {
+      categoryChips
+        ?.querySelectorAll('.shift-category-chip')
+        .forEach((chip) => {
+          const isPressed =
+            chip.getAttribute('data-category') === selectedCategory;
+          chip.setAttribute('aria-pressed', String(isPressed));
+        });
+    };
+
+    const revealSelectedCategory = () => {
+      if (!selectedCategory) return;
+      categoryGroups.forEach((group) => {
+        const groupEl = group as HTMLElement;
+        const matches = shouldShowCategoryGroup({
+          isFavorites: groupEl.dataset.categoryType === 'favorites',
+          categoryName: groupEl.dataset.categoryName,
+          selectedCategory,
+        });
+        if (!matches || !groupEl.classList.contains('collapsed')) return;
+        const tools = groupEl.querySelector<HTMLElement>('.category-tools');
+        groupEl.classList.remove('collapsed');
+        if (tools) {
+          tools.style.maxHeight = 'none';
+          tools.style.overflow = 'visible';
+        }
+      });
+    };
 
     const applyToolSearch = (rawQuery: string) => {
       const searchTerm = rawQuery.toLowerCase().trim();
@@ -988,11 +1068,14 @@ const init = async () => {
           if (isMatch) groupMatches++;
         });
 
-        matchCount += groupMatches;
-
-        // Favorites remains a stable first category. Other empty sections can
-        // disappear during search without moving that anchor out of the view.
-        groupEl.hidden = !isFavoritesGroup && groupMatches === 0;
+        const categoryVisible = shouldShowCategoryGroup({
+          isFavorites: isFavoritesGroup,
+          categoryName: groupEl.dataset.categoryName,
+          selectedCategory,
+        });
+        matchCount += categoryVisible ? groupMatches : 0;
+        groupEl.hidden =
+          !categoryVisible || (!isFavoritesGroup && groupMatches === 0);
         groupEl.classList.toggle('is-tool-searching', Boolean(searchTerm));
       });
 
@@ -1019,15 +1102,80 @@ const init = async () => {
         searchEmpty.hidden = !showEmpty;
         searchEmpty.classList.toggle('hidden', !showEmpty);
       }
+
+      syncToolCatalog(document.activeElement === searchBar, rawQuery);
     };
     refreshGridSearch = () => applyToolSearch(searchBar?.value ?? '');
     renderGridFavorites();
     updateGridFavoriteControls();
     refreshGridSearch();
 
+    if (categoryChips) {
+      const createChipDismissIcon = () => {
+        const svg = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'svg'
+        );
+        svg.setAttribute('class', 'shift-category-chip-x');
+        svg.setAttribute('viewBox', '0 0 16 16');
+        svg.setAttribute('aria-hidden', 'true');
+        const path = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'path'
+        );
+        path.setAttribute('d', 'M4 4l8 8M12 4l-8 8');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'currentColor');
+        path.setAttribute('stroke-width', '1.75');
+        path.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(path);
+        return svg;
+      };
+
+      const fillChipLabel = (button: HTMLButtonElement, label: string) => {
+        const text = document.createElement('span');
+        text.textContent = label;
+        button.replaceChildren(text, createChipDismissIcon());
+      };
+
+      const applyCategorySelection = (next: string | null) => {
+        selectedCategory = next;
+        syncCategoryChips();
+        applyToolSearch(searchBar?.value ?? '');
+        revealSelectedCategory();
+      };
+
+      filteredCategories.forEach((category) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shift-category-chip';
+        button.dataset.category = category.name;
+        const categoryKey = categoryTranslationKeys[category.name];
+        fillChipLabel(button, categoryKey ? t(categoryKey) : category.name);
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', () => {
+          applyCategorySelection(
+            toggleSelectedCategory(selectedCategory, category.name)
+          );
+        });
+        categoryChips.appendChild(button);
+      });
+    }
+
     if (searchBar) {
       searchBar.addEventListener('input', () => {
         applyToolSearch(searchBar.value);
+      });
+
+      searchBar.addEventListener('focus', () => {
+        syncToolCatalog(true, searchBar.value);
+      });
+
+      searchBar.addEventListener('blur', () => {
+        window.setTimeout(() => {
+          if (document.activeElement === searchBar) return;
+          syncToolCatalog(false, searchBar.value);
+        }, 150);
       });
 
       window.addEventListener('keydown', function (e) {

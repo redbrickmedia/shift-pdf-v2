@@ -6,7 +6,7 @@ import {
   getPDFDocument,
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
-import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
+import { setWorkspaceFiles } from './workspace-files.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -284,11 +284,15 @@ document.addEventListener('DOMContentLoaded', () => {
         createIcons({ icons });
       }
       compressOptions.classList.remove('hidden');
+      document.getElementById('file-controls')?.classList.remove('hidden');
+      setWorkspaceFiles(state.files);
     } else {
       compressOptions.classList.add('hidden');
+      document.getElementById('file-controls')?.classList.add('hidden');
       // Clear file display area
       const fileDisplayArea = document.getElementById('file-display-area');
       if (fileDisplayArea) fileDisplayArea.innerHTML = '';
+      setWorkspaceFiles([]);
     }
   };
 
@@ -655,10 +659,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', compress);
   }
-
-  loadOpenShiftFile((file) => {
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    handleFileSelect(dataTransfer.files);
-  });
 });

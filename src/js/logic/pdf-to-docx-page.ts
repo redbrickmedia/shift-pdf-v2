@@ -11,7 +11,7 @@ import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
-import { loadOpenShiftFile } from '../embedder/shift-file-access.js';
+import { setWorkspaceFiles } from './workspace-files.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -81,11 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
       fileControls.classList.remove('hidden');
       convertOptions.classList.remove('hidden');
       (processBtn as HTMLButtonElement).disabled = false;
+      setWorkspaceFiles(state.files);
     } else {
       fileDisplayArea.innerHTML = '';
       fileControls.classList.add('hidden');
       convertOptions.classList.add('hidden');
       (processBtn as HTMLButtonElement).disabled = true;
+      setWorkspaceFiles([]);
     }
   };
 
@@ -223,10 +225,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', convert);
   }
-
-  loadOpenShiftFile((file) => {
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    handleFileSelect(dataTransfer.files);
-  });
 });

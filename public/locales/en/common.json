@@ -64,6 +64,22 @@
     "backOptions": "More ways back",
     "firstLoadNotice": "First load takes a moment as we download our conversion engine. After that, all loads will be instant."
   },
+  "home": {
+    "categoryChips": "Tool categories",
+    "dropHintPrefix": "Drag & Drop or",
+    "chooseFiles": "Choose files",
+    "dropHintSuffix": "(PDFs only) to upload.",
+    "openFile": "Active file",
+    "activeFiles": "Active files",
+    "viewBy": "View by",
+    "viewList": "List view",
+    "viewThumbnail": "Thumbnail view",
+    "clickToUpload": "Click to upload",
+    "fromShiftTabTooltip": "This PDF is open from a Shift tab. Click to show that tab.",
+    "columnName": "Name",
+    "columnDateAdded": "Date added",
+    "columnSize": "Size"
+  },
   "upload": {
     "clickToSelect": "Click to select a file",
     "orDragAndDrop": "or drag and drop",
