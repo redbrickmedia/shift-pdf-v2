@@ -23,7 +23,6 @@ import {
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
 import {
-  applyFavoritePinTitles,
   FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
   placeFavoriteToolCards,
@@ -190,12 +189,6 @@ function initShiftShell() {
       );
       const label = collapseBtn.querySelector('.shift-nav-label');
       if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
-      requestAnimationFrame(() =>
-        applyFavoritePinTitles(
-          document.getElementById('shift-favorites-nav') ?? document,
-          collapsed
-        )
-      );
     };
 
     applyCollapsed(readSidebarCollapsed());
@@ -604,12 +597,6 @@ const init = async () => {
       const link = document.createElement('a');
       link.href = tool.href;
       link.className = 'shift-nav-link shift-favorite-link';
-      link.addEventListener('mouseenter', () => {
-        applyFavoritePinTitles(
-          nav,
-          document.body.classList.contains('shift-sidebar-collapsed')
-        );
-      });
 
       const icon = createToolIcon(tool, 'shift-nav-icon');
       const label = document.createElement('span');
@@ -646,12 +633,6 @@ const init = async () => {
     createIcons({ icons });
     saveFavoriteRailSnapshot(pins);
     markActiveNavLinks();
-    requestAnimationFrame(() =>
-      applyFavoritePinTitles(
-        nav,
-        document.body.classList.contains('shift-sidebar-collapsed')
-      )
-    );
   };
 
   let renderGridFavorites = () => {};
