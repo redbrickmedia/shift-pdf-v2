@@ -35,7 +35,7 @@ export function applyFileToToolInput(
   const input = root.getElementById('file-input') as HTMLInputElement | null;
   if (input && !inputAcceptsFile(input, file)) return false;
 
-  if (input && !(input.files && input.files.length > 0)) {
+  if (input) {
     assignInputFiles(input, [file]);
     for (const assigned of Array.from(input.files ?? [])) {
       copyFileOrigin(file, assigned);
@@ -102,10 +102,10 @@ export async function seedToolOpenFile(
     return false;
   }
 
+  const applied = applyFileToToolInput(file, root);
   setWorkspaceFiles([file], root);
   await persistWorkspaceOpenFile();
-  applyFileToToolInput(file, root);
-  return true;
+  return applied || getWorkspaceFiles().length > 0;
 }
 
 async function resolveOpenFile(): Promise<File | null> {

@@ -154,6 +154,25 @@ describe('seed tool open file', () => {
     expect(getWorkspaceFiles()[0]?.name).toBe('from-tab.pdf');
   });
 
+  it('overwrites a populated picker and fires change', () => {
+    document.body.innerHTML = `
+      <input id="file-input" type="file" accept="application/pdf" />
+    `;
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    const existing = new File(['old'], 'old.pdf', { type: 'application/pdf' });
+    const next = new File(['new'], 'new.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [existing],
+    });
+    const change = vi.fn();
+    input.addEventListener('change', change);
+
+    expect(applyFileToToolInput(next)).toBe(true);
+    expect(input.files?.[0]?.name).toBe('new.pdf');
+    expect(change).toHaveBeenCalledOnce();
+  });
+
   it('does not put a PDF into an image-only picker', () => {
     document.body.innerHTML = `
       <input id="file-input" type="file" accept="image/png,.png" />

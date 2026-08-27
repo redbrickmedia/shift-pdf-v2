@@ -134,16 +134,14 @@ export async function revealOpenShiftTab(tabId?: number): Promise<void> {
 
   const files = shiftHostWindow().shift?.files;
   const reveal = files?.reveal
-    ? files.reveal({ tabId: resolvedTabId })
-    : revealViaCustomEvents(resolvedTabId);
+    ? (_signal: AbortSignal) => files.reveal!({ tabId: resolvedTabId })
+    : (signal: AbortSignal) => revealViaCustomEvents(resolvedTabId, signal);
 
-  await Promise.race([
+  await raceWithTimeout(
     reveal,
-    timeoutError(
-      SHIFT_FILE_REVEAL_TIMEOUT_MS,
-      'Shift could not open this PDF tab.'
-    ),
-  ]);
+    SHIFT_FILE_REVEAL_TIMEOUT_MS,
+    'Shift could not open this PDF tab.'
+  );
 }
 
 export async function readOpenShiftFile(): Promise<File | null> {
@@ -195,10 +193,11 @@ async function readFromShiftApiWithRetry(
     attempt += 1
   ) {
     try {
-      return await Promise.race([
-        readFromShiftApi(tabId),
-        timeoutError(PDF_FILE_READ_TIMEOUT_MS),
-      ]);
+      return await raceWithTimeout(
+        (signal) => readFromShiftApi(tabId, signal),
+        PDF_FILE_READ_TIMEOUT_MS,
+        'Shift could not read the PDF in time.'
+      );
     } catch (error) {
       lastError = error;
       if (
@@ -216,76 +215,123 @@ async function readFromShiftApiWithRetry(
     : new Error('Shift could not load this PDF.');
 }
 
-async function readFromShiftApi(tabId?: number): Promise<ShiftFileReadResult> {
+async function readFromShiftApi(
+  tabId?: number,
+  signal?: AbortSignal
+): Promise<ShiftFileReadResult> {
   const files = shiftHostWindow().shift?.files;
   if (files?.read) {
     return files.read({ tabId });
   }
 
-  return readViaCustomEvents(tabId);
+  return readViaCustomEvents(tabId, signal);
 }
 
-function revealViaCustomEvents(tabId?: number): Promise<void> {
+function revealViaCustomEvents(
+  tabId?: number,
+  signal?: AbortSignal
+): Promise<void> {
+  return awaitCustomEventResult(
+    'shift-files:reveal',
+    'shift-files:reveal-result',
+    tabId,
+    (): undefined => undefined,
+    signal,
+    'Shift could not open this PDF tab.'
+  );
+}
+
+function readViaCustomEvents(
+  tabId?: number,
+  signal?: AbortSignal
+): Promise<ShiftFileReadResult> {
+  return awaitCustomEventResult(
+    'shift-files:read',
+    'shift-files:result',
+    tabId,
+    (detail) => ({
+      bytesBase64: String(detail.bytesBase64 ?? ''),
+      filename: String(detail.filename ?? ''),
+      mimeType: String(detail.mimeType ?? ''),
+    }),
+    signal,
+    'Shift could not read the PDF in time.'
+  );
+}
+
+function awaitCustomEventResult<T>(
+  requestEvent: string,
+  resultEvent: string,
+  tabId: number | undefined,
+  mapResult: (detail: Record<string, unknown>) => T,
+  signal: AbortSignal | undefined,
+  abortMessage: string
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const requestId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    let settled = false;
+
+    const finish = (action: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener(resultEvent, onResult);
+      signal?.removeEventListener('abort', onAbort);
+      action();
+    };
+
+    const onAbort = () => {
+      finish(() => reject(new Error(abortMessage)));
+    };
 
     const onResult = (event: Event) => {
       const detail = (event as CustomEvent).detail as
-        | { error?: string; requestId?: string }
+        | (Record<string, unknown> & { error?: string; requestId?: string })
         | undefined;
       if (!detail || detail.requestId !== requestId) return;
-      window.removeEventListener('shift-files:reveal-result', onResult);
       if (detail.error) {
-        reject(new Error(detail.error));
+        finish(() => reject(new Error(detail.error)));
         return;
       }
-      resolve();
+      finish(() => resolve(mapResult(detail)));
     };
 
-    window.addEventListener('shift-files:reveal-result', onResult);
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener('abort', onAbort);
+    window.addEventListener(resultEvent, onResult);
     window.dispatchEvent(
-      new CustomEvent('shift-files:reveal', {
+      new CustomEvent(requestEvent, {
         detail: { requestId, tabId },
       })
     );
   });
 }
 
-function readViaCustomEvents(tabId?: number): Promise<ShiftFileReadResult> {
-  return new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-
-    const onResult = (event: Event) => {
-      const detail = (event as CustomEvent).detail as
-        | (ShiftFileReadResult & { error?: string; requestId?: string })
-        | undefined;
-      if (!detail || detail.requestId !== requestId) return;
-      window.removeEventListener('shift-files:result', onResult);
-      if (detail.error) {
-        reject(new Error(detail.error));
-        return;
-      }
-      resolve(detail);
-    };
-
-    window.addEventListener('shift-files:result', onResult);
-    window.dispatchEvent(
-      new CustomEvent('shift-files:read', {
-        detail: { requestId, tabId },
-      })
-    );
-  });
-}
-
-function timeoutError(
+async function raceWithTimeout<T>(
+  start: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
-  message = 'Shift could not read the PDF in time.'
-): Promise<never> {
-  return new Promise((_, reject) => {
-    window.setTimeout(() => {
+  message: string
+): Promise<T> {
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
       reject(new Error(message));
     }, timeoutMs);
   });
+  const work = start(controller.signal);
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    controller.abort();
+    void work.catch((): undefined => undefined);
+    void timeout.catch((): undefined => undefined);
+  }
 }
 
 function delay(ms: number): Promise<void> {

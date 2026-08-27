@@ -184,7 +184,10 @@ async function addFiles(files: File[]): Promise<void> {
       await loadRuntimeSource(source);
       added.push(source);
     }
-    if (added.length === 0) return;
+    if (added.length === 0) {
+      await renderMergeUI();
+      return;
+    }
 
     snapshot();
     mergeModel.files.push(...added);
@@ -207,6 +210,7 @@ async function addFiles(files: File[]): Promise<void> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
+    await renderMergeUI();
   } finally {
     hideLoader();
   }

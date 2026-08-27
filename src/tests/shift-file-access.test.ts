@@ -8,6 +8,10 @@ import {
   readOpenShiftFile,
   revealOpenShiftTab,
   sanitizeIncomingPdfFilename,
+  PDF_FILE_READ_TIMEOUT_MS,
+  SHIFT_FILE_READ_RETRY_ATTEMPTS,
+  SHIFT_FILE_READ_RETRY_DELAY_MS,
+  SHIFT_FILE_REVEAL_TIMEOUT_MS,
   SHIFT_FILES_READY_TIMEOUT_MS,
 } from '../js/embedder/shift-file-access';
 import { rememberSourceTabId } from '../js/logic/open-file-store';
@@ -177,6 +181,71 @@ describe('shift-file-access', () => {
       await revealOpenShiftTab(44);
     } finally {
       window.removeEventListener('shift-files:reveal', onReveal);
+    }
+  });
+
+  it('removes the reveal result listener when Shift does not answer', async () => {
+    vi.useFakeTimers();
+    const removed = vi.fn();
+    const originalRemove = window.removeEventListener.bind(window);
+    const spy = vi
+      .spyOn(window, 'removeEventListener')
+      .mockImplementation((type, listener, options) => {
+        if (String(type) === 'shift-files:reveal-result') removed();
+        originalRemove(type, listener, options);
+      });
+
+    try {
+      document.documentElement.setAttribute('data-shift-files', 'ready');
+      const pending = expect(revealOpenShiftTab(12)).rejects.toThrow(
+        'Shift could not open this PDF tab.'
+      );
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(SHIFT_FILE_REVEAL_TIMEOUT_MS);
+      await pending;
+      expect(removed).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('removes the read result listener when Shift does not answer', async () => {
+    vi.useFakeTimers();
+    const removed = vi.fn();
+    const originalRemove = window.removeEventListener.bind(window);
+    const spy = vi
+      .spyOn(window, 'removeEventListener')
+      .mockImplementation((type, listener, options) => {
+        if (String(type) === 'shift-files:result') removed();
+        originalRemove(type, listener, options);
+      });
+
+    try {
+      document.documentElement.setAttribute('data-shift-files', 'ready');
+      const pending = expect(readOpenShiftFile()).rejects.toThrow(
+        'Shift could not read the PDF in time.'
+      );
+      await Promise.resolve();
+
+      for (
+        let attempt = 1;
+        attempt <= SHIFT_FILE_READ_RETRY_ATTEMPTS;
+        attempt += 1
+      ) {
+        await vi.advanceTimersByTimeAsync(PDF_FILE_READ_TIMEOUT_MS);
+        if (attempt < SHIFT_FILE_READ_RETRY_ATTEMPTS) {
+          await vi.advanceTimersByTimeAsync(
+            SHIFT_FILE_READ_RETRY_DELAY_MS * attempt
+          );
+        }
+      }
+
+      await pending;
+      expect(removed).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
     }
   });
 
