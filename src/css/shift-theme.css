@@ -1767,11 +1767,13 @@ body.shift-home .shift-tool-search {
   text-align: center;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 120ms linear;
 }
 
-.shift-open-file-thumb:hover .shift-open-file-thumb-replace,
+.shift-open-file-thumb-preview:hover .shift-open-file-thumb-replace,
 .shift-open-file-thumb:focus-visible .shift-open-file-thumb-replace {
   opacity: 1;
+  transition-delay: 400ms;
 }
 
 .shift-open-file-thumb-meta {
@@ -1834,4 +1836,32 @@ body.shift-home .shift-tool-search {
 
 .shift-my-pdfs-row.is-revealable:hover {
   background: var(--action-controls-surface-primary-hover);
+}
+
+/* Matches Shift SDS tooltip timing and inverse surface, using existing tokens. */
+.shift-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: var(--radius-8);
+  background: var(--text-primary);
+  color: var(--background-secondary);
+  font-family: var(--shift-font);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.shift-tooltip.is-open {
+  opacity: 1;
+  visibility: visible;
 }

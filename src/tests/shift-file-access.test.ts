@@ -6,7 +6,9 @@ import {
   getSourceTabIdFromLocation,
   isShiftFilesBridgeReady,
   readOpenShiftFile,
+  revealOpenShiftTab,
   sanitizeIncomingPdfFilename,
+  SHIFT_FILES_READY_TIMEOUT_MS,
 } from '../js/embedder/shift-file-access';
 import { rememberSourceTabId } from '../js/logic/open-file-store';
 import {
@@ -143,6 +145,51 @@ describe('shift-file-access', () => {
       expect(file?.name).toBe('report.pdf');
     } finally {
       window.removeEventListener('shift-files:read', onRead);
+    }
+  });
+
+  it('reveals the remembered tab through the Shift files API', async () => {
+    const reveal = vi.fn().mockResolvedValue(undefined);
+    Object.assign(window, {
+      shift: { files: { read: vi.fn(), reveal } },
+    });
+    rememberSourceTabId(77);
+
+    await revealOpenShiftTab();
+
+    expect(reveal).toHaveBeenCalledWith({ tabId: 77 });
+  });
+
+  it('reveals through custom events when the main-world API is missing', async () => {
+    document.documentElement.setAttribute('data-shift-files', 'ready');
+    const onReveal = (event: Event) => {
+      const requestId = (event as CustomEvent<{ requestId?: string }>).detail
+        ?.requestId;
+      window.dispatchEvent(
+        new CustomEvent('shift-files:reveal-result', {
+          detail: { requestId, ok: true },
+        })
+      );
+    };
+    window.addEventListener('shift-files:reveal', onReveal);
+
+    try {
+      await revealOpenShiftTab(44);
+    } finally {
+      window.removeEventListener('shift-files:reveal', onReveal);
+    }
+  });
+
+  it('throws when Shift files is not connected', async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = expect(revealOpenShiftTab()).rejects.toThrow(
+        'Shift could not connect to this PDF.'
+      );
+      await vi.advanceTimersByTimeAsync(SHIFT_FILES_READY_TIMEOUT_MS);
+      await pending;
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

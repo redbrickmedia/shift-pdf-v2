@@ -8,6 +8,7 @@ export const SHIFT_FILES_READY_TIMEOUT_MS = 3_000;
 export const SHIFT_FILES_HANDOFF_READY_TIMEOUT_MS = 8_000;
 export const SHIFT_FILE_READ_RETRY_ATTEMPTS = 6;
 export const SHIFT_FILE_READ_RETRY_DELAY_MS = 150;
+export const SHIFT_FILE_REVEAL_TIMEOUT_MS = 8_000;
 
 export type ShiftFileReadResult = {
   bytesBase64: string;
@@ -120,6 +121,31 @@ export function getHandoffSourceTabId(
   return getSourceTabIdFromLocation(search) ?? getRememberedSourceTabId();
 }
 
+export async function revealOpenShiftTab(tabId?: number): Promise<void> {
+  const resolvedTabId = tabId ?? getHandoffSourceTabId();
+  const ready = await waitForShiftFilesApi(
+    resolvedTabId === undefined
+      ? SHIFT_FILES_READY_TIMEOUT_MS
+      : SHIFT_FILES_HANDOFF_READY_TIMEOUT_MS
+  );
+  if (!ready) {
+    throw new Error('Shift could not connect to this PDF.');
+  }
+
+  const files = shiftHostWindow().shift?.files;
+  const reveal = files?.reveal
+    ? files.reveal({ tabId: resolvedTabId })
+    : revealViaCustomEvents(resolvedTabId);
+
+  await Promise.race([
+    reveal,
+    timeoutError(
+      SHIFT_FILE_REVEAL_TIMEOUT_MS,
+      'Shift could not open this PDF tab.'
+    ),
+  ]);
+}
+
 export async function readOpenShiftFile(): Promise<File | null> {
   const tabId = getHandoffSourceTabId();
   const ready = await waitForShiftFilesApi(
@@ -199,6 +225,32 @@ async function readFromShiftApi(tabId?: number): Promise<ShiftFileReadResult> {
   return readViaCustomEvents(tabId);
 }
 
+function revealViaCustomEvents(tabId?: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+
+    const onResult = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { error?: string; requestId?: string }
+        | undefined;
+      if (!detail || detail.requestId !== requestId) return;
+      window.removeEventListener('shift-files:reveal-result', onResult);
+      if (detail.error) {
+        reject(new Error(detail.error));
+        return;
+      }
+      resolve();
+    };
+
+    window.addEventListener('shift-files:reveal-result', onResult);
+    window.dispatchEvent(
+      new CustomEvent('shift-files:reveal', {
+        detail: { requestId, tabId },
+      })
+    );
+  });
+}
+
 function readViaCustomEvents(tabId?: number): Promise<ShiftFileReadResult> {
   return new Promise((resolve, reject) => {
     const requestId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -225,10 +277,13 @@ function readViaCustomEvents(tabId?: number): Promise<ShiftFileReadResult> {
   });
 }
 
-function timeoutError(timeoutMs: number): Promise<never> {
+function timeoutError(
+  timeoutMs: number,
+  message = 'Shift could not read the PDF in time.'
+): Promise<never> {
   return new Promise((_, reject) => {
     window.setTimeout(() => {
-      reject(new Error('Shift could not read the PDF in time.'));
+      reject(new Error(message));
     }, timeoutMs);
   });
 }

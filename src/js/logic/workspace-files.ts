@@ -1,9 +1,12 @@
+import { revealOpenShiftTab } from '../embedder/shift-file-access.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import {
   clearPersistedOpenFile,
+  getRememberedSourceTabId,
   markOpenFilePresent,
   writePersistedOpenFile,
 } from './open-file-store.js';
+import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
@@ -26,16 +29,6 @@ export type WorkspaceFileInfo = {
 };
 
 export type HomeOpenFileView = 'list' | 'thumbnail';
-
-type ShiftFilesRevealApi = {
-  reveal?: (options?: { tabId?: number }) => Promise<void>;
-};
-
-type ShiftHostWindow = Window & {
-  shift?: {
-    files?: ShiftFilesRevealApi;
-  };
-};
 
 const fileOrigins = new WeakMap<
   File,
@@ -136,12 +129,14 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
     // Ignore storage failures in tests.
   }
   void clearPersistedOpenFile();
+  hideShiftTooltip(root);
   root.body.classList.remove(BODY_CLASS);
   root.body.classList.remove(IN_TOOL_CLASS);
   renderWorkspaceFiles(root);
 }
 
 export function renderWorkspaceFiles(root: Document = document): void {
+  hideShiftTooltip(root);
   const hasFiles = currentFiles.length > 0;
   const hidePicker = shouldHideDropZone(root);
   root.body.classList.toggle(BODY_CLASS, hasFiles);
@@ -371,11 +366,13 @@ function createFileButton(
   button.type = 'button';
   button.className = 'shift-nav-link shift-open-file-item';
   button.dataset.source = file.source;
-  const tooltip = sidebarFileTooltip(file);
-  button.title = tooltip;
   button.setAttribute('aria-label', sidebarFileAriaLabel(file));
   if (file.source === 'extension') {
-    button.setAttribute('data-i18n-title', 'home.fromShiftTabTooltip');
+    attachShiftTooltip(button, {
+      placement: 'right',
+      text: sidebarFileTooltip(file),
+    });
+    button.setAttribute('data-i18n-tooltip', 'home.fromShiftTabTooltip');
   }
   button.append(
     createFileIcon(file.source, root),
@@ -395,17 +392,14 @@ function sidebarFileTooltip(file: WorkspaceFileInfo): string {
   if (file.source === 'extension') {
     return 'This PDF is open from a Shift tab. Click to show that tab.';
   }
-  const sizeLabel = formatFileSize(file.size);
-  return sizeLabel
-    ? `${file.name} (${sizeLabel}, uploaded)`
-    : `${file.name} (uploaded)`;
+  return file.name;
 }
 
 function sidebarFileAriaLabel(file: WorkspaceFileInfo): string {
   if (file.source === 'extension') {
     return `${file.name}. This PDF is open from a Shift tab. Click to show that tab.`;
   }
-  return sidebarFileTooltip(file);
+  return file.name;
 }
 
 function createHomeFileRow(
@@ -469,12 +463,19 @@ function createHomeFileThumb(
   meta.appendChild(name);
 
   card.append(preview, meta);
-  card.title = 'Click to upload';
-  card.setAttribute('data-i18n-title', 'home.clickToUpload');
-  card.setAttribute('aria-label', `Click to upload ${file.name}`);
+  if (file.source === 'extension') {
+    card.setAttribute('aria-label', sidebarFileAriaLabel(file));
+    attachShiftTooltip(card, {
+      placement: 'bottom',
+      text: sidebarFileTooltip(file),
+    });
+    replaceHint.hidden = true;
+  } else {
+    card.setAttribute('aria-label', `Click to upload ${file.name}`);
+  }
 
   card.addEventListener('click', () => {
-    openFilePicker(root);
+    activateHomeFile(file, root);
   });
   return card;
 }
@@ -612,11 +613,8 @@ function openFilePicker(root: Document): void {
 }
 
 async function revealExtensionFile(sourceTabId?: number): Promise<void> {
-  const files = (window as ShiftHostWindow).shift?.files;
-  if (!files?.reveal) return;
-
   try {
-    await files.reveal({ tabId: sourceTabId });
+    await revealOpenShiftTab(sourceTabId ?? getRememberedSourceTabId());
   } catch (error) {
     const message =
       error instanceof Error
