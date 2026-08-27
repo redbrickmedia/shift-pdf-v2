@@ -9,7 +9,7 @@ type TooltipDocument = Document & {
   __shiftTooltipBound?: boolean;
 };
 
-let showTimer: number | null = null;
+let showTimer: ReturnType<typeof setTimeout> | null = null;
 let activeTrigger: HTMLElement | null = null;
 
 export function attachShiftTooltip(
