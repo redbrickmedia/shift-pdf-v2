@@ -15,6 +15,7 @@
 @import '@fontsource/merriweather/400-italic.css';
 @import '@fontsource/cedarville-cursive/400.css';
 @import 'cropperjs/dist/cropper.css';
+@import './shift-theme.css';
 @import 'tailwindcss';
 /* Shift shell chrome and tokens. */
 @import './shift-theme.css';

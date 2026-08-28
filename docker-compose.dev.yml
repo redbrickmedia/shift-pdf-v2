@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         SIMPLE_MODE: false # false for default mode, true for simple mode
+        NODE_AUTH_TOKEN: ${NODE_AUTH_TOKEN:-}
     container_name: bentopdf
     ports:
       - '8080:8080'

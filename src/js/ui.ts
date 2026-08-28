@@ -14,6 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
+import { markJobStarted, reportJobResult } from './shift/job-lifecycle.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -49,6 +50,7 @@ export const dom = {
 };
 
 export const showLoader = (text = t('common.loading'), progress?: number) => {
+  markJobStarted();
   if (dom.loaderText) dom.loaderText.textContent = text;
 
   // Add or update progress bar if progress is provided
@@ -112,9 +114,21 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
+  if (type !== 'success') {
+    reportJobResult('error');
+  }
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
-  if (dom.alertModal) dom.alertModal.classList.remove('hidden');
+  if (dom.alertModal) {
+    dom.alertModal.classList.remove(
+      'alert-modal--error',
+      'alert-modal--success'
+    );
+    dom.alertModal.classList.add(
+      type === 'success' ? 'alert-modal--success' : 'alert-modal--error'
+    );
+    dom.alertModal.classList.remove('hidden');
+  }
 
   if (dom.alertOkBtn) {
     const newOkBtn = dom.alertOkBtn.cloneNode(true) as HTMLElement;

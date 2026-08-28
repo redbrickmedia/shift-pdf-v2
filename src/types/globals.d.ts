@@ -15,3 +15,5 @@ interface ImportMeta {
 
 declare const __SIMPLE_MODE__: boolean;
 declare const __DISABLED_TOOLS__: string[];
+declare const __BRAND_NAME__: string;
+declare const __APP_VERSION__: string;
