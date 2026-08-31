@@ -1,3 +1,4 @@
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import {
   downloadFile,
@@ -654,4 +655,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', compress);
   }
+
+  listenForShiftFileHandoff({
+    onFile: (file) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      handleFileSelect(dataTransfer.files);
+    },
+  });
 });

@@ -1,3 +1,4 @@
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
@@ -222,4 +223,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', convert);
   }
+
+  listenForShiftFileHandoff({
+    onFile: (file) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      handleFileSelect(dataTransfer.files);
+    },
+  });
 });
