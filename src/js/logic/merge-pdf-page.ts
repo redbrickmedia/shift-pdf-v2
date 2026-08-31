@@ -7,6 +7,7 @@ import {
   type ErrorCategory,
   type ToolOperation,
 } from '../analytics/index.js';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { state } from '../state.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { BoundedHistory } from '../utils/bounded-history.js';
@@ -762,4 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   void renderMergeUI();
+  listenForShiftFileHandoff({
+    onFile: (file) => addFiles([file]),
+  });
 });
