@@ -1,4 +1,5 @@
 import { createIcons, icons } from 'lucide';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import {
   readFileAsArrayBuffer,
@@ -96,6 +97,7 @@ function initializePage() {
     window.location.href = import.meta.env.BASE_URL;
   });
   window.addEventListener('pagehide', cleanup, { once: true });
+  listenForShiftFileHandoff({ onFile: handleFile });
 }
 
 async function handleFileUpload(e: Event) {

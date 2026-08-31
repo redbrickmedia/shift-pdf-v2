@@ -2,6 +2,7 @@ import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
 import type { MergeFile, MergeJob, MergeMessage, MergeResponse } from '@/types';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import { state } from '../state.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
@@ -729,4 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   void renderMergeUI();
+  listenForShiftFileHandoff({
+    onFile: (file) => addFiles([file]),
+  });
 });
