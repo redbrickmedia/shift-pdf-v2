@@ -11,12 +11,12 @@ function dispatchMessage({
 }: {
   data: unknown;
   origin?: string;
-  source?: MessageEventSource;
+  source?: { postMessage: ReturnType<typeof vi.fn> };
 }) {
   const event = new MessageEvent('message', {
     data,
     origin,
-    source: source ?? window,
+    source: (source ?? window) as Window,
   });
   window.dispatchEvent(event);
 }
@@ -69,7 +69,7 @@ describe('listenForShiftFileHandoff', () => {
         metadata: { action: 'merge' },
         version: 1,
       },
-      source: source as unknown as MessageEventSource,
+      source,
     });
 
     expect(source.postMessage).toHaveBeenCalledWith(
@@ -91,7 +91,7 @@ describe('listenForShiftFileHandoff', () => {
         mimeType: 'application/pdf',
         version: 1,
       },
-      source: source as unknown as MessageEventSource,
+      source,
     });
 
     await vi.waitFor(() => expect(onFile).toHaveBeenCalledOnce());
@@ -126,7 +126,7 @@ describe('listenForShiftFileHandoff', () => {
         version: 1,
       },
       origin: 'https://example.com',
-      source: source as unknown as MessageEventSource,
+      source,
     });
 
     expect(source.postMessage).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe('listenForShiftFileHandoff', () => {
         mimeType: 'application/pdf',
         version: 1,
       },
-      source: source as unknown as MessageEventSource,
+      source,
     });
 
     await vi.waitFor(() =>
@@ -186,7 +186,7 @@ describe('listenForShiftFileHandoff', () => {
         mimeType: 'application/pdf',
         version: 1,
       },
-      source: source as unknown as MessageEventSource,
+      source,
     });
 
     await vi.waitFor(() =>

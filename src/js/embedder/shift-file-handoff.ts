@@ -30,18 +30,29 @@ function isShiftWebUiOrigin(origin: string): boolean {
   }
 }
 
+type HandoffMessageSource = {
+  postMessage: (message: unknown, targetOrigin: string) => void;
+};
+
 function reply(
-  source: MessageEventSource | null,
+  source: HandoffMessageSource | null,
   origin: string,
   message: Record<string, unknown>
 ): void {
-  if (!source || typeof (source as Window).postMessage !== 'function') return;
-  (source as Window).postMessage(message, origin);
+  if (!source || typeof source.postMessage !== 'function') return;
+  source.postMessage(message, origin);
 }
 
 function sanitizeFilename(filename: string): string {
   const leaf = filename.replaceAll('\\', '/').split('/').pop()?.trim() ?? '';
-  return leaf.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim() || 'document';
+  const sanitized = [...leaf]
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || '\\/:*?"<>|'.includes(char) ? '-' : char;
+    })
+    .join('')
+    .trim();
+  return sanitized || 'document';
 }
 
 function buildFile(data: Record<string, unknown>): File {
@@ -89,7 +100,7 @@ export function listenForShiftFileHandoff(
     }
 
     if (data.channel === CHANNELS.offer) {
-      reply(event.source, event.origin, {
+      reply(event.source as HandoffMessageSource | null, event.origin, {
         channel: CHANNELS.ready,
         handoffId,
         version: FILE_HANDOFF_VERSION,
@@ -104,13 +115,13 @@ export function listenForShiftFileHandoff(
       try {
         const file = buildFile(data);
         await options.onFile(file);
-        reply(event.source, event.origin, {
+        reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.accepted,
           handoffId,
           version: FILE_HANDOFF_VERSION,
         });
       } catch (error) {
-        reply(event.source, event.origin, {
+        reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.rejected,
           handoffId,
           message:
