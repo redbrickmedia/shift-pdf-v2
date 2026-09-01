@@ -4,6 +4,14 @@ import { pdfSocket } from '../sockets';
 import type { PDFData, SocketData, MultiPDFData } from '../types';
 import { getLibreOfficeConverter } from '../../utils/libreoffice-loader.js';
 import { loadPdfDocument } from '../../utils/load-pdf-document.js';
+import {
+  assertLibreOfficeAssetsAvailable,
+  assertSharedArrayBufferAvailable,
+  DEFAULT_CONVERSION_LIMITS,
+  runWithTimeout,
+  validateInputFile,
+  validateOutputBlob,
+} from '../../utils/conversion-guard.js';
 import { wfError } from '../errors';
 
 export class WordToPdfNode extends BaseWorkflowNode {
@@ -55,12 +63,28 @@ export class WordToPdfNode extends BaseWorkflowNode {
   ): Promise<Record<string, SocketData>> {
     if (this.files.length === 0) throw new Error(wfError('noWordDocsUploaded'));
 
+    for (const file of this.files) {
+      validateInputFile(file);
+    }
+    assertSharedArrayBufferAvailable();
+    await assertLibreOfficeAssetsAvailable(
+      `${import.meta.env.BASE_URL}libreoffice-wasm/`
+    );
     const converter = getLibreOfficeConverter();
-    await converter.initialize();
+    await runWithTimeout(
+      converter.initialize(),
+      DEFAULT_CONVERSION_LIMITS.initTimeoutMs,
+      'Word to PDF engine load'
+    );
 
     const results: PDFData[] = [];
     for (const file of this.files) {
-      const resultBlob = await converter.convertToPdf(file);
+      const resultBlob = await runWithTimeout(
+        converter.convertToPdf(file),
+        DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+        'Word to PDF conversion'
+      );
+      validateOutputBlob(resultBlob, file.size);
       const bytes = new Uint8Array(await resultBlob.arrayBuffer());
       const document = await loadPdfDocument(bytes);
       results.push({

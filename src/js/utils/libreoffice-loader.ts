@@ -81,6 +81,9 @@ export class LibreOfficeConverter {
       });
 
       await this.converter.initialize();
+      if (!this.converter) {
+        throw new Error('LibreOffice converter failed to initialize.');
+      }
       this.initialized = true;
 
       // Call completion message

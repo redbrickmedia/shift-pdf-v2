@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -7,6 +7,17 @@ import {
   type LoadProgress,
 } from '../utils/libreoffice-loader.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
+import {
+  assertLibreOfficeAssetsAvailable,
+  assertSharedArrayBufferAvailable,
+  createConversionSession,
+  DEFAULT_CONVERSION_LIMITS,
+  isConversionCancelled,
+  runWithTimeout,
+  validateInputFile,
+  validateOutputBlob,
+} from '../utils/conversion-guard.js';
+import { clearWorkspaceOpenFile } from './workspace-files.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.files = [];
@@ -81,52 +92,62 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
+    void clearWorkspaceOpenFile();
     updateUI();
   };
 
   const convertToPdf = async () => {
-    try {
-      console.log('[Word2PDF] Starting conversion...');
-      console.log('[Word2PDF] Number of files:', state.files.length);
+    const session = createConversionSession();
+    const processBtn = document.getElementById(
+      'process-btn'
+    ) as HTMLButtonElement | null;
+    if (processBtn) processBtn.disabled = true;
 
+    try {
       if (state.files.length === 0) {
         showAlert('No Files', 'Please select at least one Word document.');
-        hideLoader();
         return;
       }
 
-      const converter = getLibreOfficeConverter();
-      console.log('[Word2PDF] Got converter instance');
+      for (const file of state.files) {
+        validateInputFile(file);
+      }
 
-      // Initialize LibreOffice if not already done
-      console.log('[Word2PDF] Initializing LibreOffice...');
-      await converter.initialize((progress: LoadProgress) => {
-        console.log(
-          '[Word2PDF] Init progress:',
-          progress.percent + '%',
-          progress.message
-        );
-        showLoader(progress.message, progress.percent);
-      });
-      console.log('[Word2PDF] LibreOffice initialized successfully!');
+      showCancellableLoader('Checking conversion engine...', session.cancel);
+      assertSharedArrayBufferAvailable();
+      const converter = getLibreOfficeConverter();
+      await assertLibreOfficeAssetsAvailable(
+        `${import.meta.env.BASE_URL}libreoffice-wasm/`
+      );
+
+      await runWithTimeout(
+        converter.initialize((progress: LoadProgress) => {
+          showCancellableLoader(
+            progress.message,
+            session.cancel,
+            progress.percent
+          );
+        }),
+        DEFAULT_CONVERSION_LIMITS.initTimeoutMs,
+        'Word to PDF engine load',
+        session.signal
+      );
 
       if (state.files.length === 1) {
         const originalFile = state.files[0];
-        console.log('[Word2PDF] Converting single file:', originalFile.name);
-
-        showLoader('Processing...');
-
-        const pdfBlob = await converter.convertToPdf(originalFile);
-        console.log('[Word2PDF] Conversion complete! PDF size:', pdfBlob.size);
+        showCancellableLoader('Converting to PDF...', session.cancel);
+        const pdfBlob = await runWithTimeout(
+          converter.convertToPdf(originalFile),
+          DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+          'Word to PDF conversion',
+          session.signal
+        );
+        validateOutputBlob(pdfBlob, originalFile.size);
 
         const fileName =
           originalFile.name.replace(/\.(doc|docx|odt|rtf)$/i, '') + '.pdf';
-
         downloadFile(pdfBlob, fileName);
-        console.log('[Word2PDF] File downloaded:', fileName);
-
         hideLoader();
-
         showAlert(
           'Conversion Complete',
           `Successfully converted ${originalFile.name} to PDF.`,
@@ -134,31 +155,23 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        console.log(
-          '[Word2PDF] Converting multiple files:',
-          state.files.length
-        );
-        showLoader('Processing...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         const usedNames = new Set<string>();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          console.log(
-            `[Word2PDF] Converting file ${i + 1}/${state.files.length}:`,
-            file.name
+          showCancellableLoader(
+            `Converting ${i + 1}/${state.files.length}: ${file.name}...`,
+            session.cancel
           );
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
+          const pdfBlob = await runWithTimeout(
+            converter.convertToPdf(file),
+            DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+            'Word to PDF conversion',
+            session.signal
           );
-
-          const pdfBlob = await converter.convertToPdf(file);
-          console.log(
-            `[Word2PDF] Converted ${file.name}, PDF size:`,
-            pdfBlob.size
-          );
-
+          validateOutputBlob(pdfBlob, file.size);
           const baseName = file.name.replace(/\.(doc|docx|odt|rtf)$/i, '');
           const pdfBuffer = await pdfBlob.arrayBuffer();
           const zipEntryName = deduplicateFileName(
@@ -168,14 +181,9 @@ document.addEventListener('DOMContentLoaded', () => {
           zip.file(zipEntryName, pdfBuffer);
         }
 
-        console.log('[Word2PDF] Generating ZIP file...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        console.log('[Word2PDF] ZIP size:', zipBlob.size);
-
         downloadFile(zipBlob, 'word-converted.zip');
-
         hideLoader();
-
         showAlert(
           'Conversion Complete',
           `Successfully converted ${state.files.length} Word document(s) to PDF.`,
@@ -184,16 +192,18 @@ document.addEventListener('DOMContentLoaded', () => {
         );
       }
     } catch (e: unknown) {
-      console.error('[Word2PDF] ERROR:', e);
-      console.error(
-        '[Word2PDF] Error stack:',
-        e instanceof Error ? e.stack : ''
-      );
       hideLoader();
+      if (isConversionCancelled(e)) {
+        showAlert('Cancelled', 'Word to PDF was cancelled.');
+        return;
+      }
+      console.error('[Word2PDF] ERROR:', e);
       showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e instanceof Error ? e.message : String(e)}`
+        'Conversion failed',
+        e instanceof Error ? e.message : String(e)
       );
+    } finally {
+      if (processBtn) processBtn.disabled = false;
     }
   };
 
