@@ -104,7 +104,36 @@ export const showLoader = (text = t('common.loading'), progress?: number) => {
 };
 
 export const hideLoader = () => {
-  if (dom.loaderModal) dom.loaderModal.classList.add('hidden');
+  if (dom.loaderModal) {
+    dom.loaderModal
+      .querySelector('.loader-cancel-btn')
+      ?.parentElement?.remove();
+    dom.loaderModal.classList.add('hidden');
+  }
+};
+
+export const showCancellableLoader = (
+  text: string,
+  onCancel: () => void,
+  progress?: number
+) => {
+  showLoader(text, progress);
+  const loaderModal = dom.loaderModal;
+  if (!loaderModal) return;
+
+  loaderModal.querySelector('.loader-cancel-btn')?.parentElement?.remove();
+  const cancelWrap = document.createElement('div');
+  cancelWrap.className = 'mt-2';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className =
+    'loader-cancel-btn px-4 py-2 text-sm text-gray-200 bg-gray-700 hover:bg-gray-600 rounded-lg';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    onCancel();
+  });
+  cancelWrap.appendChild(cancelBtn);
+  loaderModal.querySelector('.bg-gray-800')?.appendChild(cancelWrap);
 };
 
 export const showAlert = (

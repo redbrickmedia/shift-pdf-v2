@@ -7,6 +7,7 @@ import {
 import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import {
+  clearWorkspaceOpenFile,
   getWorkspaceFiles,
   resetWorkspaceFileIndicator,
 } from '../js/logic/workspace-files';
@@ -78,5 +79,30 @@ describe('seed tool open file', () => {
 
     expect(inputAcceptsFile(input, file)).toBe(false);
     expect(applyFileToToolInput(file)).toBe(false);
+  });
+
+  it('does not restore a file after Clear all', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFile(
+      new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+
+    await clearWorkspaceOpenFile();
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(state.files).toEqual([]);
   });
 });

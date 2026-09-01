@@ -5,7 +5,9 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 }));
 
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
+import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
+  clearWorkspaceOpenFile,
   copyFileOrigin,
   getHomeOpenFileView,
   getWorkspaceFiles,
@@ -559,5 +561,18 @@ describe('workspace files sidebar', () => {
         .getElementById('shift-open-file-view-list')
         ?.getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  it('clears persisted files on explicit Clear all', async () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', { type: 'application/pdf' });
+    await writePersistedOpenFile(file, { source: 'upload' });
+    setWorkspaceFiles([file]);
+
+    await clearWorkspaceOpenFile();
+
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(true);
+    expect(document.body.classList.contains('shift-has-open-file')).toBe(false);
   });
 });

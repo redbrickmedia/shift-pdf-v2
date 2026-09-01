@@ -86,6 +86,14 @@ export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
 }
 
+export async function clearWorkspaceOpenFile(
+  root: Document = document
+): Promise<void> {
+  currentFiles = [];
+  await clearPersistedOpenFile();
+  renderWorkspaceFiles(root);
+}
+
 export function setHomeOpenFileView(
   view: HomeOpenFileView,
   root: Document = document

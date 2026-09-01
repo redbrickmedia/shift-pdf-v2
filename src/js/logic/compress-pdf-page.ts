@@ -8,6 +8,7 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import {
+  clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
 } from './workspace-files.js';
@@ -303,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
+    void clearWorkspaceOpenFile();
 
     const compressionLevel = document.getElementById(
       'compression-level'

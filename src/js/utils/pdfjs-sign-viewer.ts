@@ -4,6 +4,23 @@ import type {
 } from '../types/sign-pdf-type.js';
 
 export const PDFJS_SIGNATURE_MODE = 101;
+export const SIGN_VIEWER_TIMEOUT_MS = 20_000;
+
+export function buildSignViewerUrl(
+  blobUrl: string,
+  options: { baseUrl?: string; origin?: string } = {}
+): string {
+  const baseUrl = options.baseUrl ?? import.meta.env.BASE_URL;
+  const origin =
+    options.origin ??
+    (typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://shift.test');
+  const viewerUrl = new URL(`${baseUrl}pdfjs-viewer/viewer.html`, origin);
+  viewerUrl.searchParams.set('file', blobUrl);
+  viewerUrl.searchParams.set('bentoSign', '1');
+  return viewerUrl.toString();
+}
 
 const HIDDEN_EDITOR_IDS = [
   'editorComment',
@@ -28,7 +45,7 @@ function getViewerApplication(
 
 export async function waitForPdfJsSignViewer(
   iframe: HTMLIFrameElement,
-  timeoutMs = 15_000
+  timeoutMs = SIGN_VIEWER_TIMEOUT_MS
 ): Promise<PDFViewerApplication> {
   const startedAt = Date.now();
 
