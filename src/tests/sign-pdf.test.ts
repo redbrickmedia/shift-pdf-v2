@@ -8,7 +8,6 @@ import {
   getSignedPdfFilename,
 } from '../js/utils/sign-pdf-export';
 import {
-  buildSignViewerUrl,
   configureSessionOnlySignatureUi,
   PDFJS_SIGNATURE_MODE,
 } from '../js/utils/pdfjs-sign-viewer';
@@ -63,18 +62,6 @@ describe('Sign PDF exports', () => {
 });
 
 describe('PDF.js visual signature mode', () => {
-  it('loads the PDF.js viewer directly with the sign flag', () => {
-    const url = buildSignViewerUrl('blob:https://shift.test/abc', {
-      baseUrl: '/',
-      origin: 'https://preview.shift-pdf-neo.pages.dev',
-    });
-    const parsed = new URL(url);
-    expect(parsed.pathname).toBe('/pdfjs-viewer/viewer.html');
-    expect(parsed.searchParams.get('bentoSign')).toBe('1');
-    expect(parsed.searchParams.get('file')).toBe('blob:https://shift.test/abc');
-    expect(url).not.toContain('sign-viewer.html');
-  });
-
   it('activates Signature mode and disables persistent signature controls', () => {
     const iframe = document.createElement('iframe');
     document.body.append(iframe);

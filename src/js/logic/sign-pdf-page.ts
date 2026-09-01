@@ -21,7 +21,6 @@ import {
   getSignedPdfFilename,
 } from '../utils/sign-pdf-export.js';
 import {
-  buildSignViewerUrl,
   configureSessionOnlySignatureUi,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
@@ -248,40 +247,44 @@ async function setupSignTool(loadVersion: number) {
   });
   signState.blobUrl = URL.createObjectURL(blob);
 
-  iframe.src = buildSignViewerUrl(signState.blobUrl);
+  const viewerUrl = new URL(
+    `${import.meta.env.BASE_URL}pdfjs-viewer/sign-viewer.html`,
+    window.location.origin
+  );
+  const query = new URLSearchParams({
+    file: signState.blobUrl,
+    bentoSign: '1',
+  });
+  iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
 
-  try {
-    const app = await waitForPdfJsSignViewer(iframe);
-    if (signState.viewerIframe !== iframe || loadVersion !== fileLoadVersion) {
-      hideLoader();
-      return;
-    }
-    configureSessionOnlySignatureUi(iframe, app);
-    signState.viewerReady = true;
-
-    const saveBtn = document.getElementById(
-      'process-btn'
-    ) as HTMLButtonElement | null;
-    if (saveBtn) {
-      saveBtn.style.display = '';
-    }
-    document.getElementById('print-signed-pdf')?.classList.remove('hidden');
-  } catch (error) {
+  iframe.onload = async () => {
     if (signState.viewerIframe !== iframe || loadVersion !== fileLoadVersion) {
       return;
     }
-    console.error('Could not initialize PDF.js viewer for signing:', error);
-    showAlert(
-      'Viewer failed to load',
-      error instanceof Error
-        ? error.message
-        : 'Could not initialize the signature editor.'
-    );
-  } finally {
-    if (signState.viewerIframe === iframe && loadVersion === fileLoadVersion) {
+    try {
+      const app = await waitForPdfJsSignViewer(iframe);
+      configureSessionOnlySignatureUi(iframe, app);
+      signState.viewerReady = true;
+
+      const saveBtn = document.getElementById(
+        'process-btn'
+      ) as HTMLButtonElement | null;
+      if (saveBtn) {
+        saveBtn.style.display = '';
+      }
+      document.getElementById('print-signed-pdf')?.classList.remove('hidden');
+    } catch (error) {
+      console.error('Could not initialize PDF.js viewer for signing:', error);
+      showAlert(
+        'Viewer failed to load',
+        error instanceof Error
+          ? error.message
+          : 'Could not initialize the signature editor.'
+      );
+    } finally {
       hideLoader();
     }
-  }
+  };
 }
 
 async function printSignedPdf() {
