@@ -24,6 +24,10 @@ import {
   showWasmRequiredDialog,
   WasmProvider,
 } from '../utils/wasm-provider.js';
+import {
+  markFileFromHandoff,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 type MergeMode = 'file' | 'page';
 
@@ -412,6 +416,7 @@ function renderMode(): void {
 async function renderMergeUI(): Promise<void> {
   syncSharedFiles();
   const hasFiles = mergeModel.files.length > 0;
+  setWorkspaceFiles(mergeModel.files.map(({ file }) => file));
   document
     .getElementById('file-controls')
     ?.classList.toggle('hidden', !hasFiles);
@@ -733,6 +738,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   void renderMergeUI();
   listenForShiftFileHandoff({
-    onFile: (file) => addFiles([file]),
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      return addFiles([file]);
+    },
   });
 });

@@ -15,6 +15,7 @@ import {
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
 import { noteProcessAlert } from './host/analytics.js';
+import { setWorkspaceFiles } from './logic/workspace-files.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -482,6 +483,7 @@ export const renderFileDisplay = (container: HTMLElement, files: File[]) => {
       container.appendChild(fileDiv);
     });
   }
+  setWorkspaceFiles(files);
 };
 
 const createFileInputHTML = (options: FileInputOptions = {}) => {

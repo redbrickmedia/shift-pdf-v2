@@ -243,8 +243,31 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   padding: 0 var(--shift-sidebar-pad);
 }
 
-.shift-favorites {
+.shift-favorites,
+.shift-open-files {
   padding: 0 var(--shift-sidebar-pad);
+}
+
+.shift-open-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shift-open-file-item {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shift-open-file-item .shift-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .shift-sidebar-section-title {
@@ -426,8 +449,10 @@ html.shift-sidebar-collapsed-pending .shift-primary-nav {
 }
 
 body.shift-sidebar-collapsed .shift-favorites,
+body.shift-sidebar-collapsed .shift-open-files,
 body.shift-sidebar-collapsed .shift-sidebar-footer,
 html.shift-sidebar-collapsed-pending .shift-favorites,
+html.shift-sidebar-collapsed-pending .shift-open-files,
 html.shift-sidebar-collapsed-pending .shift-sidebar-footer {
   padding: 0 var(--shift-sidebar-pad-collapsed);
 }
@@ -459,6 +484,19 @@ body.shift-sidebar-collapsed .shift-nav-link,
 html.shift-sidebar-collapsed-pending .shift-nav-link {
   justify-content: center;
   padding: 8px;
+}
+
+/* Hide the dashed drop zone when the active file is already in this tool.
+   Tools that do not accept PDFs keep their upload picker. */
+body.shift-open-file-in-tool #drop-zone,
+#tool-uploader:has(#file-display-area:not(:empty)) #drop-zone,
+#tool-uploader:has(#file-controls:not(.hidden)) #drop-zone,
+#uploader:has(#signature-editor:not(.hidden)) #drop-zone {
+  display: none;
+}
+
+body.shift-has-open-file #file-controls {
+  margin-top: 0;
 }
 
 /* Tailwind's `.container` steps its max-width at each viewport breakpoint, so
@@ -941,8 +979,6 @@ select:not([multiple]):not([size]) {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 640px;
-  margin-inline: auto;
 }
 
 .shift-search-bar {
@@ -956,11 +992,12 @@ select:not([multiple]):not([size]) {
   position: relative;
   display: flex;
   flex: 1;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   width: 100%;
-  height: 40px;
-  padding-inline: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding-inline: 12px;
   color: var(--text-primary);
   border: 1px solid var(--border-outer-primary);
   border-radius: var(--radius-8);
@@ -982,7 +1019,7 @@ select:not([multiple]):not([size]) {
 .shift-search-field:focus-within {
   border-color: var(--action-button-surface-primary-default);
   border-width: 2px;
-  padding-inline: 7px;
+  padding-inline: 11px;
   box-shadow:
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 4px 6px -1px rgba(0, 0, 0, 0.1);

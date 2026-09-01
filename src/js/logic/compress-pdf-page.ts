@@ -8,6 +8,10 @@ import {
   getPDFDocument,
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import {
+  markFileFromHandoff,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -284,11 +288,15 @@ document.addEventListener('DOMContentLoaded', () => {
         createIcons({ icons });
       }
       compressOptions.classList.remove('hidden');
+      document.getElementById('file-controls')?.classList.remove('hidden');
+      setWorkspaceFiles(state.files);
     } else {
       compressOptions.classList.add('hidden');
+      document.getElementById('file-controls')?.classList.add('hidden');
       // Clear file display area
       const fileDisplayArea = document.getElementById('file-display-area');
       if (fileDisplayArea) fileDisplayArea.innerHTML = '';
+      setWorkspaceFiles([]);
     }
   };
 
@@ -561,11 +569,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null): boolean => {
-    if (!files || files.length === 0) return false;
-    state.files = [...state.files, ...Array.from(files)];
-    updateUI();
-    return true;
+  const handleFileSelect = (files: FileList | File[] | null) => {
+    if (files && files.length > 0) {
+      state.files = [...state.files, ...Array.from(files)];
+      updateUI();
+    }
   };
 
   if (fileInput && dropZone) {
@@ -621,18 +629,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   listenForShiftFileHandoff({
-    onFile: async (file) => {
-      try {
-        const loaded = await loadPdfWithPasswordPrompt(file);
-        if (!loaded) return false;
-        await loaded.pdf.destroy();
-        state.files = [...state.files, loaded.file];
-        updateUI();
-        return true;
-      } catch {
-        showAlert('Error', 'Failed to load the PDF file.');
-        return false;
-      }
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      handleFileSelect([file]);
     },
   });
 });

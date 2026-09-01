@@ -43,13 +43,72 @@
     <link href="src/css/styles.css" rel="stylesheet" />
   </head>
 
-  <body class="antialiased">
+  <body class="antialiased shift-home">
     {{> navbar }}
 
     <div id="app" class="min-h-screen container mx-auto p-4 md:p-8">
+      <div class="shift-tool-search">
+        <div class="shift-search-bar">
+          <div class="shift-search-field">
+            <svg
+              class="shift-search-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M19.25 19.25 15.5 15.5M4.75 11a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0"
+              />
+            </svg>
+            <label class="sr-only" for="search-bar">Search tools</label>
+            <input
+              type="search"
+              id="search-bar"
+              class="shift-search-input"
+              placeholder="Search for a tool (e.g., 'split', 'organize'...)"
+              data-i18n-placeholder="tools.searchPlaceholder"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span class="shift-search-end">
+              <kbd id="shortcut" class="shift-search-kbd"></kbd>
+              <button
+                id="open-shortcuts-btn"
+                type="button"
+                class="shift-search-settings"
+                title="Keyboard Shortcuts"
+                hidden
+              >
+                <i data-lucide="settings" class="w-4 h-4"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div
+          id="home-category-chips"
+          class="shift-category-chips"
+          role="toolbar"
+          aria-label="Tool categories"
+          data-i18n-aria-label="home.categoryChips"
+        ></div>
+        <p
+          id="tool-search-status"
+          class="sr-only"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+      </div>
+
       <section
         id="shift-promise-banner"
-        class="shift-promise-banner max-w-5xl mx-auto bg-gray-800 border border-gray-700 rounded-xl p-5 md:p-6"
+        class="shift-promise-banner bg-gray-800 border border-gray-700 rounded-xl p-5 md:p-6"
         aria-labelledby="shift-pdf-promise"
         hidden
       >
@@ -105,75 +164,154 @@
         </div>
       </section>
 
-      <!-- The gap above the catalog is the catalog's own top margin, not the
-           promise banner's bottom margin: the banner is dismissible, and margin
-           on it disappears with it, which left this heading against the panel's
-           top padding once a visitor closed the card. -->
-      <div id="tools-header" class="text-center mt-10 mb-10">
-        <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
-          Choose a PDF tool
-        </h1>
-        <p class="text-gray-400">
-          Start with a primary job or search the complete toolkit.
+      <div
+        id="drop-zone"
+        class="shift-home-drop-zone relative flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900"
+      >
+        <svg
+          class="shift-home-drop-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="40"
+          height="40"
+          fill="none"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M12 16V8M8.5 11.5 12 8l3.5 3.5"
+          />
+        </svg>
+        <p class="shift-home-drop-hint">
+          <span data-i18n="home.dropHintPrefix">Drag &amp; Drop or</span>
+          <button
+            type="button"
+            class="shift-home-choose-files text-indigo-400 font-semibold"
+            data-i18n="home.chooseFiles"
+          >
+            Choose files
+          </button>
+          <span data-i18n="home.dropHintSuffix">(PDFs only) to upload.</span>
         </p>
+        <input
+          id="file-input"
+          type="file"
+          accept="application/pdf,.pdf"
+          hidden
+        />
       </div>
 
-      <div id="grid-view">
-        <div class="shift-tool-search mb-8">
-          <div class="shift-search-bar">
-            <div class="shift-search-field">
-              <svg
-                class="shift-search-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+      <section
+        id="shift-my-pdfs"
+        class="shift-my-pdfs"
+        aria-labelledby="shift-my-pdfs-heading"
+        data-view="thumbnail"
+        hidden
+      >
+        <div class="shift-open-file-header">
+          <h2 id="shift-my-pdfs-heading" data-i18n="home.openFile">
+            Active file
+          </h2>
+          <div
+            class="shift-open-file-view-by"
+            role="group"
+            aria-label="View by"
+            data-i18n-aria-label="home.viewBy"
+          >
+            <span data-i18n="home.viewBy">View by</span>
+            <div class="shift-open-file-view-toggle">
+              <button
+                type="button"
+                id="shift-open-file-view-list"
+                class="shift-open-file-view-btn"
+                data-view="list"
+                aria-pressed="false"
+                data-i18n-aria-label="home.viewList"
+                aria-label="List view"
               >
-                <path
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.5"
-                  d="M19.25 19.25 15.5 15.5M4.75 11a6.25 6.25 0 1 1 12.5 0 6.25 6.25 0 0 1-12.5 0"
-                />
-              </svg>
-              <label class="sr-only" for="search-bar">Search tools</label>
-              <input
-                type="search"
-                id="search-bar"
-                class="shift-search-input"
-                placeholder="Search for a tool (e.g., 'split', 'organize'...)"
-                data-i18n-placeholder="tools.searchPlaceholder"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <span class="shift-search-end">
-                <kbd id="shortcut" class="shift-search-kbd"></kbd>
-                <button
-                  id="open-shortcuts-btn"
-                  type="button"
-                  class="shift-search-settings"
-                  title="Keyboard Shortcuts"
-                  hidden
-                >
-                  <i data-lucide="settings" class="w-4 h-4"></i>
-                </button>
-              </span>
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path
+                    d="M3 4h10M3 8h10M3 12h10"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                id="shift-open-file-view-thumbnail"
+                class="shift-open-file-view-btn"
+                data-view="thumbnail"
+                aria-pressed="true"
+                data-i18n-aria-label="home.viewThumbnail"
+                aria-label="Thumbnail view"
+              >
+                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <rect
+                    x="2.5"
+                    y="2.5"
+                    width="4.5"
+                    height="4.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  />
+                  <rect
+                    x="9"
+                    y="2.5"
+                    width="4.5"
+                    height="4.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  />
+                  <rect
+                    x="2.5"
+                    y="9"
+                    width="4.5"
+                    height="4.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  />
+                  <rect
+                    x="9"
+                    y="9"
+                    width="4.5"
+                    height="4.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
-          <p
-            id="tool-search-status"
-            class="sr-only"
-            aria-live="polite"
-            aria-atomic="true"
-          ></p>
-          <p id="tool-search-empty" class="shift-search-empty hidden" hidden>
-            No tools match your search.
-          </p>
         </div>
+        <table class="shift-my-pdfs-table">
+          <thead>
+            <tr>
+              <th scope="col" data-i18n="home.columnName">Name</th>
+              <th scope="col" data-i18n="home.columnDateAdded">Date added</th>
+              <th scope="col" data-i18n="home.columnSize">Size</th>
+            </tr>
+          </thead>
+          <tbody id="shift-my-pdfs-body"></tbody>
+        </table>
+        <div id="shift-my-pdfs-thumbs" class="shift-open-file-thumbs"></div>
+      </section>
 
+      <div id="grid-view">
+        <p id="tool-search-empty" class="shift-search-empty hidden" hidden>
+          No tools match your search.
+        </p>
         <div id="tool-grid" class="grid gap-6"></div>
       </div>
 
