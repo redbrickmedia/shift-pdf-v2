@@ -243,8 +243,31 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   padding: 0 var(--shift-sidebar-pad);
 }
 
-.shift-favorites {
+.shift-favorites,
+.shift-open-files {
   padding: 0 var(--shift-sidebar-pad);
+}
+
+.shift-open-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shift-open-file-item {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shift-open-file-item .shift-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .shift-sidebar-section-title {
@@ -426,8 +449,10 @@ html.shift-sidebar-collapsed-pending .shift-primary-nav {
 }
 
 body.shift-sidebar-collapsed .shift-favorites,
+body.shift-sidebar-collapsed .shift-open-files,
 body.shift-sidebar-collapsed .shift-sidebar-footer,
 html.shift-sidebar-collapsed-pending .shift-favorites,
+html.shift-sidebar-collapsed-pending .shift-open-files,
 html.shift-sidebar-collapsed-pending .shift-sidebar-footer {
   padding: 0 var(--shift-sidebar-pad-collapsed);
 }
@@ -459,6 +484,19 @@ body.shift-sidebar-collapsed .shift-nav-link,
 html.shift-sidebar-collapsed-pending .shift-nav-link {
   justify-content: center;
   padding: 8px;
+}
+
+/* Hide the dashed drop zone when the active file is already in this tool.
+   Tools that do not accept PDFs keep their upload picker. */
+body.shift-open-file-in-tool #drop-zone,
+#tool-uploader:has(#file-display-area:not(:empty)) #drop-zone,
+#tool-uploader:has(#file-controls:not(.hidden)) #drop-zone,
+#uploader:has(#signature-editor:not(.hidden)) #drop-zone {
+  display: none;
+}
+
+body.shift-has-open-file #file-controls {
+  margin-top: 0;
 }
 
 /* Tailwind's `.container` steps its max-width at each viewport breakpoint, so
@@ -941,8 +979,6 @@ select:not([multiple]):not([size]) {
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 640px;
-  margin-inline: auto;
 }
 
 .shift-search-bar {
@@ -956,11 +992,12 @@ select:not([multiple]):not([size]) {
   position: relative;
   display: flex;
   flex: 1;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   width: 100%;
-  height: 40px;
-  padding-inline: 8px;
+  min-height: 44px;
+  height: 44px;
+  padding-inline: 12px;
   color: var(--text-primary);
   border: 1px solid var(--border-outer-primary);
   border-radius: var(--radius-8);
@@ -982,7 +1019,7 @@ select:not([multiple]):not([size]) {
 .shift-search-field:focus-within {
   border-color: var(--action-button-surface-primary-default);
   border-width: 2px;
-  padding-inline: 7px;
+  padding-inline: 11px;
   box-shadow:
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -1491,4 +1528,302 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
   > .min-h-screen {
   min-height: 0;
   flex-grow: 1;
+}
+
+/* Home landing — layout only, existing experimental-shell tokens */
+body.shift-home #app {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+body.shift-home .shift-tool-search {
+  margin-bottom: 0;
+}
+
+.shift-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shift-category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  color: var(--action-text-neutral-default);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: 9999px;
+  background: var(--action-controls-surface-primary-default);
+  cursor: pointer;
+}
+
+.shift-category-chip:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-category-chip[aria-pressed='true'] {
+  color: var(--background-secondary);
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-button-surface-primary-default);
+}
+
+.shift-category-chip-x {
+  display: none;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.shift-category-chip[aria-pressed='true'] .shift-category-chip-x {
+  display: block;
+}
+
+#grid-view:not(.is-tool-catalog-open)
+  .category-group:not([data-category-type='favorites']) {
+  display: none;
+}
+
+.shift-home-drop-zone {
+  min-height: 160px;
+  gap: 12px;
+  padding: 32px 24px;
+}
+
+.shift-home-drop-zone.is-dragover {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-home-drop-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-secondary);
+}
+
+.shift-home-drop-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.shift-home-choose-files {
+  padding: 0;
+  margin: 0 4px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.shift-open-file-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.shift-my-pdfs-heading,
+#shift-my-pdfs-heading {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.shift-open-file-view-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.shift-open-file-view-toggle {
+  display: flex;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+.shift-open-file-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  color: var(--action-text-neutral-default);
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.shift-open-file-view-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.shift-open-file-view-btn + .shift-open-file-view-btn {
+  border-left: 1px solid var(--border-divider-secondary);
+}
+
+.shift-open-file-view-btn:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-open-file-view-btn[aria-pressed='true'],
+.shift-open-file-view-btn[aria-pressed='true']:hover {
+  color: var(--action-text-neutral-selected);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-my-pdfs[data-view='thumbnail'] .shift-my-pdfs-table {
+  display: none;
+}
+
+.shift-my-pdfs[data-view='list'] .shift-open-file-thumbs {
+  display: none;
+}
+
+.shift-open-file-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.shift-open-file-thumb {
+  display: flex;
+  flex-direction: column;
+  width: 120px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shift-open-file-thumb:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-open-file-thumb-preview {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 154px;
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-open-file-thumb-preview canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shift-open-file-thumb-preview.is-empty canvas {
+  display: none;
+}
+
+.shift-open-file-thumb-replace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shift-open-file-thumb:hover .shift-open-file-thumb-replace,
+.shift-open-file-thumb:focus-visible .shift-open-file-thumb-replace {
+  opacity: 1;
+}
+
+.shift-open-file-thumb-meta {
+  padding: 8px 10px 10px;
+}
+
+.shift-open-file-thumb-name {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shift-my-pdfs-table th,
+.shift-my-pdfs-table td {
+  padding: 12px 8px;
+  text-align: left;
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  border-bottom: 1px solid var(--border-divider-secondary);
+  vertical-align: middle;
+}
+
+.shift-my-pdfs-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.shift-my-pdfs-table td {
+  color: var(--text-primary);
+}
+
+.shift-my-pdfs-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shift-my-pdfs-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
