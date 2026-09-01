@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  applyFavoritePinTitles,
   FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
   parseFavoriteToolIds,
@@ -8,7 +8,6 @@ import {
   placeFavoriteToolCards,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
-  titleForFavoritePin,
   toggleFavoriteToolId,
   TOOL_FAVORITES_RAIL_KEY,
   TOOL_FAVORITES_STORAGE_KEY,
@@ -196,56 +195,15 @@ describe('tool favorites', () => {
       JSON.stringify(['split-pdf'])
     );
   });
+});
 
-  it('titles a pin only when the name is hidden or truncated', () => {
-    expect(
-      titleForFavoritePin({
-        name: 'PDF Workflow Builder',
-        collapsed: false,
-        overflowing: false,
-      })
-    ).toBe('');
-    expect(
-      titleForFavoritePin({
-        name: 'PDF Workflow Builder',
-        collapsed: false,
-        overflowing: true,
-      })
-    ).toBe('PDF Workflow Builder');
-    expect(
-      titleForFavoritePin({
-        name: 'Split PDF',
-        collapsed: true,
-        overflowing: false,
-      })
-    ).toBe('Split PDF');
-  });
+describe('sidebar pinned tools', () => {
+  it('does not put native tooltips on the pinned rail', () => {
+    const html = readFileSync('src/partials/navbar.html', 'utf8');
+    const primary =
+      html.match(/<nav class="shift-primary-nav"[\s\S]*?<\/nav>/)?.[0] ?? '';
 
-  it('sets the native tooltip from measured overflow', () => {
-    const root = document.createElement('div');
-    const overflowing = document.createElement('a');
-    overflowing.className = 'shift-favorite-link';
-    const overflowingLabel = document.createElement('span');
-    overflowingLabel.className = 'shift-nav-label';
-    overflowingLabel.textContent = 'PDF Workflow Builder';
-    Object.defineProperty(overflowingLabel, 'scrollWidth', { value: 180 });
-    Object.defineProperty(overflowingLabel, 'clientWidth', { value: 120 });
-    overflowing.append(overflowingLabel);
-
-    const fits = document.createElement('a');
-    fits.className = 'shift-favorite-link';
-    fits.title = 'stale';
-    const fitsLabel = document.createElement('span');
-    fitsLabel.className = 'shift-nav-label';
-    fitsLabel.textContent = 'Split PDF';
-    Object.defineProperty(fitsLabel, 'scrollWidth', { value: 80 });
-    Object.defineProperty(fitsLabel, 'clientWidth', { value: 80 });
-    fits.append(fitsLabel);
-
-    root.append(overflowing, fits);
-    applyFavoritePinTitles(root, false);
-
-    expect(overflowing.title).toBe('PDF Workflow Builder');
-    expect(fits.hasAttribute('title')).toBe(false);
+    expect(primary).toContain('data-nav="compress"');
+    expect(primary).not.toMatch(/\stitle="/);
   });
 });

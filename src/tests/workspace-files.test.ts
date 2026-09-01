@@ -12,7 +12,6 @@ import {
   initWorkspaceFileIndicator,
   markFileFromHandoff,
   resetWorkspaceFileIndicator,
-  setHomeOpenFileView,
   setWorkspaceFiles,
 } from '../js/logic/workspace-files';
 
@@ -294,9 +293,7 @@ describe('workspace files sidebar', () => {
 
   it('opens the file picker when a handoff file is clicked', () => {
     mountShell();
-    setWorkspaceFiles([
-      { name: 'from-tab.pdf', source: 'handoff' },
-    ]);
+    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
     const input = document.getElementById('file-input') as HTMLInputElement;
     const click = vi.spyOn(input, 'click').mockImplementation(() => {});
 
@@ -308,9 +305,7 @@ describe('workspace files sidebar', () => {
 
   it('keeps the handoff source when the in-page list refreshes the same name', async () => {
     mountShell();
-    setWorkspaceFiles([
-      { name: 'from-tab.pdf', source: 'handoff' },
-    ]);
+    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
     initWorkspaceFileIndicator();
 
     const area = document.getElementById('file-display-area');
@@ -466,9 +461,7 @@ describe('workspace files sidebar', () => {
         <table><tbody id="shift-my-pdfs-body"></tbody></table>
       </section>
     `;
-    setWorkspaceFiles([
-      { name: 'from-tab.pdf', source: 'handoff' },
-    ]);
+    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
 
     expect(
       document
