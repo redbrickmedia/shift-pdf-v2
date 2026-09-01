@@ -23,7 +23,7 @@ export function applyFileToToolInput(
   const input = root.getElementById('file-input') as HTMLInputElement | null;
   if (input && !inputAcceptsFile(input, file)) return false;
 
-  if (input && !(input.files && input.files.length > 0)) {
+  if (input) {
     assignInputFiles(input, [file]);
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -70,7 +70,7 @@ export async function seedToolOpenFile(
     persisted.source === 'handoff'
       ? markFileFromHandoff(persisted.file)
       : persisted.file;
+  const applied = applyFileToToolInput(file, root);
   setWorkspaceFiles([file], root);
-  applyFileToToolInput(file, root);
-  return getWorkspaceFiles().length > 0;
+  return applied || getWorkspaceFiles().length > 0;
 }
