@@ -114,37 +114,6 @@ export function saveFavoriteRailSnapshot(
   }
 }
 
-export function titleForFavoritePin(options: {
-  name: string;
-  collapsed: boolean;
-  overflowing: boolean;
-}): string {
-  if (!options.name) return '';
-  if (options.collapsed || options.overflowing) return options.name;
-  return '';
-}
-
-export function applyFavoritePinTitles(
-  root: ParentNode,
-  collapsed: boolean
-): void {
-  root
-    .querySelectorAll<HTMLAnchorElement>('.shift-favorite-link')
-    .forEach((link) => {
-      const label = link.querySelector<HTMLElement>('.shift-nav-label');
-      const name = label?.textContent?.trim() ?? '';
-      const overflowing = Boolean(
-        label && label.scrollWidth - label.clientWidth > 0.5
-      );
-      const title = titleForFavoritePin({ name, collapsed, overflowing });
-      if (title) {
-        link.title = title;
-      } else {
-        link.removeAttribute('title');
-      }
-    });
-}
-
 export function toggleFavoriteToolId(
   favoriteIds: readonly string[],
   toolId: string

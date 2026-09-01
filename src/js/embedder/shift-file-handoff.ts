@@ -22,6 +22,10 @@ function readHandoffId(): string | null {
   return handoffId && HANDOFF_ID_PATTERN.test(handoffId) ? handoffId : null;
 }
 
+export function hasShiftFileHandoffRequest(): boolean {
+  return readHandoffId() !== null;
+}
+
 function isShiftWebUiOrigin(origin: string): boolean {
   try {
     return new URL(origin).protocol === 'chrome-extension:';

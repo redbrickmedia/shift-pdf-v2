@@ -7,6 +7,10 @@ import {
   getPDFDocument,
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import {
+  markFileFromHandoff,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -284,11 +288,15 @@ document.addEventListener('DOMContentLoaded', () => {
         createIcons({ icons });
       }
       compressOptions.classList.remove('hidden');
+      document.getElementById('file-controls')?.classList.remove('hidden');
+      setWorkspaceFiles(state.files);
     } else {
       compressOptions.classList.add('hidden');
+      document.getElementById('file-controls')?.classList.add('hidden');
       // Clear file display area
       const fileDisplayArea = document.getElementById('file-display-area');
       if (fileDisplayArea) fileDisplayArea.innerHTML = '';
+      setWorkspaceFiles([]);
     }
   };
 
@@ -597,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null) => {
+  const handleFileSelect = (files: FileList | File[] | null) => {
     if (files && files.length > 0) {
       state.files = [...state.files, ...Array.from(files)];
       updateUI();
@@ -658,9 +666,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   listenForShiftFileHandoff({
     onFile: (file) => {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      handleFileSelect(dataTransfer.files);
+      markFileFromHandoff(file);
+      handleFileSelect([file]);
     },
   });
 });
