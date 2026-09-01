@@ -15,7 +15,7 @@ import {
 function mountHome() {
   document.body.innerHTML = `
     <div id="drop-zone">
-      <input id="file-input" type="file" accept="application/pdf,.pdf" />
+      <input id="file-input" type="file" accept="application/pdf,.pdf" multiple />
     </div>
     <section id="shift-my-pdfs" hidden data-view="thumbnail">
       <h2 id="shift-my-pdfs-heading">Open file</h2>
@@ -86,7 +86,7 @@ describe('home files', () => {
     expect(document.querySelector('#shift-my-pdfs-body tr')).toBeNull();
   });
 
-  it('skips non-PDF files and keeps a single open file', () => {
+  it('keeps every PDF from a multi-file drop and skips other types', () => {
     mountHome();
     setWorkspaceFiles([{ name: 'briefing.pdf' }]);
     initHomeFiles();
@@ -98,8 +98,14 @@ describe('home files', () => {
 
     dispatchDrop([notes, replacement, extra]);
 
-    expect(getWorkspaceFiles()).toHaveLength(1);
-    expect(getWorkspaceFiles()[0]?.name).toBe('second.pdf');
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'briefing.pdf',
+      'second.pdf',
+    ]);
+    expect(document.getElementById('shift-my-pdfs-heading')?.textContent).toBe(
+      'Active files'
+    );
+    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(2);
   });
 
   it('replaces the open file instead of adding another', () => {

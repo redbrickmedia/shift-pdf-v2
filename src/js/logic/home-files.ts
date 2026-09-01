@@ -1,8 +1,5 @@
-import { readPersistedOpenFile } from './open-file-store.js';
-import {
-  markFileFromHandoff,
-  setWorkspaceFiles,
-} from './workspace-files.js';
+import { readPersistedOpenFiles } from './open-file-store.js';
+import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
 
 function isPdfFile(file: File): boolean {
   return (
@@ -10,20 +7,21 @@ function isPdfFile(file: File): boolean {
   );
 }
 
-function replaceOpenFile(incoming: File[], root: Document): void {
+function addOpenFiles(incoming: File[], root: Document): void {
   const pdfs = incoming.filter(isPdfFile);
-  const next = pdfs[pdfs.length - 1];
-  if (next) setWorkspaceFiles([next], root);
+  if (pdfs.length === 0) return;
+  setWorkspaceFiles(pdfs, root);
 }
 
-async function restoreOpenFile(root: Document): Promise<void> {
-  const persisted = await readPersistedOpenFile();
-  if (!persisted) return;
-  const file =
-    persisted.source === 'handoff'
-      ? markFileFromHandoff(persisted.file)
-      : persisted.file;
-  replaceOpenFile([file], root);
+async function restoreOpenFiles(root: Document): Promise<void> {
+  const persisted = await readPersistedOpenFiles();
+  if (persisted.length === 0) return;
+  setWorkspaceFiles(
+    persisted.map((entry) =>
+      entry.source === 'handoff' ? markFileFromHandoff(entry.file) : entry.file
+    ),
+    root
+  );
 }
 
 export function initHomeFiles(root: Document = document): void {
@@ -33,7 +31,7 @@ export function initHomeFiles(root: Document = document): void {
   const input = root.getElementById('file-input') as HTMLInputElement | null;
 
   const addFiles = (fileList: FileList | File[] | null) => {
-    if (fileList) replaceOpenFile(Array.from(fileList), root);
+    if (fileList) addOpenFiles(Array.from(fileList), root);
   };
 
   dropZone?.addEventListener('click', (event) => {
@@ -57,5 +55,5 @@ export function initHomeFiles(root: Document = document): void {
     input.value = '';
   });
 
-  void restoreOpenFile(root);
+  void restoreOpenFiles(root);
 }

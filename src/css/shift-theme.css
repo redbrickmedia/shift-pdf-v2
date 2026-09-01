@@ -487,10 +487,13 @@ html.shift-sidebar-collapsed-pending .shift-nav-link {
 }
 
 /* Hide the dashed drop zone when the active file is already in this tool.
-   Tools that do not accept PDFs keep their upload picker. */
-body.shift-open-file-in-tool #drop-zone,
-#tool-uploader:has(#file-display-area:not(:empty)) #drop-zone,
-#tool-uploader:has(#file-controls:not(.hidden)) #drop-zone,
+   Tools that do not accept PDFs keep their upload picker. Multi-file pickers
+   stay visible so more files can be added in the same visit. */
+body.shift-open-file-in-tool #drop-zone:not(:has(input[multiple])),
+#tool-uploader:has(#file-display-area:not(:empty))
+  #drop-zone:not(:has(input[multiple])),
+#tool-uploader:has(#file-controls:not(.hidden))
+  #drop-zone:not(:has(input[multiple])),
 #uploader:has(#signature-editor:not(.hidden)) #drop-zone {
   display: none;
 }

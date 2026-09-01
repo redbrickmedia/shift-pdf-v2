@@ -4,7 +4,10 @@ import {
   inputAcceptsFile,
   seedToolOpenFile,
 } from '../js/logic/seed-tool-open-file';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
+import {
+  writePersistedOpenFile,
+  writePersistedOpenFiles,
+} from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import {
   clearWorkspaceOpenFile,
@@ -79,6 +82,37 @@ describe('seed tool open file', () => {
 
     expect(inputAcceptsFile(input, file)).toBe(false);
     expect(applyFileToToolInput(file)).toBe(false);
+  });
+
+  it('loads every persisted file into a multi-file tool', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+    expect(state.files.map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
   it('does not restore a file after Clear all', async () => {
