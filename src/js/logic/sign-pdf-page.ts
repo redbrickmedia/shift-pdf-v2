@@ -21,10 +21,12 @@ import {
   getSignedPdfFilename,
 } from '../utils/sign-pdf-export.js';
 import {
+  buildSignViewerUrl,
   configureSessionOnlySignatureUi,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
 import {
+  clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
 } from './workspace-files.js';
@@ -175,7 +177,7 @@ async function updateFileDisplay(
     signState.viewerReady = false;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
-    setWorkspaceFiles([]);
+    void clearWorkspaceOpenFile();
   };
 
   fileDiv.append(infoContainer, removeBtn);
@@ -193,7 +195,7 @@ async function updateFileDisplay(
     signState.pdfDoc = null;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
-    setWorkspaceFiles([]);
+    void clearWorkspaceOpenFile();
     return false;
   }
   signState.file = result.file;
@@ -246,42 +248,40 @@ async function setupSignTool(loadVersion: number) {
   });
   signState.blobUrl = URL.createObjectURL(blob);
 
-  const viewerUrl = new URL(
-    `${import.meta.env.BASE_URL}pdfjs-viewer/sign-viewer.html`,
-    window.location.origin
-  );
-  const query = new URLSearchParams({
-    file: signState.blobUrl,
-    bentoSign: '1',
-  });
-  iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
+  iframe.src = buildSignViewerUrl(signState.blobUrl);
 
-  iframe.onload = async () => {
-    if (signState.viewerIframe !== iframe) return;
-    try {
-      const app = await waitForPdfJsSignViewer(iframe);
-      configureSessionOnlySignatureUi(iframe, app);
-      signState.viewerReady = true;
+  try {
+    const app = await waitForPdfJsSignViewer(iframe);
+    if (signState.viewerIframe !== iframe || loadVersion !== fileLoadVersion) {
+      hideLoader();
+      return;
+    }
+    configureSessionOnlySignatureUi(iframe, app);
+    signState.viewerReady = true;
 
-      const saveBtn = document.getElementById(
-        'process-btn'
-      ) as HTMLButtonElement | null;
-      if (saveBtn) {
-        saveBtn.style.display = '';
-      }
-      document.getElementById('print-signed-pdf')?.classList.remove('hidden');
-    } catch (error) {
-      console.error('Could not initialize PDF.js viewer for signing:', error);
-      showAlert(
-        'Viewer failed to load',
-        error instanceof Error
-          ? error.message
-          : 'Could not initialize the signature editor.'
-      );
-    } finally {
+    const saveBtn = document.getElementById(
+      'process-btn'
+    ) as HTMLButtonElement | null;
+    if (saveBtn) {
+      saveBtn.style.display = '';
+    }
+    document.getElementById('print-signed-pdf')?.classList.remove('hidden');
+  } catch (error) {
+    if (signState.viewerIframe !== iframe || loadVersion !== fileLoadVersion) {
+      return;
+    }
+    console.error('Could not initialize PDF.js viewer for signing:', error);
+    showAlert(
+      'Viewer failed to load',
+      error instanceof Error
+        ? error.message
+        : 'Could not initialize the signature editor.'
+    );
+  } finally {
+    if (signState.viewerIframe === iframe && loadVersion === fileLoadVersion) {
       hideLoader();
     }
-  };
+  }
 }
 
 async function printSignedPdf() {
@@ -388,6 +388,7 @@ function resetState() {
   signState.file = null;
   signState.viewerIframe = null;
   signState.viewerReady = false;
+  void clearWorkspaceOpenFile();
 
   const signatureEditor = document.getElementById('signature-editor');
   if (signatureEditor) {

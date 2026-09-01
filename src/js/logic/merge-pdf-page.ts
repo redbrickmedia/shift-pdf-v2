@@ -28,7 +28,11 @@ import {
   showWasmRequiredDialog,
   WasmProvider,
 } from '../utils/wasm-provider.js';
-import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
+import {
+  clearWorkspaceOpenFile,
+  markFileFromHandoff,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 type MergeMode = 'file' | 'page';
 
@@ -155,6 +159,7 @@ async function resetState(): Promise<void> {
   if (fileInput) fileInput.value = '';
   document.getElementById('file-list')?.replaceChildren();
   document.getElementById('page-merge-preview')?.replaceChildren();
+  await clearWorkspaceOpenFile();
   await renderMergeUI();
 }
 

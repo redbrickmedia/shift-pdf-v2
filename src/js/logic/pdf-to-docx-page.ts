@@ -1,5 +1,5 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
   downloadFile,
@@ -9,10 +9,22 @@ import {
 } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
-import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
+import { isPyMuPDFAvailable, loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
 import {
+  ConversionGuardError,
+  createConversionSession,
+  DEFAULT_CONVERSION_LIMITS,
+  isConversionCancelled,
+  runWithTimeout,
+  validateInputFile,
+  validateInputPages,
+  validateOutputBlob,
+} from '../utils/conversion-guard.js';
+import {
+  clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
 } from './workspace-files.js';
@@ -98,33 +110,64 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
+    void clearWorkspaceOpenFile();
     updateUI();
   };
 
   const convert = async () => {
+    const session = createConversionSession();
+    const processBtn = document.getElementById(
+      'process-btn'
+    ) as HTMLButtonElement | null;
+    if (processBtn) processBtn.disabled = true;
+
     try {
       if (state.files.length === 0) {
         showAlert('No Files', 'Please select at least one PDF file.');
         return;
       }
 
-      showLoader('Loading PDF converter...');
-      const pymupdf = await loadPyMuPDF();
+      if (!isPyMuPDFAvailable()) {
+        showWasmRequiredDialog('pymupdf');
+        return;
+      }
 
-      hideLoader();
+      for (const file of state.files) {
+        validateInputFile(file);
+        try {
+          const arrayBuffer = await readFileAsArrayBuffer(file);
+          const pdfDoc = await getPDFDocument({ data: arrayBuffer }).promise;
+          validateInputPages(pdfDoc.numPages);
+        } catch (error) {
+          if (error instanceof ConversionGuardError) {
+            throw error;
+          }
+        }
+      }
+
+      showCancellableLoader('Loading PDF converter...', session.cancel);
+      const pymupdf = await runWithTimeout(
+        loadPyMuPDF(),
+        DEFAULT_CONVERSION_LIMITS.initTimeoutMs,
+        'PDF to Word engine load',
+        session.signal
+      );
+
       state.files = await batchDecryptIfNeeded(state.files);
-      showLoader('Converting...');
 
       if (state.files.length === 1) {
         const file = state.files[0];
-        showLoader(`Converting ${file.name}...`);
-
-        const docxBlob = await pymupdf.pdfToDocx(file);
+        showCancellableLoader(`Converting ${file.name}...`, session.cancel);
+        const docxBlob = await runWithTimeout(
+          pymupdf.pdfToDocx(file),
+          DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+          'PDF to Word conversion',
+          session.signal
+        );
+        validateOutputBlob(docxBlob, file.size);
         const outName = file.name.replace(/\.pdf$/i, '') + '.docx';
-
         downloadFile(docxBlob, outName);
         hideLoader();
-
         showAlert(
           'Conversion Complete',
           `Successfully converted ${file.name} to DOCX.`,
@@ -138,11 +181,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
+          showCancellableLoader(
+            `Converting ${i + 1}/${state.files.length}: ${file.name}...`,
+            session.cancel
           );
-
-          const docxBlob = await pymupdf.pdfToDocx(file);
+          const docxBlob = await runWithTimeout(
+            pymupdf.pdfToDocx(file),
+            DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+            'PDF to Word conversion',
+            session.signal
+          );
+          validateOutputBlob(docxBlob, file.size);
           const baseName = file.name.replace(/\.pdf$/i, '');
           const arrayBuffer = await docxBlob.arrayBuffer();
           const zipEntryName = deduplicateFileName(
@@ -152,12 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
           zip.file(zipEntryName, arrayBuffer);
         }
 
-        showLoader('Creating ZIP archive...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-
         downloadFile(zipBlob, 'converted-documents.zip');
         hideLoader();
-
         showAlert(
           'Conversion Complete',
           `Successfully converted ${state.files.length} PDF(s) to DOCX.`,
@@ -167,10 +213,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: unknown) {
       hideLoader();
+      if (isConversionCancelled(e)) {
+        showAlert('Cancelled', 'PDF to Word was cancelled.');
+        return;
+      }
       showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e instanceof Error ? e.message : String(e)}`
+        'Conversion failed',
+        e instanceof Error ? e.message : String(e)
       );
+    } finally {
+      if (processBtn) processBtn.disabled = false;
     }
   };
 
