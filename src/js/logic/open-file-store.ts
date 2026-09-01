@@ -91,7 +91,7 @@ export async function clearPersistedOpenFile(): Promise<void> {
 }
 
 function withStore<T>(
-  mode: IDBTransactionMode,
+  mode: 'readonly' | 'readwrite',
   run: (store: IDBObjectStore) => IDBRequest<T>
 ): Promise<T> {
   return new Promise((resolve, reject) => {
