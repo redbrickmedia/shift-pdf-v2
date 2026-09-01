@@ -1,13 +1,19 @@
 {
-    "name": "BentoPDF",
-    "short_name": "BentoPDF",
-    "description": "Free online PDF tools - Privacy-first PDF toolkit that works 100% in your browser",
+    "name": "Shift PDF",
+    "short_name": "Shift PDF",
+    "description": "Private PDF tools that normally process files in your browser.",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#262d3b",
-    "theme_color": "#4f46e5",
+    "background_color": "#111827",
+    "theme_color": "#DC2626",
     "orientation": "portrait-primary",
     "icons": [
+        {
+            "src": "/images/shift-pdf-logo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
         {
             "src": "/images/favicon-192x192.png",
             "sizes": "192x192",
