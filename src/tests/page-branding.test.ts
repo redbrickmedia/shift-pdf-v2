@@ -109,6 +109,14 @@ describe('page branding', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('lets the home picker accept multiple PDFs at once', async () => {
+    const home = await readText('index.html');
+    const input = home.match(/<input\b[^>]*id="file-input"[^>]*>/)?.[0];
+
+    expect(input).toBeDefined();
+    expect(input).toContain('multiple');
+  });
+
   it('uses the Shift logo as the page favicon', async () => {
     const offenders: string[] = [];
 
