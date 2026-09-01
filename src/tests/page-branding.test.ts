@@ -109,6 +109,46 @@ describe('page branding', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('uses the Shift logo as the page favicon', async () => {
+    const offenders: string[] = [];
+
+    for (const page of pageSources) {
+      const content = await readText(page);
+      if (!content.includes('rel="icon"')) continue;
+      if (content.includes('/images/favicon.svg')) {
+        offenders.push(`${page}: still points at the upstream favicon.svg`);
+      }
+      if (
+        content.includes('rel="icon"') &&
+        !content.includes('/images/shift-pdf-logo.svg')
+      ) {
+        offenders.push(`${page}: missing Shift favicon`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('does not ship the upstream diamond mark as the favicon', async () => {
+    const favicon = await readText('public/images/favicon.svg');
+    const faviconNoBg = await readText('public/images/favicon-no-bg.svg');
+    const shiftLogo = await readText('public/images/shift-pdf-logo.svg');
+
+    expect(favicon).toBe(shiftLogo);
+    expect(faviconNoBg).toBe(shiftLogo);
+    expect(favicon).not.toContain('#A5B4FC');
+    expect(favicon).not.toContain('#6366F1');
+    expect(favicon).toContain('#DC2626');
+  });
+
+  it('names the web app Shift PDF', async () => {
+    const manifest = await readText('public/site.webmanifest');
+
+    expect(manifest).toContain('"name": "Shift PDF"');
+    expect(manifest).toContain('/images/shift-pdf-logo.svg');
+    expect(manifest).not.toContain('BentoPDF');
+  });
+
   it('keeps every tool page title unique', async () => {
     const seen = new Map<string, string>();
     const duplicates: string[] = [];
