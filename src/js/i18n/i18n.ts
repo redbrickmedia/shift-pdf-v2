@@ -216,6 +216,16 @@ export const applyTranslations = (): void => {
     }
   });
 
+  document.querySelectorAll('[data-i18n-tooltip]').forEach((element) => {
+    const key = element.getAttribute('data-i18n-tooltip');
+    if (key) {
+      const translation = t(key);
+      if (translation && translation !== key) {
+        element.setAttribute('data-shift-tooltip', translation);
+      }
+    }
+  });
+
   document.querySelectorAll('[data-i18n-aria-label]').forEach((element) => {
     const key = element.getAttribute('data-i18n-aria-label');
     if (key) {

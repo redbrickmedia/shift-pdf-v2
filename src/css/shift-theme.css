@@ -1619,7 +1619,282 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   background-color: #78350f !important;
 }
 
-/* Gold again rather than the deeper amber a white card needed. */
-html.dark .testimonial-card [class*='text-yellow-'] {
-  color: #facc15 !important;
+.shift-category-chip-x {
+  display: none;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.shift-category-chip[aria-pressed='true'] .shift-category-chip-x {
+  display: block;
+}
+
+#grid-view:not(.is-tool-catalog-open)
+  .category-group:not([data-category-type='favorites']) {
+  display: none;
+}
+
+.shift-home-drop-zone {
+  min-height: 160px;
+  gap: 12px;
+  padding: 32px 24px;
+}
+
+.shift-home-drop-zone.is-dragover {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-home-drop-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text-secondary);
+}
+
+.shift-home-drop-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.shift-home-choose-files {
+  padding: 0;
+  margin: 0 4px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.shift-open-file-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.shift-my-pdfs-heading,
+#shift-my-pdfs-heading {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.shift-open-file-view-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.shift-open-file-view-toggle {
+  display: flex;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+.shift-open-file-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  color: var(--action-text-neutral-default);
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.shift-open-file-view-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.shift-open-file-view-btn + .shift-open-file-view-btn {
+  border-left: 1px solid var(--border-divider-secondary);
+}
+
+.shift-open-file-view-btn:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-open-file-view-btn[aria-pressed='true'],
+.shift-open-file-view-btn[aria-pressed='true']:hover {
+  color: var(--action-text-neutral-selected);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-my-pdfs[data-view='thumbnail'] .shift-my-pdfs-table {
+  display: none;
+}
+
+.shift-my-pdfs[data-view='list'] .shift-open-file-thumbs {
+  display: none;
+}
+
+.shift-open-file-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.shift-open-file-thumb {
+  display: flex;
+  flex-direction: column;
+  width: 120px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shift-open-file-thumb:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-open-file-thumb-preview {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 154px;
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-open-file-thumb-preview canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shift-open-file-thumb-preview.is-empty canvas {
+  display: none;
+}
+
+.shift-open-file-thumb-replace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms linear;
+}
+
+.shift-open-file-thumb-preview:hover .shift-open-file-thumb-replace,
+.shift-open-file-thumb:focus-visible .shift-open-file-thumb-replace {
+  opacity: 1;
+  transition-delay: 400ms;
+}
+
+.shift-open-file-thumb-meta {
+  padding: 8px 10px 10px;
+}
+
+.shift-open-file-thumb-name {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shift-my-pdfs-table th,
+.shift-my-pdfs-table td {
+  padding: 12px 8px;
+  text-align: left;
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  border-bottom: 1px solid var(--border-divider-secondary);
+  vertical-align: middle;
+}
+
+.shift-my-pdfs-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.shift-my-pdfs-table td {
+  color: var(--text-primary);
+}
+
+.shift-my-pdfs-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shift-my-pdfs-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Matches Shift SDS tooltip timing and inverse surface, using existing tokens. */
+.shift-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  max-width: 220px;
+  padding: 6px 8px;
+  border-radius: var(--radius-8);
+  background: var(--text-primary);
+  color: var(--background-secondary);
+  font-family: var(--shift-font);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.shift-tooltip.is-open {
+  opacity: 1;
+  visibility: visible;
 }

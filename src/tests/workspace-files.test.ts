@@ -58,9 +58,9 @@ describe('workspace files sidebar', () => {
     expect(section?.hidden).toBe(false);
     expect(heading?.textContent).toBe('Active file');
     expect(button?.textContent).toContain('contract.pdf');
-    expect(button?.getAttribute('title')).toBe(
-      'contract.pdf (2.0 KB, uploaded)'
-    );
+    expect(button?.hasAttribute('title')).toBe(false);
+    expect(button?.getAttribute('data-shift-tooltip')).toBeNull();
+    expect(button?.getAttribute('aria-label')).toBe('contract.pdf');
     expect(button?.getAttribute('data-source')).toBe('upload');
     expect(
       button?.querySelector('.shift-open-file-icon-upload')
@@ -110,17 +110,26 @@ describe('workspace files sidebar', () => {
     expect(labels).toEqual(['one.pdf', 'two.pdf', 'three.pdf', '2 more']);
   });
 
-  it('formats byte and megabyte sizes in the chip title', () => {
-    mountShell();
+  it('formats byte and megabyte sizes in the home table', () => {
+    document.body.innerHTML = `
+      <section id="shift-open-files" hidden>
+        <h2 id="shift-open-files-heading">Open file</h2>
+        <div id="shift-open-files-list"></div>
+      </section>
+      <section id="shift-my-pdfs" hidden>
+        <h2 id="shift-my-pdfs-heading">Open file</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+      </section>
+    `;
     setWorkspaceFiles([{ name: 'tiny.pdf', size: 500 }]);
     expect(
-      document.querySelector('.shift-open-file-item')?.getAttribute('title')
-    ).toBe('tiny.pdf (500 B, uploaded)');
+      document.querySelector('#shift-my-pdfs-body td:last-child')?.textContent
+    ).toBe('500 B');
 
     setWorkspaceFiles([{ name: 'large.pdf', size: 2 * 1024 * 1024 }]);
     expect(
-      document.querySelector('.shift-open-file-item')?.getAttribute('title')
-    ).toBe('large.pdf (2.0 MB, uploaded)');
+      document.querySelector('#shift-my-pdfs-body td:last-child')?.textContent
+    ).toBe('2.0 MB');
   });
 
   it('does nothing when the file picker is missing', () => {
@@ -242,7 +251,8 @@ describe('workspace files sidebar', () => {
 
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
-    expect(button?.getAttribute('title')).toBe(
+    expect(button?.hasAttribute('title')).toBe(false);
+    expect(button?.getAttribute('data-shift-tooltip')).toBe(
       'Received from Shift. Click to replace this PDF.'
     );
     expect(button?.getAttribute('aria-label')).toBe(
@@ -266,7 +276,7 @@ describe('workspace files sidebar', () => {
 
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
-    expect(button?.getAttribute('title')).toBe(
+    expect(button?.getAttribute('data-shift-tooltip')).toBe(
       'Received from Shift. Click to replace this PDF.'
     );
     expect(getWorkspaceFiles()[0]).toMatchObject({
@@ -470,6 +480,30 @@ describe('workspace files sidebar', () => {
     ).toBe(false);
   });
 
+  it('uses a custom tooltip and replacement picker for a handoff thumbnail', () => {
+    document.body.innerHTML = `
+      <input id="file-input" type="file" />
+      <section id="shift-my-pdfs" hidden data-view="thumbnail">
+        <h2 id="shift-my-pdfs-heading">Open file</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    const pickerClick = vi.spyOn(input, 'click').mockImplementation(() => {});
+    const thumbnail = document.querySelector<HTMLButtonElement>(
+      '.shift-open-file-thumb'
+    );
+
+    expect(thumbnail?.getAttribute('data-shift-tooltip')).toBe(
+      'Received from Shift. Click to replace this PDF.'
+    );
+    thumbnail?.click();
+    expect(pickerClick).toHaveBeenCalledOnce();
+    pickerClick.mockRestore();
+  });
+
   it('uses thumbnail view by default and can switch to the list', async () => {
     document.body.innerHTML = `
       <input id="file-input" type="file" />
@@ -498,8 +532,8 @@ describe('workspace files sidebar', () => {
       document.querySelector('.shift-open-file-thumb-replace')?.textContent
     ).toBe('Click to upload');
     expect(
-      document.querySelector('.shift-open-file-thumb')?.getAttribute('title')
-    ).toBe('Click to upload');
+      document.querySelector('.shift-open-file-thumb')?.hasAttribute('title')
+    ).toBe(false);
     expect(
       document
         .querySelector('.shift-open-file-thumb')

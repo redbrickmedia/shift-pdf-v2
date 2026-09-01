@@ -4,6 +4,7 @@ import {
   markOpenFilePresent,
   writePersistedOpenFile,
 } from './open-file-store.js';
+import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
@@ -121,12 +122,14 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
     // Ignore storage failures in tests.
   }
   void clearPersistedOpenFile();
+  hideShiftTooltip(root);
   root.body.classList.remove(BODY_CLASS);
   root.body.classList.remove(IN_TOOL_CLASS);
   renderWorkspaceFiles(root);
 }
 
 export function renderWorkspaceFiles(root: Document = document): void {
+  hideShiftTooltip(root);
   const hasFiles = currentFiles.length > 0;
   const hidePicker = shouldHideDropZone(root);
   root.body.classList.toggle(BODY_CLASS, hasFiles);
@@ -353,11 +356,13 @@ function createFileButton(
   button.type = 'button';
   button.className = 'shift-nav-link shift-open-file-item';
   button.dataset.source = file.source;
-  const tooltip = sidebarFileTooltip(file);
-  button.title = tooltip;
   button.setAttribute('aria-label', sidebarFileAriaLabel(file));
   if (file.source === 'handoff') {
-    button.setAttribute('data-i18n-title', 'home.fromShiftHandoffTooltip');
+    attachShiftTooltip(button, {
+      placement: 'right',
+      text: sidebarFileTooltip(file),
+    });
+    button.setAttribute('data-i18n-tooltip', 'home.fromShiftHandoffTooltip');
   }
   button.append(
     createFileIcon(file.source, root),
@@ -373,17 +378,14 @@ function sidebarFileTooltip(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
     return 'Received from Shift. Click to replace this PDF.';
   }
-  const sizeLabel = formatFileSize(file.size);
-  return sizeLabel
-    ? `${file.name} (${sizeLabel}, uploaded)`
-    : `${file.name} (uploaded)`;
+  return file.name;
 }
 
 function sidebarFileAriaLabel(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
     return `${file.name}. Received from Shift. Click to replace this PDF.`;
   }
-  return sidebarFileTooltip(file);
+  return file.name;
 }
 
 function createHomeFileRow(
@@ -440,9 +442,16 @@ function createHomeFileThumb(
   meta.appendChild(name);
 
   card.append(preview, meta);
-  card.title = 'Click to upload';
-  card.setAttribute('data-i18n-title', 'home.clickToUpload');
-  card.setAttribute('aria-label', `Click to upload ${file.name}`);
+  if (file.source === 'handoff') {
+    card.setAttribute('aria-label', sidebarFileAriaLabel(file));
+    attachShiftTooltip(card, {
+      placement: 'bottom',
+      text: sidebarFileTooltip(file),
+    });
+    card.setAttribute('data-i18n-tooltip', 'home.fromShiftHandoffTooltip');
+  } else {
+    card.setAttribute('aria-label', `Click to upload ${file.name}`);
+  }
 
   card.addEventListener('click', () => {
     openFilePicker(root);
