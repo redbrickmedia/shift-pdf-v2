@@ -27,6 +27,7 @@ import {
   simpleTools,
   singlePdfLoadTools,
 } from '../config/pdf-tools.js';
+import { getActiveFileInput } from '../logic/workspace-files.js';
 
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { clearWorkspaceOpenFile } from '../logic/workspace-files.js';
@@ -826,7 +827,8 @@ async function handleMultiFileUpload(toolId: string) {
 }
 
 export function setupFileInputHandler(toolId: string) {
-  const fileInput = document.getElementById('file-input');
+  const fileInput = getActiveFileInput();
+  if (!fileInput) return;
   const isMultiFileTool = multiFileTools.includes(toolId);
   let isFirstUpload = true;
 

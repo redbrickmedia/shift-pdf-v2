@@ -33,6 +33,7 @@ import {
 } from './logic/tool-favorites.js';
 import { initHomeFiles } from './logic/home-files.js';
 import {
+  initInPageToolOpenFileSeeding,
   isHomeDocument,
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
@@ -265,6 +266,7 @@ const init = async () => {
 
   initShiftShell();
   initHomeFiles();
+  initInPageToolOpenFileSeeding();
   if (!hasShiftFileHandoffRequest()) {
     await seedToolOpenFile();
   }
