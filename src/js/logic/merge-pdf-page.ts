@@ -186,7 +186,7 @@ async function addFiles(files: File[]): Promise<boolean> {
       added.push(source);
     }
     if (added.length === 0) {
-      await renderMergeUI();
+      await renderMergeUI(false);
       return false;
     }
 
@@ -212,7 +212,7 @@ async function addFiles(files: File[]): Promise<boolean> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
-    await renderMergeUI();
+    await renderMergeUI(false);
     return false;
   } finally {
     hideLoader();
@@ -418,10 +418,12 @@ function renderMode(): void {
   pageButton?.setAttribute('aria-pressed', String(!inFileMode));
 }
 
-async function renderMergeUI(): Promise<void> {
+async function renderMergeUI(syncWorkspace = true): Promise<void> {
   syncSharedFiles();
   const hasFiles = mergeModel.files.length > 0;
-  setWorkspaceFiles(mergeModel.files.map(({ file }) => file));
+  if (syncWorkspace) {
+    setWorkspaceFiles(mergeModel.files.map(({ file }) => file));
+  }
   document
     .getElementById('file-controls')
     ?.classList.toggle('hidden', !hasFiles);
@@ -770,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  void renderMergeUI();
+  void renderMergeUI(false);
   listenForShiftFileHandoff({
     onFile: (file) => {
       markFileFromHandoff(file);

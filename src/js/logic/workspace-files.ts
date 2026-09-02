@@ -165,7 +165,7 @@ export function pickerAcceptsFile(
 }
 
 export function pickerAcceptsPdf(root: Document = document): boolean {
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const input = getActiveFileInput(root);
   if (!input) return false;
   return pickerAcceptsFile(
     input,
@@ -176,7 +176,7 @@ export function pickerAcceptsPdf(root: Document = document): boolean {
 function shouldHideDropZone(root: Document): boolean {
   if (currentFiles.length === 0) return false;
   if (isHomePage(root)) return true;
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const input = getActiveFileInput(root);
   if (!input) return false;
   const file = pickerFileFromWorkspace();
   if (!file) return true;
@@ -194,7 +194,25 @@ function pickerFileFromWorkspace(): File | null {
 }
 
 function isHomePage(root: Document): boolean {
-  return Boolean(root.getElementById('shift-my-pdfs'));
+  return (
+    Boolean(root.getElementById('shift-my-pdfs')) && !isInPageToolActive(root)
+  );
+}
+
+export function isInPageToolActive(root: Document = document): boolean {
+  const tool = root.getElementById('tool-interface');
+  return Boolean(tool && !tool.classList.contains('hidden'));
+}
+
+export function getActiveFileInput(
+  root: Document = document
+): HTMLInputElement | null {
+  if (isInPageToolActive(root)) {
+    return root.querySelector<HTMLInputElement>(
+      '#tool-interface input#file-input'
+    );
+  }
+  return root.querySelector<HTMLInputElement>('input#file-input');
 }
 
 function openFilesForSidebar(root: Document): WorkspaceFileInfo[] {
@@ -578,7 +596,7 @@ function createFileIcon(
 }
 
 function openFilePicker(root: Document): void {
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const input = getActiveFileInput(root);
   if (!input) return;
   input.value = '';
   input.click();

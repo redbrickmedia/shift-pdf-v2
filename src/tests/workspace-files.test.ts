@@ -335,6 +335,28 @@ describe('workspace files sidebar', () => {
     click.mockRestore();
   });
 
+  it('opens the active tool picker instead of the home picker', () => {
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" hidden></section>
+      <input id="file-input" type="file" accept="application/pdf" />
+      <div id="tool-interface">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <section id="shift-open-files" hidden>
+        <div id="shift-open-files-list"></div>
+      </section>
+    `;
+    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
+    const inputs = document.querySelectorAll<HTMLInputElement>('#file-input');
+    const homeClick = vi.spyOn(inputs[0], 'click').mockImplementation(() => {});
+    const toolClick = vi.spyOn(inputs[1], 'click').mockImplementation(() => {});
+
+    document.querySelector<HTMLButtonElement>('.shift-open-file-item')?.click();
+
+    expect(homeClick).not.toHaveBeenCalled();
+    expect(toolClick).toHaveBeenCalledOnce();
+  });
+
   it('keeps the handoff source when the in-page list refreshes the same name', async () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);

@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyFileToToolInput,
+  initInPageToolOpenFileSeeding,
   inputAcceptsFile,
+  isHomeDocument,
   seedToolOpenFile,
 } from '../js/logic/seed-tool-open-file';
 import { writePersistedOpenFile } from '../js/logic/open-file-store';
@@ -31,6 +33,31 @@ describe('seed tool open file', () => {
 
     await expect(seedToolOpenFile()).resolves.toBe(false);
     expect(getWorkspaceFiles()).toEqual([]);
+  });
+
+  it('seeds the tool picker when a tool opens inside the home document', async () => {
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" hidden></section>
+      <input id="file-input" type="file" accept="application/pdf" />
+      <div id="tool-interface" class="hidden">
+        <input id="file-input" type="file" accept="application/pdf" />
+        <div id="file-display-area"></div>
+      </div>
+    `;
+    await writePersistedOpenFile(
+      new File(['x'], 'from-home.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+    initInPageToolOpenFileSeeding();
+
+    document.getElementById('tool-interface')?.classList.remove('hidden');
+
+    await vi.waitFor(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('#file-input');
+      expect(inputs[0]?.files).toHaveLength(0);
+      expect(inputs[1]?.files?.[0]?.name).toBe('from-home.pdf');
+    });
+    expect(isHomeDocument()).toBe(false);
   });
 
   it('loads a persisted handoff into a PDF tool', async () => {
