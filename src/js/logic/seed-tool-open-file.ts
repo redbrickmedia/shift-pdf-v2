@@ -2,14 +2,21 @@ import { renderFileDisplay } from '../ui.js';
 import { state } from '../state.js';
 import { readPersistedOpenFile } from './open-file-store.js';
 import {
+  getActiveFileInput,
   getWorkspaceFiles,
+  isInPageToolActive,
   markFileFromHandoff,
   pickerAcceptsFile,
   setWorkspaceFiles,
 } from './workspace-files.js';
 
+let inPageToolObserver: MutationObserver | null = null;
+const seededInputs = new WeakSet<HTMLInputElement>();
+
 export function isHomeDocument(root: Document = document): boolean {
-  return Boolean(root.getElementById('shift-my-pdfs'));
+  return (
+    Boolean(root.getElementById('shift-my-pdfs')) && !isInPageToolActive(root)
+  );
 }
 
 export function inputAcceptsFile(input: HTMLInputElement, file: File): boolean {
@@ -20,7 +27,7 @@ export function applyFileToToolInput(
   file: File,
   root: Document = document
 ): boolean {
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const input = getActiveFileInput(root);
   if (input && !inputAcceptsFile(input, file)) return false;
 
   if (input) {
@@ -73,4 +80,29 @@ export async function seedToolOpenFile(
   const applied = applyFileToToolInput(file, root);
   setWorkspaceFiles([file], root);
   return applied || getWorkspaceFiles().length > 0;
+}
+
+export function initInPageToolOpenFileSeeding(root: Document = document): void {
+  inPageToolObserver?.disconnect();
+  inPageToolObserver = null;
+
+  const tool = root.getElementById('tool-interface');
+  if (!tool) return;
+
+  const seedActiveTool = () => {
+    if (!isInPageToolActive(root)) return;
+    const input = getActiveFileInput(root);
+    if (!input || seededInputs.has(input)) return;
+    seededInputs.add(input);
+    void seedToolOpenFile(root);
+  };
+
+  inPageToolObserver = new MutationObserver(seedActiveTool);
+  inPageToolObserver.observe(tool, {
+    attributes: true,
+    attributeFilter: ['class'],
+    childList: true,
+    subtree: true,
+  });
+  seedActiveTool();
 }

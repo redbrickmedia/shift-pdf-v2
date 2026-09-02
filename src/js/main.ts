@@ -34,6 +34,7 @@ import {
 } from './logic/tool-favorites.js';
 import { initHomeFiles } from './logic/home-files.js';
 import {
+  initInPageToolOpenFileSeeding,
   isHomeDocument,
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
@@ -265,6 +266,17 @@ const init = async () => {
   applyTranslations();
 
   initShiftShell();
+  initHomeFiles();
+  initInPageToolOpenFileSeeding();
+  if (!hasShiftFileHandoffRequest()) {
+    await seedToolOpenFile();
+  }
+  trackPdfEngineExperience(
+    new Set(
+      categories.flatMap((category) => category.tools.map((tool) => tool.id))
+    )
+  );
+
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
     const main = document.querySelector('main') || document.body;
