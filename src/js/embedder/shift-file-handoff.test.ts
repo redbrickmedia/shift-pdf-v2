@@ -109,6 +109,72 @@ describe('listenForShiftFileHandoff', () => {
     );
   });
 
+  it('rejects the handoff when onFile returns false', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      `/merge-pdf.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    const onFile = vi.fn().mockResolvedValue(false);
+    const source = { postMessage: vi.fn() };
+
+    listenForShiftFileHandoff({ onFile });
+    dispatchMessage({
+      data: {
+        bytes: new Uint8Array([37, 80, 68, 70]).buffer,
+        channel: 'shift-file-handoff-payload',
+        filename: 'Report.pdf',
+        handoffId: HANDOFF_ID,
+        mimeType: 'application/pdf',
+        version: 1,
+      },
+      source,
+    });
+
+    await vi.waitFor(() =>
+      expect(source.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'shift-file-handoff-rejected',
+          message: 'Shift could not load this file.',
+        }),
+        SHIFT_ORIGIN
+      )
+    );
+  });
+
+  it('rejects the handoff when onFile throws', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      `/merge-pdf.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    const onFile = vi.fn().mockRejectedValue(new Error('PDF failed to parse.'));
+    const source = { postMessage: vi.fn() };
+
+    listenForShiftFileHandoff({ onFile });
+    dispatchMessage({
+      data: {
+        bytes: new Uint8Array([37, 80, 68, 70]).buffer,
+        channel: 'shift-file-handoff-payload',
+        filename: 'Report.pdf',
+        handoffId: HANDOFF_ID,
+        mimeType: 'application/pdf',
+        version: 1,
+      },
+      source,
+    });
+
+    await vi.waitFor(() =>
+      expect(source.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'shift-file-handoff-rejected',
+          message: 'PDF failed to parse.',
+        }),
+        SHIFT_ORIGIN
+      )
+    );
+  });
+
   it('ignores foreign-origin offers', () => {
     window.history.replaceState(
       {},

@@ -172,8 +172,8 @@ async function ensureRuntimeDocuments(): Promise<void> {
   }
 }
 
-async function addFiles(files: File[]): Promise<void> {
-  if (files.length === 0) return;
+async function addFiles(files: File[]): Promise<boolean> {
+  if (files.length === 0) return false;
 
   showLoader('Loading PDF documents...');
   const added: MergeSource[] = [];
@@ -184,7 +184,7 @@ async function addFiles(files: File[]): Promise<void> {
       await loadRuntimeSource(source);
       added.push(source);
     }
-    if (added.length === 0) return;
+    if (added.length === 0) return false;
 
     snapshot();
     mergeModel.files.push(...added);
@@ -197,6 +197,7 @@ async function addFiles(files: File[]): Promise<void> {
     }
     syncSharedFiles();
     await renderMergeUI();
+    return true;
   } catch (error) {
     console.error('Error loading PDFs:', error);
     await Promise.allSettled(
@@ -207,6 +208,7 @@ async function addFiles(files: File[]): Promise<void> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
+    return false;
   } finally {
     hideLoader();
   }
