@@ -3,6 +3,7 @@ import { readFileAsArrayBuffer, getPDFDocument } from './helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PasswordResponses } from './pdfjs.js';
 import type { LoadedPdf } from '@/types';
+import { copyFileOrigin } from '../logic/workspace-files.js';
 
 let cachedPassword: string | null = null;
 let activeModalPromise: Promise<unknown> | null = null;
@@ -200,9 +201,12 @@ async function decryptFileWithPassword(
   const fileBytes = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
   const inputBytes = new Uint8Array(fileBytes);
   const result = await decryptPdfBytes(inputBytes, password);
-  return new File([new Uint8Array(result.bytes)], file.name, {
-    type: 'application/pdf',
-  });
+  return copyFileOrigin(
+    file,
+    new File([new Uint8Array(result.bytes)], file.name, {
+      type: 'application/pdf',
+    })
+  );
 }
 
 export async function promptAndDecryptFile(file: File): Promise<File | null> {

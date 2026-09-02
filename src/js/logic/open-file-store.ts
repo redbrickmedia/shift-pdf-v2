@@ -20,6 +20,7 @@ const STORE_NAME = 'open-file';
 const RECORD_KEY = 'current';
 
 let memoryRecord: StoredOpenFileRecord | null = null;
+let persistGeneration = 0;
 
 export function markOpenFilePresent(present: boolean): void {
   try {
@@ -45,6 +46,7 @@ export async function writePersistedOpenFile(
   file: File,
   meta: Pick<PersistedOpenFileMeta, 'source'>
 ): Promise<void> {
+  const generation = ++persistGeneration;
   markOpenFilePresent(true);
 
   const record: StoredOpenFileRecord = {
@@ -53,6 +55,7 @@ export async function writePersistedOpenFile(
     source: meta.source,
     buffer: await file.arrayBuffer(),
   };
+  if (generation !== persistGeneration) return;
   memoryRecord = record;
   try {
     await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
@@ -81,6 +84,7 @@ export async function readPersistedOpenFile(): Promise<PersistedOpenFile | null>
 }
 
 export async function clearPersistedOpenFile(): Promise<void> {
+  persistGeneration += 1;
   memoryRecord = null;
   markOpenFilePresent(false);
   try {

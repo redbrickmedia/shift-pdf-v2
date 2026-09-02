@@ -12,7 +12,7 @@ const CHANNELS = {
 } as const;
 
 export type ShiftFileHandoffListener = {
-  onFile: (file: File) => void | Promise<void>;
+  onFile: (file: File) => boolean | void | Promise<boolean | void>;
 };
 
 function readHandoffId(): string | null {
@@ -118,7 +118,10 @@ export function listenForShiftFileHandoff(
     void (async () => {
       try {
         const file = buildFile(data);
-        await options.onFile(file);
+        const loaded = await options.onFile(file);
+        if (loaded === false) {
+          throw new Error('Shift could not load this file.');
+        }
         reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.accepted,
           handoffId,

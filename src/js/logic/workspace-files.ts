@@ -74,6 +74,7 @@ export function getHomeOpenFileView(): HomeOpenFileView {
 }
 
 function persistCurrentOpenFile(): Promise<void> {
+  if (currentFiles.length === 0) return clearPersistedOpenFile();
   const first = currentFiles[0];
   if (!(first?.blob instanceof File)) return Promise.resolve();
   markOpenFilePresent(true);

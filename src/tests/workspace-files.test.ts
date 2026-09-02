@@ -6,6 +6,10 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import {
+  hasOpenFileFlag,
+  readPersistedOpenFile,
+} from '../js/logic/open-file-store';
+import {
   copyFileOrigin,
   getHomeOpenFileView,
   getWorkspaceFiles,
@@ -301,6 +305,24 @@ describe('workspace files sidebar', () => {
     });
   });
 
+  it('keeps the Shift origin on a decrypted File copy', () => {
+    mountShell();
+    const original = new File([new Uint8Array([1, 2, 3])], 'locked.pdf', {
+      type: 'application/pdf',
+    });
+    markFileFromHandoff(original);
+    const decrypted = new File([new Uint8Array([4, 5, 6])], original.name, {
+      type: original.type,
+    });
+    copyFileOrigin(original, decrypted);
+    setWorkspaceFiles([decrypted]);
+
+    expect(getWorkspaceFiles()[0]).toMatchObject({
+      name: 'locked.pdf',
+      source: 'handoff',
+    });
+  });
+
   it('opens the file picker when a handoff file is clicked', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
@@ -559,5 +581,17 @@ describe('workspace files sidebar', () => {
         .getElementById('shift-open-file-view-list')
         ?.getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  it('clears persisted files when the workspace is emptied', async () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', { type: 'application/pdf' });
+    setWorkspaceFiles([file]);
+    setWorkspaceFiles([]);
+
+    await vi.waitFor(async () => {
+      expect(hasOpenFileFlag()).toBe(false);
+      expect(await readPersistedOpenFile()).toBeNull();
+    });
   });
 });
