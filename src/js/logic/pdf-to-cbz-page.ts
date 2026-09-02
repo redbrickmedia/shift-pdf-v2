@@ -295,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const qualitySlider = document.getElementById(
     'cbz-quality'
   ) as HTMLInputElement;
@@ -310,12 +309,6 @@ document.addEventListener('DOMContentLoaded', () => {
     'cbz-metadata'
   ) as HTMLInputElement;
   const metadataSection = document.getElementById('metadata-section');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (qualitySlider && qualityValue) {
     qualitySlider.addEventListener('input', () => {

@@ -26,10 +26,6 @@ const statusMessage = document.getElementById(
   'status-message'
 ) as HTMLDivElement;
 const fileListDiv = document.getElementById('fileList') as HTMLDivElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement;
-
 function showStatus(
   message: string,
   type: 'success' | 'error' | 'info' = 'info'
@@ -197,12 +193,6 @@ worker.onmessage = async (e: MessageEvent) => {
     );
   }
 };
-
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-}
 
 convertBtn.addEventListener('click', convertPDFsToJSON);
 

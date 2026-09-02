@@ -166,15 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const scaleSlider = document.getElementById('png-scale') as HTMLInputElement;
   const scaleValue = document.getElementById('png-scale-value');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (scaleSlider && scaleValue) {
     scaleSlider.addEventListener('input', () => {

@@ -62,9 +62,6 @@ const loaderModal = document.getElementById(
 const fileDisplayArea = document.getElementById(
   'file-display-area'
 ) as HTMLElement | null;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement | null;
 const closeBtn = document.getElementById(
   'back-btn'
 ) as HTMLButtonElement | null;
@@ -578,9 +575,7 @@ class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900" />
       fields.forEach((field) => {
         if (field.type !== 'preview' && field.type !== 'destination') {
           const input = modal.querySelector(`#modal-${field.name}`) as
-            | HTMLInputElement
-            | HTMLSelectElement
-            | null;
+            HTMLInputElement | HTMLSelectElement | null;
           if (input) {
             result[field.name] = input.value;
           }
@@ -2191,12 +2186,6 @@ async function extractExistingBookmarks(): Promise<BookmarkTree> {
     console.error('Error extracting bookmarks:', err);
     return [];
   }
-}
-
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 }
 
 if (closeBtn) {

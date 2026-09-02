@@ -22,9 +22,6 @@ const viewerCard = document.getElementById(
 const saveStampedBtn = document.getElementById(
   'save-stamped-btn'
 ) as HTMLButtonElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement | null;
 const toolUploader = document.getElementById(
   'tool-uploader'
 ) as HTMLDivElement | null;
@@ -346,12 +343,6 @@ if (saveStampedBtn) {
         'Could not export the stamped PDF. Please use the Export → PDF button in the viewer toolbar as a fallback.'
       );
     }
-  });
-}
-
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
   });
 }
 

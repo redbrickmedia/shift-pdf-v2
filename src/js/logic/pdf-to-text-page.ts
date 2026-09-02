@@ -70,10 +70,6 @@ function initializePage() {
   if (processBtn) {
     processBtn.addEventListener('click', extractText);
   }
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 }
 
 function handleFileUpload(e: Event) {

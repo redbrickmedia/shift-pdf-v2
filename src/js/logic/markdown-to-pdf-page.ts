@@ -11,11 +11,4 @@ document.addEventListener('DOMContentLoaded', () => {
   const editor = new MarkdownEditor(container, {});
 
   console.log('Markdown editor initialized');
-
-  const backButton = document.getElementById('back-to-tools');
-  if (backButton) {
-    backButton.addEventListener('click', () => {
-      window.location.href = '/';
-    });
-  }
 });

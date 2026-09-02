@@ -145,13 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   const handleFileSelect = (newFiles: FileList | null) => {
     if (!newFiles || newFiles.length === 0) return;

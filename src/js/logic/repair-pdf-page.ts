@@ -11,13 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileControls = document.getElementById('file-controls');
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   const updateUI = () => {
     if (state.files.length > 0) {

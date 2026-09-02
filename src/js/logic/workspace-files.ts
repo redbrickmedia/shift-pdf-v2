@@ -1,8 +1,7 @@
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import {
   clearPersistedOpenFile,
-  markOpenFilePresent,
-  writePersistedOpenFile,
+  writePersistedOpenFiles,
 } from './open-file-store.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 
@@ -14,10 +13,13 @@ const UPLOAD_ICON_PATH =
   'M7.75 3.75h6.19L17.25 7.06v12.19a1 1 0 0 1-1 1H7.75a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1ZM13.75 3.75v3.5h3.5';
 const HANDOFF_ICON_PATH =
   'M4.75 6.75h5.5L12 8.75h7.25v9.5H4.75V6.75ZM4.75 11.25h14.5';
+const ACTIVE_FILE_TOOLTIP =
+  'An active file is a file that will be used when you click on tools.';
 
 export type WorkspaceFileSource = 'upload' | 'handoff';
 
 export type WorkspaceFileInfo = {
+  id?: string;
   name: string;
   size?: number;
   source: WorkspaceFileSource;
@@ -30,6 +32,9 @@ export type HomeOpenFileView = 'list' | 'thumbnail';
 const fileOrigins = new WeakMap<File, WorkspaceFileSource>();
 
 let currentFiles: WorkspaceFileInfo[] = [];
+let homeLibraryFiles: WorkspaceFileInfo[] = [];
+let homeLibraryEpoch = 0;
+let lastRenderedHomeFiles: WorkspaceFileInfo[] = [];
 let displayObserver: MutationObserver | null = null;
 let observedRoot: Document | null = null;
 let homeFileView: HomeOpenFileView = readHomeFileView();
@@ -55,6 +60,29 @@ export function getHandoffFiles(): WorkspaceFileInfo[] {
   return currentFiles.filter((file) => file.source === 'handoff');
 }
 
+export function getHomeLibraryFiles(): WorkspaceFileInfo[] {
+  return homeLibraryFiles.slice();
+}
+
+export function getHomeLibraryEpoch(): number {
+  return homeLibraryEpoch;
+}
+
+export function setHomeLibraryFiles(
+  files: Array<
+    | File
+    | (Omit<WorkspaceFileInfo, 'source'> & { source?: WorkspaceFileSource })
+  >,
+  root: Document = document,
+  epoch: number = homeLibraryEpoch
+): void {
+  if (epoch !== homeLibraryEpoch) return;
+  homeLibraryFiles = files
+    .map((file) => toFileInfo(file, homeLibraryFiles))
+    .filter((file): file is WorkspaceFileInfo => file !== null);
+  renderWorkspaceFiles(root);
+}
+
 export function setWorkspaceFiles(
   files: Array<
     | File
@@ -63,7 +91,7 @@ export function setWorkspaceFiles(
   root: Document = document
 ): void {
   currentFiles = files
-    .map((file) => toFileInfo(file))
+    .map((file) => toFileInfo(file, currentFiles))
     .filter((file): file is WorkspaceFileInfo => file !== null);
   void persistCurrentOpenFile();
   renderWorkspaceFiles(root);
@@ -74,17 +102,29 @@ export function getHomeOpenFileView(): HomeOpenFileView {
 }
 
 function persistCurrentOpenFile(): Promise<void> {
-  if (currentFiles.length === 0) return clearPersistedOpenFile();
-  const first = currentFiles[0];
-  if (!(first?.blob instanceof File)) return Promise.resolve();
-  markOpenFilePresent(true);
-  return writePersistedOpenFile(first.blob, {
-    source: first.source,
-  });
+  const files = currentFiles.filter(
+    (file): file is WorkspaceFileInfo & { blob: File } =>
+      file.blob instanceof File
+  );
+  if (files.length === 0) return clearPersistedOpenFile();
+  return writePersistedOpenFiles(
+    files.map((file) => ({
+      file: file.blob,
+      source: file.source,
+    }))
+  );
 }
 
 export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
+}
+
+export async function clearWorkspaceOpenFile(
+  root: Document = document
+): Promise<void> {
+  currentFiles = [];
+  await clearPersistedOpenFile();
+  renderWorkspaceFiles(root);
 }
 
 export function setHomeOpenFileView(
@@ -99,7 +139,10 @@ export function setHomeOpenFileView(
   }
   applyHomeFileView(root);
   if (homeFileView === 'thumbnail') {
-    void fillHomeThumbnails(root, currentFiles);
+    void fillHomeThumbnails(
+      root,
+      homeLibraryFiles.length > 0 ? homeLibraryFiles : currentFiles
+    );
   }
 }
 
@@ -115,8 +158,11 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
   observedRoot = null;
   viewToggleBoundRoot = null;
   currentFiles = [];
+  homeLibraryFiles = [];
+  homeLibraryEpoch += 1;
   homeFileView = 'thumbnail';
   thumbnailRenderToken += 1;
+  lastRenderedHomeFiles = [];
   try {
     localStorage.removeItem(HOME_FILE_VIEW_KEY);
   } catch {
@@ -138,7 +184,10 @@ export function renderWorkspaceFiles(root: Document = document): void {
   const dropZone = root.getElementById('drop-zone');
   if (dropZone) dropZone.hidden = hidePicker;
   renderSidebarFiles(root, openFilesForSidebar(root));
-  renderHomeFilesTable(root, currentFiles);
+  renderHomeFilesTable(
+    root,
+    homeLibraryFiles.length > 0 ? homeLibraryFiles : currentFiles
+  );
 }
 
 export function pickerAcceptsFile(
@@ -174,23 +223,8 @@ export function pickerAcceptsPdf(root: Document = document): boolean {
 }
 
 function shouldHideDropZone(root: Document): boolean {
-  if (currentFiles.length === 0) return false;
-  if (isHomePage(root)) return true;
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
-  if (!input) return false;
-  const file = pickerFileFromWorkspace();
-  if (!file) return true;
-  return pickerAcceptsFile(input, file);
-}
-
-function pickerFileFromWorkspace(): File | null {
-  const first = currentFiles[0];
-  if (!first) return null;
-  if (first.blob instanceof File) return first.blob;
-  const type = first.name.toLowerCase().endsWith('.pdf')
-    ? 'application/pdf'
-    : '';
-  return new File([], first.name, { type });
+  if (isHomePage(root)) return false;
+  return homeLibraryFiles.length > 0;
 }
 
 function isHomePage(root: Document): boolean {
@@ -248,31 +282,157 @@ function renderHomeFilesTable(
   section.hidden = !hasFiles;
   const heading = root.getElementById('shift-my-pdfs-heading');
   if (heading && hasFiles) {
-    heading.textContent = 'Active file';
+    heading.textContent = 'My PDFs';
   }
+  applyHomeFileView(root);
+  if (!hasFiles) {
+    body.replaceChildren();
+    thumbs?.replaceChildren();
+    lastRenderedHomeFiles = [];
+    return;
+  }
+
+  if (
+    homeFilesListMatches(lastRenderedHomeFiles, files) &&
+    homeLibraryDomMatchesFiles(root, files)
+  ) {
+    updateHomeLibrarySelection(root, files);
+    return;
+  }
+
+  lastRenderedHomeFiles = files.map((file) => ({ ...file }));
   body.replaceChildren();
   thumbs?.replaceChildren();
-  applyHomeFileView(root);
-  if (!hasFiles) return;
 
-  const openFile = files[0];
-  if (!openFile) return;
-  body.appendChild(createHomeFileRow(openFile, root));
-  thumbs?.appendChild(createHomeFileThumb(openFile, root));
+  for (const openFile of files) {
+    body.appendChild(createHomeFileRow(openFile, root));
+    thumbs?.appendChild(createHomeFileThumb(openFile, root));
+  }
 
   if (homeFileView === 'thumbnail') {
-    void fillHomeThumbnails(root, [openFile]);
+    void fillHomeThumbnails(root, files);
+  }
+}
+
+function homeFilesListMatches(
+  previous: WorkspaceFileInfo[],
+  next: WorkspaceFileInfo[]
+): boolean {
+  return (
+    previous.length === next.length &&
+    previous.every(
+      (file, index) =>
+        file.name === next[index]?.name &&
+        file.size === next[index]?.size &&
+        file.source === next[index]?.source &&
+        file.addedAt === next[index]?.addedAt
+    )
+  );
+}
+
+function homeLibraryDomMatchesFiles(
+  root: Document,
+  files: WorkspaceFileInfo[]
+): boolean {
+  const body = root.getElementById('shift-my-pdfs-body');
+  const thumbs = root.getElementById('shift-my-pdfs-thumbs');
+  if (!body) return false;
+
+  const rows = body.querySelectorAll<HTMLTableRowElement>(
+    'tr.shift-my-pdfs-row'
+  );
+  if (rows.length !== files.length) return false;
+  if (
+    !files.every((file, index) => rows[index]?.dataset.fileName === file.name)
+  ) {
+    return false;
+  }
+
+  if (!thumbs) return true;
+  const cards = thumbs.querySelectorAll<HTMLElement>('.shift-open-file-thumb');
+  return (
+    cards.length === files.length &&
+    files.every((file, index) => cards[index]?.dataset.fileName === file.name)
+  );
+}
+
+function findHomeFileRow(
+  body: Element,
+  fileName: string
+): HTMLTableRowElement | null {
+  return (
+    Array.from(
+      body.querySelectorAll<HTMLTableRowElement>('tr.shift-my-pdfs-row')
+    ).find((row) => row.dataset.fileName === fileName) ?? null
+  );
+}
+
+function findHomeFileThumb(
+  thumbs: Element,
+  fileName: string
+): HTMLButtonElement | null {
+  return (
+    Array.from(
+      thumbs.querySelectorAll<HTMLButtonElement>('.shift-open-file-thumb')
+    ).find((card) => card.dataset.fileName === fileName) ?? null
+  );
+}
+
+function updateHomeLibrarySelection(
+  root: Document,
+  files: WorkspaceFileInfo[]
+): void {
+  const body = root.getElementById('shift-my-pdfs-body');
+  const thumbs = root.getElementById('shift-my-pdfs-thumbs');
+  if (!body) return;
+
+  for (const file of files) {
+    const isSelected = isHomeLibraryFileSelected(file);
+
+    const row = findHomeFileRow(body, file.name);
+    if (row) {
+      row.classList.toggle('is-selected', isSelected);
+      row.setAttribute('aria-pressed', String(isSelected));
+      const nameCell = row.querySelector('.shift-my-pdfs-name');
+      const existingChip = nameCell?.querySelector(
+        '.shift-my-pdfs-selected-label'
+      );
+      const existingReplace = row.querySelector('.shift-my-pdfs-row-replace');
+      if (isSelected && !existingChip && nameCell) {
+        nameCell.appendChild(
+          createActiveFileChip(root, 'shift-my-pdfs-selected-label')
+        );
+      } else if (!isSelected) {
+        existingChip?.remove();
+      }
+      if (isSelected) {
+        existingReplace?.remove();
+      } else if (!existingReplace && nameCell) {
+        nameCell.appendChild(createHomeFileRowReplaceHint(root));
+      }
+    }
+
+    const card = thumbs ? findHomeFileThumb(thumbs, file.name) : null;
+    if (card) {
+      card.classList.toggle('is-selected', isSelected);
+      card.setAttribute('aria-pressed', String(isSelected));
+      const badge = card.querySelector<HTMLElement>(
+        '.shift-open-file-thumb-selected'
+      );
+      if (badge) badge.hidden = !isSelected;
+    }
   }
 }
 
 function toFileInfo(
   file:
     | File
-    | (Omit<WorkspaceFileInfo, 'source'> & { source?: WorkspaceFileSource })
+    | (Omit<WorkspaceFileInfo, 'source'> & { source?: WorkspaceFileSource }),
+  existingFiles: WorkspaceFileInfo[]
 ): WorkspaceFileInfo | null {
   const name = (file instanceof File ? file.name : file.name).trim();
   if (!name) return null;
-  const existing = currentFiles.find((item) => item.name === name);
+  const existing = existingFiles.find((item) => item.name === name);
 
   if (file instanceof File) {
     const origin = fileOrigins.get(file);
@@ -286,11 +446,12 @@ function toFileInfo(
   }
 
   return {
+    id: file.id,
     name,
     size: typeof file.size === 'number' ? file.size : 0,
     source: file.source ?? 'upload',
     addedAt: file.addedAt ?? existing?.addedAt ?? Date.now(),
-    blob: existing?.blob,
+    blob: file.blob ?? existing?.blob,
   };
 }
 
@@ -393,15 +554,29 @@ function createHomeFileRow(
   file: WorkspaceFileInfo,
   root: Document
 ): HTMLTableRowElement {
+  const isSelected = isHomeLibraryFileSelected(file);
   const row = root.createElement('tr');
   row.className = 'shift-my-pdfs-row';
+  row.classList.toggle('is-selected', isSelected);
+  row.dataset.fileName = file.name;
   row.dataset.source = file.source;
+  row.tabIndex = 0;
+  row.setAttribute('role', 'button');
+  row.setAttribute('aria-label', `Use ${file.name}`);
+  row.setAttribute('aria-pressed', String(isSelected));
 
   const nameCell = root.createElement('td');
   nameCell.className = 'shift-my-pdfs-name';
   const name = root.createElement('span');
   name.textContent = file.name;
   nameCell.append(createFileIcon(file.source, root), name);
+  if (isSelected) {
+    nameCell.appendChild(
+      createActiveFileChip(root, 'shift-my-pdfs-selected-label')
+    );
+  } else {
+    nameCell.appendChild(createHomeFileRowReplaceHint(root));
+  }
 
   const dateCell = root.createElement('td');
   dateCell.textContent = file.addedAt
@@ -412,28 +587,51 @@ function createHomeFileRow(
   sizeCell.textContent = formatFileSize(file.size);
 
   row.append(nameCell, dateCell, sizeCell);
+  row.addEventListener('click', () => activateHomeLibraryFile(file, root));
+  row.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    activateHomeLibraryFile(file, root);
+  });
 
   return row;
+}
+
+function createHomeFileRowReplaceHint(root: Document): HTMLSpanElement {
+  const replaceHint = root.createElement('span');
+  replaceHint.className =
+    'shift-open-file-thumb-replace shift-my-pdfs-row-replace';
+  replaceHint.textContent = 'Use this PDF';
+  replaceHint.setAttribute('aria-hidden', 'true');
+  return replaceHint;
 }
 
 function createHomeFileThumb(
   file: WorkspaceFileInfo,
   root: Document
 ): HTMLButtonElement {
+  const isSelected = isHomeLibraryFileSelected(file);
   const card = root.createElement('button');
   card.type = 'button';
   card.className = 'shift-open-file-thumb';
+  card.classList.toggle('is-selected', isSelected);
   card.dataset.source = file.source;
   card.dataset.fileName = file.name;
+  card.setAttribute('aria-label', `Use ${file.name}`);
+  card.setAttribute('aria-pressed', String(isSelected));
 
   const preview = root.createElement('div');
   preview.className = 'shift-open-file-thumb-preview is-empty';
   const canvas = root.createElement('canvas');
+  const selectedBadge = createActiveFileChip(
+    root,
+    'shift-open-file-thumb-selected'
+  );
+  selectedBadge.hidden = !isSelected;
   const replaceHint = root.createElement('span');
   replaceHint.className = 'shift-open-file-thumb-replace';
-  replaceHint.setAttribute('data-i18n', 'home.clickToUpload');
-  replaceHint.textContent = 'Click to upload';
-  preview.append(canvas, replaceHint);
+  replaceHint.textContent = 'Use this PDF';
+  preview.append(canvas, selectedBadge, replaceHint);
 
   const meta = root.createElement('div');
   meta.className = 'shift-open-file-thumb-meta';
@@ -444,20 +642,48 @@ function createHomeFileThumb(
 
   card.append(preview, meta);
   if (file.source === 'handoff') {
-    card.setAttribute('aria-label', sidebarFileAriaLabel(file));
     attachShiftTooltip(card, {
       placement: 'bottom',
-      text: sidebarFileTooltip(file),
+      text: 'Received from Shift. Click to use this PDF.',
     });
-    card.setAttribute('data-i18n-tooltip', 'home.fromShiftHandoffTooltip');
-  } else {
-    card.setAttribute('aria-label', `Click to upload ${file.name}`);
   }
-
   card.addEventListener('click', () => {
-    openFilePicker(root);
+    activateHomeLibraryFile(file, root);
   });
   return card;
+}
+
+function createActiveFileChip(
+  root: Document,
+  className: string
+): HTMLSpanElement {
+  const chip = root.createElement('span');
+  chip.className = className;
+  chip.textContent = 'Active';
+  chip.setAttribute('data-i18n-tooltip', 'home.activeFileTooltip');
+  attachShiftTooltip(chip, {
+    placement: 'bottom',
+    text: ACTIVE_FILE_TOOLTIP,
+  });
+  return chip;
+}
+
+function activateHomeLibraryFile(
+  file: WorkspaceFileInfo,
+  root: Document
+): void {
+  if (!file.blob) return;
+  fileOrigins.set(file.blob, file.source);
+  setWorkspaceFiles([file.blob], root);
+}
+
+function isHomeLibraryFileSelected(file: WorkspaceFileInfo): boolean {
+  return currentFiles.some(
+    (current) =>
+      current.name === file.name &&
+      current.size === file.size &&
+      current.source === file.source
+  );
 }
 
 async function fillHomeThumbnails(

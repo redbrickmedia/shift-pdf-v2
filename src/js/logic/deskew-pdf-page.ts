@@ -215,8 +215,6 @@ function initPage(): void {
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const processBtn = document.getElementById('process-btn');
   const alertOk = document.getElementById('alert-ok');
-  const backBtn = document.getElementById('back-to-tools');
-
   if (fileInput) {
     fileInput.addEventListener('change', () => {
       if (fileInput.files) {
@@ -268,12 +266,6 @@ function initPage(): void {
   if (alertOk) {
     alertOk.addEventListener('click', () => {
       document.getElementById('alert-modal')?.classList.add('hidden');
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = '/';
     });
   }
 

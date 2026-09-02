@@ -163,8 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
   fileInput?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) handleFileUpload(file);
@@ -187,8 +185,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   processBtn?.addEventListener('click', processRemoveAnnotations);
-
-  backBtn?.addEventListener('click', () => {
-    window.location.href = '../../index.html';
-  });
 });

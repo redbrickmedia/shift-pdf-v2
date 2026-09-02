@@ -87,10 +87,6 @@ function initializePage() {
       if (fileInput) fileInput.value = '';
     });
   }
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 }
 
 async function handleFileUpload(e: Event) {
@@ -225,16 +221,6 @@ async function handleFiles(files: FileList) {
           showAlert('Error', 'Failed to download the edited PDF.');
         }
       };
-
-      const backBtn = document.getElementById('back-to-tools');
-      if (backBtn) {
-        const newBackBtn = backBtn.cloneNode(true);
-        backBtn.parentNode?.replaceChild(newBackBtn, backBtn);
-
-        newBackBtn.addEventListener('click', () => {
-          window.location.href = import.meta.env.BASE_URL;
-        });
-      }
     } else {
       addFileEntries(fileDisplayArea, decryptedFiles);
 

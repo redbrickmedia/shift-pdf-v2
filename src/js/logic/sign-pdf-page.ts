@@ -92,11 +92,6 @@ function initializePage() {
   document
     .getElementById('flatten-signature-toggle')
     ?.addEventListener('change', updateDownloadButtonLabel);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    cleanup();
-    window.location.href = import.meta.env.BASE_URL;
-  });
   window.addEventListener('pagehide', cleanup, { once: true });
   listenForShiftFileHandoff({
     onFile: (file) => {

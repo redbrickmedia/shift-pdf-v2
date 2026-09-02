@@ -46,7 +46,6 @@ function initializePage(): void {
   const fileInput = getElement<HTMLInputElement>('file-input');
   const dropZone = getElement<HTMLDivElement>('drop-zone');
   const processBtn = getElement<HTMLButtonElement>('process-btn');
-  const backBtn = getElement<HTMLButtonElement>('back-to-tools');
   const tsaPreset = getElement<HTMLSelectElement>('tsa-preset');
 
   populateTsaPresets(tsaPreset);
@@ -80,12 +79,6 @@ function initializePage(): void {
 
   if (processBtn) {
     processBtn.addEventListener('click', processTimestamp);
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
   }
 }
 

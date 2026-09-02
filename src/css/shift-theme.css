@@ -486,7 +486,8 @@ html.shift-sidebar-collapsed-pending .shift-nav-link {
   padding: 8px;
 }
 
-/* Hide the dashed drop zone when the active file is already in this tool.
+/* Hide the dashed drop zone when the PDF library already has saved files.
+   Home keeps its drop zone so users can add more PDFs there.
    Tools that do not accept PDFs keep their upload picker. */
 body.shift-open-file-in-tool #drop-zone,
 #tool-uploader:has(#file-display-area:not(:empty)) #drop-zone,
@@ -1190,270 +1191,6 @@ select:not([multiple]):not([size]) {
   background-color: var(--action-button-surface-primary-hover) !important;
 }
 
-/* A height-stable shell is injected before paint, then tool-back.ts moves the
-   page's existing translated control into its slot. It is a direct child of
-   the panel scrollport, so sticky follows the panel rather than the document.
-   Its 64px trim, container inset, and divider mirror the shared footer. */
-.shift-tool-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  flex: 0 0 64px;
-  align-items: center;
-  min-height: 64px;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-divider-secondary);
-  background-color: var(--background-secondary);
-}
-
-.shift-tool-header > .container {
-  width: 100%;
-}
-
-/* The control sits at the end of the bar, on the same container inset the
-   footer uses, so both bars stop on the same right edge. Logical alignment, so
-   the Arabic build moves it to the left with the rest of the layout. */
-.shift-tool-header-slot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 40px;
-}
-
-/* Anchored to the group's end edge instead of its start: the group is now flush
-   with the panel's inner edge, where a start-anchored menu would hang past it.
-   The min-width is dropped and the box sized to its own label, then capped at
-   what the panel can actually show — the rail keeps its width at every viewport,
-   so the panel is whatever is left of the viewport beside it, less the inset the
-   control already carries. */
-.shift-tool-header .shift-tool-back-menu {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
-  min-width: 0;
-  width: max-content;
-  max-width: calc(100vw - var(--shift-sidebar-width) - 2 * var(--radius-8));
-}
-
-body.shift-sidebar-collapsed .shift-tool-header .shift-tool-back-menu {
-  max-width: calc(
-    100vw - var(--shift-sidebar-width-collapsed) - 2 * var(--radius-8)
-  );
-}
-
-/* Only reached once the cap above bites: a label held on one line would push
-   straight back out of the panel the cap just kept it inside. */
-.shift-tool-header .shift-tool-back-menu-item {
-  min-width: 0;
-  white-space: normal;
-}
-
-/* Hide authored in-card/toolbar controls from the first paint. The header keeps
-   the page geometry stable while the runtime moves one control into the slot. */
-body:has(> .shift-tool-header) [id^='back-to-tools'],
-body:has(> .shift-tool-header) [data-tool-back] {
-  display: none;
-  margin-bottom: 0 !important;
-}
-
-body:has(> .shift-tool-header) > .shift-tool-header [id^='back-to-tools'],
-body:has(> .shift-tool-header) > .shift-tool-header [data-tool-back] {
-  display: inline-flex;
-}
-
-/* The rail intentionally stays expanded on narrow viewports, leaving a 114px
-   panel at 390px. Keep the translated label in the accessibility tree while
-   reducing its visual width so the split control still fits that panel. */
-@media (max-width: 640px) {
-  .shift-tool-header .shift-tool-back {
-    gap: 0;
-  }
-
-  .shift-tool-header .shift-tool-back > span {
-    display: inline-block;
-    width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-}
-
-/* Back control at the top of a tool workspace. main.ts owns the behaviour and
-   tags every control with this class, so the geometry can mirror
-   .shift-nav-link and the workspace reads as one system with the rail.
-   The colours are !important because the Bento markup on these pages still
-   carries `text-indigo-400 hover:text-indigo-300`, and the hover variant is the
-   more specific selector of the two. */
-.shift-tool-back {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  min-height: 40px;
-  padding: 8px var(--radius-12);
-  color: var(--action-text-neutral-default) !important;
-  font-weight: 500;
-  font-size: 14px;
-  line-height: 20px;
-  border: none;
-  border-radius: var(--radius-8);
-  background: var(--action-controls-surface-primary-default);
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    color 300ms,
-    background 300ms,
-    box-shadow 300ms;
-}
-
-.shift-tool-back:hover {
-  color: var(--action-text-neutral-hover) !important;
-  background: var(--action-controls-surface-primary-hover);
-  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
-}
-
-.shift-tool-back:focus-visible {
-  outline: 2px solid var(--action-button-surface-primary-default);
-  outline-offset: 2px;
-}
-
-.shift-tool-back svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* The control is a split control: the button retraces the visitor's own steps,
-   and the caret next to it opens the ways back that are not "the page before"
-   — today only the full catalog. tool-back-menu.ts builds the group, so the
-   pages keep shipping a lone button.
-   The two halves share one surface and one outer silhouette, so they read as a
-   single segmented control rather than as a button with a satellite: they touch,
-   a hairline marks the seam, and only the outer corners are round. */
-.shift-tool-back-group {
-  position: relative;
-  display: inline-flex;
-  /* Both halves get the same height from the taller of the two rather than from
-     their shared min-height, so neither can end up a pixel short. This is only
-     safe because tool-back-menu.ts moves the page's own bottom margin off the
-     button and onto this wrapper: left on the button, that margin would be part
-     of the line's cross size and would stretch the caret through it. */
-  align-items: stretch;
-}
-
-/* Scoped a class deeper than the base rule so the squared inner corners also
-   beat the `rounded-*` some pages carry on the button, which the colours above
-   already need an !important for. Logical corners, so Arabic flips the whole
-   silhouette rather than inverting it. */
-.shift-tool-back-group > .shift-tool-back {
-  border-start-start-radius: var(--radius-8);
-  border-end-start-radius: var(--radius-8);
-  border-start-end-radius: 0;
-  border-end-end-radius: 0;
-}
-
-.shift-tool-back-more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 33px;
-  min-height: 40px;
-  padding: 0;
-  color: var(--action-text-neutral-default);
-  border: none;
-  /* The seam. A border on the caret rather than a shared outline or a pseudo-
-     element because hovering either half only repaints that half's background,
-     which leaves this line standing.
-     Mixed from the neutral ink rather than taken from --border-outer-primary:
-     that token is light-300 (#d1d5db), which is a divider between white sheets
-     and disappears against this control's light-100 fill at 100% zoom. Mixing
-     keeps the line themed — it darkens against a light surface and lightens
-     against a dark one — and translucent means it also holds up over the
-     hover fill of whichever half is under the pointer. */
-  border-inline-start: 1px solid
-    color-mix(in srgb, var(--action-text-neutral-default) 28%, transparent);
-  border-start-start-radius: 0;
-  border-end-start-radius: 0;
-  border-start-end-radius: var(--radius-8);
-  border-end-end-radius: var(--radius-8);
-  background: var(--action-controls-surface-primary-default);
-  cursor: pointer;
-  transition:
-    color 300ms,
-    background 300ms,
-    box-shadow 300ms;
-}
-
-.shift-tool-back-more:hover,
-.shift-tool-back-more[aria-expanded='true'] {
-  color: var(--action-text-neutral-hover);
-  background: var(--action-controls-surface-primary-hover);
-  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
-}
-
-/* Inside the group the ring is drawn just inside the segment instead of around
-   it: an outer ring would be cut off along the seam by the other half, and in
-   the 44px toolbar on pdf-workflow.html there is no room above or below for it
-   either. The z-index keeps the ring above its neighbour regardless. */
-.shift-tool-back-group > .shift-tool-back:focus-visible,
-.shift-tool-back-more:focus-visible {
-  position: relative;
-  z-index: 1;
-  outline: 2px solid var(--action-button-surface-primary-default);
-  outline-offset: -2px;
-}
-
-.shift-tool-back-more svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* The group is now exactly as tall as the two halves, so the menu can hang off
-   its bottom edge and stay put whatever margin the page gave the control. */
-.shift-tool-back-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  inset-inline-start: 0;
-  z-index: 50;
-  min-width: 200px;
-  padding: 4px;
-  border: 1px solid var(--border-divider-secondary);
-  border-radius: var(--radius-8);
-  background: var(--background-secondary);
-  box-shadow: 0 8px 24px rgb(17 24 39 / 0.12);
-}
-
-.shift-tool-back-menu[hidden] {
-  display: none;
-}
-
-.shift-tool-back-menu-item {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  padding: 8px var(--radius-12);
-  color: var(--action-text-neutral-default) !important;
-  font-weight: 500;
-  font-size: 14px;
-  line-height: 20px;
-  white-space: nowrap;
-  border-radius: var(--radius-8);
-  text-decoration: none;
-}
-
-.shift-tool-back-menu-item:hover {
-  color: var(--action-text-neutral-hover) !important;
-  background: var(--action-controls-surface-primary-hover);
-}
-
-.shift-tool-back-menu-item:focus-visible {
-  outline: 2px solid var(--action-button-surface-primary-default);
-  outline-offset: -2px;
-}
-
-.shift-tool-back-menu-item svg {
-  width: 20px;
-  height: 20px;
-}
-
 /* Transparent so the panel stays one white sheet to its rounded bottom edge —
    the rail-grey fill used to dissolve into the identical backdrop behind it. */
 .shift-footer {
@@ -1732,6 +1469,16 @@ body.shift-home .shift-tool-search {
   background: var(--action-controls-surface-primary-hover);
 }
 
+.shift-open-file-thumb.is-selected {
+  border-color: var(--action-button-surface-primary-default);
+  box-shadow: 0 0 0 2px
+    color-mix(
+      in srgb,
+      var(--action-button-surface-primary-default) 28%,
+      transparent
+    );
+}
+
 .shift-open-file-thumb-preview {
   position: relative;
   display: flex;
@@ -1749,6 +1496,23 @@ body.shift-home .shift-tool-search {
 
 .shift-open-file-thumb-preview.is-empty canvas {
   display: none;
+}
+
+.shift-open-file-thumb-selected {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--background-secondary);
+  background: var(--action-button-surface-primary-default);
+  font-family: var(--shift-font);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: default;
+  pointer-events: auto;
 }
 
 .shift-open-file-thumb-replace {
@@ -1770,10 +1534,13 @@ body.shift-home .shift-tool-search {
   transition: opacity 120ms linear;
 }
 
-.shift-open-file-thumb-preview:hover .shift-open-file-thumb-replace,
-.shift-open-file-thumb:focus-visible .shift-open-file-thumb-replace {
+.shift-open-file-thumb:not(.is-selected)
+  .shift-open-file-thumb-preview:hover
+  .shift-open-file-thumb-replace,
+.shift-open-file-thumb:not(.is-selected):focus-visible
+  .shift-open-file-thumb-replace {
   opacity: 1;
-  transition-delay: 400ms;
+  transition-delay: 100ms;
 }
 
 .shift-open-file-thumb-meta {
@@ -1817,6 +1584,35 @@ body.shift-home .shift-tool-search {
   color: var(--text-primary);
 }
 
+.shift-my-pdfs-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.shift-my-pdfs-row:hover,
+.shift-my-pdfs-row:focus-visible {
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
+}
+
+.shift-my-pdfs-row-replace {
+  z-index: 1;
+}
+
+.shift-my-pdfs-row:not(.is-selected):hover .shift-my-pdfs-row-replace,
+.shift-my-pdfs-row:not(.is-selected):focus-visible .shift-my-pdfs-row-replace {
+  opacity: 1;
+  transition-delay: 100ms;
+}
+
+.shift-my-pdfs-row.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--action-button-surface-primary-default) 12%,
+    transparent
+  );
+}
+
 .shift-my-pdfs-name {
   display: flex;
   align-items: center;
@@ -1828,6 +1624,19 @@ body.shift-home .shift-tool-search {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shift-my-pdfs-name .shift-my-pdfs-selected-label {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--background-secondary);
+  background: var(--action-button-surface-primary-default);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: default;
+  pointer-events: auto;
 }
 /* Matches Shift SDS tooltip timing and inverse surface, using existing tokens. */
 .shift-tooltip {
@@ -1855,4 +1664,304 @@ body.shift-home .shift-tool-search {
 .shift-tooltip.is-open {
   opacity: 1;
   visibility: visible;
+}
+
+.shift-library-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.shift-library-picker-panel {
+  width: min(100%, 32rem);
+  max-height: min(80vh, 36rem);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-12);
+  background: var(--background-secondary);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.shift-library-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-divider-secondary);
+}
+
+.shift-library-picker-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.shift-library-picker-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shift-library-picker-list {
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.shift-library-picker-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--action-controls-surface-primary-default);
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shift-library-picker-row:hover:not(:disabled),
+.shift-library-picker-row:focus-visible:not(:disabled) {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
+}
+
+.shift-library-picker-row:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.shift-library-picker-name {
+  width: 100%;
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-library-picker-meta {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.shift-library-picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+}
+
+.shift-library-picker-empty[hidden] {
+  display: none;
+}
+
+.shift-library-picker-empty-heading {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.shift-library-picker-empty-message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.shift-library-picker-empty .shift-library-picker-upload {
+  margin-top: 0.5rem;
+}
+
+.shift-library-picker-footer {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border-divider-secondary);
+}
+
+.shift-library-picker-upload {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shift-library-picker-upload:hover,
+.shift-library-picker-upload:focus-visible {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
+}
+
+.shift-convert-source-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-12);
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-convert-source-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.shift-convert-source-label {
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shift-convert-source-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 1rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-convert-source-meta {
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 0.875rem;
+}
+
+.shift-convert-destination-heading {
+  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.shift-convert-destination-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .shift-convert-destination-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.shift-convert-destination {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-12);
+  background: var(--action-controls-surface-primary-default);
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.shift-convert-destination:hover,
+.shift-convert-destination:focus-visible {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
+}
+
+.shift-convert-destination-icon {
+  flex: 0 0 auto;
+  font-size: 2rem;
+  color: var(--text-accent, #818cf8);
+}
+
+.shift-convert-destination-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.shift-convert-destination-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.shift-convert-destination-output {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-convert-show-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 1rem 0;
+  padding: 0.5rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shift-convert-show-more:hover,
+.shift-convert-show-more:focus-visible {
+  color: var(--text-primary);
+  outline: none;
+}
+
+#drop-zone.is-dragover {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-controls-surface-primary-hover);
 }

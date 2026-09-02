@@ -1,3 +1,6 @@
+import { syncHomeLibraryFromStore } from '../logic/home-files.js';
+import { addPdfToLibrary } from '../logic/pdf-library-store.js';
+
 const FILE_HANDOFF_VERSION = 1;
 const FILE_HANDOFF_MAX_BYTES = 16 * 1024 * 1024;
 const HANDOFF_ID_PATTERN =
@@ -122,6 +125,8 @@ export function listenForShiftFileHandoff(
         if (loaded === false) {
           throw new Error('Shift could not load this file.');
         }
+        await addPdfToLibrary(file, 'handoff');
+        await syncHomeLibraryFromStore();
         reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.accepted,
           handoffId,

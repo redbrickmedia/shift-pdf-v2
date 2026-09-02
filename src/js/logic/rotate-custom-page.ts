@@ -344,19 +344,12 @@ document.addEventListener('DOMContentLoaded', function () {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const batchDecrement = document.getElementById('batch-decrement');
   const batchIncrement = document.getElementById('batch-increment');
   const batchApply = document.getElementById('batch-apply');
   const batchAngleInput = document.getElementById(
     'batch-custom-angle'
   ) as HTMLInputElement;
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (batchDecrement && batchAngleInput) {
     batchDecrement.addEventListener('click', function () {

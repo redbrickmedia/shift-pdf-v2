@@ -559,13 +559,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const dropZone = document.getElementById('drop-zone');
   const previewBtn = document.getElementById('preview-btn');
   const downloadBtn = document.getElementById('download-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {

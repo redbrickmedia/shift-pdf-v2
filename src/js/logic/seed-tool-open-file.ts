@@ -1,6 +1,9 @@
-import { renderFileDisplay } from '../ui.js';
+import { hasShiftFileHandoffRequest } from '../embedder/shift-file-handoff.js';
 import { state } from '../state.js';
-import { readPersistedOpenFile } from './open-file-store.js';
+import { syncHomeLibraryFromStore } from './home-files.js';
+import { readPersistedOpenFiles } from './open-file-store.js';
+import { readPdfLibrary } from './pdf-library-store.js';
+import { markToolFilesSeeded } from './tool-file-seed.js';
 import {
   getWorkspaceFiles,
   markFileFromHandoff,
@@ -20,28 +23,31 @@ export function applyFileToToolInput(
   file: File,
   root: Document = document
 ): boolean {
+  return applyFilesToToolInput([file], root);
+}
+
+export function applyFilesToToolInput(
+  files: File[],
+  root: Document = document
+): boolean {
   const input = root.getElementById('file-input') as HTMLInputElement | null;
-  if (input && !inputAcceptsFile(input, file)) return false;
+  const accepted = files.filter(
+    (file) => !input || inputAcceptsFile(input, file)
+  );
+  if (accepted.length === 0) return false;
 
   if (input) {
-    assignInputFiles(input, [file]);
+    assignInputFiles(input, accepted);
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   if (state.files.length === 0) {
-    state.files = [file];
+    state.files = accepted.slice();
   }
 
-  const display = root.getElementById('file-display-area');
-  if (display && !display.querySelector('.truncate')) {
-    renderFileDisplay(display, state.files);
-  }
+  markToolFilesSeeded(root);
 
-  return (
-    Boolean(input?.files?.length) ||
-    state.files.length > 0 ||
-    Boolean(display?.querySelector('.truncate'))
-  );
+  return Boolean(input?.files?.length) || state.files.length > 0;
 }
 
 function assignInputFiles(input: HTMLInputElement, files: File[]): void {
@@ -58,19 +64,40 @@ function assignInputFiles(input: HTMLInputElement, files: File[]): void {
   });
 }
 
+function workspaceFilesWithBlob(): File[] {
+  return getWorkspaceFiles()
+    .map((entry) => entry.blob)
+    .filter((blob): blob is File => blob instanceof File);
+}
+
 export async function seedToolOpenFile(
   root: Document = document
 ): Promise<boolean> {
   if (isHomeDocument(root)) return false;
 
-  const persisted = await readPersistedOpenFile();
-  if (!persisted) return false;
+  await syncHomeLibraryFromStore(root);
+  if (hasShiftFileHandoffRequest()) return false;
 
-  const file =
-    persisted.source === 'handoff'
-      ? markFileFromHandoff(persisted.file)
-      : persisted.file;
-  const applied = applyFileToToolInput(file, root);
-  setWorkspaceFiles([file], root);
+  const persisted = await readPersistedOpenFiles();
+  let files: File[] | undefined;
+
+  if (persisted.length > 0) {
+    files = persisted.map((entry) =>
+      entry.source === 'handoff' ? markFileFromHandoff(entry.file) : entry.file
+    );
+  } else {
+    files = workspaceFilesWithBlob();
+    if (files.length === 0) {
+      const library = await readPdfLibrary();
+      if (library.length > 0) {
+        files = [library[0].file];
+      }
+    }
+  }
+
+  if (!files || files.length === 0) return false;
+
+  const applied = applyFilesToToolInput(files, root);
+  setWorkspaceFiles(files, root);
   return applied || getWorkspaceFiles().length > 0;
 }

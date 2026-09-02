@@ -21,16 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileControls = document.getElementById('file-controls');
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const includeImagesCheckbox = document.getElementById(
     'include-images'
   ) as HTMLInputElement;
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   const updateUI = async () => {
     if (!fileDisplayArea || !convertOptions || !processBtn || !fileControls)

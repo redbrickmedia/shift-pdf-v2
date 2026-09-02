@@ -49,13 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileDisplayArea = document.getElementById('file-display-area');
   const layersContainer = document.getElementById('layers-container');
   const layersList = document.getElementById('layers-list');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   const updateUI = async () => {
     if (!fileDisplayArea || !processBtnContainer || !processBtn) return;

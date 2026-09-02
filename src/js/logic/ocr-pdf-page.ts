@@ -291,7 +291,6 @@ document.addEventListener('DOMContentLoaded', async function () {
   const processBtn = document.getElementById(
     'process-btn'
   ) as HTMLButtonElement;
-  const backBtn = document.getElementById('back-to-tools');
   const langSearch = document.getElementById('lang-search') as HTMLInputElement;
   const langList = document.getElementById('lang-list');
   const selectedLangsDisplay = document.getElementById(
@@ -310,12 +309,6 @@ document.addEventListener('DOMContentLoaded', async function () {
   await initI18n();
   populateLanguageList();
   updateLanguageAvailabilityNotice();
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {

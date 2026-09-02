@@ -257,13 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
     'overlay-file-input'
   ) as HTMLInputElement;
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (baseDropZone && baseInput) {
     setupDropZone(baseDropZone, baseInput, (file) => {

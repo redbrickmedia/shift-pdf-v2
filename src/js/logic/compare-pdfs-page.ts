@@ -792,14 +792,6 @@ async function handleFileInput(
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  const backBtn = getElement<HTMLButtonElement>('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
   handleFileInput('file-input-1', 'pdfDoc1', 'file-display-1');
   handleFileInput('file-input-2', 'pdfDoc2', 'file-display-2');
 

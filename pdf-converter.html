@@ -4,36 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Primary Meta Tags -->
-    <title>PDF Converter | Shift PDF</title>
+    <title>Convert | Shift PDF</title>
     <meta
       name="description"
-      content="Convert PDFs to 40+ formats and vice versa. Free online PDF converter - Word, Excel, JPG, PNG, and more. Privacy-first conversion in your browser."
-    />
-    <meta
-      name="keywords"
-      content="pdf converter, word to pdf, excel to pdf, powerpoint to pdf, jpg to pdf, png to pdf, image to pdf, webp to pdf, svg to pdf, heic to pdf, tiff to pdf, bmp to pdf, text to pdf, markdown to pdf, csv to pdf, json to pdf, pdf to word, pdf to excel, pdf to jpg, pdf to png, pdf to text, pdf to markdown, pdf to csv, pdf to json, pdf to svg, pdf to webp, pdf to tiff, pdf to bmp, pdf to greyscale, pdf to pdf/a, pdf to zip, odt to pdf, ods to pdf, odp to pdf, odg to pdf, rtf to pdf, epub to pdf, mobi to pdf, cbz to pdf, fb2 to pdf, psd to pdf, xps to pdf, pages to pdf, pub to pdf, vsd to pdf, wpd to pdf, wps to pdf, xml to pdf"
+      content="Convert PDFs to Word, Excel, images, and more — or turn documents into PDF. Privacy-first conversion in your browser."
     />
     <meta name="author" content="Shift" />
     <meta name="robots" content="noindex, nofollow" />
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-
-    <meta property="og:title" content="PDF Converter | Shift PDF" />
+    <meta property="og:title" content="Convert | Shift PDF" />
     <meta
       property="og:description"
-      content="Convert PDFs to 40+ formats and vice versa. Free online PDF converter - Word, Excel, JPG, PNG, and more. Privacy-first conversion in your browser."
+      content="Convert PDFs to Word, Excel, images, and more — or turn documents into PDF."
     />
-
     <meta property="og:site_name" content="Shift PDF" />
 
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="PDF Converter | Shift PDF" />
+    <meta name="twitter:title" content="Convert | Shift PDF" />
     <meta
       name="twitter:description"
-      content="Convert PDFs to 40+ formats and vice versa. Free online PDF converter - Word, Excel, JPG, PNG, and more. Privacy-first conversion in your browser."
+      content="Convert PDFs to Word, Excel, images, and more — or turn documents into PDF."
     />
 
     <link href="/src/css/styles.css" rel="stylesheet" />
@@ -41,7 +32,6 @@
       import '@phosphor-icons/web/regular';
     </script>
 
-    <!-- Web App Manifest -->
     <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Favicons -->
@@ -67,313 +57,126 @@
   </head>
 
   <body class="antialiased bg-gray-900">
-    <!-- Navigation -->
     {{> navbar }}
 
-    <!-- Hero Section -->
-    <section class="container mx-auto px-4 py-12 md:py-16">
-      <div class="max-w-4xl mx-auto text-center">
-        <h1 class="text-3xl md:text-5xl font-bold text-white mb-6">
-          PDF Converter
-        </h1>
-        <p class="text-lg md:text-xl text-gray-300 mb-8">
-          Convert PDFs to and from 40+ file formats with Shift PDF. Turn PDFs
-          into Word, Excel, images, or text — or convert those files into a PDF.
-          Work stays in your browser: no uploads, no cloud processing, and no
-          account.
-        </p>
-      </div>
-    </section>
-
-    <!-- Tools Grid Section -->
-    <section class="container mx-auto px-4 py-8">
-      <h2 class="text-2xl md:text-3xl font-bold text-white mb-6 text-center">
-        All PDF Converter Tools
-      </h2>
-
+    <div
+      id="uploader"
+      class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900"
+    >
       <div
-        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+        id="convert-hub"
+        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-3xl w-full text-gray-200 border border-gray-700"
       >
-        <a href="/word-to-pdf" class="tool-card">
-          <i
-            class="ph ph-microsoft-word-logo text-4xl text-indigo-400 mb-2"
-          ></i>
-          <h3 class="font-semibold text-white">Word to PDF</h3>
-          <p class="text-gray-400 text-sm">DOCX, DOC to PDF</p>
-        </a>
-        <a href="/excel-to-pdf" class="tool-card">
-          <i
-            class="ph ph-microsoft-excel-logo text-4xl text-indigo-400 mb-2"
-          ></i>
-          <h3 class="font-semibold text-white">Excel to PDF</h3>
-          <p class="text-gray-400 text-sm">XLSX, XLS to PDF</p>
-        </a>
-        <a href="/powerpoint-to-pdf" class="tool-card">
-          <i
-            class="ph ph-microsoft-powerpoint-logo text-4xl text-indigo-400 mb-2"
-          ></i>
-          <h3 class="font-semibold text-white">PowerPoint to PDF</h3>
-          <p class="text-gray-400 text-sm">PPTX, PPT to PDF</p>
-        </a>
-        <a href="/jpg-to-pdf" class="tool-card">
-          <i class="ph ph-file-jpg text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">JPG to PDF</h3>
-          <p class="text-gray-400 text-sm">Convert images</p>
-        </a>
-        <a href="/png-to-pdf" class="tool-card">
-          <i class="ph ph-file-png text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PNG to PDF</h3>
-          <p class="text-gray-400 text-sm">Convert images</p>
-        </a>
-        <a href="/image-to-pdf" class="tool-card">
-          <i class="ph ph-images text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">Image to PDF</h3>
-          <p class="text-gray-400 text-sm">Any image to PDF</p>
-        </a>
-        <a href="/webp-to-pdf" class="tool-card">
-          <i class="ph ph-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">WebP to PDF</h3>
-          <p class="text-gray-400 text-sm">Modern format</p>
-        </a>
-        <a href="/svg-to-pdf" class="tool-card">
-          <i class="ph ph-file-svg text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">SVG to PDF</h3>
-          <p class="text-gray-400 text-sm">Vector to PDF</p>
-        </a>
-        <a href="/heic-to-pdf" class="tool-card">
-          <i class="ph ph-device-mobile text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">HEIC to PDF</h3>
-          <p class="text-gray-400 text-sm">iPhone photos</p>
-        </a>
-        <a href="/tiff-to-pdf" class="tool-card">
-          <i class="ph ph-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">TIFF to PDF</h3>
-          <p class="text-gray-400 text-sm">Convert TIFF</p>
-        </a>
-        <a href="/bmp-to-pdf" class="tool-card">
-          <i class="ph ph-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">BMP to PDF</h3>
-          <p class="text-gray-400 text-sm">Convert BMP</p>
-        </a>
-        <a href="/txt-to-pdf" class="tool-card">
-          <i class="ph ph-text-t text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">Text to PDF</h3>
-          <p class="text-gray-400 text-sm">Plain text</p>
-        </a>
-        <a href="/markdown-to-pdf" class="tool-card">
-          <i class="ph ph-markdown-logo text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">Markdown to PDF</h3>
-          <p class="text-gray-400 text-sm">MD to PDF</p>
-        </a>
-        <a href="/csv-to-pdf" class="tool-card">
-          <i class="ph ph-file-csv text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">CSV to PDF</h3>
-          <p class="text-gray-400 text-sm">Spreadsheet</p>
-        </a>
-        <a href="/json-to-pdf" class="tool-card">
-          <i class="ph ph-file-code text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">JSON to PDF</h3>
-          <p class="text-gray-400 text-sm">Data to PDF</p>
-        </a>
-        <a href="/pdf-to-docx" class="tool-card">
-          <i
-            class="ph ph-microsoft-word-logo text-4xl text-indigo-400 mb-2"
-          ></i>
-          <h3 class="font-semibold text-white">PDF to Word</h3>
-          <p class="text-gray-400 text-sm">Editable DOCX</p>
-        </a>
-        <a href="/pdf-to-excel" class="tool-card">
-          <i
-            class="ph ph-microsoft-excel-logo text-4xl text-indigo-400 mb-2"
-          ></i>
-          <h3 class="font-semibold text-white">PDF to Excel</h3>
-          <p class="text-gray-400 text-sm">Extract tables</p>
-        </a>
-        <a href="/pdf-to-jpg" class="tool-card">
-          <i class="ph ph-file-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to JPG</h3>
-          <p class="text-gray-400 text-sm">Convert to images</p>
-        </a>
-        <a href="/pdf-to-png" class="tool-card">
-          <i class="ph ph-file-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to PNG</h3>
-          <p class="text-gray-400 text-sm">Convert to images</p>
-        </a>
-        <a href="/pdf-to-text" class="tool-card">
-          <i class="ph ph-text-aa text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to Text</h3>
-          <p class="text-gray-400 text-sm">Extract text</p>
-        </a>
-        <a href="/pdf-to-markdown" class="tool-card">
-          <i class="ph ph-markdown-logo text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to Markdown</h3>
-          <p class="text-gray-400 text-sm">Extract as MD</p>
-        </a>
-        <a href="/pdf-to-csv" class="tool-card">
-          <i class="ph ph-file-csv text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to CSV</h3>
-          <p class="text-gray-400 text-sm">Extract tables</p>
-        </a>
-        <a href="/pdf-to-json" class="tool-card">
-          <i class="ph ph-file-code text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to JSON</h3>
-          <p class="text-gray-400 text-sm">Structured data</p>
-        </a>
-        <a href="/pdf-to-svg" class="tool-card">
-          <i class="ph ph-file-code text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to SVG</h3>
-          <p class="text-gray-400 text-sm">Vector output</p>
-        </a>
-        <a href="/pdf-to-webp" class="tool-card">
-          <i class="ph ph-file-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to WebP</h3>
-          <p class="text-gray-400 text-sm">Modern format</p>
-        </a>
-        <a href="/pdf-to-tiff" class="tool-card">
-          <i class="ph ph-file-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to TIFF</h3>
-          <p class="text-gray-400 text-sm">Convert to TIFF</p>
-        </a>
-        <a href="/pdf-to-bmp" class="tool-card">
-          <i class="ph ph-file-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to BMP</h3>
-          <p class="text-gray-400 text-sm">Convert to BMP</p>
-        </a>
-        <a href="/pdf-to-greyscale" class="tool-card">
-          <i class="ph ph-palette text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to Greyscale</h3>
-          <p class="text-gray-400 text-sm">Remove colors</p>
-        </a>
-        <a href="/pdf-to-pdfa" class="tool-card">
-          <i class="ph ph-archive text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to PDF/A</h3>
-          <p class="text-gray-400 text-sm">Archive format</p>
-        </a>
-        <a href="/pdf-to-zip" class="tool-card">
-          <i class="ph ph-file-zip text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PDF to ZIP</h3>
-          <p class="text-gray-400 text-sm">Package files</p>
-        </a>
-        <a href="/odt-to-pdf" class="tool-card">
-          <i class="ph ph-file text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">ODT to PDF</h3>
-          <p class="text-gray-400 text-sm">OpenDocument</p>
-        </a>
-        <a href="/ods-to-pdf" class="tool-card">
-          <i class="ph ph-table text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">ODS to PDF</h3>
-          <p class="text-gray-400 text-sm">OpenDocument</p>
-        </a>
-        <a href="/odp-to-pdf" class="tool-card">
-          <i class="ph ph-presentation text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">ODP to PDF</h3>
-          <p class="text-gray-400 text-sm">OpenDocument</p>
-        </a>
-        <a href="/odg-to-pdf" class="tool-card">
-          <i class="ph ph-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">ODG to PDF</h3>
-          <p class="text-gray-400 text-sm">Graphics</p>
-        </a>
-        <a href="/rtf-to-pdf" class="tool-card">
-          <i class="ph ph-file-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">RTF to PDF</h3>
-          <p class="text-gray-400 text-sm">Rich text</p>
-        </a>
-        <a href="/epub-to-pdf" class="tool-card">
-          <i class="ph ph-book-open-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">EPUB to PDF</h3>
-          <p class="text-gray-400 text-sm">E-book format</p>
-        </a>
-        <a href="/mobi-to-pdf" class="tool-card">
-          <i class="ph ph-book-open-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">MOBI to PDF</h3>
-          <p class="text-gray-400 text-sm">Kindle format</p>
-        </a>
-        <a href="/cbz-to-pdf" class="tool-card">
-          <i class="ph ph-book-open text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">CBZ to PDF</h3>
-          <p class="text-gray-400 text-sm">Comic archive</p>
-        </a>
-        <a href="/fb2-to-pdf" class="tool-card">
-          <i class="ph ph-book-bookmark text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">FB2 to PDF</h3>
-          <p class="text-gray-400 text-sm">FictionBook</p>
-        </a>
-        <a href="/psd-to-pdf" class="tool-card">
-          <i class="ph ph-image text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PSD to PDF</h3>
-          <p class="text-gray-400 text-sm">Photoshop</p>
-        </a>
-        <a href="/xps-to-pdf" class="tool-card">
-          <i class="ph ph-scan text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">XPS to PDF</h3>
-          <p class="text-gray-400 text-sm">Microsoft XPS</p>
-        </a>
-        <a href="/pages-to-pdf" class="tool-card">
-          <i class="ph ph-file-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">Pages to PDF</h3>
-          <p class="text-gray-400 text-sm">Apple Pages</p>
-        </a>
-        <a href="/pub-to-pdf" class="tool-card">
-          <i class="ph ph-book-open text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">PUB to PDF</h3>
-          <p class="text-gray-400 text-sm">Publisher</p>
-        </a>
-        <a href="/vsd-to-pdf" class="tool-card">
-          <i class="ph ph-git-branch text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">VSD to PDF</h3>
-          <p class="text-gray-400 text-sm">Visio</p>
-        </a>
-        <a href="/wpd-to-pdf" class="tool-card">
-          <i class="ph ph-file-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">WPD to PDF</h3>
-          <p class="text-gray-400 text-sm">WordPerfect</p>
-        </a>
-        <a href="/wps-to-pdf" class="tool-card">
-          <i class="ph ph-file-text text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">WPS to PDF</h3>
-          <p class="text-gray-400 text-sm">WPS Office</p>
-        </a>
-        <a href="/xml-to-pdf" class="tool-card">
-          <i class="ph ph-file-code text-4xl text-indigo-400 mb-2"></i>
-          <h3 class="font-semibold text-white">XML to PDF</h3>
-          <p class="text-gray-400 text-sm">XML data</p>
-        </a>
-      </div>
-    </section>
+        <h1 class="text-2xl font-bold text-white mb-2">Convert</h1>
+        <p class="text-gray-400 mb-6">
+          Select a document, then choose the format you want to convert it to.
+        </p>
 
-    <!-- Footer -->
+        <div id="convert-source-step">
+          <div
+            id="drop-zone"
+            class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+          >
+            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+              <i
+                data-lucide="upload-cloud"
+                class="w-10 h-10 mb-3 text-gray-400"
+              ></i>
+              <p class="mb-2 text-sm text-gray-400">
+                <span class="font-semibold">Click to select a file</span>
+                or drag and drop
+              </p>
+              <p class="text-xs text-gray-500">
+                PDFs, Office files, images, and more
+              </p>
+              <p class="text-xs text-gray-500">
+                Your files never leave your device.
+              </p>
+            </div>
+            <input
+              id="file-input"
+              type="file"
+              class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
+
+          <div class="mt-4 flex justify-center">
+            <button
+              id="convert-library-btn"
+              type="button"
+              class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg"
+            >
+              Choose from library
+            </button>
+          </div>
+        </div>
+
+        <div id="convert-destination-step" class="hidden">
+          <div class="shift-convert-source-card">
+            <div class="shift-convert-source-copy">
+              <span class="shift-convert-source-label">Source file</span>
+              <strong
+                id="convert-source-name"
+                class="shift-convert-source-name"
+              ></strong>
+              <span
+                id="convert-source-meta"
+                class="shift-convert-source-meta"
+              ></span>
+            </div>
+            <button
+              id="convert-change-source"
+              type="button"
+              class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg"
+            >
+              Change file
+            </button>
+          </div>
+
+          <h2
+            id="convert-destination-heading"
+            class="shift-convert-destination-heading"
+          >
+            Convert to…
+          </h2>
+          <p class="text-gray-400 text-sm mb-4">
+            Choose a destination format. Your file will open in that tool ready
+            to convert.
+          </p>
+
+          <div
+            id="convert-destination-primary"
+            class="shift-convert-destination-grid"
+          ></div>
+
+          <button
+            id="convert-show-more-formats"
+            type="button"
+            class="shift-convert-show-more hidden"
+          >
+            Show more
+          </button>
+
+          <div
+            id="convert-destination-secondary"
+            class="shift-convert-destination-grid hidden"
+          ></div>
+
+          <p
+            id="convert-unsupported-message"
+            class="hidden mt-4 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-100"
+          >
+            That file type is not supported for conversion yet.
+          </p>
+        </div>
+      </div>
+    </div>
+
     {{> footer }}
 
     <script type="module" src="/src/js/utils/lucide-init.ts"></script>
     <script type="module" src="/src/js/mobileMenu.ts"></script>
     <script type="module" src="/src/js/main.ts"></script>
-
-    <!-- Fix BASE_URL for subdirectory deployment -->
-    <script type="module">
-      const BASE_URL = import.meta.env.BASE_URL;
-
-      // Update all links that have literal / placeholder
-      document.querySelectorAll('a[href*="$"]').forEach((link) => {
-        if (link.href.includes('/')) {
-          const newHref = link
-            .getAttribute('href')
-            .replace(/${BASE_URL}/g, BASE_URL);
-          link.setAttribute('href', newHref);
-        }
-      });
-
-      // Update all src attributes
-      document.querySelectorAll('[src*="$"]').forEach((elem) => {
-        if (elem.src.includes('/')) {
-          const newSrc = elem
-            .getAttribute('src')
-            .replace(/${BASE_URL}/g, BASE_URL);
-          elem.setAttribute('src', newSrc);
-        }
-      });
-    </script>
-
-    <!-- JSON-LD CollectionPage Schema -->
+    <script type="module" src="/src/js/logic/convert-hub-page.ts"></script>
   </body>
 </html>

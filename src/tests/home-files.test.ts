@@ -4,9 +4,15 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
   renderPdfFirstPage: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { SHIFT_TOOLTIP_SHOW_DELAY_MS } from '../js/logic/shift-tooltip';
+import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import { initHomeFiles } from '../js/logic/home-files';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
+  addPdfToLibrary,
+  clearPdfLibrary,
+} from '../js/logic/pdf-library-store';
+import {
+  clearWorkspaceOpenFile,
   getWorkspaceFiles,
   resetWorkspaceFileIndicator,
   setWorkspaceFiles,
@@ -15,7 +21,7 @@ import {
 function mountHome() {
   document.body.innerHTML = `
     <div id="drop-zone">
-      <input id="file-input" type="file" accept="application/pdf,.pdf" />
+      <input id="file-input" type="file" accept="application/pdf,.pdf" multiple />
     </div>
     <section id="shift-my-pdfs" hidden data-view="thumbnail">
       <h2 id="shift-my-pdfs-heading">Open file</h2>
@@ -38,8 +44,9 @@ function dispatchDrop(files: File[]) {
   dropZone?.dispatchEvent(event);
 }
 
-afterEach(() => {
+afterEach(async () => {
   resetWorkspaceFileIndicator();
+  await clearPdfLibrary();
   vi.restoreAllMocks();
 });
 
@@ -67,9 +74,9 @@ describe('home files', () => {
       { name: 'briefing.pdf', source: 'upload' },
     ]);
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
-    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(document.getElementById('shift-my-pdfs-heading')?.textContent).toBe(
-      'Active file'
+      'My PDFs'
     );
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
@@ -86,7 +93,7 @@ describe('home files', () => {
     expect(document.querySelector('#shift-my-pdfs-body tr')).toBeNull();
   });
 
-  it('skips non-PDF files and keeps a single open file', () => {
+  it('keeps every PDF from a multi-file drop and skips other types', () => {
     mountHome();
     setWorkspaceFiles([{ name: 'briefing.pdf' }]);
     initHomeFiles();
@@ -98,11 +105,17 @@ describe('home files', () => {
 
     dispatchDrop([notes, replacement, extra]);
 
-    expect(getWorkspaceFiles()).toHaveLength(1);
-    expect(getWorkspaceFiles()[0]?.name).toBe('second.pdf');
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'briefing.pdf',
+      'second.pdf',
+    ]);
+    expect(document.getElementById('shift-my-pdfs-heading')?.textContent).toBe(
+      'My PDFs'
+    );
+    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(2);
   });
 
-  it('replaces the open file instead of adding another', () => {
+  it('keeps earlier PDFs in the library when another is uploaded', async () => {
     mountHome();
     initHomeFiles();
     const first = new File(['a'], 'first.pdf', { type: 'application/pdf' });
@@ -112,11 +125,15 @@ describe('home files', () => {
     dispatchDrop([second]);
 
     expect(getWorkspaceFiles()).toMatchObject([{ name: 'second.pdf' }]);
-    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(1);
-    expect(document.querySelectorAll('.shift-open-file-thumb')).toHaveLength(1);
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(
+        2
+      );
+    });
+    expect(document.querySelectorAll('.shift-open-file-thumb')).toHaveLength(2);
   });
 
-  it('accepts PDFs selected through the hidden file input', () => {
+  it('accepts PDFs selected through the hidden file input', async () => {
     mountHome();
     initHomeFiles();
     const input = document.getElementById('file-input') as HTMLInputElement;
@@ -130,29 +147,138 @@ describe('home files', () => {
 
     expect(getWorkspaceFiles()).toMatchObject([{ name: 'picked.pdf' }]);
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
-    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
-    expect(
-      document.querySelector('#shift-my-pdfs-body tr')?.textContent
-    ).toContain('picked.pdf');
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+    await vi.waitFor(() => {
+      expect(
+        Array.from(document.querySelectorAll('#shift-my-pdfs-body tr')).some(
+          (row) => row.textContent?.includes('picked.pdf')
+        )
+      ).toBe(true);
+    });
   });
 
-  it('restores a handed-off file from the workspace store', async () => {
-    await writePersistedOpenFile(
+  it('restores a handed-off file from the PDF library', async () => {
+    await addPdfToLibrary(
       new File(['x'], 'from-tab.pdf', { type: 'application/pdf' }),
-      { source: 'handoff' }
+      'handoff'
     );
     mountHome();
     initHomeFiles();
 
     await vi.waitFor(() => {
-      expect(getWorkspaceFiles()).toMatchObject([
-        { name: 'from-tab.pdf', source: 'handoff' },
-      ]);
+      expect(
+        document.querySelector('#shift-my-pdfs-body tr')?.textContent
+      ).toContain('from-tab.pdf');
     });
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
-    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('from-tab.pdf');
+  });
+
+  it('makes a saved library PDF active when its thumbnail is selected', async () => {
+    await addPdfToLibrary(
+      new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    mountHome();
+    initHomeFiles();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-open-file-thumb')).not.toBeNull();
+    });
+    expect(
+      document
+        .querySelector('.shift-open-file-thumb')
+        ?.getAttribute('aria-pressed')
+    ).toBe('false');
+    document
+      .querySelector<HTMLButtonElement>('.shift-open-file-thumb')
+      ?.click();
+
+    expect(getWorkspaceFiles()).toMatchObject([
+      { name: 'saved.pdf', source: 'upload' },
+    ]);
+    expect(
+      document
+        .querySelector('.shift-open-file-thumb')
+        ?.getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(
+      document.querySelector('.shift-open-file-thumb-selected')?.textContent
+    ).toBe('Active');
+    expect(
+      document.querySelector('.shift-my-pdfs-selected-label')?.textContent
+    ).toBe('Active');
+
+    const activeChip = document.querySelector<HTMLElement>(
+      '.shift-open-file-thumb-selected'
+    );
+    expect(activeChip?.getAttribute('data-shift-tooltip')).toBe(
+      'An active file is a file that will be used when you click on tools.'
+    );
+    expect(activeChip?.getAttribute('data-i18n-tooltip')).toBe(
+      'home.activeFileTooltip'
+    );
+
+    vi.useFakeTimers();
+    activeChip?.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHIFT_TOOLTIP_SHOW_DELAY_MS);
+    expect(document.getElementById('shift-tooltip')?.textContent).toBe(
+      'An active file is a file that will be used when you click on tools.'
+    );
+    vi.useRealTimers();
+
+    await clearWorkspaceOpenFile();
+
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(
+      document.querySelector('#shift-my-pdfs-body tr')?.textContent
+    ).toContain('saved.pdf');
+  });
+
+  it('does not re-render thumbnails when switching the active library file', async () => {
+    const first = new File(['a'], 'first.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'second.pdf', { type: 'application/pdf' });
+    await addPdfToLibrary(first, 'upload');
+    await addPdfToLibrary(second, 'upload');
+    mountHome();
+    initHomeFiles();
+
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('.shift-open-file-thumb')).toHaveLength(
+        2
+      );
+    });
+    vi.mocked(renderPdfFirstPage).mockClear();
+
+    const canvasesBefore = Array.from(
+      document.querySelectorAll<HTMLCanvasElement>(
+        '.shift-open-file-thumb canvas'
+      )
+    );
+    const renderCallsBefore = vi.mocked(renderPdfFirstPage).mock.calls.length;
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '.shift-open-file-thumb[data-file-name="first.pdf"]'
+      )
+      ?.click();
+
+    await vi.waitFor(() => {
+      expect(getWorkspaceFiles()).toMatchObject([{ name: 'first.pdf' }]);
+    });
+
+    expect(vi.mocked(renderPdfFirstPage).mock.calls.length).toBe(
+      renderCallsBefore
+    );
+    const canvasesAfter = Array.from(
+      document.querySelectorAll<HTMLCanvasElement>(
+        '.shift-open-file-thumb canvas'
+      )
+    );
+    expect(canvasesAfter[0]).toBe(canvasesBefore[0]);
+    expect(canvasesAfter[1]).toBe(canvasesBefore[1]);
   });
 });

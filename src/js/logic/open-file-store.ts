@@ -42,6 +42,17 @@ export function hasOpenFileFlag(): boolean {
   }
 }
 
+export async function writePersistedOpenFiles(
+  files: Array<{ file: File; source: PersistedOpenFileMeta['source'] }>
+): Promise<void> {
+  const last = files[files.length - 1];
+  if (!last) {
+    await clearPersistedOpenFile();
+    return;
+  }
+  await writePersistedOpenFile(last.file, { source: last.source });
+}
+
 export async function writePersistedOpenFile(
   file: File,
   meta: Pick<PersistedOpenFileMeta, 'source'>
@@ -62,6 +73,11 @@ export async function writePersistedOpenFile(
   } catch {
     // IndexedDB can be unavailable in tests and private mode.
   }
+}
+
+export async function readPersistedOpenFiles(): Promise<PersistedOpenFile[]> {
+  const file = await readPersistedOpenFile();
+  return file ? [file] : [];
 }
 
 export async function readPersistedOpenFile(): Promise<PersistedOpenFile | null> {

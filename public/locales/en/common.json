@@ -76,6 +76,7 @@
     "viewThumbnail": "Thumbnail view",
     "clickToUpload": "Click to upload",
     "fromShiftHandoffTooltip": "Received from Shift. Click to replace this PDF.",
+    "activeFileTooltip": "An active file is a file that will be used when you click on tools.",
     "columnName": "Name",
     "columnDateAdded": "Date added",
     "columnSize": "Size"

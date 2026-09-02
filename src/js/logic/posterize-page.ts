@@ -402,18 +402,11 @@ document.addEventListener('DOMContentLoaded', function () {
   const processBtn = document.getElementById(
     'process-btn'
   ) as HTMLButtonElement;
-  const backBtn = document.getElementById('back-to-tools');
   const prevBtn = document.getElementById('prev-preview-page');
   const nextBtn = document.getElementById('next-preview-page');
   const rowsInput = document.getElementById('posterize-rows');
   const colsInput = document.getElementById('posterize-cols');
   const pageRangeInput = document.getElementById('page-range');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {

@@ -18,7 +18,6 @@ function initializePage() {
   createIcons({ icons });
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
-  const backBtn = document.getElementById('back-to-tools');
   const processBtn = document.getElementById('process-btn');
 
   if (fileInput) {
@@ -41,10 +40,6 @@ function initializePage() {
       if (e.dataTransfer?.files.length) handleFiles(e.dataTransfer.files);
     });
   }
-  if (backBtn)
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
   if (processBtn) processBtn.addEventListener('click', changeBackgroundColor);
 }
 

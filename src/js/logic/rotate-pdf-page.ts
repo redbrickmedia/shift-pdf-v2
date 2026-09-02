@@ -282,15 +282,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const rotateAllLeft = document.getElementById('rotate-all-left');
   const rotateAllRight = document.getElementById('rotate-all-right');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (rotateAllLeft) {
     rotateAllLeft.addEventListener('click', function () {

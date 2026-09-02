@@ -37,7 +37,6 @@ import {
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
 import { hasOpenFileFlag } from './logic/open-file-store.js';
-import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
 import {
   setToolCatalogOpen,
   shouldShowCategoryGroup,
@@ -54,8 +53,6 @@ import {
   readPromiseBannerState,
   shouldShowPromiseBanner,
 } from './logic/promise-banner.js';
-import { initToolBackNavigation } from './logic/tool-back.js';
-import { initToolBackMenu } from './logic/tool-back-menu.js';
 import { trackPdfEngineExperience } from './analytics/index.js';
 
 declare const __BRAND_NAME__: string;
@@ -73,15 +70,6 @@ function readSidebarCollapsed(): boolean {
 // Applied at module scope so a stored collapse is set before first paint where possible.
 if (typeof document !== 'undefined' && readSidebarCollapsed()) {
   document.documentElement.classList.add('shift-sidebar-collapsed-pending');
-}
-
-// At module scope rather than in init(): init() waits for `load`, and the tool
-// pages bind their own back handlers on DOMContentLoaded, so the shared one has
-// to be in place before that window opens.
-if (typeof document !== 'undefined') {
-  initToolBackNavigation();
-  // After, not before: the menu hangs off the class the call above adds.
-  initToolBackMenu();
 }
 
 /**
@@ -265,9 +253,7 @@ const init = async () => {
 
   initShiftShell();
   initHomeFiles();
-  if (!hasShiftFileHandoffRequest()) {
-    await seedToolOpenFile();
-  }
+  await seedToolOpenFile();
   trackPdfEngineExperience(
     new Set(
       categories.flatMap((category) => category.tools.map((tool) => tool.id))

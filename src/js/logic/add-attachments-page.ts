@@ -309,14 +309,7 @@ document.addEventListener('DOMContentLoaded', function () {
   ) as HTMLInputElement;
   const attachmentDropZone = document.getElementById('attachment-drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const pageRangeWrapper = document.getElementById('page-range-wrapper');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {
