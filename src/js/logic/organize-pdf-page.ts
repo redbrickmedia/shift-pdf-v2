@@ -61,11 +61,6 @@ function initializePage() {
   }
 
   if (processBtn) processBtn.addEventListener('click', saveChanges);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-
   const applyOrderBtn = document.getElementById('apply-order-btn');
   if (applyOrderBtn) applyOrderBtn.addEventListener('click', applyCustomOrder);
 }

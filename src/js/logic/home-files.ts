@@ -1,5 +1,11 @@
 import { readPersistedOpenFiles } from './open-file-store.js';
-import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
+import { addPdfToLibrary, readPdfLibrary } from './pdf-library-store.js';
+import {
+  getHomeLibraryEpoch,
+  markFileFromHandoff,
+  setHomeLibraryFiles,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 function isPdfFile(file: File): boolean {
   return (
@@ -7,10 +13,16 @@ function isPdfFile(file: File): boolean {
   );
 }
 
-function addOpenFiles(incoming: File[], root: Document): void {
+async function addOpenFiles(
+  incoming: File[],
+  root: Document,
+  epoch: number
+): Promise<void> {
   const pdfs = incoming.filter(isPdfFile);
   if (pdfs.length === 0) return;
   setWorkspaceFiles(pdfs, root);
+  await Promise.all(pdfs.map((file) => addPdfToLibrary(file, 'upload')));
+  await restorePdfLibrary(root, epoch);
 }
 
 async function restoreOpenFiles(root: Document): Promise<void> {
@@ -24,14 +36,38 @@ async function restoreOpenFiles(root: Document): Promise<void> {
   );
 }
 
+export async function syncHomeLibraryFromStore(
+  root: Document = document,
+  epoch: number = getHomeLibraryEpoch()
+): Promise<void> {
+  const entries = await readPdfLibrary();
+  setHomeLibraryFiles(
+    entries.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      size: entry.size,
+      source: entry.source,
+      addedAt: entry.addedAt,
+      blob: entry.file,
+    })),
+    root,
+    epoch
+  );
+}
+
+async function restorePdfLibrary(root: Document, epoch: number): Promise<void> {
+  await syncHomeLibraryFromStore(root, epoch);
+}
+
 export function initHomeFiles(root: Document = document): void {
   if (!root.getElementById('shift-my-pdfs')) return;
 
   const dropZone = root.getElementById('drop-zone');
   const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const libraryEpoch = getHomeLibraryEpoch();
 
   const addFiles = (fileList: FileList | File[] | null) => {
-    if (fileList) addOpenFiles(Array.from(fileList), root);
+    if (fileList) void addOpenFiles(Array.from(fileList), root, libraryEpoch);
   };
 
   dropZone?.addEventListener('click', (event) => {
@@ -56,4 +92,5 @@ export function initHomeFiles(root: Document = document): void {
   });
 
   void restoreOpenFiles(root);
+  void restorePdfLibrary(root, libraryEpoch);
 }

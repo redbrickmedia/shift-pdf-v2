@@ -213,13 +213,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const processBtn = document.getElementById('process-btn');
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {

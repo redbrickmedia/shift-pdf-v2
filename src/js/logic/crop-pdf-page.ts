@@ -50,11 +50,6 @@ function initializePage() {
       if (fileInput) fileInput.value = '';
     });
   }
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-
   document
     .getElementById('prev-page')
     ?.addEventListener('click', () => changePage(-1));

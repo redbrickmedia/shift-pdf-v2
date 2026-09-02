@@ -196,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const algorithmSelect = document.getElementById(
     'compression-algorithm'
   ) as HTMLSelectElement;
@@ -211,12 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   let useCustomSettings = false;
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   // Toggle algorithm info
   if (algorithmSelect && condenseInfo && photonInfo) {

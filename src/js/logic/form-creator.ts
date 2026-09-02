@@ -1636,9 +1636,7 @@ function showProperties(field: FormField): void {
 
     propAlignment.addEventListener('change', (e) => {
       field.alignment = (e.target as HTMLSelectElement).value as
-        | 'left'
-        | 'center'
-        | 'right';
+        'left' | 'center' | 'right';
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
         const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;
@@ -2736,16 +2734,6 @@ downloadBtn.addEventListener('click', async () => {
       showModal('Error', 'Error generating PDF: ' + errorMessage, 'error');
     }
   }
-});
-
-// Back to tools button
-const backToToolsBtns = document.querySelectorAll<HTMLButtonElement>(
-  '[id^="back-to-tools"]'
-);
-backToToolsBtns.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 });
 
 function getPageDimensions(size: string): { width: number; height: number } {

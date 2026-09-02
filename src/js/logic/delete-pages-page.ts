@@ -59,10 +59,6 @@ function initializePage() {
 
   if (processBtn) processBtn.addEventListener('click', deletePages);
   if (pagesInput) pagesInput.addEventListener('input', updatePreview);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 }
 
 function handleFileUpload(e: Event) {

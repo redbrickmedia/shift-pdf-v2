@@ -97,14 +97,12 @@ describe('home catalog visibility', () => {
         <table><tbody id="shift-my-pdfs-body"></tbody></table>
       </section>
     `;
-    setWorkspaceFiles([
-      { name: 'shown.pdf', source: 'handoff' },
-    ]);
+    setWorkspaceFiles([{ name: 'shown.pdf', source: 'handoff' }]);
     setToolCatalogOpen(document.getElementById('grid-view'), false);
 
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
     expect(document.getElementById('shift-my-pdfs-heading')?.textContent).toBe(
-      'Active file'
+      'My PDFs'
     );
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent

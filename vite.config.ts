@@ -395,40 +395,6 @@ function sidebarBootPlugin(): Plugin {
   };
 }
 
-const TOOL_GRID_MARKER_PATTERN = /id\s*=\s*["']tool-grid["']/;
-const CLASS_ATTRIBUTE_PATTERN = /class\s*=\s*["']([^"']*)["']/g;
-const BACK_CONTROL_PATTERN =
-  /id\s*=\s*["']back-to-tools(?:-[^"']*)?["']|\bdata-tool-back(?:\s|=|>)/;
-
-function hasCatalogMarker(html: string): boolean {
-  if (TOOL_GRID_MARKER_PATTERN.test(html)) return true;
-
-  return Array.from(html.matchAll(CLASS_ATTRIBUTE_PATTERN)).some((match) =>
-    match[1].split(/\s+/).includes('tool-card')
-  );
-}
-
-/**
- * Puts an empty, height-stable shell in every tool page before paint. The
- * runtime uses the same catalog markers to distinguish catalog and tool
- * contexts, then moves the page's existing translated Back control into it.
- */
-function toolHeaderPlugin(): Plugin {
-  const partialPath = resolve(__dirname, 'src/partials/tool-header.html');
-
-  return {
-    name: 'tool-header',
-    transformIndexHtml(html) {
-      if (hasCatalogMarker(html) || !BACK_CONTROL_PATTERN.test(html)) {
-        return html;
-      }
-
-      const header = fs.readFileSync(partialPath, 'utf8').trim();
-      return html.replace(/<body([^>]*)>/i, (body) => `${body}\n${header}`);
-    },
-  };
-}
-
 function flattenPagesPlugin(): Plugin {
   return {
     name: 'flatten-pages',
@@ -545,7 +511,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       // basicSsl(),
       sidebarBootPlugin(),
-      toolHeaderPlugin(),
       handlebars({
         partialDirectory: resolve(__dirname, 'src/partials'),
         context: {

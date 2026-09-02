@@ -39,7 +39,6 @@ import {
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
 import { hasOpenFileFlag } from './logic/open-file-store.js';
-import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
 import {
   setToolCatalogOpen,
   shouldShowCategoryGroup,
@@ -74,15 +73,6 @@ function readSidebarCollapsed(): boolean {
 // Applied at module scope so a stored collapse is set before first paint where possible.
 if (typeof document !== 'undefined' && readSidebarCollapsed()) {
   document.documentElement.classList.add('shift-sidebar-collapsed-pending');
-}
-
-// At module scope rather than in init(): init() waits for `load`, and the tool
-// pages bind their own back handlers on DOMContentLoaded, so the shared one has
-// to be in place before that window opens.
-if (typeof document !== 'undefined') {
-  initToolBackNavigation();
-  // After, not before: the menu hangs off the class the call above adds.
-  initToolBackMenu();
 }
 
 /**

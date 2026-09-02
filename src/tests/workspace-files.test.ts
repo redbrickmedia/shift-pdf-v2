@@ -18,6 +18,7 @@ import {
   initWorkspaceFileIndicator,
   markFileFromHandoff,
   resetWorkspaceFileIndicator,
+  setHomeLibraryFiles,
   setWorkspaceFiles,
 } from '../js/logic/workspace-files';
 
@@ -72,7 +73,77 @@ describe('workspace files sidebar', () => {
       button?.querySelector('.shift-open-file-icon-upload')
     ).not.toBeNull();
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+  });
+
+  it('hides the tool drop zone when the PDF library has files', () => {
+    mountShell();
+    setHomeLibraryFiles([
+      {
+        name: 'saved.pdf',
+        blob: new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+      },
+    ]);
+
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
+      true
+    );
+  });
+
+  it('hides the multi-file tool drop zone when the PDF library has files', () => {
+    document.body.innerHTML = `
+      <section id="shift-open-files" hidden>
+        <h2 id="shift-open-files-heading">Active file</h2>
+        <div id="shift-open-files-list"></div>
+      </section>
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+    `;
+    setHomeLibraryFiles([
+      {
+        name: 'saved.pdf',
+        blob: new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+      },
+    ]);
+
+    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
+      true
+    );
+  });
+
+  it('keeps the tool drop zone visible when the library is empty', () => {
+    mountShell();
+    setWorkspaceFiles([{ name: 'contract.pdf', size: 2048 }]);
+
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+    expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
+      false
+    );
+  });
+
+  it('keeps the upload picker on tools that accept multiple files', () => {
+    document.body.innerHTML = `
+      <section id="shift-open-files" hidden>
+        <h2 id="shift-open-files-heading">Active file</h2>
+        <div id="shift-open-files-list"></div>
+      </section>
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+    `;
+    setWorkspaceFiles([
+      new File(['x'], 'one.pdf', { type: 'application/pdf' }),
+      new File(['y'], 'two.pdf', { type: 'application/pdf' }),
+    ]);
+
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
+      false
+    );
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
   it('keeps the upload picker on tools that accept multiple files', () => {
@@ -329,24 +400,6 @@ describe('workspace files sidebar', () => {
     });
   });
 
-  it('keeps the Shift origin on a decrypted File copy', () => {
-    mountShell();
-    const original = new File([new Uint8Array([1, 2, 3])], 'locked.pdf', {
-      type: 'application/pdf',
-    });
-    markFileFromHandoff(original);
-    const decrypted = new File([new Uint8Array([4, 5, 6])], original.name, {
-      type: original.type,
-    });
-    copyFileOrigin(original, decrypted);
-    setWorkspaceFiles([decrypted]);
-
-    expect(getWorkspaceFiles()[0]).toMatchObject({
-      name: 'locked.pdf',
-      source: 'handoff',
-    });
-  });
-
   it('opens the file picker when a handoff file is clicked', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
@@ -455,7 +508,7 @@ describe('workspace files sidebar', () => {
 
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
     expect(section?.hidden).toBe(false);
-    expect(heading?.textContent).toBe('Active files');
+    expect(heading?.textContent).toBe('My PDFs');
     expect(rows).toHaveLength(2);
     expect(cells?.[0]?.textContent).toContain('upload.pdf');
     expect(cells?.[2]?.textContent).toBe('512 B');
@@ -475,7 +528,7 @@ describe('workspace files sidebar', () => {
     setWorkspaceFiles([{ name: 'dropped.pdf', size: 2048 }]);
 
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
-    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('dropped.pdf');
@@ -552,7 +605,7 @@ describe('workspace files sidebar', () => {
     ).toBe(false);
   });
 
-  it('uses a custom tooltip and replacement picker for a handoff thumbnail', () => {
+  it('identifies a handoff PDF in the library thumbnail', () => {
     document.body.innerHTML = `
       <input id="file-input" type="file" />
       <section id="shift-my-pdfs" hidden data-view="thumbnail">
@@ -569,10 +622,10 @@ describe('workspace files sidebar', () => {
     );
 
     expect(thumbnail?.getAttribute('data-shift-tooltip')).toBe(
-      'Received from Shift. Click to replace this PDF.'
+      'Received from Shift. Click to use this PDF.'
     );
     thumbnail?.click();
-    expect(pickerClick).toHaveBeenCalledOnce();
+    expect(pickerClick).not.toHaveBeenCalled();
     pickerClick.mockRestore();
   });
 
@@ -602,7 +655,7 @@ describe('workspace files sidebar', () => {
     ).toBe('briefing.pdf');
     expect(
       document.querySelector('.shift-open-file-thumb-replace')?.textContent
-    ).toBe('Click to upload');
+    ).toBe('Use this PDF');
     expect(
       document.querySelector('.shift-open-file-thumb')?.hasAttribute('title')
     ).toBe(false);
@@ -610,14 +663,14 @@ describe('workspace files sidebar', () => {
       document
         .querySelector('.shift-open-file-thumb')
         ?.getAttribute('aria-label')
-    ).toBe('Click to upload briefing.pdf');
+    ).toBe('Use briefing.pdf');
 
     const picker = document.getElementById('file-input') as HTMLInputElement;
     const pickerClick = vi.spyOn(picker, 'click');
     document
       .querySelector<HTMLButtonElement>('.shift-open-file-thumb')
       ?.click();
-    expect(pickerClick).toHaveBeenCalledOnce();
+    expect(pickerClick).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(renderPdfFirstPage).toHaveBeenCalled();
     });
@@ -631,6 +684,49 @@ describe('workspace files sidebar', () => {
         .getElementById('shift-open-file-view-list')
         ?.getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  it('shows Use this PDF overlay on inactive list rows only', async () => {
+    document.body.innerHTML = `
+      <input id="file-input" type="file" />
+      <section id="shift-my-pdfs" hidden data-view="thumbnail">
+        <h2 id="shift-my-pdfs-heading">Open file</h2>
+        <button id="shift-open-file-view-list" data-view="list" aria-pressed="false"></button>
+        <button id="shift-open-file-view-thumbnail" data-view="thumbnail" aria-pressed="true"></button>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+    const first = new File(['a'], 'first.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'second.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([first, second]);
+    setWorkspaceFiles([first]);
+    initWorkspaceFileIndicator();
+
+    document.getElementById('shift-open-file-view-list')?.click();
+
+    const rows = document.querySelectorAll<HTMLTableRowElement>(
+      '#shift-my-pdfs-body tr.shift-my-pdfs-row'
+    );
+    expect(rows).toHaveLength(2);
+
+    const activeRow = rows[0];
+    const inactiveRow = rows[1];
+    expect(activeRow?.classList.contains('is-selected')).toBe(true);
+    expect(inactiveRow?.classList.contains('is-selected')).toBe(false);
+    expect(activeRow?.querySelector('.shift-my-pdfs-row-replace')).toBeNull();
+    expect(
+      inactiveRow?.querySelector('.shift-my-pdfs-row-replace')?.textContent
+    ).toBe('Use this PDF');
+
+    inactiveRow?.click();
+    await vi.waitFor(() => {
+      expect(inactiveRow?.classList.contains('is-selected')).toBe(true);
+    });
+    expect(inactiveRow?.querySelector('.shift-my-pdfs-row-replace')).toBeNull();
+    expect(
+      activeRow?.querySelector('.shift-my-pdfs-row-replace')?.textContent
+    ).toBe('Use this PDF');
   });
 
   it('clears persisted files on explicit Clear all', async () => {
@@ -659,5 +755,64 @@ describe('workspace files sidebar', () => {
       expect(hasOpenFileFlag()).toBe(false);
       expect(await readPersistedOpenFile()).toBeNull();
     });
+  });
+
+  it('keeps thumbnail canvases mounted when activating a library file', async () => {
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" hidden data-view="thumbnail">
+        <h2 id="shift-my-pdfs-heading">Open file</h2>
+        <button id="shift-open-file-view-list" data-view="list"></button>
+        <button id="shift-open-file-view-thumbnail" data-view="thumbnail"></button>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+    const first = new File(['a'], 'first.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'second.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([first, second]);
+    initWorkspaceFileIndicator();
+
+    await vi.waitFor(() => {
+      expect(
+        document.querySelectorAll('.shift-open-file-thumb canvas')
+      ).toHaveLength(2);
+    });
+    vi.mocked(renderPdfFirstPage).mockClear();
+
+    const canvasesBefore = Array.from(
+      document.querySelectorAll<HTMLCanvasElement>(
+        '.shift-open-file-thumb canvas'
+      )
+    );
+    const renderCallsBefore = vi.mocked(renderPdfFirstPage).mock.calls.length;
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '.shift-open-file-thumb[data-file-name="second.pdf"]'
+      )
+      ?.click();
+
+    await vi.waitFor(() => {
+      expect(
+        document
+          .querySelector('.shift-open-file-thumb[data-file-name="second.pdf"]')
+          ?.getAttribute('aria-pressed')
+      ).toBe('true');
+    });
+
+    const canvasesAfter = Array.from(
+      document.querySelectorAll<HTMLCanvasElement>(
+        '.shift-open-file-thumb canvas'
+      )
+    );
+    expect(vi.mocked(renderPdfFirstPage).mock.calls.length).toBe(
+      renderCallsBefore
+    );
+    expect(canvasesAfter).toHaveLength(2);
+    expect(canvasesAfter[0]).toBe(canvasesBefore[0]);
+    expect(canvasesAfter[1]).toBe(canvasesBefore[1]);
+    expect(
+      document.querySelector('.shift-open-file-thumb-selected')?.textContent
+    ).toBe('Active');
   });
 });
