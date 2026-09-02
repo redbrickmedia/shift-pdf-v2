@@ -561,11 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      state.files = [...state.files, ...Array.from(files)];
-      updateUI();
-    }
+  const handleFileSelect = (files: FileList | null): boolean => {
+    if (!files || files.length === 0) return false;
+    state.files = [...state.files, ...Array.from(files)];
+    updateUI();
+    return true;
   };
 
   if (fileInput && dropZone) {
@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
     onFile: (file) => {
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(file);
-      handleFileSelect(dataTransfer.files);
+      return handleFileSelect(dataTransfer.files);
     },
   });
 });
