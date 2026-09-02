@@ -117,13 +117,13 @@ async function handleFileUpload(e: Event) {
   }
 }
 
-async function handleFile(file: File) {
+async function handleFile(file: File): Promise<boolean> {
   if (
     file.type !== 'application/pdf' &&
     !file.name.toLowerCase().endsWith('.pdf')
   ) {
     showAlert('Invalid File', 'Please select a PDF file.');
-    return;
+    return false;
   }
 
   const loadVersion = ++fileLoadVersion;
@@ -134,7 +134,9 @@ async function handleFile(file: File) {
   signState.file = file;
   if (await updateFileDisplay(file, loadVersion)) {
     await setupSignTool(loadVersion);
+    return true;
   }
+  return false;
 }
 
 async function updateFileDisplay(

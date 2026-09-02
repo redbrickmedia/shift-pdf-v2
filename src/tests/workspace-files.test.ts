@@ -5,7 +5,11 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 }));
 
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
+import {
+  hasOpenFileFlag,
+  readPersistedOpenFile,
+  writePersistedOpenFile,
+} from '../js/logic/open-file-store';
 import {
   clearWorkspaceOpenFile,
   copyFileOrigin,
@@ -325,6 +329,24 @@ describe('workspace files sidebar', () => {
     });
   });
 
+  it('keeps the Shift origin on a decrypted File copy', () => {
+    mountShell();
+    const original = new File([new Uint8Array([1, 2, 3])], 'locked.pdf', {
+      type: 'application/pdf',
+    });
+    markFileFromHandoff(original);
+    const decrypted = new File([new Uint8Array([4, 5, 6])], original.name, {
+      type: original.type,
+    });
+    copyFileOrigin(original, decrypted);
+    setWorkspaceFiles([decrypted]);
+
+    expect(getWorkspaceFiles()[0]).toMatchObject({
+      name: 'locked.pdf',
+      source: 'handoff',
+    });
+  });
+
   it('opens the file picker when a handoff file is clicked', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
@@ -600,5 +622,20 @@ describe('workspace files sidebar', () => {
     expect(getWorkspaceFiles()).toEqual([]);
     expect(document.getElementById('shift-open-files')?.hidden).toBe(true);
     expect(document.body.classList.contains('shift-has-open-file')).toBe(false);
+    expect(hasOpenFileFlag()).toBe(false);
+    await expect(readPersistedOpenFile()).resolves.toBeNull();
+  });
+
+  it('clears persisted files when the workspace is emptied', async () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', { type: 'application/pdf' });
+    setWorkspaceFiles([file]);
+
+    setWorkspaceFiles([]);
+
+    await vi.waitFor(async () => {
+      expect(hasOpenFileFlag()).toBe(false);
+      expect(await readPersistedOpenFile()).toBeNull();
+    });
   });
 });

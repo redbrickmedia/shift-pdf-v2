@@ -73,6 +73,7 @@ export function getHomeOpenFileView(): HomeOpenFileView {
 }
 
 function persistCurrentOpenFile(): Promise<void> {
+  if (currentFiles.length === 0) return clearPersistedOpenFile();
   const files = currentFiles.filter(
     (file): file is WorkspaceFileInfo & { blob: File } =>
       file.blob instanceof File

@@ -12,7 +12,9 @@ import { state } from '../js/state';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,
+  persistWorkspaceOpenFile,
   resetWorkspaceFileIndicator,
+  setWorkspaceFiles,
 } from '../js/logic/workspace-files';
 
 afterEach(() => {
@@ -128,6 +130,31 @@ describe('seed tool open file', () => {
     );
 
     await clearWorkspaceOpenFile();
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(state.files).toEqual([]);
+  });
+
+  it('does not restore a file after emptying the workspace', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    const file = new File(['x'], 'briefing.pdf', { type: 'application/pdf' });
+    setWorkspaceFiles([file]);
+    await persistWorkspaceOpenFile();
+    setWorkspaceFiles([]);
+    await persistWorkspaceOpenFile();
+
     document.body.innerHTML = `
       <div id="drop-zone">
         <input id="file-input" type="file" accept="application/pdf" />
