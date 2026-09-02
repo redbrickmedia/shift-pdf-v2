@@ -226,11 +226,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | File[] | null): boolean => {
-    const pdfFiles = Array.from(files ?? []).filter(
-      (file) =>
-        file.type === 'application/pdf' ||
-        file.name.toLowerCase().endsWith('.pdf')
+  const handleFileSelect = (files: FileList | null): boolean => {
+    if (!files || files.length === 0) return false;
+    const pdfFiles = Array.from(files).filter(
+      (f) =>
+        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
     );
     if (pdfFiles.length === 0) return false;
     state.files = [...state.files, ...pdfFiles];
@@ -285,8 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   listenForShiftFileHandoff({
     onFile: (file) => {
-      markFileFromHandoff(file);
-      return handleFileSelect([file]);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      return handleFileSelect(dataTransfer.files);
     },
   });
 });
