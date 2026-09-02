@@ -187,7 +187,7 @@ async function addFiles(files: File[]): Promise<boolean> {
       added.push(source);
     }
     if (added.length === 0) {
-      await renderMergeUI(false);
+      await renderMergeUI();
       return false;
     }
 
@@ -213,7 +213,7 @@ async function addFiles(files: File[]): Promise<boolean> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
-    await renderMergeUI(false);
+    await renderMergeUI();
     return false;
   } finally {
     hideLoader();

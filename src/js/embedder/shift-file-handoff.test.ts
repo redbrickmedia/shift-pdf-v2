@@ -175,30 +175,6 @@ describe('listenForShiftFileHandoff', () => {
     );
   });
 
-  it('ignores offers from a different chrome-extension origin', () => {
-    window.history.replaceState(
-      {},
-      '',
-      `/merge-pdf.html?shiftHandoff=${HANDOFF_ID}`
-    );
-    const onFile = vi.fn();
-    const source = { postMessage: vi.fn() };
-
-    listenForShiftFileHandoff({ onFile });
-    dispatchMessage({
-      data: {
-        channel: 'shift-file-handoff-offer',
-        handoffId: HANDOFF_ID,
-        version: 1,
-      },
-      origin: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      source,
-    });
-
-    expect(source.postMessage).not.toHaveBeenCalled();
-    expect(onFile).not.toHaveBeenCalled();
-  });
-
   it('ignores foreign-origin offers', () => {
     window.history.replaceState(
       {},

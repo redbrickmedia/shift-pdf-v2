@@ -226,15 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | File[] | null) => {
-    if (files && files.length > 0) {
-      const pdfFiles = Array.from(files).filter(
-        (f) =>
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-      );
-      state.files = [...state.files, ...pdfFiles];
-      updateUI();
-    }
+  const handleFileSelect = (files: FileList | File[] | null): boolean => {
+    const pdfFiles = Array.from(files ?? []).filter(
+      (file) =>
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
+    );
+    if (pdfFiles.length === 0) return false;
+    state.files = [...state.files, ...pdfFiles];
+    updateUI();
+    return true;
   };
 
   if (fileInput && dropZone) {
@@ -285,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   listenForShiftFileHandoff({
     onFile: (file) => {
       markFileFromHandoff(file);
-      handleFileSelect([file]);
+      return handleFileSelect([file]);
     },
   });
 });

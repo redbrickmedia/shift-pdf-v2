@@ -24,6 +24,7 @@ const STORE_NAME = 'open-file';
 const RECORD_KEY = 'current';
 
 let memoryRecords: StoredOpenFileRecord[] = [];
+let persistGeneration = 0;
 
 export function markOpenFilePresent(present: boolean): void {
   try {
@@ -48,8 +49,12 @@ export function hasOpenFileFlag(): boolean {
 export async function writePersistedOpenFiles(
   files: Array<{ file: File; source: PersistedOpenFileMeta['source'] }>
 ): Promise<void> {
+  const generation = ++persistGeneration;
   if (files.length === 0) {
-    await clearPersistedOpenFile();
+    if (generation !== persistGeneration) return;
+    memoryRecords = [];
+    markOpenFilePresent(false);
+    await deletePersistedRecord();
     return;
   }
 
@@ -62,6 +67,7 @@ export async function writePersistedOpenFiles(
       buffer: await file.arrayBuffer(),
     }))
   );
+  if (generation !== persistGeneration) return;
   memoryRecords = records;
   try {
     const payload: StoredOpenFilesPayload = { files: records };
@@ -98,8 +104,13 @@ export async function readPersistedOpenFile(): Promise<PersistedOpenFile | null>
 }
 
 export async function clearPersistedOpenFile(): Promise<void> {
+  persistGeneration += 1;
   memoryRecords = [];
   markOpenFilePresent(false);
+  await deletePersistedRecord();
+}
+
+async function deletePersistedRecord(): Promise<void> {
   try {
     await withStore('readwrite', (store) => store.delete(RECORD_KEY));
   } catch {
