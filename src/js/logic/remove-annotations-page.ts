@@ -10,6 +10,9 @@ const pageState: { pdfDoc: PDFDocument | null; file: File | null } = {
   file: null,
 };
 
+  file: null,
+};
+
 function updateFileDisplay() {
   const displayArea = document.getElementById('file-display-area');
   if (!displayArea || !pageState.file || !pageState.pdfDoc) return;

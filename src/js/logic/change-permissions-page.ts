@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -124,21 +124,17 @@ async function changePermissions() {
   const outputPath = '/output.pdf';
   let qpdf: QpdfInstanceExtended;
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   try {
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Initializing...';
+    showLoader('Initializing...');
 
     qpdf = await initializeQpdf();
 
-    if (loaderText) loaderText.textContent = 'Reading PDF...';
+    showLoader('Reading PDF...');
     const fileBuffer = await readFileAsArrayBuffer(pageState.file);
     const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
     qpdf.FS.writeFile(inputPath, uint8Array);
 
-    if (loaderText) loaderText.textContent = 'Processing PDF permissions...';
+    showLoader('Processing PDF permissions...');
 
     const args = [inputPath];
 
@@ -220,7 +216,7 @@ async function changePermissions() {
       });
     }
 
-    if (loaderText) loaderText.textContent = 'Preparing download...';
+    showLoader('Preparing download...');
     const outputFile = qpdf.FS.readFile(outputPath, { encoding: 'binary' });
 
     if (!outputFile || outputFile.length === 0) {
@@ -232,7 +228,7 @@ async function changePermissions() {
     });
     downloadFile(blob, pageState.file.name);
 
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
 
     let successMessage = 'PDF permissions changed successfully!';
     if (!shouldEncrypt) {
@@ -245,7 +241,7 @@ async function changePermissions() {
     });
   } catch (error: unknown) {
     console.error('Error during PDF permission change:', error);
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
 
     const errorMessage = error instanceof Error ? error.message : '';
     if (errorMessage === 'INVALID_PASSWORD') {

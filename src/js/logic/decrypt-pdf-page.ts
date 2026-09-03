@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -113,33 +113,29 @@ async function decryptPdf() {
     return;
   }
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   try {
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Initializing decryption...';
+    showLoader('Initializing decryption...');
 
     if (pageState.files.length === 1) {
       // Single file: decrypt and download directly
       const file = pageState.files[0];
-      if (loaderText) loaderText.textContent = 'Reading encrypted PDF...';
+      showLoader('Reading encrypted PDF...');
       const fileBuffer = await readFileAsArrayBuffer(file);
       const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
 
-      if (loaderText) loaderText.textContent = 'Decrypting PDF...';
+      showLoader('Decrypting PDF...');
       const { bytes: decryptedBytes } = await decryptPdfBytes(
         uint8Array,
         password
       );
 
-      if (loaderText) loaderText.textContent = 'Preparing download...';
+      showLoader('Preparing download...');
       const blob = new Blob([decryptedBytes.slice().buffer], {
         type: 'application/pdf',
       });
       downloadFile(blob, file.name);
 
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
       showAlert(
         'Success',
         'PDF decrypted successfully! Your download has started.',
@@ -157,8 +153,9 @@ async function decryptPdf() {
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
 
-        if (loaderText)
-          loaderText.textContent = `Decrypting ${file.name} (${i + 1}/${pageState.files.length})...`;
+        showLoader(
+          `Decrypting ${file.name} (${i + 1}/${pageState.files.length})...`
+        );
 
         try {
           const fileBuffer = await readFileAsArrayBuffer(file);
@@ -182,7 +179,7 @@ async function decryptPdf() {
         );
       }
 
-      if (loaderText) loaderText.textContent = 'Generating ZIP file...';
+      showLoader('Generating ZIP file...');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, 'decrypted-pdfs.zip');
 
@@ -215,7 +212,7 @@ async function decryptPdf() {
       );
     }
   } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 

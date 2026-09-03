@@ -21,6 +21,9 @@ const pageState: {
   pageThumbnails: new Map(),
 };
 
+  pageThumbnails: new Map(),
+};
+
 function updateFileDisplay() {
   const area = document.getElementById('file-display-area');
   if (!area || !pageState.file || !pageState.pdfDoc) return;

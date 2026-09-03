@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
@@ -85,11 +85,7 @@ async function runSanitize() {
     showAlert('Error', 'No PDF document loaded.');
     return;
   }
-
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loaderModal) loaderModal.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = 'Sanitizing PDF...';
+  showLoader('Sanitizing PDF...');
 
   try {
     const options = {
@@ -129,18 +125,17 @@ async function runSanitize() {
         'No Changes',
         'No items were selected for removal or none were found in the PDF.'
       );
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
       return;
     }
 
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     const loaded = await loadPdfWithPasswordPrompt(pageState.file);
     if (!loaded) {
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
       return;
     }
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Sanitizing PDF...';
+    showLoader('Sanitizing PDF...');
     loaded.pdf.destroy();
     pageState.file = loaded.file;
     const result = await sanitizePdf(new Uint8Array(loaded.bytes), options);
@@ -162,7 +157,7 @@ async function runSanitize() {
     const msg = e instanceof Error ? e.message : String(e);
     showAlert('Error', `An error occurred during sanitization: ${msg}`);
   } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 

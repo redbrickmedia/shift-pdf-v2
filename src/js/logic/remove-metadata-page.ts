@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
@@ -135,21 +135,16 @@ async function removeMetadata() {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
-
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loaderModal) loaderModal.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = 'Removing all metadata...';
+  showLoader('Removing all metadata...');
 
   try {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     const result = await loadPdfWithPasswordPrompt(pageState.file);
     if (!result) {
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
       return;
     }
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Removing all metadata...';
+    showLoader('Removing all metadata...');
     result.pdf.destroy();
     const pdfDoc = await loadPdfDocument(result.bytes);
 
@@ -167,7 +162,7 @@ async function removeMetadata() {
     console.error(e);
     showAlert('Error', 'An error occurred while trying to remove metadata.');
   } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 

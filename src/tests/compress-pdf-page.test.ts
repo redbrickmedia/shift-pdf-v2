@@ -4,6 +4,7 @@ import {
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
+import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
 
@@ -11,8 +12,8 @@ const COMPRESS_PAGE_DOM = `
   <div id="drop-zone">
     <input id="file-input" type="file" accept="application/pdf" multiple />
   </div>
-  <div id="file-controls" class="hidden"></div>
   <div id="file-display-area"></div>
+  <div id="file-controls" class="hidden"></div>
   <div id="compress-options" class="hidden"></div>
   <button id="process-btn"></button>
   <select id="compression-algorithm">
@@ -46,11 +47,10 @@ describe('compress pdf page', () => {
     document.body.innerHTML = COMPRESS_PAGE_DOM;
   });
 
-  it('reveals compression options when a library PDF is seeded', async () => {
-    await addPdfToLibrary(
-      new File(['pdf'], 'saved.pdf', { type: 'application/pdf' }),
-      'upload'
-    );
+  it('reveals compression options when a selected PDF is seeded', async () => {
+    const file = new File(['pdf'], 'saved.pdf', { type: 'application/pdf' });
+    await addPdfToLibrary(file, 'upload');
+    await writePersistedOpenFile(file, { source: 'upload' });
 
     await import('../js/logic/compress-pdf-page.ts');
     document.dispatchEvent(new Event('DOMContentLoaded'));

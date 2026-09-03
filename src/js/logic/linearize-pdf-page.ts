@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -102,12 +102,7 @@ async function linearizePdf() {
     showAlert('No PDF Files', 'Please upload at least one PDF file.');
     return;
   }
-
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loaderModal) loaderModal.classList.remove('hidden');
-  if (loaderText)
-    loaderText.textContent = 'Optimizing PDFs for web view (linearizing)...';
+  showLoader('Optimizing PDFs for web view (linearizing)...');
 
   const zip = new JSZip();
   const usedNames = new Set<string>();
@@ -123,8 +118,7 @@ async function linearizePdf() {
       const inputPath = `/input_${i}.pdf`;
       const outputPath = `/output_${i}.pdf`;
 
-      if (loaderText)
-        loaderText.textContent = `Optimizing ${file.name} (${i + 1}/${pdfFiles.length})...`;
+      showLoader(`Optimizing ${file.name} (${i + 1}/${pdfFiles.length})...`);
 
       try {
         const fileBuffer = await readFileAsArrayBuffer(file);
@@ -176,7 +170,7 @@ async function linearizePdf() {
       throw new Error('No PDF files could be linearized.');
     }
 
-    if (loaderText) loaderText.textContent = 'Generating ZIP file...';
+    showLoader('Generating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     downloadFile(zipBlob, 'linearized-pdfs.zip');
 
@@ -194,7 +188,7 @@ async function linearizePdf() {
       `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}.`
     );
   } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 

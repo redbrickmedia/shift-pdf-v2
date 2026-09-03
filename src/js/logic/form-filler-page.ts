@@ -2,23 +2,11 @@
 import { createIcons, icons } from 'lucide';
 import { getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { hideLoader, showLoader } from '../ui.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
 let currentFile: File | null = null;
-
-// UI helpers
-function showLoader(message: string = 'Processing...') {
-  const loader = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loader) loader.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = message;
-}
-
-function hideLoader() {
-  const loader = document.getElementById('loader-modal');
-  if (loader) loader.classList.add('hidden');
-}
 
 function showAlert(
   title: string,

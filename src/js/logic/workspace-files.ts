@@ -16,7 +16,7 @@ const HANDOFF_ICON_PATH =
 const ACTIVE_FILE_TOOLTIP =
   'An active file is a file that will be used when you click on tools.';
 
-export type WorkspaceFileSource = 'upload' | 'handoff';
+export type WorkspaceFileSource = 'upload' | 'handoff' | 'download';
 
 export type WorkspaceFileInfo = {
   id?: string;
@@ -43,6 +43,11 @@ let viewToggleBoundRoot: Document | null = null;
 
 export function markFileFromHandoff(file: File): File {
   fileOrigins.set(file, 'handoff');
+  return file;
+}
+
+export function markFileFromDownload(file: File): File {
+  fileOrigins.set(file, 'download');
   return file;
 }
 
@@ -233,7 +238,8 @@ export function pickerAcceptsPdf(root: Document = document): boolean {
 
 function shouldHideDropZone(root: Document): boolean {
   if (isHomePage(root)) return false;
-  return homeLibraryFiles.length > 0;
+  if (homeLibraryFiles.length === 0) return false;
+  return currentFiles.length > 0;
 }
 
 function isHomePage(root: Document): boolean {

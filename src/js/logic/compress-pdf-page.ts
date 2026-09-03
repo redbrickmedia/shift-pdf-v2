@@ -14,6 +14,7 @@ import {
   setWorkspaceFiles,
   setWorkspaceFilesFromTool,
 } from './workspace-files.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -630,5 +631,11 @@ document.addEventListener('DOMContentLoaded', () => {
       dataTransfer.items.add(file);
       return handleFileSelect(dataTransfer.files);
     },
+  });
+
+  // Central seed (seedToolOpenFile) assigns #file-input and may fire change;
+  // also refresh UI if this page subscribed after the change event.
+  onToolFilesSeeded(() => {
+    void updateUI();
   });
 });

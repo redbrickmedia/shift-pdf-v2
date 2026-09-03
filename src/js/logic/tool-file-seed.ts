@@ -2,8 +2,36 @@ import { state } from '../state.js';
 
 export const TOOL_FILES_SEEDED_EVENT = 'shift:tool-files-seeded';
 
+/**
+ * Canonical and legacy tool upload input ids. Shared seeding looks these up in
+ * order so pages that kept upstream ids (`pdf-file-input`, `pdfFile`, …) still
+ * receive selected workspace PDFs without a per-tool handoff.
+ */
+export const TOOL_FILE_INPUT_IDS = [
+  'file-input',
+  'pdf-file-input',
+  'pdfFileInput',
+  'pdfFile',
+] as const;
+
 let toolFilesSeeded = false;
 
+export function findToolFileInput(
+  root: Document = document
+): HTMLInputElement | null {
+  for (const id of TOOL_FILE_INPUT_IDS) {
+    const el = root.getElementById(id);
+    if (el instanceof HTMLInputElement) return el;
+  }
+  return null;
+}
+
+/**
+ * Mark that seedToolOpenFile / applyFilesToToolInput finished assigning the
+ * workspace files into the tool file input and `state.files`. Tool pages should
+ * subscribe with onToolFilesSeeded / syncSeededToolFiles instead of reading
+ * IndexedDB themselves.
+ */
 export function markToolFilesSeeded(root: Document = document): void {
   toolFilesSeeded = true;
   root.dispatchEvent(

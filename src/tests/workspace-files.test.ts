@@ -78,12 +78,14 @@ describe('workspace files sidebar', () => {
 
   it('hides the tool drop zone when the PDF library has files', () => {
     mountShell();
+    const saved = new File(['x'], 'saved.pdf', { type: 'application/pdf' });
     setHomeLibraryFiles([
       {
         name: 'saved.pdf',
-        blob: new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+        blob: saved,
       },
     ]);
+    setWorkspaceFiles([saved]);
 
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
@@ -101,12 +103,14 @@ describe('workspace files sidebar', () => {
         <input id="file-input" type="file" accept="application/pdf" multiple />
       </div>
     `;
+    const saved = new File(['x'], 'saved.pdf', { type: 'application/pdf' });
     setHomeLibraryFiles([
       {
         name: 'saved.pdf',
-        blob: new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+        blob: saved,
       },
     ]);
+    setWorkspaceFiles([saved]);
 
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(

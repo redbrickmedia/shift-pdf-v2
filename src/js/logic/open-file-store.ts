@@ -46,6 +46,23 @@ export function hasOpenFileFlag(): boolean {
   }
 }
 
+export function holdRevealedPanels(_root: Document): void {}
+
+export function forgetRevealedPanels(_root: Document): void {}
+
+export function restoreRevealedPanels(_root: Document): void {}
+
+export function removeOpenFileSkeleton(_root: Document): void {}
+
+export function retireOpenFileSkeleton(
+  _root: Document,
+  options?: { onRetired?: () => void }
+): void {
+  options?.onRetired?.();
+}
+
+export function clearOpenFileFlagClasses(_root: Document): void {}
+
 export async function writePersistedOpenFiles(
   files: Array<{ file: File; source: PersistedOpenFileMeta['source'] }>
 ): Promise<void> {
