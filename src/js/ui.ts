@@ -16,6 +16,10 @@ import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
 import { noteProcessAlert } from './host/analytics.js';
 import { setWorkspaceFiles } from './logic/workspace-files.js';
+import {
+  hideLoader as hideShiftLoader,
+  showLoader as showShiftLoader,
+} from './logic/shift-loader.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -51,66 +55,11 @@ export const dom = {
 };
 
 export const showLoader = (text = t('common.loading'), progress?: number) => {
-  if (dom.loaderText) dom.loaderText.textContent = text;
-
-  // Add or update progress bar if progress is provided
-  const loaderModal = dom.loaderModal;
-  if (loaderModal) {
-    let progressBar = loaderModal.querySelector(
-      '.loader-progress-bar'
-    ) as HTMLElement;
-    let progressContainer = loaderModal.querySelector(
-      '.loader-progress-container'
-    ) as HTMLElement;
-
-    if (progress !== undefined && progress >= 0) {
-      // Create progress container if it doesn't exist
-      if (!progressContainer) {
-        progressContainer = document.createElement('div');
-        progressContainer.className = 'loader-progress-container w-64 mt-4';
-        progressContainer.innerHTML = `
-                    <div class="bg-gray-700 rounded-full h-2 overflow-hidden">
-                        <div class="loader-progress-bar bg-indigo-500 h-full transition-all duration-300" style="width: 0%"></div>
-                    </div>
-                    <p class="loader-progress-text text-xs text-gray-400 mt-1 text-center">0%</p>
-                `;
-        loaderModal
-          .querySelector('.bg-gray-800')
-          ?.appendChild(progressContainer);
-        progressBar = progressContainer.querySelector(
-          '.loader-progress-bar'
-        ) as HTMLElement;
-      }
-
-      // Update progress
-      if (progressBar) {
-        progressBar.style.width = `${progress}%`;
-      }
-      const progressText = progressContainer.querySelector(
-        '.loader-progress-text'
-      );
-      if (progressText) {
-        progressText.textContent = `${Math.round(progress)}%`;
-      }
-      progressContainer.classList.remove('hidden');
-    } else {
-      // Hide progress bar if no progress provided
-      if (progressContainer) {
-        progressContainer.classList.add('hidden');
-      }
-    }
-
-    loaderModal.classList.remove('hidden');
-  }
+  showShiftLoader(text, progress);
 };
 
 export const hideLoader = () => {
-  if (dom.loaderModal) {
-    dom.loaderModal
-      .querySelector('.loader-cancel-btn')
-      ?.parentElement?.remove();
-    dom.loaderModal.classList.add('hidden');
-  }
+  hideShiftLoader();
 };
 
 export const showCancellableLoader = (
