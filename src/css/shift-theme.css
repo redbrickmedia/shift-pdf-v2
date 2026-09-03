@@ -24,20 +24,82 @@
   --background-secondary: #ffffff; /* basic-white */
   --text-primary: #111827; /* light-900 */
   --text-secondary: #374151; /* light-700 */
+  --text-white: #ffffff; /* basic-white */
   --border-divider-secondary: #e6e9ef; /* light-200 */
   --border-outer-primary: #d1d5db; /* light-300 */
+  --border-brand-primary: #2563eb; /* brand-600 */
+  --border-brand-secondary: #3b82f6; /* brand-500 */
   --action-button-surface-primary-default: #2563eb; /* brand-600 */
   --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
+  --action-button-surface-primary-active: #1e40af; /* brand-800 */
+  --action-button-surface-primary-disabled: #e6e9ef; /* light-200 */
+  --action-button-surface-secondary-default: #ffffff; /* basic-white */
+  --action-button-surface-secondary-hover: #ffffff; /* basic-white */
+  --action-button-surface-secondary-active: #ffffff; /* basic-white */
+  --action-button-surface-secondary-disabled: #ffffff; /* basic-white */
+  --action-button-border-secondary-default: #e6e9ef; /* light-200 */
+  --action-button-border-secondary-hover: #d1d5db; /* light-300 */
+  --action-button-border-secondary-active: #9ca3af; /* light-400 */
+  --action-button-surface-negative-default: #fee2e2; /* negative-100 */
+  --action-button-surface-negative-hover: #fecaca; /* negative-200 */
+  --action-button-surface-negative-active: #fca5a5; /* negative-300 */
+  --action-button-border-negative-default: #f87171; /* negative-400 */
+  --action-button-border-negative-hover: #f87171; /* negative-400 */
+  --action-button-border-negative-active: #f87171; /* negative-400 */
+  --text-negative-default: #dc2626; /* negative-600 */
+  --border-negative-secondary: #dc2626; /* negative-600 */
   --brand-50: #eff6ff;
   --brand-500: #3b82f6;
+  --radius-4: 4px;
+  --radius-6: 6px;
   --radius-8: 8px;
   --radius-12: 12px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
   --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
   --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
   --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
   --action-text-neutral-default: #374151; /* light-700 */
   --action-text-neutral-hover: #1f2937; /* light-800 */
+  --action-text-neutral-active: #111827; /* light-900 */
   --action-text-neutral-selected: #111827; /* light-900 */
+  --action-text-neutral-disabled: #9ca3af; /* light-400 */
+
+  /* Form inputs — same names as shift-design-system text-field / select */
+  --form-input-border-default: #d1d5db; /* light-300 */
+  --form-input-border-hover: #9ca3af; /* light-400 */
+  --form-input-border-active: #2563eb; /* brand-600 */
+  --form-input-border-focus: #3b82f6; /* brand-500 */
+  --form-input-surface-primary-default: #f9fafb; /* light-50 */
+  --form-input-surface-primary-disabled: #f9fafb; /* light-50 */
+  --form-input-surface-secondary-default: #f9fafb; /* light-50 */
+  --form-input-surface-secondary-disabled: #f9fafb; /* light-50 */
+
+  /* ---- Type scale (shift-design-system size.css / weight.css) ----
+   * Exact pixel steps so every surface — utilities, labels, selects, chrome —
+   * lands on the same ladder. text-2xl collapses onto xl because the DS stops
+   * at 24/32; larger display sizes stay on Tailwind's own defaults. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 24px;
+  --text-xl--line-height: 32px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
 
   /* ---- App-local geometry (not themed by the toolkit) ---- */
   /* Matches .main-content in shift-pdf */
@@ -111,11 +173,45 @@ html {
   background-color: var(--background-bar-primary);
 }
 
+/* Port of shift-design-system typography.css optical defaults. Font-family
+ * stays on body / controls rather than `*`, so signature and mono stacks
+ * (Dancing Script, Merriweather, SFMono, …) keep winning when authored. */
+*,
+*::before,
+*::after {
+  font-optical-sizing: auto;
+  font-variation-settings: 'opsz' 14;
+  -webkit-font-smoothing: antialiased;
+}
+
 body {
   font-family: var(--shift-font);
   background-color: var(--background-secondary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  padding: 0;
+  font-weight: var(--font-weight-normal);
+}
+
+h1 {
+  color: var(--text-primary);
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-secondary);
 }
 
 /* A body-level overflow is propagated to the viewport unless the root element
@@ -231,27 +327,45 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
 
 .shift-logo-text {
   color: var(--text-primary);
-  font-weight: 500;
-  font-size: 1.125rem;
-  line-height: 1.75rem;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-lg);
+  line-height: var(--text-lg--line-height);
+}
+
+/* My PDFs link + selected-file rows share one section; the section owns the
+   horizontal padding the way .shift-tools does. */
+.shift-open-files,
+.shift-tools {
+  padding: 0 var(--shift-sidebar-pad);
+}
+
+.shift-open-files {
+  display: flex;
+  flex-direction: column;
 }
 
 .shift-primary-nav {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 0 var(--shift-sidebar-pad);
 }
 
-.shift-favorites,
-.shift-open-files {
-  padding: 0 var(--shift-sidebar-pad);
+/* Matches .shift-primary-nav: the section owns padding, the rail stacks items. */
+.shift-tools-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .shift-open-files-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 16px;
+}
+
+.shift-open-files-list[hidden] {
+  margin-top: 0;
 }
 
 .shift-open-file-item {
@@ -270,20 +384,88 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   text-overflow: ellipsis;
 }
 
+/* Same blue chip as the former My PDFs overlay; hides with labels on the
+   collapsed rail. An inset ring on the 24px preview remains so the row is
+   still distinguishable without filling the tile like a current-page tab. */
+.shift-open-file-item .shift-open-file-selected-label {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--background-secondary);
+  background: var(--action-button-surface-primary-default);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.shift-open-file-item.is-selected .shift-open-file-preview {
+  box-shadow: inset 0 0 0 1.5px var(--action-button-surface-primary-default);
+}
+
+/* Compact first-page preview in the 24px nav-icon slot. Falls back to the
+   generic document SVG while empty or after a failed render. The width and
+   height are restated so the square is definite: the canvas sizes itself from
+   percentages and would otherwise fall back to the PDF page ratio and overflow
+   the slot. The background image carries a cached thumbnail through the first
+   paint after a navigation, before the canvas is redrawn. */
+.shift-open-file-preview {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: var(--action-controls-surface-primary-default);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+.shift-open-file-preview-canvas {
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shift-open-file-preview .shift-open-file-icon-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.shift-open-file-preview:not(.is-empty) .shift-open-file-preview-canvas {
+  display: block;
+}
+
+.shift-open-file-preview:not(.is-empty) .shift-open-file-icon-fallback {
+  display: none;
+}
+
 .shift-sidebar-section-title {
   margin: 0 0 8px;
   color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 16px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.shift-favorites-nav {
+.shift-favorite-tools {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
+}
+
+.shift-favorite-tools:empty {
+  display: none;
 }
 
 .shift-favorite-item {
@@ -371,9 +553,9 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   border-radius: var(--radius-8);
   background: var(--action-controls-surface-primary-default);
   color: var(--action-text-neutral-default);
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 20px;
+  font-weight: var(--font-weight-normal);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   white-space: nowrap;
   text-decoration: none;
   text-overflow: ellipsis;
@@ -438,21 +620,18 @@ html.shift-sidebar-collapsed-pending .shift-logo {
 
 body.shift-sidebar-collapsed .shift-logo-text,
 body.shift-sidebar-collapsed .shift-nav-label,
+body.shift-sidebar-collapsed .shift-open-file-selected-label,
 html.shift-sidebar-collapsed-pending .shift-logo-text,
-html.shift-sidebar-collapsed-pending .shift-nav-label {
+html.shift-sidebar-collapsed-pending .shift-nav-label,
+html.shift-sidebar-collapsed-pending .shift-open-file-selected-label {
   display: none;
 }
 
-body.shift-sidebar-collapsed .shift-primary-nav,
-html.shift-sidebar-collapsed-pending .shift-primary-nav {
-  padding: 0 var(--shift-sidebar-pad-collapsed);
-}
-
-body.shift-sidebar-collapsed .shift-favorites,
 body.shift-sidebar-collapsed .shift-open-files,
+body.shift-sidebar-collapsed .shift-tools,
 body.shift-sidebar-collapsed .shift-sidebar-footer,
-html.shift-sidebar-collapsed-pending .shift-favorites,
 html.shift-sidebar-collapsed-pending .shift-open-files,
+html.shift-sidebar-collapsed-pending .shift-tools,
 html.shift-sidebar-collapsed-pending .shift-sidebar-footer {
   padding: 0 var(--shift-sidebar-pad-collapsed);
 }
@@ -486,9 +665,15 @@ html.shift-sidebar-collapsed-pending .shift-nav-link {
   padding: 8px;
 }
 
-/* Hide the dashed drop zone when the PDF library already has saved files.
-   Home keeps its drop zone so users can add more PDFs there.
-   Tools that do not accept PDFs keep their upload picker. */
+/* Hide the dashed drop zone when a tool already has an open/seeded workspace
+   file (`shift-open-file-in-tool` / pre-paint `shift-open-file-pending`), or
+   when the file list / controls are showing. Home and My PDFs keep their drop
+   zone. Empty workspaces re-show the drop zone so users can add files again.
+   The pending class is set synchronously in sidebar-boot.js from
+   sessionStorage before IndexedDB blobs hydrate. */
+html.shift-open-file-pending
+  body:not(.shift-home):not(:has(#shift-my-pdfs))
+  #drop-zone,
 body.shift-open-file-in-tool #drop-zone,
 #tool-uploader:has(#file-display-area:not(:empty)) #drop-zone,
 #tool-uploader:has(#file-controls:not(.hidden)) #drop-zone,
@@ -496,8 +681,467 @@ body.shift-open-file-in-tool #drop-zone,
   display: none;
 }
 
-body.shift-has-open-file #file-controls {
+html.shift-open-file-pending
+  body:not(.shift-home):not(:has(#shift-my-pdfs))
+  #tool-library-btn,
+html.shift-open-file-pending
+  body:not(.shift-home):not(:has(#shift-my-pdfs))
+  .tool-library-btn-wrap,
+#tool-library-btn[hidden],
+.tool-library-btn-wrap[hidden],
+body.shift-open-file-in-tool #tool-library-btn,
+body.shift-open-file-in-tool .tool-library-btn-wrap,
+#tool-uploader:has(#file-display-area:not(:empty)) #tool-library-btn,
+#tool-uploader:has(#file-display-area:not(:empty)) .tool-library-btn-wrap,
+#tool-uploader:has(#file-controls:not(.hidden)) #tool-library-btn,
+#tool-uploader:has(#file-controls:not(.hidden)) .tool-library-btn-wrap {
+  display: none;
+}
+
+/* ---- Pre-paint file row placeholder ----
+ * sidebar-boot.js paints these into #file-display-area from the sessionStorage
+ * snapshot, so the very first frame of a tool shows the real filename instead
+ * of a collapsed card. They carry the same geometry as the row each tool builds
+ * and are removed as soon as the IndexedDB blobs are applied.
+ */
+.shift-file-skeleton {
+  cursor: default;
+}
+
+.shift-file-skeleton-meta:empty::after,
+.shift-file-skeleton-action {
+  display: block;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-secondary, rgb(255 255 255 / 12%));
+  animation: shift-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.shift-file-skeleton-meta:empty::after {
+  content: '';
+  width: 72px;
+  height: 12px;
+}
+
+.shift-file-skeleton-action {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- Deferred panel slot ----
+ * sidebar-boot.js reveals the static option panels before paint, but an editor
+ * paints from the blob and has nothing to show yet. Holding its slot stops the
+ * page resizing under the pointer when it finally mounts; the tool dropping
+ * `hidden` ends the reservation and the panel animates in as usual.
+ * Scoped to an active open file, so an empty tool never reserves dead space.
+ */
+body.shift-open-file-in-tool #cropper-editor.hidden,
+body.shift-open-file-in-tool #signature-editor.hidden,
+body.shift-open-file-in-tool #compare-viewer.hidden,
+body.shift-open-file-in-tool #convert-destination-step.hidden {
+  display: block;
+  min-height: 12rem;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-secondary, rgb(255 255 255 / 6%));
+  animation: shift-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes shift-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shift-file-skeleton-meta:empty::after,
+  .shift-file-skeleton-action,
+  body.shift-open-file-in-tool #cropper-editor.hidden,
+  body.shift-open-file-in-tool #signature-editor.hidden,
+  body.shift-open-file-in-tool #compare-viewer.hidden,
+  body.shift-open-file-in-tool #convert-destination-step.hidden {
+    animation: none;
+  }
+}
+
+/* ---- In-card loader ----
+ * Replaces the full-screen #loader-modal. Ports shift-design-system Spinner:
+ * 24px LoadingIcon, 600ms delayed visibility, 0.6s fade, 2s rotation.
+ * Hosts the overlay on the tool card so the sidebar stays usable.
+ */
+#loader-modal {
+  display: none !important;
+}
+
+.shift-loader-host {
+  position: relative;
+}
+
+.shift-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-16);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.6s ease-in-out,
+    visibility 0.6s ease-in-out;
+}
+
+.shift-loader.is-active {
+  pointer-events: auto;
+}
+
+.shift-loader.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.shift-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-8);
+  max-width: 16rem;
+}
+
+.shift-spinner {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  color: var(--text-primary);
+  animation: shift-spinner-rotation 2s linear infinite;
+}
+
+.shift-spinner-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+@keyframes shift-spinner-rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.shift-loader-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--text-xs--line-height);
+  text-align: center;
+}
+
+.shift-loader-progress {
+  display: flex;
+  gap: var(--spacing-12);
+  align-items: center;
+  width: 100%;
+}
+
+.shift-loader-progress.hidden {
+  display: none;
+}
+
+.shift-loader-progress-track {
+  flex: 1 1 auto;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 360px;
+  background: var(--border-divider-secondary);
+}
+
+.shift-loader-progress-bar {
+  height: 100%;
+  border-radius: 360px;
+  background: var(--action-button-surface-primary-default);
+  transition: width 0.5s;
+}
+
+.shift-loader-progress-text {
+  flex: none;
+  width: 36px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--text-sm--line-height);
+  text-align: right;
+}
+
+.tool-library-btn-wrap {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- Card order ----
+ * Add More / Clear All belong under the file list, but the markup ships them
+ * above it. Ordering here rather than in the markup keeps 48 tool pages
+ * byte-identical to upstream, so their edits merge instead of conflicting.
+ *
+ * Three tiers, and only the middle one names anything: whatever the page puts
+ * ahead of the controls stays ahead (heading, picker, a first-load notice), the
+ * file list is lifted into the gap, and the controls plus everything after them
+ * keep their source order. `order` is inert outside a flex container, so pages
+ * that never opted in are untouched.
+ */
+#tool-uploader:has(> #file-controls):has(> #file-display-area),
+#tool-uploader:has(> #file-controls):has(> #file-list) {
+  display: flex;
+  flex-direction: column;
+}
+
+#tool-uploader > * {
+  order: 2;
+}
+
+#tool-uploader > :has(~ #file-controls) {
+  order: 0;
+}
+
+#tool-uploader > #file-display-area,
+#tool-uploader > #file-list,
+#tool-uploader > [data-shift-skeleton] {
+  order: 1;
+}
+
+/* With the drop zone hidden, the file list leads the panel, so it drops its top
+   margin. The controls sit below the list and keep theirs for separation. */
+body.shift-has-open-file #file-display-area {
   margin-top: 0;
+}
+
+/* ---- Buttons ----
+ * The one place button styling is defined. Ports
+ * @redbrickmedia/shift-design-system button.css: the same --button-* token
+ * engine, text-xs/font-semibold typography tokens, 8px/10px box, radius-8,
+ * 1px hairline, 5%-black lift and 0.3s cross-fade between states.
+ *
+ * It matches the <button> element, not a class. The 117 tool pages ship ~500
+ * buttons that each spell out their own surface, padding, radius and hover
+ * colour in utilities; keying on the element restyles all of them from here,
+ * and the `!important`s are what keep a page's own utilities from winning.
+ *
+ * Variant follows the surface the markup already asks for: indigo, blue and
+ * green read as the loud action, red and orange as destructive, and everything
+ * else — grey, white, unpainted — as the neutral secondary.
+ *
+ * Left alone, because they are a different component: `.shift-*` app controls,
+ * the pills / filter chips / menu rows that carry their own CSS, and the square
+ * icon buttons (small symmetric `p-*`, `rounded-full`, `w-10`), which are the
+ * design system's IconButton rather than this one. Buttons with no surface and
+ * no border are skipped too — those are authored as inline links, and so are
+ * the `text-left` rows, which are dropdown menu items.
+ */
+:where(
+  .shift-button,
+  .btn-gradient,
+  button:not(
+      [class*='shift-'],
+      .compare-pill,
+      .category-filter,
+      .export-menu-item,
+      .pos-preset-btn,
+      .copy-btn,
+      [class*='rounded-full'],
+      [class~='p-1'],
+      [class~='p-1.5'],
+      [class~='p-2'],
+      [class~='p-2.5'],
+      [class~='w-10'],
+      [class~='text-left']
+    ):is(
+      [class^='bg-'],
+      [class*=' bg-'],
+      [class^='border-'],
+      [class*=' border-'],
+      .btn,
+      .btn-gradient
+    )
+) {
+  /* Zero specificity on purpose: `hidden`, `flex-1`, `w-full` and the
+     responsive display utilities the pages toggle must still outrank it. */
+  display: inline-flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+.shift-button,
+.btn-gradient,
+button:not(
+    [class*='shift-'],
+    .compare-pill,
+    .category-filter,
+    .export-menu-item,
+    .pos-preset-btn,
+    .copy-btn,
+    [class*='rounded-full'],
+    [class~='p-1'],
+    [class~='p-1.5'],
+    [class~='p-2'],
+    [class~='p-2.5'],
+    [class~='w-10'],
+    [class~='text-left']
+  ):is(
+    [class^='bg-'],
+    [class*=' bg-'],
+    [class^='border-'],
+    [class*=' border-'],
+    .btn,
+    .btn-gradient
+  ) {
+  --button-background: var(--button-background-default);
+  --button-text: var(--button-text-default);
+  --button-border: var(--button-border-default);
+
+  padding: 8px 10px !important;
+  color: var(--button-text) !important;
+  border: var(--button-border) !important;
+  border-radius: var(--radius-8) !important;
+  background: var(--button-background) !important;
+  font-family: var(--shift-font);
+  font-size: var(--text-xs) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  line-height: var(--text-xs--line-height) !important;
+  font-optical-sizing: auto;
+  font-variation-settings: 'opsz' 14;
+  -webkit-font-smoothing: antialiased;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition:
+    background 0.3s ease-in-out,
+    color 0.3s ease-in-out,
+    box-shadow 0.3s ease-in-out,
+    border-color 0.3s ease-in-out;
+}
+
+/* Secondary is the default, so the neutral tokens ride along with the box
+   above; only the loud and destructive surfaces need to say so. */
+.shift-button,
+button {
+  --button-background-default: var(--action-button-surface-secondary-default);
+  --button-background-hover: var(--action-button-surface-secondary-hover);
+  --button-background-active: var(--action-button-surface-secondary-active);
+  --button-background-disabled: var(--action-button-surface-secondary-disabled);
+
+  --button-text-default: var(--action-text-neutral-default);
+  --button-text-hover: var(--action-text-neutral-hover);
+  --button-text-active: var(--action-text-neutral-active);
+  --button-text-disabled: var(--action-text-neutral-disabled);
+
+  --button-border-default: 1px solid
+    var(--action-button-border-secondary-default);
+  --button-border-hover: 1px solid var(--action-button-border-secondary-hover);
+  --button-border-active: 1px solid var(--action-button-border-secondary-active);
+  --button-border-focus: var(--border-brand-secondary);
+}
+
+.shift-button-primary,
+.btn-gradient,
+button:is(
+  [class*='bg-indigo-'],
+  [class*='bg-blue-'],
+  [class*='bg-green-'],
+  [class*='from-indigo-']
+) {
+  --button-background-default: var(--action-button-surface-primary-default);
+  --button-background-hover: var(--action-button-surface-primary-hover);
+  --button-background-active: var(--action-button-surface-primary-active);
+  --button-background-disabled: var(--action-button-surface-primary-disabled);
+
+  --button-text-default: var(--text-white);
+  --button-text-hover: var(--text-white);
+  --button-text-active: var(--text-white);
+  --button-text-disabled: var(--action-text-neutral-disabled);
+
+  --button-border-default: 1px solid transparent;
+  --button-border-hover: 1px solid transparent;
+  --button-border-active: 1px solid transparent;
+  --button-border-focus: var(--border-brand-primary);
+}
+
+.shift-button-negative,
+button:is([class*='bg-red-'], [class*='bg-orange-']) {
+  --button-background-default: var(--action-button-surface-negative-default);
+  --button-background-hover: var(--action-button-surface-negative-hover);
+  --button-background-active: var(--action-button-surface-negative-active);
+  --button-background-disabled: var(--action-button-surface-secondary-disabled);
+
+  --button-text-default: var(--text-negative-default);
+  --button-text-hover: var(--text-negative-default);
+  --button-text-active: var(--text-negative-default);
+  --button-text-disabled: var(--action-text-neutral-disabled);
+
+  --button-border-default: 1px solid
+    var(--action-button-border-negative-default);
+  --button-border-hover: 1px solid var(--action-button-border-negative-hover);
+  --button-border-active: 1px solid var(--action-button-border-negative-active);
+  --button-border-focus: var(--border-negative-secondary);
+}
+
+.shift-button-block {
+  width: 100%;
+}
+
+/* Lucide renders at 24px; the design system pairs its 12px label with a 16px
+   glyph. */
+.shift-button svg,
+.btn-gradient svg,
+button:is([class^='bg-'], [class*=' bg-'], .btn, .btn-gradient) > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* The state rules only flip tokens, so they can match every button: on the
+   components above, which never read `--button-*`, the flip is inert. That also
+   keeps them short — and short means they lose to the box rule's selector, so
+   the flips are marked important to outrank its resting values. */
+button:disabled,
+.btn-gradient:disabled {
+  --button-background: var(--button-background-disabled) !important;
+  --button-text: var(--button-text-disabled) !important;
+  --button-border: var(--button-border-default) !important;
+
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover,
+.btn-gradient:not(:disabled):hover {
+  --button-background: var(--button-background-hover) !important;
+  --button-text: var(--button-text-hover) !important;
+  --button-border: var(--button-border-hover) !important;
+}
+
+button:not(:disabled):active,
+.btn-gradient:not(:disabled):active {
+  --button-background: var(--button-background-active) !important;
+  --button-text: var(--button-text-active) !important;
+  --button-border: var(--button-border-active) !important;
+}
+
+button:not(:disabled):focus-visible,
+.btn-gradient:not(:disabled):focus-visible {
+  box-shadow:
+    0 0 0 2px var(--background-secondary),
+    0 0 0 4px var(--button-border-focus);
 }
 
 /* Tailwind's `.container` steps its max-width at each viewport breakpoint, so
@@ -730,9 +1374,9 @@ a.tool-card:focus-visible {
   min-width: 24px;
   padding: 2px 7px;
   color: var(--action-button-surface-primary-default);
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 16px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
   text-align: center;
   border-radius: 999px;
   background: var(--brand-50);
@@ -775,14 +1419,14 @@ a.tool-card:focus-visible {
 
 .shift-favorites-empty strong {
   color: var(--text-primary);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
 }
 
 .shift-favorites-empty span {
   max-width: 420px;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
 }
 
 /* ---- Ramp corrections ----
@@ -938,22 +1582,161 @@ input#tool-search {
   border-color: var(--border-outer-primary) !important;
 }
 
-/* ---- Dropdowns ----
- * Every select on the tool pages is authored as a bordered box with symmetric
- * padding (`p-2.5` and friends), and the browser then draws its own arrow at
- * the inline end of the content box: the arrow ends up crowding the border,
- * with a gap that changes per platform and that padding utilities cannot tune.
- * Dropping the native appearance and drawing the caret here fixes the gap on
- * both sides of it — 12px to the border, 12px to the longest label.
+/* ---- Form controls ----
+ * Ports shift-design-system text-field.css + Select trigger geometry onto the
+ * native controls the 117 tool pages already ship. One rule owns surface,
+ * border, radius, height and type — the same way the button rule owns buttons
+ * — so a page's `bg-gray-700 text-white p-2.5` utilities cannot drift the
+ * look off the design system.
  *
- * The caret is two gradient halves rather than an SVG because a data URI
- * cannot read `currentColor`; built this way it inherits the label's ink and
- * so keeps following the theme when the toolkit switches light/dark.
+ * Left alone: file pickers, checkboxes, radios, ranges, colour swatches,
+ * hidden/submit button-inputs, the markdown editor pane, and the home search
+ * field (which already mirrors SearchField secondary).
  *
- * List boxes are excluded: they are open already and have nothing to point at.
+ * Native <select> keeps a drawn caret (two gradient halves) because a data
+ * URI cannot read currentColor; list boxes are excluded — they are open
+ * already and have nothing to point at.
  */
+label {
+  font-family: var(--shift-font);
+  font-size: var(--text-xs) !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: var(--text-xs--line-height) !important;
+  color: var(--text-secondary);
+}
+
+select,
+textarea,
+input:not(
+    [type='file'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='color'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image']
+  ):not(.shift-search-input):not(.md-editor-textarea):not(.shortcut-input) {
+  --form-surface: var(--form-input-surface-primary-default);
+  --form-border: var(--form-input-border-default);
+  --form-text: var(--action-text-neutral-default);
+
+  box-sizing: border-box;
+  min-height: 40px;
+  padding-block: 0 !important;
+  padding-inline: var(--spacing-8) !important;
+  color: var(--form-text) !important;
+  border: none !important;
+  border-radius: var(--radius-8) !important;
+  outline: 1px solid var(--form-border) !important;
+  outline-offset: 0;
+  background-color: var(--form-surface) !important;
+  font-family: var(--shift-font);
+  font-size: var(--text-sm) !important;
+  font-weight: var(--font-weight-normal) !important;
+  line-height: var(--text-sm--line-height) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition:
+    box-shadow 0.3s ease-in-out,
+    outline 0.08s ease-in-out,
+    color 0.08s ease-in-out,
+    background-color 0.3s ease-in-out;
+}
+
+textarea:not(.md-editor-textarea) {
+  min-height: 5rem;
+  padding-block: var(--spacing-8) !important;
+  resize: vertical;
+}
+
+select:not([multiple]):not([size]):hover,
+textarea:not(.md-editor-textarea):hover,
+input:not(
+    [type='file'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='color'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image']
+  ):not(.shift-search-input):not(.md-editor-textarea):not(
+    .shortcut-input
+  ):hover {
+  --form-border: var(--form-input-border-hover);
+  --form-text: var(--action-text-neutral-hover);
+  box-shadow:
+    0 1px 2px 0 rgba(0, 0, 0, 0.06),
+    0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+select:not([multiple]):not([size]):focus,
+select:not([multiple]):not([size]):focus-visible,
+textarea:not(.md-editor-textarea):focus,
+textarea:not(.md-editor-textarea):focus-visible,
+input:not(
+    [type='file'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='color'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image']
+  ):not(.shift-search-input):not(.md-editor-textarea):not(
+    .shortcut-input
+  ):focus,
+input:not(
+    [type='file'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='color'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image']
+  ):not(.shift-search-input):not(.md-editor-textarea):not(
+    .shortcut-input
+  ):focus-visible {
+  --form-border: var(--form-input-border-focus);
+  --form-text: var(--action-text-neutral-selected);
+  outline: 2px solid var(--form-border) !important;
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+select:disabled,
+textarea:disabled,
+input:disabled:not(
+    [type='file'],
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='color'],
+    [type='hidden'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image']
+  ) {
+  --form-surface: var(--form-input-surface-primary-disabled);
+  --form-text: var(--action-text-neutral-disabled);
+  outline-color: transparent !important;
+  cursor: not-allowed;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
 select:not([multiple]):not([size]) {
-  padding-inline-end: 34px;
+  padding-inline-end: 34px !important;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -1040,8 +1823,8 @@ select:not([multiple]):not([size]) {
   padding: 0;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   border: none;
   background: transparent;
   outline: none;
@@ -1066,10 +1849,10 @@ select:not([multiple]):not([size]) {
 .shift-search-kbd {
   padding: 2px 8px;
   color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-xs);
   font-family: var(--shift-font);
-  line-height: 16px;
+  line-height: var(--text-xs--line-height);
   border: 1px solid var(--border-divider-secondary);
   border-radius: var(--radius-8);
   background: var(--background-secondary);
@@ -1100,8 +1883,8 @@ select:not([multiple]):not([size]) {
   padding: 24px 16px;
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   text-align: center;
 }
 
@@ -1161,7 +1944,7 @@ select:not([multiple]):not([size]) {
   min-width: 1.25rem;
   margin-bottom: 0;
   margin-right: 0.75rem;
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
 }
 
 /* Hide Bento marketing chrome */
@@ -1293,9 +2076,9 @@ body.shift-home .shift-tool-search {
   box-sizing: border-box;
   color: var(--action-text-neutral-default);
   font-family: var(--shift-font);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--text-sm--line-height);
   white-space: nowrap;
   border: 1px solid var(--border-outer-primary);
   border-radius: 9999px;
@@ -1334,6 +2117,9 @@ body.shift-home .shift-tool-search {
   min-height: 160px;
   gap: 12px;
   padding: 32px 24px;
+  margin: 0 0 16px;
+  border-color: var(--border-outer-primary);
+  background: var(--background-bar-primary);
 }
 
 .shift-home-drop-zone.is-dragover {
@@ -1351,8 +2137,8 @@ body.shift-home .shift-tool-search {
   margin: 0;
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   text-align: center;
 }
 
@@ -1361,8 +2147,10 @@ body.shift-home .shift-tool-search {
   margin: 0 4px;
   border: none;
   background: none;
+  color: var(--action-button-surface-primary-default);
   font-family: inherit;
   font-size: inherit;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -1375,45 +2163,199 @@ body.shift-home .shift-tool-search {
   margin: 0 0 16px;
 }
 
-.shift-my-pdfs-heading,
-#shift-my-pdfs-heading {
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--shift-font);
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 24px;
+.shift-open-file-header-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 16px;
 }
 
-.shift-open-file-view-by {
+/* Full-width library filter under the drop zone (My Images hierarchy). */
+.shift-my-pdfs-search {
+  width: 100%;
+  margin: 0 0 16px;
+}
+
+.shift-my-pdfs-search-field {
+  width: 100%;
+}
+
+.shift-my-pdfs-search-clear {
+  flex-shrink: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
+}
+
+.shift-my-pdfs-search-clear:hover {
+  color: var(--text-primary);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-my-pdfs-search-empty {
+  width: 100%;
+  margin: 24px 0;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  text-align: center;
+}
+
+.shift-my-pdfs-heading,
+#shift-my-pdfs-heading {
+  margin: 0 0 16px;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--text-xl--line-height);
+}
+
+.shift-my-pdfs-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.shift-my-pdfs-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.shift-my-pdfs-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 28px;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+.shift-my-pdfs-select-all {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--action-button-surface-primary-default);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: var(--font-weight-semibold);
+  line-height: inherit;
+}
+
+.shift-my-pdfs-select-all:hover:not(:disabled) {
+  color: var(--action-button-surface-primary-hover);
+  text-decoration: underline;
+}
+
+.shift-my-pdfs-select-all:disabled {
+  color: var(--action-text-neutral-disabled);
+  cursor: default;
+}
+
+.shift-my-pdfs-selection-count {
+  color: var(--text-primary);
+}
+
+.shift-my-pdfs-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shift-open-file-view-by,
+.shift-open-file-tools {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 13px;
-  line-height: 18px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   white-space: nowrap;
 }
 
-.shift-open-file-view-toggle {
+.shift-open-file-view-toggle,
+.shift-open-file-tools-toggle {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.shift-open-file-view-toggle {
+  gap: 0;
+  flex-wrap: nowrap;
   border: 1px solid var(--border-divider-secondary);
   border-radius: var(--radius-8);
   overflow: hidden;
 }
 
-.shift-open-file-view-btn {
+/* The toggle is its own row under the selection controls, so it must hug the
+   left edge instead of stretching across the column flex container. */
+.shift-my-pdfs-controls > .shift-open-file-view-by {
+  align-self: flex-start;
+}
+
+.shift-open-file-tools-toggle {
+  border: none;
+  overflow: visible;
+}
+
+.shift-open-file-view-btn,
+.shift-open-file-tool-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
   height: 28px;
-  padding: 0;
   border: none;
   color: var(--action-text-neutral-default);
   background: var(--background-secondary);
   cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  text-decoration: none;
+}
+
+.shift-open-file-view-btn {
+  width: 32px;
+  padding: 0;
+}
+
+.shift-open-file-tool-btn,
+.shift-my-pdfs-delete-selected {
+  height: auto;
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 1px solid var(--action-button-border-secondary-default);
+  border-radius: var(--radius-8);
+  background: var(--action-button-surface-secondary-default);
+  color: var(--action-text-neutral-default);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
 }
 
 .shift-open-file-view-btn svg {
@@ -1425,15 +2367,38 @@ body.shift-home .shift-tool-search {
   border-left: 1px solid var(--border-divider-secondary);
 }
 
-.shift-open-file-view-btn:hover {
+.shift-open-file-view-btn:hover,
+.shift-open-file-tool-btn:hover {
   color: var(--action-text-neutral-hover);
   background: var(--action-controls-surface-primary-default);
+}
+
+.shift-open-file-tool-btn:hover {
+  border-color: var(--action-button-border-secondary-hover);
 }
 
 .shift-open-file-view-btn[aria-pressed='true'],
 .shift-open-file-view-btn[aria-pressed='true']:hover {
   color: var(--action-text-neutral-selected);
   background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-open-file-tool-btn:focus-visible,
+.shift-my-pdfs-delete-selected:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.shift-open-file-tools.is-disabled .shift-open-file-tool-btn,
+.shift-open-file-tool-btn.is-disabled,
+.shift-my-pdfs-delete-selected:disabled {
+  color: var(--action-text-neutral-disabled);
+  border-color: var(--action-button-border-secondary-default);
+  background: var(--action-button-surface-secondary-disabled);
+  cursor: default;
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .shift-my-pdfs[data-view='thumbnail'] .shift-my-pdfs-table {
@@ -1447,14 +2412,14 @@ body.shift-home .shift-tool-search {
 .shift-open-file-thumbs {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 16px;
 }
 
 .shift-open-file-thumb {
   display: flex;
   flex-direction: column;
-  width: 120px;
+  width: 160px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border-divider-secondary);
@@ -1498,23 +2463,6 @@ body.shift-home .shift-tool-search {
   display: none;
 }
 
-.shift-open-file-thumb-selected {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
-  padding: 3px 7px;
-  border-radius: 999px;
-  color: var(--background-secondary);
-  background: var(--action-button-surface-primary-default);
-  font-family: var(--shift-font);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
-  cursor: default;
-  pointer-events: auto;
-}
-
 .shift-open-file-thumb-replace {
   position: absolute;
   inset: 0;
@@ -1525,9 +2473,9 @@ body.shift-home .shift-tool-search {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--background-secondary) 72%, transparent);
   font-family: var(--shift-font);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-sm--line-height);
   text-align: center;
   opacity: 0;
   pointer-events: none;
@@ -1544,6 +2492,9 @@ body.shift-home .shift-tool-search {
 }
 
 .shift-open-file-thumb-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 8px 10px 10px;
 }
 
@@ -1552,11 +2503,99 @@ body.shift-home .shift-tool-search {
   overflow: hidden;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-sm--line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shift-open-file-thumb-detail {
+  display: block;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-source-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 20px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: 999px;
+  background: var(--action-controls-surface-primary-default);
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: var(--text-xs--line-height);
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-thumb-item {
+  position: relative;
+  display: flex;
+  width: 160px;
+}
+
+.shift-my-pdfs-thumb-item > .shift-open-file-thumb {
+  flex: 1;
+}
+
+.shift-my-pdfs-thumb-item .shift-my-pdfs-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+}
+
+/* The delete control stays out of the way until the file is hovered or the
+   button itself is focused, so the grid does not read as a row of trash cans. */
+.shift-my-pdfs-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms linear,
+    color 120ms linear,
+    background 120ms linear;
+}
+
+.shift-my-pdfs-delete-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.shift-my-pdfs-row:hover .shift-my-pdfs-delete,
+.shift-my-pdfs-row:focus-within .shift-my-pdfs-delete,
+.shift-my-pdfs-thumb-item:hover .shift-my-pdfs-delete,
+.shift-my-pdfs-thumb-item:focus-within .shift-my-pdfs-delete,
+.shift-my-pdfs-delete:focus-visible {
+  opacity: 1;
+}
+
+.shift-my-pdfs-delete:hover,
+.shift-my-pdfs-delete:focus-visible {
+  color: var(--text-negative-default);
+  border-color: var(--border-negative-secondary);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
 }
 
 .shift-my-pdfs-table {
@@ -1569,19 +2608,37 @@ body.shift-home .shift-tool-search {
   padding: 12px 8px;
   text-align: left;
   font-family: var(--shift-font);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
   border-bottom: 1px solid var(--border-divider-secondary);
   vertical-align: middle;
 }
 
 .shift-my-pdfs-table th {
   color: var(--text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .shift-my-pdfs-table td {
   color: var(--text-primary);
+}
+
+/* Date and size are fixed-width metadata. Wrapping them pushed the row taller
+   than the name cell and broke the divider alignment. */
+.shift-my-pdfs-table th:nth-child(2),
+.shift-my-pdfs-table td:nth-child(2),
+.shift-my-pdfs-table th:nth-child(3),
+.shift-my-pdfs-table td:nth-child(3) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-table td.shift-my-pdfs-action-cell,
+.shift-my-pdfs-table th:nth-child(4) {
+  width: 1%;
+  padding-left: 0;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .shift-my-pdfs-row {
@@ -1613,6 +2670,13 @@ body.shift-home .shift-tool-search {
   );
 }
 
+/* max-width: 0 makes this the column the auto table layout shrinks first, so a
+   long filename ellipses instead of widening the table past the viewport. */
+.shift-my-pdfs-name-cell {
+  width: 100%;
+  max-width: 0;
+}
+
 .shift-my-pdfs-name {
   display: flex;
   align-items: center;
@@ -1626,17 +2690,54 @@ body.shift-home .shift-tool-search {
   white-space: nowrap;
 }
 
-.shift-my-pdfs-name .shift-my-pdfs-selected-label {
-  flex: 0 0 auto;
-  padding: 2px 7px;
-  border-radius: 999px;
-  color: var(--background-secondary);
-  background: var(--action-button-surface-primary-default);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
-  cursor: default;
-  pointer-events: auto;
+.shift-my-pdfs-name .shift-my-pdfs-source-badge {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.shift-my-pdfs-empty-row {
+  cursor: pointer;
+}
+
+.shift-my-pdfs-empty-row:hover,
+.shift-my-pdfs-empty-row:focus-within {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+/* colspan cell must ignore the date/size 1% nowrap columns or the table
+   divider splits around an empty placeholder. */
+.shift-my-pdfs-empty-row td {
+  width: 100%;
+  max-width: none;
+  white-space: normal;
+}
+
+.shift-my-pdfs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  text-align: left;
+}
+
+.shift-my-pdfs-empty[hidden] {
+  display: none;
+}
+
+.shift-open-file-thumb.shift-my-pdfs-empty-card {
+  width: 16.5rem;
+  border-style: dashed;
+}
+
+.shift-my-pdfs-empty-card .shift-my-pdfs-empty {
+  align-items: stretch;
+  padding: 1rem;
+  text-align: center;
+}
+
+.shift-my-pdfs-empty .shift-library-picker-upload {
+  margin-top: 0.5rem;
 }
 /* Matches Shift SDS tooltip timing and inverse surface, using existing tokens. */
 .shift-tooltip {
@@ -1650,9 +2751,9 @@ body.shift-home .shift-tool-search {
   background: var(--text-primary);
   color: var(--background-secondary);
   font-family: var(--shift-font);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--text-xs--line-height);
   box-shadow:
     0 1px 3px 0 rgba(0, 0, 0, 0.1),
     0 1px 2px 0 rgba(0, 0, 0, 0.06);
@@ -1664,6 +2765,66 @@ body.shift-home .shift-tool-search {
 .shift-tooltip.is-open {
   opacity: 1;
   visibility: visible;
+}
+
+.shift-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.shift-confirm-panel {
+  width: min(100%, 24rem);
+  padding: 1.25rem;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-12);
+  background: var(--background-secondary);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.shift-confirm-title {
+  margin: 0 0 0.5rem;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-lg--line-height);
+}
+
+.shift-confirm-message {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  overflow-wrap: anywhere;
+}
+
+.shift-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shift-confirm-accept.is-destructive {
+  border: 1px solid var(--action-button-border-negative-default);
+  background: var(--action-button-surface-negative-default);
+  color: var(--text-white);
+}
+
+.shift-confirm-accept.is-destructive:hover {
+  border-color: var(--action-button-border-negative-hover);
+  background: var(--action-button-surface-negative-hover);
+}
+
+.shift-confirm-accept.is-destructive:active {
+  border-color: var(--action-button-border-negative-active);
+  background: var(--action-button-surface-negative-active);
 }
 
 .shift-library-picker-overlay {
@@ -1701,16 +2862,16 @@ body.shift-home .shift-tool-search {
   margin: 0;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.5rem;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-lg--line-height);
 }
 
 .shift-library-picker-close {
   border: 0;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 1.5rem;
+  font-size: var(--text-xl);
   line-height: 1;
   cursor: pointer;
 }
@@ -1752,17 +2913,17 @@ body.shift-home .shift-tool-search {
 .shift-library-picker-name {
   width: 100%;
   overflow: hidden;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.25rem;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-sm--line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .shift-library-picker-meta {
   color: var(--text-secondary);
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
 }
 
 .shift-library-picker-empty {
@@ -1782,17 +2943,17 @@ body.shift-home .shift-tool-search {
   margin: 0;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5rem;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-base--line-height);
 }
 
 .shift-library-picker-empty-message {
   margin: 0;
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
 }
 
 .shift-library-picker-empty .shift-library-picker-upload {
@@ -1802,26 +2963,6 @@ body.shift-home .shift-tool-search {
 .shift-library-picker-footer {
   padding: 0.75rem 1rem 1rem;
   border-top: 1px solid var(--border-divider-secondary);
-}
-
-.shift-library-picker-upload {
-  width: 100%;
-  padding: 0.625rem 1rem;
-  border: 1px solid var(--border-divider-secondary);
-  border-radius: var(--radius-8);
-  background: transparent;
-  color: var(--text-primary);
-  font-family: var(--shift-font);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.shift-library-picker-upload:hover,
-.shift-library-picker-upload:focus-visible {
-  border-color: var(--action-button-surface-primary-default);
-  background: var(--action-controls-surface-primary-hover);
-  outline: none;
 }
 
 .shift-convert-source-card {
@@ -1846,8 +2987,8 @@ body.shift-home .shift-tool-search {
 .shift-convert-source-label {
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1856,8 +2997,8 @@ body.shift-home .shift-tool-search {
   overflow: hidden;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1865,15 +3006,93 @@ body.shift-home .shift-tool-search {
 .shift-convert-source-meta {
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
+}
+
+.shift-convert-source-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.shift-convert-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: -1rem 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.shift-convert-source-list.hidden {
+  display: none;
+}
+
+.shift-convert-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--action-controls-surface-primary-default);
+}
+
+.shift-convert-source-row-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.shift-convert-source-row-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-convert-source-row-meta {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+}
+
+.shift-convert-source-remove {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.shift-convert-source-remove:hover,
+.shift-convert-source-remove:focus-visible {
+  background: var(--action-controls-surface-primary-hover);
+  color: var(--text-primary);
+  outline: none;
 }
 
 .shift-convert-destination-heading {
   margin: 0 0 0.5rem;
   color: var(--text-primary);
   font-family: var(--shift-font);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 .shift-convert-destination-grid {
@@ -1913,6 +3132,20 @@ body.shift-home .shift-tool-search {
   outline: none;
 }
 
+/* Offered but out of reach for the current selection: the tool takes one file
+   at a time, so it stays visible and explains itself rather than disappearing
+   when a second file is added. */
+.shift-convert-destination.is-unavailable {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.shift-convert-destination.is-unavailable:hover,
+.shift-convert-destination.is-unavailable:focus-visible {
+  border-color: var(--border-divider-secondary);
+  background: var(--action-controls-surface-primary-default);
+}
+
 .shift-convert-destination-icon {
   flex: 0 0 auto;
   font-size: 2rem;
@@ -1927,14 +3160,14 @@ body.shift-home .shift-tool-search {
 }
 
 .shift-convert-destination-name {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
 }
 
 .shift-convert-destination-output {
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1950,8 +3183,8 @@ body.shift-home .shift-tool-search {
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--shift-font);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
 
@@ -1961,7 +3194,131 @@ body.shift-home .shift-tool-search {
   outline: none;
 }
 
+/* This file loads after Tailwind, so the `display` above outranks `.hidden`.
+   Both elements are toggled by class, so restore the utility explicitly. */
+.shift-convert-destination-grid.hidden,
+.shift-convert-show-more.hidden {
+  display: none;
+}
+
 #drop-zone.is-dragover {
   border-color: var(--action-button-surface-primary-default);
   background: var(--action-controls-surface-primary-hover);
+}
+
+/* ---- Motion ----
+ * Every tool is its own document, so navigating used to hard-cut: the rail
+ * repainted along with the panel even though it is identical on both pages.
+ *
+ * Cross-document view transitions cover the navigation itself. Naming the rail
+ * makes it a shared element, so it is carried across instead of cross-faded and
+ * only the panel's content changes. Content that arrives after first paint —
+ * file rows, tool options, thumbnails, library rows — gets the same short fade
+ * as it mounts, so nothing pops in.
+ *
+ * Durations stay under 200ms: long enough to read as a transition, short enough
+ * that it never sits between the user and the tool. Everything here is skipped
+ * under `prefers-reduced-motion`.
+ */
+@view-transition {
+  navigation: auto;
+}
+
+#shift-sidebar {
+  view-transition-name: shift-sidebar;
+}
+
+::view-transition-old(root) {
+  animation: shift-fade-out 90ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: shift-fade-in 180ms ease-out both;
+}
+
+@keyframes shift-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shift-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Mounted content rises the 4px the design system uses for menus and popovers,
+   rather than only fading, so the eye can tell new rows from a repaint. */
+@keyframes shift-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Surfaces the tools populate from script. The sidebar's open-file rows are
+   left out on purpose: their thumbnails are reused across rebuilds, and
+   re-running an animation on them would reintroduce the flash that caching
+   removed. */
+.shift-enter,
+#file-display-area > *,
+#file-list > li,
+#status-message:not(.hidden),
+#page-organizer .page-thumbnail,
+.shift-open-file-thumb,
+.shift-my-pdfs-table tbody tr,
+.shift-library-picker-row,
+.shift-convert-destination {
+  animation: shift-rise-in 160ms ease-out both;
+}
+
+/* Panels that are revealed rather than built only need the fade; they already
+   occupy their space, so lifting them would shift the layout under the cursor. */
+#file-controls:not(.hidden),
+#tool-options:not(.hidden),
+#convert-options:not(.hidden),
+#compress-options:not(.hidden) {
+  animation: shift-fade-in 160ms ease-out both;
+}
+
+/* Browsers without cross-document view transitions still get the panel fade,
+   so the navigation is not a hard cut there either. */
+@supports not (view-transition-name: none) {
+  body:not(.simple-mode):has(#shift-sidebar) {
+    animation: shift-fade-in 180ms ease-out both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
+  .shift-enter,
+  #file-display-area > *,
+  #file-list > li,
+  #status-message:not(.hidden),
+  #page-organizer .page-thumbnail,
+  .shift-open-file-thumb,
+  .shift-my-pdfs-table tbody tr,
+  .shift-library-picker-row,
+  .shift-convert-destination,
+  #file-controls:not(.hidden),
+  #tool-options:not(.hidden),
+  #convert-options:not(.hidden),
+  #compress-options:not(.hidden),
+  body:not(.simple-mode):has(#shift-sidebar) {
+    animation: none;
+  }
 }
