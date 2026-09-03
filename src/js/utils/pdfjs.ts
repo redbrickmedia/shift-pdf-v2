@@ -28,6 +28,31 @@ export type ShiftPDFDocumentLoadingTask = Omit<
   readonly promise: Promise<ShiftPDFDocumentProxy>;
 };
 
+type PDFWorkerInstance = InstanceType<typeof pdfjsLib.PDFWorker>;
+
+let sharedWorker: PDFWorkerInstance | null = null;
+
+/**
+ * PDF.js boots a dedicated worker for every `getDocument` call unless one is
+ * supplied, and destroys it again on `loadingTask.destroy()`. Pages that load
+ * several documents at once (sidebar thumbnails, encryption probes and the tool
+ * itself) would otherwise race to spin up a worker plus WASM module each, and a
+ * document teardown could take a worker another load still needed. One shared
+ * worker multiplexes all of them over a single port.
+ */
+export function getSharedPDFWorker(): PDFWorkerInstance | undefined {
+  if (typeof Worker === 'undefined') return undefined;
+  if (sharedWorker && !sharedWorker.destroyed) return sharedWorker;
+
+  try {
+    sharedWorker = new pdfjsLib.PDFWorker();
+  } catch {
+    sharedWorker = null;
+  }
+
+  return sharedWorker ?? undefined;
+}
+
 /**
  * Load a PDF using the Shift-compatible PDF.js legacy build and shared assets.
  */
@@ -47,6 +72,7 @@ export function getPDFDocument(
   const loadingTask = pdfjsLib.getDocument({
     ...params,
     wasmUrl: PDFJS_WASM_URL,
+    worker: params.worker ?? getSharedPDFWorker(),
   });
 
   void loadingTask.promise.then(
