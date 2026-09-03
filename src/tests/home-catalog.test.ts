@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  ALL_TOOLS_CATEGORY_ID,
+  getCategoryChipOrder,
+  getDefaultSelectedCategory,
+  isAllToolsCategory,
   shouldShowToolCatalog,
   shouldShowCategoryGroup,
   setToolCatalogOpen,
@@ -17,12 +21,19 @@ afterEach(() => {
 });
 
 describe('home catalog visibility', () => {
-  it('hides the full catalog until search is active', () => {
+  it('hides the full catalog until search is active or a category is selected', () => {
     expect(
       shouldShowToolCatalog({ searchFocused: false, searchQuery: '' })
     ).toBe(false);
     expect(
       shouldShowToolCatalog({ searchFocused: false, searchQuery: '   ' })
+    ).toBe(false);
+    expect(
+      shouldShowToolCatalog({
+        searchFocused: false,
+        searchQuery: '',
+        selectedCategory: null,
+      })
     ).toBe(false);
   });
 
@@ -32,6 +43,16 @@ describe('home catalog visibility', () => {
     ).toBe(true);
     expect(
       shouldShowToolCatalog({ searchFocused: false, searchQuery: 'merge' })
+    ).toBe(true);
+  });
+
+  it('shows the catalog when All tools is selected by default', () => {
+    expect(
+      shouldShowToolCatalog({
+        searchFocused: false,
+        searchQuery: '',
+        selectedCategory: ALL_TOOLS_CATEGORY_ID,
+      })
     ).toBe(true);
   });
 
@@ -76,9 +97,68 @@ describe('home catalog visibility', () => {
     ).toBe(true);
   });
 
-  it('toggles a selected category chip off when clicked again', () => {
+  it('shows favorites above the full catalog when All tools is selected', () => {
+    expect(
+      shouldShowCategoryGroup({
+        isFavorites: true,
+        categoryName: undefined,
+        selectedCategory: ALL_TOOLS_CATEGORY_ID,
+      })
+    ).toBe(true);
+    expect(
+      shouldShowCategoryGroup({
+        isFavorites: false,
+        categoryName: 'Popular Tools',
+        selectedCategory: ALL_TOOLS_CATEGORY_ID,
+      })
+    ).toBe(true);
+    expect(
+      shouldShowCategoryGroup({
+        isFavorites: false,
+        categoryName: 'Secure PDF',
+        selectedCategory: ALL_TOOLS_CATEGORY_ID,
+      })
+    ).toBe(true);
+  });
+
+  it('places the All tools chip first in the toolbar order', () => {
+    expect(
+      getCategoryChipOrder([
+        'Popular Tools',
+        'Edit & Annotate',
+        'Convert to PDF',
+      ])
+    ).toEqual([
+      ALL_TOOLS_CATEGORY_ID,
+      'Popular Tools',
+      'Edit & Annotate',
+      'Convert to PDF',
+    ]);
+  });
+
+  it('defaults to All tools when no stored category preference exists', () => {
+    expect(getDefaultSelectedCategory()).toBe(ALL_TOOLS_CATEGORY_ID);
+    expect(getDefaultSelectedCategory(null)).toBe(ALL_TOOLS_CATEGORY_ID);
+    expect(getDefaultSelectedCategory('')).toBe(ALL_TOOLS_CATEGORY_ID);
+    expect(getDefaultSelectedCategory('   ')).toBe(ALL_TOOLS_CATEGORY_ID);
+    expect(isAllToolsCategory(getDefaultSelectedCategory())).toBe(true);
+  });
+
+  it('keeps an explicit stored category preference over the All tools default', () => {
+    expect(getDefaultSelectedCategory('Secure PDF')).toBe('Secure PDF');
+  });
+
+  it('returns to All tools when a selected category chip is clicked again', () => {
     expect(toggleSelectedCategory(null, 'Secure PDF')).toBe('Secure PDF');
-    expect(toggleSelectedCategory('Secure PDF', 'Secure PDF')).toBe(null);
+    expect(toggleSelectedCategory('Secure PDF', 'Secure PDF')).toBe(
+      ALL_TOOLS_CATEGORY_ID
+    );
+    expect(
+      toggleSelectedCategory(ALL_TOOLS_CATEGORY_ID, ALL_TOOLS_CATEGORY_ID)
+    ).toBe(ALL_TOOLS_CATEGORY_ID);
+    expect(toggleSelectedCategory('Popular Tools', ALL_TOOLS_CATEGORY_ID)).toBe(
+      ALL_TOOLS_CATEGORY_ID
+    );
   });
 
   it('toggles the catalog-open class on the landing grid', () => {
@@ -89,7 +169,7 @@ describe('home catalog visibility', () => {
     expect(grid.classList.contains(TOOL_CATALOG_OPEN_CLASS)).toBe(false);
   });
 
-  it('keeps the home file table visible while the catalog stays closed', () => {
+  it('keeps the library table independent of the catalog-open class', () => {
     document.body.innerHTML = `
       <div id="grid-view"></div>
       <section id="shift-my-pdfs" hidden>
@@ -107,5 +187,19 @@ describe('home catalog visibility', () => {
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('shown.pdf');
+  });
+
+  it('keeps favorites ahead of catalog groups when All tools shows everything', () => {
+    const groupOrder = ['favorites', 'Popular Tools', 'Secure PDF'];
+    const visible = groupOrder.filter((name) =>
+      shouldShowCategoryGroup({
+        isFavorites: name === 'favorites',
+        categoryName: name === 'favorites' ? undefined : name,
+        selectedCategory: ALL_TOOLS_CATEGORY_ID,
+      })
+    );
+
+    expect(visible).toEqual(groupOrder);
+    expect(visible[0]).toBe('favorites');
   });
 });

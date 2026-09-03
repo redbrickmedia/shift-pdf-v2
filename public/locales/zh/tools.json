@@ -1,5 +1,6 @@
 {
   "categories": {
+    "allTools": "全部工具",
     "popularTools": "热门工具",
     "editAnnotate": "编辑与注释",
     "convertToPdf": "转换为 PDF",
