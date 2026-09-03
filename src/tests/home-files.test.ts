@@ -11,6 +11,7 @@ import {
   addPdfToLibrary,
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
+import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,
@@ -19,7 +20,13 @@ import {
 } from '../js/logic/workspace-files';
 
 function mountHome() {
+  document.body.className = 'shift-home';
   document.body.innerHTML = `
+    <section id="shift-open-files">
+      <h2 id="shift-open-files-heading">My PDFs</h2>
+      <nav class="shift-primary-nav" aria-label="Library"></nav>
+      <div id="shift-open-files-list" hidden></div>
+    </section>
     <div id="drop-zone">
       <input id="file-input" type="file" accept="application/pdf,.pdf" multiple />
     </div>
@@ -35,6 +42,19 @@ function mountHome() {
   `;
 }
 
+function mountAllTools() {
+  document.body.className = 'shift-home';
+  document.body.innerHTML = `
+    <section id="shift-open-files">
+      <h2 id="shift-open-files-heading">My PDFs</h2>
+      <nav class="shift-primary-nav" aria-label="Library"></nav>
+      <div id="shift-open-files-list" hidden></div>
+    </section>
+    <div id="search-bar"></div>
+    <div id="grid-view"><div id="tool-grid"></div></div>
+  `;
+}
+
 function dispatchDrop(files: File[]) {
   const dropZone = document.getElementById('drop-zone');
   const event = new Event('drop', { bubbles: true, cancelable: true });
@@ -45,6 +65,7 @@ function dispatchDrop(files: File[]) {
 }
 
 afterEach(async () => {
+  document.body.className = '';
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
   vi.restoreAllMocks();
@@ -52,6 +73,7 @@ afterEach(async () => {
 
 describe('home files', () => {
   it('is a no-op on tool pages without the Open file section', () => {
+    document.body.className = '';
     document.body.innerHTML = `
       <div id="drop-zone">
         <input id="file-input" type="file" />
@@ -59,6 +81,25 @@ describe('home files', () => {
     `;
     expect(() => initHomeFiles()).not.toThrow();
     expect(getWorkspaceFiles()).toEqual([]);
+  });
+
+  it('restores the active file into the all-tools sidebar without a library grid', async () => {
+    await writePersistedOpenFile(
+      new File(['x'], 'active.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+    mountAllTools();
+    initHomeFiles();
+
+    await vi.waitFor(() => {
+      expect(getWorkspaceFiles()).toMatchObject([{ name: 'active.pdf' }]);
+    });
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(
+      document.querySelector('.shift-open-file-item .shift-nav-label')
+        ?.textContent
+    ).toBe('active.pdf');
+    expect(document.getElementById('shift-my-pdfs')).toBeNull();
   });
 
   it('lists a dropped PDF in the home Open file section', () => {
@@ -83,14 +124,44 @@ describe('home files', () => {
     ).toContain('briefing.pdf');
   });
 
-  it('keeps the home Open file section hidden when nothing is uploaded', () => {
+  it('shows a dropped PDF in the all-tools sidebar file list', async () => {
+    mountHome();
+    initHomeFiles();
+    vi.mocked(renderPdfFirstPage).mockClear();
+    const pdf = new File(['%PDF'], 'briefing.pdf', {
+      type: 'application/pdf',
+    });
+
+    dispatchDrop([pdf]);
+
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(
+      document.querySelector('.shift-open-file-item .shift-nav-label')
+        ?.textContent
+    ).toBe('briefing.pdf');
+
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('.shift-open-file-preview:not(.is-empty)')
+      ).not.toBeNull();
+    });
+  });
+
+  it('keeps the My PDFs list chrome and shows an empty-state placeholder when nothing is uploaded', async () => {
     mountHome();
     initHomeFiles();
 
+    await vi.waitFor(() => {
+      expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
+    });
     expect(getWorkspaceFiles()).toEqual([]);
-    expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(true);
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
-    expect(document.querySelector('#shift-my-pdfs-body tr')).toBeNull();
+    expect(
+      document.querySelector('#shift-my-pdfs-body tr.shift-my-pdfs-empty-row')
+    ).not.toBeNull();
+    expect(
+      document.querySelector('#shift-my-pdfs-body tr.shift-my-pdfs-row')
+    ).toBeNull();
   });
 
   it('keeps every PDF from a multi-file drop and skips other types', () => {
@@ -205,28 +276,33 @@ describe('home files', () => {
         .querySelector('.shift-open-file-thumb')
         ?.getAttribute('aria-pressed')
     ).toBe('true');
+    // The border is the only mark on the card: no chip overlay any more.
     expect(
-      document.querySelector('.shift-open-file-thumb-selected')?.textContent
-    ).toBe('Active');
+      document.querySelector('.shift-open-file-thumb-selected')
+    ).toBeNull();
+    expect(document.querySelector('.shift-my-pdfs-selected-label')).toBeNull();
     expect(
-      document.querySelector('.shift-my-pdfs-selected-label')?.textContent
-    ).toBe('Active');
+      document
+        .querySelector('.shift-open-file-thumb')
+        ?.classList.contains('is-selected')
+    ).toBe(true);
 
-    const activeChip = document.querySelector<HTMLElement>(
-      '.shift-open-file-thumb-selected'
+    const selectedChip = document.querySelector<HTMLElement>(
+      '.shift-open-file-selected-label'
     );
-    expect(activeChip?.getAttribute('data-shift-tooltip')).toBe(
-      'An active file is a file that will be used when you click on tools.'
+    expect(selectedChip?.textContent).toBe('Selected');
+    expect(selectedChip?.getAttribute('data-shift-tooltip')).toBe(
+      'A selected file is a file that will be used when you click on tools.'
     );
-    expect(activeChip?.getAttribute('data-i18n-tooltip')).toBe(
+    expect(selectedChip?.getAttribute('data-i18n-tooltip')).toBe(
       'home.activeFileTooltip'
     );
 
     vi.useFakeTimers();
-    activeChip?.dispatchEvent(new PointerEvent('pointerenter'));
+    selectedChip?.dispatchEvent(new PointerEvent('pointerenter'));
     vi.advanceTimersByTime(SHIFT_TOOLTIP_SHOW_DELAY_MS);
     expect(document.getElementById('shift-tooltip')?.textContent).toBe(
-      'An active file is a file that will be used when you click on tools.'
+      'A selected file is a file that will be used when you click on tools.'
     );
     vi.useRealTimers();
 
@@ -258,7 +334,13 @@ describe('home files', () => {
         '.shift-open-file-thumb canvas'
       )
     );
-    const renderCallsBefore = vi.mocked(renderPdfFirstPage).mock.calls.length;
+    const gridRenderCalls = () =>
+      vi
+        .mocked(renderPdfFirstPage)
+        .mock.calls.filter(([, canvas]) =>
+          canvas.closest('.shift-open-file-thumb')
+        ).length;
+    const renderCallsBefore = gridRenderCalls();
 
     document
       .querySelector<HTMLButtonElement>(
@@ -270,9 +352,7 @@ describe('home files', () => {
       expect(getWorkspaceFiles()).toMatchObject([{ name: 'first.pdf' }]);
     });
 
-    expect(vi.mocked(renderPdfFirstPage).mock.calls.length).toBe(
-      renderCallsBefore
-    );
+    expect(gridRenderCalls()).toBe(renderCallsBefore);
     const canvasesAfter = Array.from(
       document.querySelectorAll<HTMLCanvasElement>(
         '.shift-open-file-thumb canvas'

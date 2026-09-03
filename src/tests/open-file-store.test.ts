@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearPersistedOpenFile,
   readPersistedOpenFile,
+  readPersistedOpenFiles,
   writePersistedOpenFile,
+  writePersistedOpenFiles,
 } from '../js/logic/open-file-store';
 
 afterEach(async () => {
@@ -11,6 +13,28 @@ afterEach(async () => {
 });
 
 describe('open file persist ordering', () => {
+  it('persists every selected file in selection order', async () => {
+    await writePersistedOpenFiles([
+      {
+        file: new File(['first'], 'first.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['second'], 'second.pdf', {
+          type: 'application/pdf',
+        }),
+        source: 'handoff',
+      },
+    ]);
+
+    const stored = await readPersistedOpenFiles();
+    expect(stored.map((entry) => entry.name)).toEqual([
+      'first.pdf',
+      'second.pdf',
+    ]);
+    expect(stored.map((entry) => entry.source)).toEqual(['upload', 'handoff']);
+  });
+
   it('does not let a slower write overwrite a later clear', async () => {
     const slow = new File(['slow-bytes'], 'slow.pdf', {
       type: 'application/pdf',

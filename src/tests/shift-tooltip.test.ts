@@ -50,7 +50,7 @@ describe('shift tooltip', () => {
     const button = mountTrigger();
     attachShiftTooltip(button, {
       placement: 'right',
-      text: 'Received from Shift. Click to replace this PDF.',
+      text: 'Received from Shift. Click to open in My PDFs.',
     });
 
     expect(button.hasAttribute('title')).toBe(false);
@@ -64,7 +64,7 @@ describe('shift tooltip', () => {
     const tooltip = document.getElementById('shift-tooltip');
     expect(tooltip?.classList.contains('is-open')).toBe(true);
     expect(tooltip?.textContent).toBe(
-      'Received from Shift. Click to replace this PDF.'
+      'Received from Shift. Click to open in My PDFs.'
     );
     expect(tooltip?.style.left).toBe('204px');
   });
