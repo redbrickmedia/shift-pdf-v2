@@ -36,6 +36,13 @@ const baseCategories = [
         subtitle: 'Reduce the file size of your PDF.',
       },
       {
+        href: import.meta.env.BASE_URL + 'pdf-converter.html',
+        name: 'Convert',
+        icon: 'ph-arrows-clockwise',
+        subtitle:
+          'Convert PDFs to Word, Excel, images, and more — or turn documents into PDF.',
+      },
+      {
         href: import.meta.env.BASE_URL + 'edit-pdf.html',
         name: 'PDF Editor',
         icon: 'ph-pencil-simple',

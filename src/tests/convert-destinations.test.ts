@@ -1,63 +1,110 @@
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  buildConvertSourceAccept,
-  getConvertSourceKind,
-  getFilenameWithoutExtension,
-  getOutputFilename,
   getPdfDestinations,
+  getSharedDestinations,
   getToPdfDestination,
-  isPdfFile,
-  resolveDestinationHref,
+  SINGLE_FILE_DESTINATION_IDS,
 } from '../js/config/convert-destinations';
 
-describe('convert destinations', () => {
-  it('detects PDF sources', () => {
-    const file = new File(['%PDF'], 'report.pdf', { type: 'application/pdf' });
-    expect(isPdfFile(file)).toBe(true);
-    expect(getConvertSourceKind(file)).toBe('pdf');
+const repoRoot = path.resolve(__dirname, '../..');
+
+function pdf(name: string): File {
+  return new File(['%PDF-1.4'], name, { type: 'application/pdf' });
+}
+
+function pageFor(toolId: string): string | null {
+  return (
+    [
+      path.join(repoRoot, `${toolId}.html`),
+      path.join(repoRoot, 'src/pages', `${toolId}.html`),
+    ].find((candidate) => existsSync(candidate)) ?? null
+  );
+}
+
+describe('shared convert destinations', () => {
+  it('keeps the whole grid for a batch of PDFs', () => {
+    const single = getSharedDestinations([pdf('one.pdf')]);
+    const batch = getSharedDestinations([pdf('one.pdf'), pdf('two.pdf')]);
+
+    expect(single.primary.length).toBeGreaterThan(0);
+    expect(batch.primary.map((entry) => entry.id)).toEqual(
+      single.primary.map((entry) => entry.id)
+    );
+    expect(batch.secondary.map((entry) => entry.id)).toEqual(
+      single.secondary.map((entry) => entry.id)
+    );
   });
 
-  it('detects office documents as convert-to-pdf sources', () => {
-    const file = new File(['doc'], 'briefing.docx', {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-    expect(getConvertSourceKind(file)).toBe('to-pdf');
-  });
-
-  it('lists primary PDF destinations in a stable order', () => {
-    const { primary } = getPdfDestinations();
-    expect(primary.map((destination) => destination.id)).toEqual([
-      'pdf-to-docx',
-      'pdf-to-excel',
-      'pdf-to-jpg',
-      'pdf-to-png',
+  it('shares one to-PDF destination across files of the same type', () => {
+    const shared = getSharedDestinations([
+      new File(['a'], 'one.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'two.jpg', { type: 'image/jpeg' }),
     ]);
+
+    expect(shared.primary.map((entry) => entry.id)).toEqual(['jpg-to-pdf']);
   });
 
-  it('builds output filenames for destination cards', () => {
-    const destination = getPdfDestinations().primary[0];
-    expect(getFilenameWithoutExtension('Quarterly Report.pdf')).toBe(
-      'Quarterly Report'
-    );
-    expect(getOutputFilename('Quarterly Report.pdf', destination)).toBe(
-      'Quarterly Report.docx'
-    );
+  it('finds nothing in common for a mixed selection', () => {
+    const shared = getSharedDestinations([
+      pdf('one.pdf'),
+      new File(['b'], 'two.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    ]);
+
+    expect(shared.primary).toEqual([]);
+    expect(shared.secondary).toEqual([]);
   });
 
-  it('routes DOCX uploads to the Word to PDF tool', () => {
-    const file = new File(['doc'], 'briefing.docx', {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-    const destination = getToPdfDestination(file, '/');
-    expect(destination?.id).toBe('word-to-pdf');
-    expect(resolveDestinationHref(file, destination!)).toContain(
-      'word-to-pdf.html'
-    );
+  it('has no destinations without a selection', () => {
+    expect(getSharedDestinations([])).toEqual({ primary: [], secondary: [] });
+  });
+});
+
+describe('destination batch capability', () => {
+  // The hub disables a destination once the selection outgrows it, so the flag
+  // has to match the page it links to. Anything else silently drops files: the
+  // shared seed path keeps one file for a single-file input.
+  it('matches the multiple attribute on every destination page', () => {
+    const { primary, secondary } = getPdfDestinations();
+    const mismatches: string[] = [];
+
+    for (const destination of [...primary, ...secondary]) {
+      const page = pageFor(destination.id);
+      if (!page) continue;
+
+      const markup = readFileSync(page, 'utf8');
+      const input = /<input[^>]*id="file-input"[^>]*>/.exec(markup)?.[0] ?? '';
+      const pageAcceptsMultiple = /\smultiple[\s/>]/.test(input);
+
+      if (pageAcceptsMultiple !== destination.acceptsMultiple) {
+        mismatches.push(
+          `${destination.id}: page says ${pageAcceptsMultiple ? 'multiple' : 'single'}, config says ${destination.acceptsMultiple ? 'multiple' : 'single'}`
+        );
+      }
+    }
+
+    expect(mismatches).toEqual([]);
   });
 
-  it('includes PDF and common extensions in the source accept list', () => {
-    expect(buildConvertSourceAccept()).toContain('application/pdf');
-    expect(buildConvertSourceAccept()).toContain('.docx');
-    expect(buildConvertSourceAccept()).toContain('.jpg');
+  it('marks the known single-file destinations', () => {
+    const { primary, secondary } = getPdfDestinations();
+    const byId = new Map(
+      [...primary, ...secondary].map((entry) => [entry.id, entry])
+    );
+
+    for (const id of SINGLE_FILE_DESTINATION_IDS) {
+      expect(byId.get(id)?.acceptsMultiple ?? false).toBe(false);
+    }
+    expect(byId.get('pdf-to-docx')?.acceptsMultiple).toBe(true);
+  });
+
+  it('carries the capability onto to-PDF destinations', () => {
+    const destination = getToPdfDestination(
+      new File(['a'], 'photo.jpg', { type: 'image/jpeg' })
+    );
+    expect(destination?.acceptsMultiple).toBe(true);
   });
 });
