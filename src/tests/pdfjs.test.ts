@@ -1,13 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetDocument, workerOptions } = vi.hoisted(() => ({
+const { mockGetDocument, workerOptions, MockPDFWorker } = vi.hoisted(() => ({
   mockGetDocument: vi.fn(),
   workerOptions: { workerSrc: '' },
+  MockPDFWorker: class {
+    destroyed = false;
+    destroy(): void {
+      this.destroyed = true;
+    }
+  },
 }));
 
 vi.mock('pdfjs-dist/legacy/build/pdf.mjs', () => ({
   getDocument: mockGetDocument,
   GlobalWorkerOptions: workerOptions,
+  PDFWorker: MockPDFWorker,
   PasswordResponses: {
     NEED_PASSWORD: 1,
     INCORRECT_PASSWORD: 2,
@@ -77,5 +84,64 @@ describe('PDF.js configuration', () => {
     await loadedDocument.destroy();
 
     expect(destroy).toHaveBeenCalledOnce();
+  });
+});
+
+describe('shared PDF.js worker', () => {
+  beforeEach(() => {
+    mockGetDocument.mockReset();
+    mockGetDocument.mockReturnValue({
+      destroy: vi.fn(),
+      promise: Promise.resolve({}),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // PDF.js boots one worker per getDocument call when none is supplied, and a
+  // worker whose startup handshake never lands leaves the loading task pending
+  // forever with no error. Pages that load several PDFs at once — sidebar
+  // thumbnails plus encryption probes plus the tool itself — hit that far more
+  // often, which is what hung Merge on "Loading PDF documents".
+  it('reuses one worker across loads and replaces it only once destroyed', async () => {
+    vi.stubGlobal('Worker', class {});
+    vi.resetModules();
+    const { getPDFDocument: load } = await import('../js/utils/pdfjs.js');
+
+    load('/first.pdf');
+    load('/second.pdf');
+
+    const worker = mockGetDocument.mock.calls[0]?.[0]?.worker;
+    expect(worker).toBeInstanceOf(MockPDFWorker);
+    expect(mockGetDocument.mock.calls[1]?.[0]?.worker).toBe(worker);
+
+    (worker as InstanceType<typeof MockPDFWorker>).destroy();
+    load('/third.pdf');
+
+    const replacement = mockGetDocument.mock.calls[2]?.[0]?.worker;
+    expect(replacement).toBeInstanceOf(MockPDFWorker);
+    expect(replacement).not.toBe(worker);
+  });
+
+  it('honours a worker supplied by the caller', async () => {
+    vi.stubGlobal('Worker', class {});
+    vi.resetModules();
+    const { getPDFDocument: load } = await import('../js/utils/pdfjs.js');
+
+    const ownWorker = new MockPDFWorker();
+    load({ url: '/first.pdf', worker: ownWorker } as never);
+
+    expect(mockGetDocument.mock.calls[0]?.[0]?.worker).toBe(ownWorker);
+  });
+
+  it('falls back to PDF.js defaults where workers are unavailable', async () => {
+    vi.resetModules();
+    const { getPDFDocument: load } = await import('../js/utils/pdfjs.js');
+
+    load('/first.pdf');
+
+    expect(mockGetDocument.mock.calls[0]?.[0]?.worker).toBeUndefined();
   });
 });
