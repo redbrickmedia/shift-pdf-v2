@@ -9,6 +9,22 @@ export const TOOL_FAVORITES_STORAGE_KEY = 'shiftPdfFavoriteToolIds';
  */
 export const TOOL_FAVORITES_RAIL_KEY = 'shiftPdfFavoriteRail';
 
+/**
+ * One-time flag: former prepinned Tools (Compress / Merge / Convert / E-sign)
+ * used to live outside favorites storage. On first load after the unify, merge
+ * those defaults into whatever list is already saved, then never force them
+ * back if the user unpins one.
+ */
+export const TOOL_FAVORITES_MIGRATED_KEY = 'shiftPdfFavoritesMigratedV1';
+
+/** Former prepinned Tools rail — seed / migrate into the single favorites list. */
+export const DEFAULT_FAVORITE_TOOL_IDS = [
+  'compress-pdf',
+  'merge-pdf',
+  'pdf-converter',
+  'sign-pdf',
+] as const;
+
 export interface FavoriteRailPin {
   name: string;
   href: string;
@@ -20,6 +36,13 @@ const MAX_STORED_LENGTH = 4096;
 
 type StorageReader = Pick<Storage, 'getItem'>;
 type StorageWriter = Pick<Storage, 'setItem'>;
+type StorageLike = StorageReader & Partial<StorageWriter>;
+
+export function getDefaultFavoriteToolIds(
+  validToolIds: ReadonlySet<string>
+): string[] {
+  return DEFAULT_FAVORITE_TOOL_IDS.filter((toolId) => validToolIds.has(toolId));
+}
 
 export function parseFavoriteToolIds(
   storedValue: string | null,
@@ -55,29 +78,10 @@ export function parseFavoriteToolIds(
   }
 }
 
-export function loadFavoriteToolIds(
-  validToolIds: ReadonlySet<string>,
-  storage: StorageReader | undefined = getLocalStorage()
-): string[] {
-  if (!storage) return [];
-
-  try {
-    return parseFavoriteToolIds(
-      storage.getItem(TOOL_FAVORITES_STORAGE_KEY),
-      validToolIds
-    );
-  } catch (error) {
-    console.warn('PDF tool favorites storage is unavailable.', error);
-    return [];
-  }
-}
-
-export function saveFavoriteToolIds(
+function writeFavoriteToolIds(
   favoriteIds: readonly string[],
-  storage: StorageWriter | undefined = getLocalStorage()
+  storage: StorageWriter
 ): boolean {
-  if (!storage) return false;
-
   try {
     storage.setItem(
       TOOL_FAVORITES_STORAGE_KEY,
@@ -88,6 +92,72 @@ export function saveFavoriteToolIds(
     console.warn('Could not save PDF tool favorites.', error);
     return false;
   }
+}
+
+function markFavoritesMigrated(storage: StorageWriter): void {
+  try {
+    storage.setItem(TOOL_FAVORITES_MIGRATED_KEY, '1');
+  } catch (error) {
+    console.warn('Could not mark PDF tool favorites as migrated.', error);
+  }
+}
+
+/**
+ * Load favorites from localStorage. Missing storage seeds the former prepinned
+ * set (and persists it when writable). A one-time migration merges those
+ * defaults into older saved lists that pre-date removable prepins.
+ */
+export function loadFavoriteToolIds(
+  validToolIds: ReadonlySet<string>,
+  storage: StorageLike | undefined = getLocalStorage()
+): string[] {
+  const defaults = getDefaultFavoriteToolIds(validToolIds);
+  if (!storage) return defaults;
+
+  try {
+    const raw = storage.getItem(TOOL_FAVORITES_STORAGE_KEY);
+    const migrated = storage.getItem(TOOL_FAVORITES_MIGRATED_KEY) === '1';
+    const canWrite = typeof storage.setItem === 'function';
+
+    if (raw === null) {
+      if (canWrite) {
+        writeFavoriteToolIds(defaults, storage as StorageWriter);
+        markFavoritesMigrated(storage as StorageWriter);
+      }
+      return defaults;
+    }
+
+    const existing = parseFavoriteToolIds(raw, validToolIds);
+
+    if (!migrated) {
+      const existingSet = new Set(existing);
+      const merged = [
+        ...defaults.filter((toolId) => !existingSet.has(toolId)),
+        ...existing,
+      ].slice(0, MAX_FAVORITES);
+      if (canWrite) {
+        writeFavoriteToolIds(merged, storage as StorageWriter);
+        markFavoritesMigrated(storage as StorageWriter);
+      }
+      return merged;
+    }
+
+    return existing;
+  } catch (error) {
+    console.warn('PDF tool favorites storage is unavailable.', error);
+    return defaults;
+  }
+}
+
+export function saveFavoriteToolIds(
+  favoriteIds: readonly string[],
+  storage: StorageWriter | undefined = getLocalStorage()
+): boolean {
+  if (!storage) return false;
+
+  const saved = writeFavoriteToolIds(favoriteIds, storage);
+  if (saved) markFavoritesMigrated(storage);
+  return saved;
 }
 
 export function saveFavoriteRailSnapshot(

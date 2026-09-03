@@ -1,5 +1,6 @@
 {
   "categories": {
+    "allTools": "Все инструменты",
     "popularTools": "Популярные инструменты",
     "editAnnotate": "Редактирование и добавление примечаний",
     "convertToPdf": "Конвертация в PDF",

@@ -13,6 +13,8 @@ const paths = [
   '/pdf-to-jpg.html',
   '/sign-pdf.html',
   '/about.html',
+  '/my-pdfs.html',
+  '/all-tools.html',
   '/licensing.html',
   '/images/shift-pdf-logo.svg',
 ];

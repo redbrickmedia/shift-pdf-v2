@@ -1,5 +1,6 @@
 {
   "categories": {
+    "allTools": "모든 도구",
     "popularTools": "인기 도구",
     "editAnnotate": "편집 및 주석",
     "convertToPdf": "PDF로 변환",

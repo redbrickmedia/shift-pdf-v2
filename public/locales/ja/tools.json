@@ -1,5 +1,6 @@
 {
   "categories": {
+    "allTools": "すべてのツール",
     "popularTools": "人気のツール",
     "editAnnotate": "編集と注釈",
     "convertToPdf": "PDFに変換",

@@ -57,6 +57,8 @@ function loadPages(): Set<string> {
 
   const rootPages = [
     'index',
+    'my-pdfs',
+    'all-tools',
     'about',
     'contact',
     'faq',
@@ -189,7 +191,7 @@ function createLanguageMiddleware(isDev: boolean): Connect.NextHandleFunction {
     }
 
     // Hub pages (Convert, Editor, …) link with clean URLs such as
-    // /word-to-pdf. Without this rewrite Vite serves index.html — All tools.
+    // /word-to-pdf. Without this rewrite Vite serves index.html — My PDFs.
     if (!pathname.startsWith('/src/')) {
       const pageName = pathname
         .replace(/^\//, '')
@@ -603,6 +605,8 @@ export default defineConfig(({ mode }) => {
             process.env.SIMPLE_MODE === 'true'
               ? resolve(__dirname, 'simple-index.html')
               : resolve(__dirname, 'index.html'),
+          'my-pdfs': resolve(__dirname, 'my-pdfs.html'),
+          'all-tools': resolve(__dirname, 'all-tools.html'),
           about: resolve(__dirname, 'about.html'),
           contact: resolve(__dirname, 'contact.html'),
           faq: resolve(__dirname, 'faq.html'),

@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  DEFAULT_FAVORITE_TOOL_IDS,
   FAVORITE_CATALOG_COPY_ATTR,
+  getDefaultFavoriteToolIds,
   loadFavoriteToolIds,
   parseFavoriteToolIds,
   partitionToolIdsByFavorites,
@@ -9,11 +11,18 @@ import {
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
+  TOOL_FAVORITES_MIGRATED_KEY,
   TOOL_FAVORITES_RAIL_KEY,
   TOOL_FAVORITES_STORAGE_KEY,
 } from '../js/logic/tool-favorites';
 
-const validToolIds = new Set(['merge-pdf', 'split-pdf', 'compress-pdf']);
+const validToolIds = new Set([
+  'merge-pdf',
+  'split-pdf',
+  'compress-pdf',
+  'pdf-converter',
+  'sign-pdf',
+]);
 
 describe('tool favorites', () => {
   it('parses only unique, known stable tool IDs', () => {
@@ -50,6 +59,38 @@ describe('tool favorites', () => {
     expect(parseFavoriteToolIds(JSON.stringify(ids), allIds)).toHaveLength(40);
   });
 
+  it('seeds former prepinned tools when storage is empty', () => {
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) return null;
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return null;
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([
+      'compress-pdf',
+      'merge-pdf',
+      'pdf-converter',
+      'sign-pdf',
+    ]);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_STORAGE_KEY,
+      JSON.stringify([...DEFAULT_FAVORITE_TOOL_IDS])
+    );
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_MIGRATED_KEY,
+      '1'
+    );
+  });
+
+  it('returns defaults without writing when storage is unavailable', () => {
+    expect(loadFavoriteToolIds(validToolIds, undefined)).toEqual(
+      getDefaultFavoriteToolIds(validToolIds)
+    );
+  });
+
   it('tolerates unavailable storage reads and writes', () => {
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const unavailableStorage = {
@@ -61,10 +102,65 @@ describe('tool favorites', () => {
       }),
     };
 
-    expect(loadFavoriteToolIds(validToolIds, unavailableStorage)).toEqual([]);
+    expect(loadFavoriteToolIds(validToolIds, unavailableStorage)).toEqual(
+      getDefaultFavoriteToolIds(validToolIds)
+    );
     expect(saveFavoriteToolIds(['merge-pdf'], unavailableStorage)).toBe(false);
 
     warning.mockRestore();
+  });
+
+  it('merges former prepinned tools into older saved lists once', () => {
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) {
+          return JSON.stringify(['split-pdf']);
+        }
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return null;
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([
+      'compress-pdf',
+      'merge-pdf',
+      'pdf-converter',
+      'sign-pdf',
+      'split-pdf',
+    ]);
+  });
+
+  it('does not re-seed after a former prepinned tool is unpinned', () => {
+    const stored = JSON.stringify(['merge-pdf', 'split-pdf']);
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) return stored;
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return '1';
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([
+      'merge-pdf',
+      'split-pdf',
+    ]);
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('unpins a former prepinned tool and allows re-pinning', () => {
+    const withoutCompress = toggleFavoriteToolId(
+      [...DEFAULT_FAVORITE_TOOL_IDS],
+      'compress-pdf'
+    );
+    expect(withoutCompress).toEqual(['merge-pdf', 'pdf-converter', 'sign-pdf']);
+    expect(toggleFavoriteToolId(withoutCompress, 'compress-pdf')).toEqual([
+      'merge-pdf',
+      'pdf-converter',
+      'sign-pdf',
+      'compress-pdf',
+    ]);
   });
 
   it('adds and removes a favorite without duplicates', () => {
@@ -140,6 +236,48 @@ describe('tool favorites', () => {
     ).toHaveLength(1);
   });
 
+  it('keeps sidebar Tools pins and catalog favorites in the same id list', () => {
+    const favorites = document.createElement('div');
+    const popular = document.createElement('div');
+    const compress = document.createElement('div');
+    compress.dataset.toolId = 'compress-pdf';
+    const merge = document.createElement('div');
+    merge.dataset.toolId = 'merge-pdf';
+    popular.append(compress, merge);
+
+    const cardsByToolId = new Map<string, HTMLElement[]>([
+      ['compress-pdf', [compress]],
+      ['merge-pdf', [merge]],
+    ]);
+    const originalContainers = new Map<HTMLElement, HTMLElement>([
+      [compress, popular],
+      [merge, popular],
+    ]);
+
+    let favoriteIds = loadFavoriteToolIds(validToolIds, {
+      getItem: () => null,
+      setItem: () => {},
+    });
+    placeFavoriteToolCards(
+      cardsByToolId,
+      originalContainers,
+      favoriteIds,
+      favorites
+    );
+    expect(favorites.contains(compress)).toBe(true);
+
+    favoriteIds = toggleFavoriteToolId(favoriteIds, 'compress-pdf');
+    placeFavoriteToolCards(
+      cardsByToolId,
+      originalContainers,
+      favoriteIds,
+      favorites
+    );
+    expect(favorites.contains(compress)).toBe(false);
+    expect(popular.contains(compress)).toBe(true);
+    expect(favoriteIds.includes('compress-pdf')).toBe(false);
+  });
+
   it('caches the rail pins the boot script paints from', () => {
     const storage = { getItem: vi.fn(), setItem: vi.fn() };
 
@@ -182,7 +320,13 @@ describe('tool favorites', () => {
 
   it('uses the dedicated local storage key', () => {
     const storage = {
-      getItem: vi.fn(() => JSON.stringify(['merge-pdf'])),
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) {
+          return JSON.stringify(['merge-pdf']);
+        }
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return '1';
+        return null;
+      }),
       setItem: vi.fn(),
     };
 
@@ -198,12 +342,74 @@ describe('tool favorites', () => {
 });
 
 describe('sidebar pinned tools', () => {
-  it('does not put native tooltips on the pinned rail', () => {
-    const html = readFileSync('src/partials/navbar.html', 'utf8');
-    const primary =
-      html.match(/<nav class="shift-primary-nav"[\s\S]*?<\/nav>/)?.[0] ?? '';
+  const sidebar = () =>
+    new DOMParser().parseFromString(
+      readFileSync('src/partials/navbar.html', 'utf8'),
+      'text/html'
+    );
 
-    expect(primary).toContain('data-nav="compress"');
-    expect(primary).not.toMatch(/\stitle="/);
+  it('does not put native tooltips on the nav links', () => {
+    const links = Array.from(sidebar().querySelectorAll('a.shift-nav-link'));
+    const keys = links.map((link) => link.getAttribute('data-nav'));
+
+    expect(keys).toContain('my-pdfs');
+    expect(keys).toContain('home');
+    expect(links.some((link) => link.hasAttribute('title'))).toBe(false);
+  });
+
+  it('leads with My PDFs and the active file, then Tools with an in-section favorites rail', () => {
+    const doc = sidebar();
+    const content = doc.querySelector('.shift-sidebar-content');
+    const order = Array.from(content?.children ?? []).map(
+      (child) => child.id || child.className
+    );
+    const library = doc.getElementById('shift-open-files');
+    const tools = doc.querySelector('.shift-tools');
+    const toolsNav = tools?.querySelector('.shift-tools-nav');
+
+    expect(order).toEqual([
+      'shift-sidebar-header',
+      'shift-open-files',
+      'shift-tools',
+      'shift-sidebar-footer',
+    ]);
+    expect(doc.getElementById('shift-favorites')).toBeNull();
+    expect(doc.getElementById('shift-favorites-heading')).toBeNull();
+    expect(
+      Array.from(doc.querySelectorAll('.shift-sidebar-section-title')).map(
+        (heading) => heading.textContent?.trim()
+      )
+    ).not.toContain('Favorites');
+    expect(toolsNav?.querySelector('[data-nav="home"]')).not.toBeNull();
+    expect(doc.getElementById('shift-favorite-tools')).not.toBeNull();
+    expect(tools?.contains(doc.getElementById('shift-favorite-tools')!)).toBe(
+      true
+    );
+    expect(
+      library?.querySelector('a.shift-nav-link[data-nav="my-pdfs"]')
+    ).not.toBeNull();
+    expect(library?.querySelector('.shift-primary-nav')).not.toBeNull();
+    expect(library?.querySelector('#shift-open-files-list')).not.toBeNull();
+    expect(
+      library?.querySelector('#shift-open-files-heading')?.textContent?.trim()
+    ).toBe('My PDFs');
+    expect(library?.hasAttribute('hidden')).toBe(false);
+  });
+
+  it('does not hardcode former prepinned tools in the Tools markup', () => {
+    const toolsNav = sidebar().querySelector('.shift-tools-nav');
+    const hrefs = Array.from(toolsNav?.querySelectorAll('a[href]') ?? []).map(
+      (link) => link.getAttribute('href') ?? ''
+    );
+
+    expect(hrefs.some((href) => href.includes('all-tools.html'))).toBe(true);
+    expect(hrefs.some((href) => href.includes('compress-pdf.html'))).toBe(
+      false
+    );
+    expect(hrefs.some((href) => href.includes('merge-pdf.html'))).toBe(false);
+    expect(hrefs.some((href) => href.includes('pdf-converter.html'))).toBe(
+      false
+    );
+    expect(hrefs.some((href) => href.includes('sign-pdf.html'))).toBe(false);
   });
 });

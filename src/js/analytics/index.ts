@@ -332,7 +332,8 @@ export function trackPdfEngineExperience(
     .split('/')
     .pop()
     ?.replace(/\.html$/, '');
-  const isHome = !route || route === 'index';
+  const isHome =
+    !route || route === 'index' || route === 'my-pdfs' || route === 'all-tools';
   const routeToolId = isHome ? undefined : optionalSafeId(route);
   const toolId =
     routeToolId && (!validToolIds || validToolIds.has(routeToolId))
