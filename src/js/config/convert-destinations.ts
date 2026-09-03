@@ -7,6 +7,8 @@ export type ConvertDestination = {
   icon: string;
   href: string;
   outputExtension: string;
+  /** Whether the destination tool's file input takes a batch or a single file. */
+  acceptsMultiple: boolean;
 };
 
 export type ConvertSourceKind = 'pdf' | 'to-pdf' | 'unsupported';
@@ -17,6 +19,27 @@ const PRIMARY_PDF_DESTINATION_IDS = [
   'pdf-to-jpg',
   'pdf-to-png',
 ] as const;
+
+/**
+ * Destination tools whose file input takes one file only, so the hub cannot
+ * hand them a batch — the shared seed path would keep a single file and drop
+ * the rest without saying so.
+ *
+ * convert-destinations.test.ts reads the `multiple` attribute off every
+ * destination page and fails if this list and the markup disagree, so adding
+ * `multiple` to a tool is a one-line change here rather than a silent drift.
+ */
+export const SINGLE_FILE_DESTINATION_IDS: ReadonlySet<string> = new Set([
+  'pdf-to-bmp',
+  'pdf-to-cbz',
+  'pdf-to-csv',
+  'pdf-to-excel',
+  'pdf-to-greyscale',
+  'pdf-to-jpg',
+  'pdf-to-png',
+  'pdf-to-tiff',
+  'pdf-to-webp',
+]);
 
 const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   bmp: 'bmp-to-pdf',
@@ -132,6 +155,7 @@ function destinationFromTool(
     icon: tool.icon,
     href: tool.href,
     outputExtension,
+    acceptsMultiple: !SINGLE_FILE_DESTINATION_IDS.has(tool.id),
   };
 }
 
@@ -193,10 +217,59 @@ export function getToPdfDestination(
       icon: 'ph-file-pdf',
       href: toolHrefById(toolId, baseUrl),
       outputExtension: 'pdf',
+      acceptsMultiple: !SINGLE_FILE_DESTINATION_IDS.has(toolId),
     };
   }
 
   return destinationFromTool(tool);
+}
+
+/**
+ * Destinations every one of `files` can reach, keyed by id.
+ *
+ * PDFs all share the same destination list, so a batch of them keeps the full
+ * grid. A non-PDF resolves to exactly one to-PDF tool chosen by its extension,
+ * so several images of the same type still share a destination while a mixed
+ * bag (a DOCX next to a PNG) intersects to nothing — which is the honest
+ * answer, since no single tool takes both.
+ */
+export function getSharedDestinations(
+  files: File[],
+  options?: { isToolDisabled?: (toolId: string) => boolean }
+): { primary: ConvertDestination[]; secondary: ConvertDestination[] } {
+  if (files.length === 0) return { primary: [], secondary: [] };
+
+  const perFile = files.map((file) => {
+    if (isPdfFile(file)) return getPdfDestinations(options);
+    const destination = getToPdfDestination(file);
+    return destination
+      ? { primary: [destination], secondary: [] }
+      : { primary: [], secondary: [] };
+  });
+
+  const [first, ...rest] = perFile;
+  if (!first) return { primary: [], secondary: [] };
+
+  const sharedIds = rest.reduce<Set<string>>(
+    (shared, entry) => {
+      const ids = new Set(
+        [...entry.primary, ...entry.secondary].map(
+          (destination) => destination.id
+        )
+      );
+      return new Set([...shared].filter((id) => ids.has(id)));
+    },
+    new Set(
+      [...first.primary, ...first.secondary].map(
+        (destination) => destination.id
+      )
+    )
+  );
+
+  return {
+    primary: first.primary.filter((entry) => sharedIds.has(entry.id)),
+    secondary: first.secondary.filter((entry) => sharedIds.has(entry.id)),
+  };
 }
 
 export function resolveDestinationHref(
