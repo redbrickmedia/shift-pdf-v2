@@ -70,6 +70,8 @@ export const formatBytes = (bytes: number, decimals = 1) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
+export const PDF_OUTPUT_DOWNLOADED_EVENT = 'shift:pdf-output-downloaded';
+
 export const downloadFile = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -79,6 +81,17 @@ export const downloadFile = (blob: Blob, filename: string): void => {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  if (
+    blob.type === 'application/pdf' ||
+    filename.toLowerCase().endsWith('.pdf')
+  ) {
+    document.dispatchEvent(
+      new CustomEvent(PDF_OUTPUT_DOWNLOADED_EVENT, {
+        detail: { blob, filename },
+      })
+    );
+  }
 };
 
 export const readFileAsArrayBuffer = (
