@@ -28,7 +28,7 @@ describe('Shift theme for the PDF.js viewer', () => {
     );
   });
 
-  it('scopes every themed rule to the signing embed', async () => {
+  it('scopes every themed rule to a Shift embed', async () => {
     const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
     const selectors = [
       ...theme.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g),
@@ -36,11 +36,13 @@ describe('Shift theme for the PDF.js viewer', () => {
 
     expect(selectors.length).toBeGreaterThan(5);
     for (const selector of selectors) {
-      expect(selector).toContain("[data-shift-viewer='sign']");
+      expect(selector).toContain('[data-shift-viewer]');
+      // A bare `html` would lose the tokens back to `:root` in viewer.css.
+      expect(selector).toMatch(/^html\[data-shift-viewer\]/);
     }
   });
 
-  it('flags the viewer when the signing parameter is present', async () => {
+  it('themes the signing embed', async () => {
     window.history.replaceState(
       {},
       '',
@@ -52,11 +54,11 @@ describe('Shift theme for the PDF.js viewer', () => {
     expect(document.documentElement.dataset.shiftViewer).toBe('sign');
   });
 
-  it('leaves other embeds of the viewer untouched', async () => {
+  it('themes every other embed the same way', async () => {
     window.history.replaceState({}, '', '/pdfjs-viewer/viewer.html?file=x.pdf');
 
     await runThemeScript();
 
-    expect(document.documentElement.dataset.shiftViewer).toBeUndefined();
+    expect(document.documentElement.dataset.shiftViewer).toBe('embed');
   });
 });

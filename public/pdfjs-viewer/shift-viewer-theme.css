@@ -1,4 +1,4 @@
-/* Shift theme for the embedded PDF.js signing viewer.
+/* Shift theme for the embedded PDF.js viewer.
  *
  * The viewer runs in an iframe, so it is a separate document: it inherits no
  * custom properties from src/css/shift-theme.css and it resolves
@@ -15,13 +15,15 @@
  * document by toggling those properties. Hex values are the light/default-brand
  * resolutions, repeated here because the iframe cannot read the app's copy.
  *
- * Scoped to `[data-shift-viewer='sign']`, which shift-viewer-theme.js sets from
- * the `bentoSign` query parameter, so the form-filler embed of viewer.html is
- * untouched. Page rendering (canvas, text layer, page geometry) is left alone;
- * only the surrounding chrome is restyled.
+ * Scoped to `[data-shift-viewer]`, which shift-viewer-theme.js sets on every
+ * embed of viewer.html, so the signing and form-filling viewers are one look
+ * rather than two. The attribute is kept for its specificity: `:root` in
+ * viewer.css would otherwise outrank a bare `html` and win the tokens back.
+ * Page rendering (canvas, text layer, page geometry) is left alone; only the
+ * surrounding chrome is restyled.
  */
 
-html[data-shift-viewer='sign'] {
+html[data-shift-viewer] {
   color-scheme: only light;
 
   /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
@@ -120,16 +122,16 @@ html[data-shift-viewer='sign'] {
 
 /* These components re-declare `color-scheme: light dark` on themselves, which
    would otherwise re-enable the dark branch inside them. */
-html[data-shift-viewer='sign'] :is(.commentPopup, .annotationCommentButton) {
+html[data-shift-viewer] :is(.commentPopup, .annotationCommentButton) {
   color-scheme: only light;
 }
 
-html[data-shift-viewer='sign'] body {
+html[data-shift-viewer] body {
   font-family: var(--shift-font);
 }
 
 /* PDF.js sizes toolbar buttons at 2px radius; Shift controls are 8px. */
-html[data-shift-viewer='sign']
+html[data-shift-viewer]
   :is(
     .toolbarButton,
     .secondaryToolbarButton,
@@ -141,11 +143,11 @@ html[data-shift-viewer='sign']
 }
 
 /* The page-number field hardcodes a focus border colour upstream. */
-html[data-shift-viewer='sign'] .toolbarField:focus {
+html[data-shift-viewer] .toolbarField:focus {
   border-color: var(--action-button-surface-primary-default);
 }
 
-html[data-shift-viewer='sign'] :is(.doorHanger, .doorHangerRight) {
+html[data-shift-viewer] :is(.doorHanger, .doorHangerRight) {
   border-radius: var(--radius-12);
   box-shadow:
     0 1px 2px rgb(17 24 39 / 0.06),
@@ -155,7 +157,7 @@ html[data-shift-viewer='sign'] :is(.doorHanger, .doorHangerRight) {
 
 /* "Signature removed / Undo" toast. Its own scope re-declares the message-bar
    variables, so they have to be overridden here rather than on the root. */
-html[data-shift-viewer='sign'] #editorUndoBar {
+html[data-shift-viewer] #editorUndoBar {
   --text-primary-color: var(--text-primary);
   --message-bar-icon-color: var(--action-button-surface-primary-default);
   --message-bar-bg-color: var(--brand-50);
@@ -173,12 +175,12 @@ html[data-shift-viewer='sign'] #editorUndoBar {
   box-shadow: 0 8px 24px rgb(17 24 39 / 0.12);
 }
 
-html[data-shift-viewer='sign'] #editorUndoBar #editorUndoBarUndoButton {
+html[data-shift-viewer] #editorUndoBar #editorUndoBarUndoButton {
   border-radius: var(--radius-8);
 }
 
 /* "Add a signature" dialog: white surface, Shift blue primary action. */
-html[data-shift-viewer='sign'] .dialog {
+html[data-shift-viewer] .dialog {
   --dialog-bg-color: var(--background-secondary);
   --dialog-border-color: var(--border-divider-secondary);
   --dialog-shadow: 0 8px 32px 0 rgb(17 24 39 / 0.16);
@@ -221,14 +223,14 @@ html[data-shift-viewer='sign'] .dialog {
   border-radius: var(--radius-12);
 }
 
-html[data-shift-viewer='sign'] .dialog :is(button, input[type='text']) {
+html[data-shift-viewer] .dialog :is(button, input[type='text']) {
   border-radius: var(--radius-8);
 }
 
 /* The signature dialog is the one component that branches on
    `prefers-color-scheme` directly instead of `light-dark()`, so `color-scheme`
    cannot pin it and its id-level rules outrank the `.dialog` block above. */
-html[data-shift-viewer='sign'] #addSignatureDialog {
+html[data-shift-viewer] #addSignatureDialog {
   --dialog-bg-color: var(--background-secondary);
   --primary-color: var(--text-primary);
   --secondary-color: var(--text-secondary);
@@ -250,12 +252,12 @@ html[data-shift-viewer='sign'] #addSignatureDialog {
 
 /* Shift's own font/colour strip inside the signature dialog sits on a dark
    scrim, which reads as a grey band once the dialog is light. */
-html[data-shift-viewer='sign'] #signatureTypeControls {
+html[data-shift-viewer] #signatureTypeControls {
   background-color: var(--background-secondary);
   border: 1px solid var(--border-divider-secondary);
   border-radius: var(--radius-8);
 }
 
-html[data-shift-viewer='sign'] #signatureTypeControls label {
+html[data-shift-viewer] #signatureTypeControls label {
   color: var(--text-secondary);
 }
