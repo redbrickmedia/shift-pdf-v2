@@ -7,6 +7,24 @@ interface ImportMetaEnv {
   readonly VITE_TESSERACT_AVAILABLE_LANGUAGES?: string;
   readonly VITE_OCR_FONT_BASE_URL?: string;
   readonly VITE_PROMISE_BANNER_UNTIL?: string;
+  readonly VITE_SHIFT_API_ROOT?: string;
+}
+
+interface ChromeShiftAnalytics {
+  track(
+    eventName: string,
+    properties?: Record<string, unknown>,
+    callback?: () => void
+  ): void;
+}
+
+/** Host Mixpanel surface used by this app. Other chrome.shift namespaces are unused. */
+interface Window {
+  chrome?: {
+    shift?: {
+      analytics?: ChromeShiftAnalytics;
+    };
+  };
 }
 
 interface ImportMeta {

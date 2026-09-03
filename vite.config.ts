@@ -846,12 +846,6 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: 'jsdom',
       setupFiles: './src/tests/setup.ts',
-      alias: {
-        '@redbrickmedia/shift-browser-toolkit': resolve(
-          __dirname,
-          'src/js/shift/toolkit-stub.ts'
-        ),
-      },
       coverage: {
         provider: 'v8' as const,
         reporter: ['text', 'json', 'html'],

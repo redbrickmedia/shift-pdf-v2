@@ -1,7 +1,4 @@
-import {
-  getToolkitConfig,
-  trackEvent,
-} from '@redbrickmedia/shift-browser-toolkit';
+import { ANALYTICS_TRACK, analytics } from './host-api.js';
 
 export const EXPERIENCE_STARTED_EVENT = 'PdfEngine_ExperienceStarted';
 export const TOOL_USED_EVENT = 'PdfEngine_ToolUsed';
@@ -42,8 +39,7 @@ export function trackPdfEngine(
   properties: Record<string, unknown>
 ): void {
   try {
-    const config = getToolkitConfig();
-    if (config.isOutsideShiftBrowser) return;
+    if (!analytics.hasMethod(ANALYTICS_TRACK)) return;
     const payload =
       eventName === TOOL_USED_EVENT
         ? sanitizeProperties(properties)
@@ -51,7 +47,7 @@ export function trackPdfEngine(
             event_type: properties.event_type,
             trigger: properties.trigger,
           };
-    trackEvent(eventName, payload);
+    analytics.getValue(ANALYTICS_TRACK, eventName, payload);
   } catch {
     // Host Mixpanel is unavailable outside Shift.
   }

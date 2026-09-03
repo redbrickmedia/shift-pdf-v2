@@ -22,6 +22,7 @@ import {
   isToolDisabled,
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
+import { bootstrapShiftHost } from './shift/bootstrap.js';
 import {
   applyFavoritePinTitles,
   FAVORITE_CATALOG_COPY_ATTR,
@@ -239,6 +240,7 @@ function markActiveNavLinks() {
 }
 
 const init = async () => {
+  bootstrapShiftHost();
   await initI18n();
   await loadRuntimeConfig();
   injectLanguageSwitcher();
