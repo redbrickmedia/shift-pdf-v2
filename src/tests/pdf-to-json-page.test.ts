@@ -4,8 +4,18 @@ import {
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
+import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
+
+class MockWorker {
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  postMessage = vi.fn();
+  terminate = vi.fn();
+}
+
+vi.stubGlobal('Worker', MockWorker);
 
 const PDF_TO_JSON_PAGE_DOM = `
   <div id="drop-zone">
@@ -34,13 +44,12 @@ describe('pdf to json page', () => {
     document.body.innerHTML = PDF_TO_JSON_PAGE_DOM;
   });
 
-  it('reveals conversion options when a library PDF is seeded', async () => {
-    await addPdfToLibrary(
-      new File(['pdf'], 'seminar-overview.pdf', {
-        type: 'application/pdf',
-      }),
-      'upload'
-    );
+  it('reveals conversion options when a selected PDF is seeded', async () => {
+    const file = new File(['pdf'], 'seminar-overview.pdf', {
+      type: 'application/pdf',
+    });
+    await addPdfToLibrary(file, 'upload');
+    await writePersistedOpenFile(file, { source: 'upload' });
 
     await import('../js/logic/pdf-to-json.ts');
     document.dispatchEvent(new Event('DOMContentLoaded'));

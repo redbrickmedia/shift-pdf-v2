@@ -10,6 +10,7 @@ import { deletePdfPages } from '../utils/pdf-operations.js';
 
 import { DeletePagesState } from '@/types';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 const deleteState: DeletePagesState = {
   file: null,
@@ -59,6 +60,14 @@ function initializePage() {
 
   if (processBtn) processBtn.addEventListener('click', deletePages);
   if (pagesInput) pagesInput.addEventListener('input', updatePreview);
+
+  syncSeededToolFiles(
+    (files) => {
+      if (deleteState.file || files.length === 0) return;
+      void handleFile(files[0]);
+    },
+    { multiple: false }
+  );
 }
 
 function handleFileUpload(e: Event) {

@@ -162,12 +162,19 @@ describe('merge pdf page', () => {
   });
 
   it('seeds one active file and adds another from the library picker', async () => {
-    await addPdfToLibrary(
-      new File(['pdf'], 'saved.pdf', { type: 'application/pdf' }),
-      'upload'
-    );
+    const active = new File(['pdf'], 'saved.pdf', {
+      type: 'application/pdf',
+    });
+    await addPdfToLibrary(active, 'upload');
+    vi.spyOn(openFileStore, 'readPersistedOpenFiles').mockResolvedValue([
+      {
+        name: active.name,
+        type: active.type,
+        source: 'upload',
+        file: active,
+      },
+    ]);
 
-    await clearPersistedOpenFile();
     await expect(seedToolOpenFile()).resolves.toBe(true);
     await vi.waitFor(() => {
       expect(document.querySelectorAll('#file-list li')).toHaveLength(1);

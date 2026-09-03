@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -116,23 +116,18 @@ async function encryptPdf() {
   const outputPath = '/output.pdf';
   let qpdf: QpdfInstanceExtended;
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   try {
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Initializing encryption...';
+    showLoader('Initializing encryption...');
 
     qpdf = await initializeQpdf();
 
-    if (loaderText) loaderText.textContent = 'Reading PDF...';
+    showLoader('Reading PDF...');
     const fileBuffer = await readFileAsArrayBuffer(pageState.file);
     const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
 
     qpdf.FS.writeFile(inputPath, uint8Array);
 
-    if (loaderText)
-      loaderText.textContent = 'Encrypting PDF with 256-bit AES...';
+    showLoader('Encrypting PDF with 256-bit AES...');
 
     const args = [inputPath, '--encrypt', userPassword, ownerPassword, '256'];
 
@@ -163,7 +158,7 @@ async function encryptPdf() {
       );
     }
 
-    if (loaderText) loaderText.textContent = 'Preparing download...';
+    showLoader('Preparing download...');
     const outputFile = qpdf.FS.readFile(outputPath, { encoding: 'binary' });
 
     if (!outputFile || outputFile.length === 0) {
@@ -175,7 +170,7 @@ async function encryptPdf() {
     });
     downloadFile(blob, pageState.file.name);
 
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
 
     let successMessage = 'PDF encrypted successfully with 256-bit AES!';
     if (!hasDistinctOwnerPassword) {
@@ -188,7 +183,7 @@ async function encryptPdf() {
     });
   } catch (error: unknown) {
     console.error('Error during PDF encryption:', error);
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     showAlert(
       'Encryption Failed',
       `An error occurred: ${error instanceof Error ? error.message : 'The PDF might be corrupted.'}`

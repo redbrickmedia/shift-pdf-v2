@@ -14,6 +14,7 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { hideLoader, showLoader } from '../ui.js';
 import {
   BookmarkNode,
   BookmarkTree,
@@ -56,9 +57,6 @@ const autoExtractCheckbox = document.getElementById(
 ) as HTMLInputElement | null;
 const appEl = document.getElementById('app') as HTMLElement | null;
 const uploaderEl = document.getElementById('uploader') as HTMLElement | null;
-const loaderModal = document.getElementById(
-  'loader-modal'
-) as HTMLElement | null;
 const fileDisplayArea = document.getElementById(
   'file-display-area'
 ) as HTMLElement | null;
@@ -1223,20 +1221,19 @@ async function loadPDF(e?: Event): Promise<void> {
   if (!file) return;
 
   // Show loader
-  loaderModal?.classList.remove('hidden');
+  showLoader('Loading PDF...');
 
   originalFileName = file.name.replace('.pdf', '');
   if (filenameDisplay)
     filenameDisplay.textContent = truncateFilename(file.name);
   renderFileDisplay(file);
 
-  loaderModal?.classList.add('hidden');
   const result = await loadPdfWithPasswordPrompt(file);
   if (!result) {
-    loaderModal?.classList.add('hidden');
+    hideLoader();
     return;
   }
-  loaderModal?.classList.remove('hidden');
+  showLoader('Loading PDF...');
 
   currentPage = 1;
   bookmarkTree = [];
@@ -1274,7 +1271,7 @@ async function loadPDF(e?: Event): Promise<void> {
   createIcons({ icons });
 
   // Hide loader
-  loaderModal?.classList.add('hidden');
+  hideLoader();
 }
 
 csvInput?.addEventListener('change', async (e: Event) => {

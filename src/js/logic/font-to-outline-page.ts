@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { convertFileToOutlines } from '../utils/ghostscript-loader.js';
 import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader.js';
@@ -110,25 +110,19 @@ async function processFiles() {
 
   pageState.files = await batchDecryptIfNeeded(pageState.files);
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   try {
     if (pageState.files.length === 1) {
-      if (loaderModal) loaderModal.classList.remove('hidden');
-      if (loaderText)
-        loaderText.textContent = 'Converting fonts to outlines...';
+      showLoader('Converting fonts to outlines...');
 
       const file = pageState.files[0];
       const resultBlob = await convertFileToOutlines(file, (msg) => {
-        if (loaderText) loaderText.textContent = msg;
+        showLoader(msg);
       });
 
       downloadFile(resultBlob, file.name);
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
     } else {
-      if (loaderModal) loaderModal.classList.remove('hidden');
-      if (loaderText) loaderText.textContent = 'Processing multiple PDFs...';
+      showLoader('Processing multiple PDFs...');
 
       const zip = new JSZip();
       const usedNames = new Set<string>();
@@ -136,8 +130,9 @@ async function processFiles() {
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
-        if (loaderText)
-          loaderText.textContent = `Processing ${i + 1}/${pageState.files.length}: ${file.name}...`;
+        showLoader(
+          `Processing ${i + 1}/${pageState.files.length}: ${file.name}...`
+        );
 
         try {
           const resultBlob = await convertFileToOutlines(file, () => {});
@@ -164,11 +159,11 @@ async function processFiles() {
       } else {
         showAlert('Error', 'No PDFs could be processed.');
       }
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
     }
   } catch (e: unknown) {
     console.error(e);
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     const errorMessage =
       e instanceof Error ? e.message : 'An unexpected error occurred.';
     showAlert('Error', errorMessage);

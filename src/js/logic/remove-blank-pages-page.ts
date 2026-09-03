@@ -6,6 +6,7 @@ import { initPagePreview } from '../utils/page-preview.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { escapeHtml } from '../utils/helpers.js';
+import { hideLoader, showLoader } from '../ui.js';
 
 // State
 const pageState: {
@@ -19,16 +20,6 @@ const pageState: {
   detectedBlankPages: [],
   pageThumbnails: new Map(),
 };
-
-function showLoader(msg = 'Processing...') {
-  document.getElementById('loader-modal')?.classList.remove('hidden');
-  const txt = document.getElementById('loader-text');
-  if (txt) txt.textContent = msg;
-}
-
-function hideLoader() {
-  document.getElementById('loader-modal')?.classList.add('hidden');
-}
 
 function showAlert(
   title: string,

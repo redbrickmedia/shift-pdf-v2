@@ -3,25 +3,13 @@ import { createIcons, icons } from 'lucide';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { escapeHtml } from '../utils/helpers.js';
+import { hideLoader, showLoader } from '../ui.js';
 
 // State management
 const pageState: { pdfDoc: PDFDocument | null; file: File | null } = {
   pdfDoc: null,
   file: null,
 };
-
-// UI helpers
-function showLoader(message: string = 'Processing...') {
-  const loader = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loader) loader.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = message;
-}
-
-function hideLoader() {
-  const loader = document.getElementById('loader-modal');
-  if (loader) loader.classList.add('hidden');
-}
 
 function showAlert(
   title: string,

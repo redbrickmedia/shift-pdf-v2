@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -100,22 +100,18 @@ async function removeRestrictions() {
   const outputPath = '/output.pdf';
   let qpdf: QpdfInstanceExtended;
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   try {
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Initializing...';
+    showLoader('Initializing...');
 
     qpdf = await initializeQpdf();
 
-    if (loaderText) loaderText.textContent = 'Reading PDF...';
+    showLoader('Reading PDF...');
     const fileBuffer = await readFileAsArrayBuffer(pageState.file);
     const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
 
     qpdf.FS.writeFile(inputPath, uint8Array);
 
-    if (loaderText) loaderText.textContent = 'Removing restrictions...';
+    showLoader('Removing restrictions...');
 
     const args = [inputPath];
 
@@ -143,7 +139,7 @@ async function removeRestrictions() {
       );
     }
 
-    if (loaderText) loaderText.textContent = 'Preparing download...';
+    showLoader('Preparing download...');
     const outputFile = qpdf.FS.readFile(outputPath, { encoding: 'binary' });
 
     if (!outputFile || outputFile.length === 0) {
@@ -155,7 +151,7 @@ async function removeRestrictions() {
     });
     downloadFile(blob, pageState.file.name);
 
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
 
     showAlert(
       'Success',
@@ -167,7 +163,7 @@ async function removeRestrictions() {
     );
   } catch (error: unknown) {
     console.error('Error during restriction removal:', error);
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     showAlert(
       'Operation Failed',
       `An error occurred: ${error instanceof Error ? error.message : 'The PDF might be corrupted or password-protected.'}`

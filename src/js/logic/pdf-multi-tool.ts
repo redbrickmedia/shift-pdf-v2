@@ -17,6 +17,7 @@ import { convertImagesToPdfFile } from '../utils/images-to-pdf-lib.js';
 
 import { t } from '../i18n/i18n';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 interface PageData {
   id: string; // Unique ID for DOM reconciliation
@@ -332,6 +333,13 @@ function initializeTool() {
   });
 
   setupGlobalDragAndDrop();
+
+  // Shared seed assigns `#pdf-file-input` (via findToolFileInput) and may fire
+  // change; also load if this page subscribed after that event.
+  syncSeededToolFiles((files) => {
+    if (allPages.length > 0 || isRendering || isProcessingDrop) return;
+    void handleIncomingFiles(files);
+  });
 
   document.getElementById('upload-area')?.classList.remove('hidden');
 }

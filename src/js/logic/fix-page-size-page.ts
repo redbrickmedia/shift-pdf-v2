@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers.js';
 import { fixPageSize as fixPageSizeCore } from '../utils/pdf-operations';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
@@ -101,11 +101,7 @@ async function fixPageSize() {
   const backgroundColor = hexToRgb(
     (document.getElementById('background-color') as HTMLInputElement).value
   );
-
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loaderModal) loaderModal.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = 'Standardizing pages...';
+  showLoader('Standardizing pages...');
 
   try {
     const customWidth =
@@ -149,7 +145,7 @@ async function fixPageSize() {
     console.error(e);
     showAlert('Error', 'An error occurred while standardizing pages.');
   } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 

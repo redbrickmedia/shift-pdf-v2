@@ -30,6 +30,7 @@ import {
   uniqueZipName,
   extractPagesWithQpdf,
 } from '../utils/split-pdf-helpers.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   let visualSelectorRendered = false;
@@ -621,4 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', split);
   }
+
+  onToolFilesSeeded(() => {
+    void updateUI();
+  });
 });

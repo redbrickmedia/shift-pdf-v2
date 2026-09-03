@@ -6,6 +6,7 @@ import {
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { createIcons, icons } from 'lucide';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 let selectedFile: File | null = null;
 let viewerIframe: HTMLIFrameElement | null = null;
@@ -255,8 +256,13 @@ function setupAnnotationViewer(iframe: HTMLIFrameElement) {
 }
 
 async function onPdfSelected(file: File) {
+  if (selectedFile) return;
+  selectedFile = file;
   const result = await loadPdfWithPasswordPrompt(file);
-  if (!result) return;
+  if (!result) {
+    selectedFile = null;
+    return;
+  }
   result.pdf.destroy();
   selectedFile = result.file;
   updateFileList();
@@ -293,6 +299,14 @@ if (dropZone) {
     }
   });
 }
+
+syncSeededToolFiles(
+  (files) => {
+    if (selectedFile || files.length === 0) return;
+    void onPdfSelected(files[0]);
+  },
+  { multiple: false }
+);
 
 if (saveStampedBtn) {
   saveStampedBtn.addEventListener('click', () => {

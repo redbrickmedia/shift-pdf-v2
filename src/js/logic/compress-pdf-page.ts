@@ -8,6 +8,7 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -664,5 +665,11 @@ document.addEventListener('DOMContentLoaded', () => {
       markFileFromHandoff(file);
       return handleFileSelect([file]);
     },
+  });
+
+  // Central seed (seedToolOpenFile) assigns #file-input and may fire change;
+  // also refresh UI if this page subscribed after the change event.
+  onToolFilesSeeded(() => {
+    void updateUI();
   });
 });

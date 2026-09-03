@@ -1,4 +1,6 @@
 import JSZip from 'jszip';
+import { createIcons, icons } from 'lucide';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import {
   downloadFile,
   formatBytes,
@@ -13,137 +15,109 @@ import {
 } from '../utils/wasm-provider.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { initI18n, t } from '../i18n/i18n';
+import { state } from '../state.js';
+import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/pdf-to-json.worker.js'
-);
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('file-input') as HTMLInputElement;
+  const dropZone = document.getElementById('drop-zone');
+  const fileDisplayArea = document.getElementById('file-display-area');
+  const fileControls = document.getElementById('file-controls');
+  const convertOptions = document.getElementById('convert-options');
+  const processBtn = document.getElementById(
+    'process-btn'
+  ) as HTMLButtonElement | null;
+  const addMoreBtn = document.getElementById('add-more-btn');
+  const clearFilesBtn = document.getElementById('clear-files-btn');
+  const statusMessage = document.getElementById('status-message');
 
-let selectedFiles: File[] = [];
+  let worker: Worker | null = null;
 
-const pdfFilesInput = document.getElementById('pdfFiles') as HTMLInputElement;
-const convertBtn = document.getElementById('convertBtn') as HTMLButtonElement;
-const statusMessage = document.getElementById(
-  'status-message'
-) as HTMLDivElement;
-const fileListDiv = document.getElementById('fileList') as HTMLDivElement;
-function showStatus(
-  message: string,
-  type: 'success' | 'error' | 'info' = 'info'
-) {
-  statusMessage.textContent = message;
-  statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
-    type === 'success'
-      ? 'bg-green-900 text-green-200'
-      : type === 'error'
-        ? 'bg-red-900 text-red-200'
-        : 'bg-blue-900 text-blue-200'
-  }`;
-  statusMessage.classList.remove('hidden');
-}
+  const showStatus = (
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info'
+  ) => {
+    if (!statusMessage) return;
+    statusMessage.textContent = message;
+    statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
+      type === 'success'
+        ? 'bg-green-900 text-green-200'
+        : type === 'error'
+          ? 'bg-red-900 text-red-200'
+          : 'bg-blue-900 text-blue-200'
+    }`;
+    statusMessage.classList.remove('hidden');
+  };
 
-function hideStatus() {
-  statusMessage.classList.add('hidden');
-}
+  const hideStatus = () => statusMessage?.classList.add('hidden');
 
-function updateFileList() {
-  fileListDiv.innerHTML = '';
-  if (selectedFiles.length === 0) {
-    fileListDiv.classList.add('hidden');
-    return;
-  }
-
-  fileListDiv.classList.remove('hidden');
-  selectedFiles.forEach((file) => {
-    const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm mb-2';
-
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'truncate font-medium text-gray-200';
-    nameSpan.textContent = file.name;
-
-    const sizeSpan = document.createElement('span');
-    sizeSpan.className = 'flex-shrink-0 ml-4 text-gray-400';
-    sizeSpan.textContent = formatBytes(file.size);
-
-    fileDiv.append(nameSpan, sizeSpan);
-    fileListDiv.appendChild(fileDiv);
-  });
-}
-
-pdfFilesInput.addEventListener('change', (e) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    selectedFiles = Array.from(target.files);
-    convertBtn.disabled = selectedFiles.length === 0;
-    updateFileList();
-
-    if (selectedFiles.length === 0) {
-      showStatus(t('tools:pdfToJson.status.selectAtLeastOne'), 'info');
-    } else {
-      showStatus(
-        t('tools:pdfToJson.status.selectedReady', {
-          count: selectedFiles.length,
-        }),
-        'info'
-      );
+  const updateUI = () => {
+    if (!fileDisplayArea || !fileControls || !convertOptions || !processBtn) {
+      return;
     }
-  }
-});
 
-async function convertPDFsToJSON() {
-  if (selectedFiles.length === 0) {
-    showStatus(t('tools:pdfToJson.status.selectAtLeastOne'), 'error');
-    return;
-  }
+    fileDisplayArea.innerHTML = '';
 
-  // Check if CPDF is configured
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    return;
-  }
+    if (state.files.length === 0) {
+      fileControls.classList.add('hidden');
+      convertOptions.classList.add('hidden');
+      processBtn.disabled = true;
+      setWorkspaceFiles([]);
+      return;
+    }
 
-  try {
-    convertBtn.disabled = true;
-    showStatus(t('tools:pdfToJson.status.checkingEncrypted'), 'info');
+    state.files.forEach((file, index) => {
+      const row = document.createElement('div');
+      row.className =
+        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
-    selectedFiles = await batchDecryptIfNeeded(selectedFiles);
+      const name = document.createElement('span');
+      name.className = 'truncate font-medium text-gray-200';
+      name.textContent = file.name;
 
-    showStatus(t('tools:pdfToJson.status.readingFiles'), 'info');
+      const size = document.createElement('span');
+      size.className = 'flex-shrink-0 ml-4 text-gray-400';
+      size.textContent = formatBytes(file.size);
 
-    const fileBuffers = await Promise.all(
-      selectedFiles.map((file) => readFileAsArrayBuffer(file))
-    );
+      const remove = document.createElement('button');
+      remove.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      remove.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+      remove.onclick = () => {
+        state.files = state.files.filter((_: File, i: number) => i !== index);
+        updateUI();
+      };
 
-    showStatus(t('tools:pdfToJson.status.converting'), 'info');
+      row.append(name, size, remove);
+      fileDisplayArea.appendChild(row);
+    });
 
-    worker.postMessage(
-      {
-        command: 'convert',
-        fileBuffers: fileBuffers,
-        fileNames: selectedFiles.map((f) => f.name),
-        cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-      },
-      fileBuffers
-    );
-  } catch (error) {
-    console.error('Error reading files:', error);
-    showStatus(
-      t('tools:pdfToJson.status.readError', {
-        message:
-          error instanceof Error ? error.message : t('common.unknownError'),
-      }),
-      'error'
-    );
-    convertBtn.disabled = false;
-  }
-}
+    createIcons({ icons });
+    fileControls.classList.remove('hidden');
+    convertOptions.classList.remove('hidden');
+    processBtn.disabled = false;
+    setWorkspaceFiles(state.files);
+  };
 
-worker.onmessage = async (e: MessageEvent) => {
-  convertBtn.disabled = false;
+  const resetState = () => {
+    state.files = [];
+    if (fileInput) fileInput.value = '';
+    updateUI();
+  };
 
-  if (e.data.status === 'success') {
-    const jsonFiles = e.data.jsonFiles as Array<{
+  const handleWorkerMessage = async (event: MessageEvent) => {
+    if (processBtn) processBtn.disabled = false;
+
+    if (event.data.status === 'error') {
+      const message = event.data.message || t('common.unknownError');
+      console.error('Worker Error:', message);
+      showStatus(t('tools:pdfToJson.status.workerError', { message }), 'error');
+      return;
+    }
+
+    if (event.data.status !== 'success') return;
+
+    const jsonFiles = event.data.jsonFiles as Array<{
       name: string;
       data: ArrayBuffer;
     }>;
@@ -155,25 +129,18 @@ worker.onmessage = async (e: MessageEvent) => {
       const usedNames = new Set<string>();
       jsonFiles.forEach(({ name, data }) => {
         const jsonName = name.replace(/\.pdf$/i, '.json');
-        const uint8Array = new Uint8Array(data);
-        const zipEntryName = deduplicateFileName(jsonName, usedNames);
-        zip.file(zipEntryName, uint8Array);
+        zip.file(
+          deduplicateFileName(jsonName, usedNames),
+          new Uint8Array(data)
+        );
       });
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, 'pdfs-to-json.zip');
 
       showStatus(t('tools:pdfToJson.status.success'), 'success');
-
-      selectedFiles = [];
-      pdfFilesInput.value = '';
-      fileListDiv.innerHTML = '';
-      fileListDiv.classList.add('hidden');
-      convertBtn.disabled = true;
-
-      setTimeout(() => {
-        hideStatus();
-      }, 3000);
+      resetState();
+      setTimeout(hideStatus, 3000);
     } catch (error) {
       console.error('Error creating ZIP:', error);
       showStatus(
@@ -184,20 +151,116 @@ worker.onmessage = async (e: MessageEvent) => {
         'error'
       );
     }
-  } else if (e.data.status === 'error') {
-    const errorMessage = e.data.message || t('common.unknownError');
-    console.error('Worker Error:', errorMessage);
-    showStatus(
-      t('tools:pdfToJson.status.workerError', { message: errorMessage }),
-      'error'
+  };
+
+  const getWorker = () => {
+    if (!worker) {
+      worker = new Worker(
+        import.meta.env.BASE_URL + 'workers/pdf-to-json.worker.js'
+      );
+      worker.onmessage = (event: MessageEvent) => {
+        void handleWorkerMessage(event);
+      };
+    }
+    return worker;
+  };
+
+  const convert = async () => {
+    if (state.files.length === 0) {
+      showStatus(t('tools:pdfToJson.status.selectAtLeastOne'), 'error');
+      return;
+    }
+
+    if (!isCpdfAvailable()) {
+      showWasmRequiredDialog('cpdf');
+      return;
+    }
+
+    try {
+      if (processBtn) processBtn.disabled = true;
+      showStatus(t('tools:pdfToJson.status.checkingEncrypted'), 'info');
+      state.files = await batchDecryptIfNeeded(state.files);
+
+      showStatus(t('tools:pdfToJson.status.readingFiles'), 'info');
+      const fileBuffers = await Promise.all(
+        state.files.map((file: File) => readFileAsArrayBuffer(file))
+      );
+
+      showStatus(t('tools:pdfToJson.status.converting'), 'info');
+      getWorker().postMessage(
+        {
+          command: 'convert',
+          fileBuffers,
+          fileNames: state.files.map((file: File) => file.name),
+          cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
+        },
+        fileBuffers
+      );
+    } catch (error) {
+      console.error('Error reading files:', error);
+      showStatus(
+        t('tools:pdfToJson.status.readError', {
+          message:
+            error instanceof Error ? error.message : t('common.unknownError'),
+        }),
+        'error'
+      );
+      if (processBtn) processBtn.disabled = false;
+    }
+  };
+
+  const handleFileSelect = (files: FileList | File[] | null): boolean => {
+    const pdfFiles = Array.from(files ?? []).filter(
+      (file) =>
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
     );
-  }
-};
+    if (pdfFiles.length === 0) return false;
+    state.files = [...state.files, ...pdfFiles];
+    updateUI();
+    return true;
+  };
 
-convertBtn.addEventListener('click', convertPDFsToJSON);
+  fileInput?.addEventListener('change', (event) => {
+    handleFileSelect((event.target as HTMLInputElement).files);
+  });
 
-void (async () => {
-  await initI18n();
-  showStatus(t('tools:pdfToJson.status.getStarted'), 'info');
-  initializeGlobalShortcuts();
-})();
+  fileInput?.addEventListener('click', () => {
+    fileInput.value = '';
+  });
+
+  dropZone?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.classList.add('bg-gray-700');
+  });
+
+  dropZone?.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('bg-gray-700');
+  });
+
+  dropZone?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropZone.classList.remove('bg-gray-700');
+    handleFileSelect(event.dataTransfer?.files ?? null);
+  });
+
+  addMoreBtn?.addEventListener('click', () => fileInput?.click());
+  clearFilesBtn?.addEventListener('click', resetState);
+  processBtn?.addEventListener('click', () => void convert());
+
+  listenForShiftFileHandoff({
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      return handleFileSelect([file]);
+    },
+  });
+
+  onToolFilesSeeded(updateUI);
+
+  void (async () => {
+    await initI18n();
+    showStatus(t('tools:pdfToJson.status.getStarted'), 'info');
+    initializeGlobalShortcuts();
+  })();
+});

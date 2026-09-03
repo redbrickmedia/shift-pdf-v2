@@ -7,6 +7,8 @@ import Cropper from 'cropperjs';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import { CropperState, CropPercentages } from '@/types';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { state } from '../state.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 
 const cropperState: CropperState = {
   pdfDoc: null,
@@ -59,6 +61,11 @@ function initializePage() {
   document
     .getElementById('crop-button')
     ?.addEventListener('click', performCrop);
+
+  onToolFilesSeeded(() => {
+    if (cropperState.file || state.files.length === 0) return;
+    void handleFile(state.files[0]);
+  });
 }
 
 function handleFileUpload(e: Event) {

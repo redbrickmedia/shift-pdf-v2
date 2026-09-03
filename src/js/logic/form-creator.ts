@@ -37,6 +37,7 @@ import {
 } from '@/types';
 import { extractExistingFields as extractExistingPdfFields } from './form-creator-extraction.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 let fields: FormField[] = [];
 let selectedField: FormField | null = null;
@@ -700,7 +701,7 @@ function renderField(field: FormField): void {
       '#f9fafb'
     );
     contentEl.innerHTML =
-      '<div class="flex flex-col items-center"><i data-lucide="pen-tool" class="w-6 h-6 mb-1"></i><span class="text-[10px]">Sign Here</span></div>';
+      '<div class="flex flex-col items-center"><i data-lucide="pen-tool" class="w-6 h-6 mb-1"></i><span class="text-xs">Sign Here</span></div>';
     setTimeout(() => (window as LucideWindow).lucide?.createIcons(), 0);
   } else if (field.type === 'date') {
     contentEl.className =
@@ -718,7 +719,7 @@ function renderField(field: FormField): void {
       field,
       '#f3f4f6'
     );
-    contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1"><i data-lucide="image" class="w-6 h-6 mb-1"></i><span class="text-[10px] leading-tight">${escapeHtml(field.label || 'Click to Upload Image')}</span></div>`;
+    contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1"><i data-lucide="image" class="w-6 h-6 mb-1"></i><span class="text-xs leading-tight">${escapeHtml(field.label || 'Click to Upload Image')}</span></div>`;
     setTimeout(() => (window as LucideWindow).lucide?.createIcons(), 0);
   } else if (field.type === 'barcode') {
     contentEl.className = 'w-full h-full flex items-center justify-center';
@@ -747,11 +748,11 @@ function renderField(field: FormField): void {
           String(field.name).replace(/[\r\n]+/g, ' '),
           error
         );
-        contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1 text-gray-400"><i data-lucide="qr-code" class="w-6 h-6 mb-1"></i><span class="text-[10px] leading-tight">Invalid data</span></div>`;
+        contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1 text-gray-400"><i data-lucide="qr-code" class="w-6 h-6 mb-1"></i><span class="text-xs leading-tight">Invalid data</span></div>`;
         setTimeout(() => (window as LucideWindow).lucide?.createIcons(), 0);
       }
     } else {
-      contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1 text-gray-400"><i data-lucide="qr-code" class="w-6 h-6 mb-1"></i><span class="text-[10px] leading-tight">Barcode</span></div>`;
+      contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1 text-gray-400"><i data-lucide="qr-code" class="w-6 h-6 mb-1"></i><span class="text-xs leading-tight">Barcode</span></div>`;
       setTimeout(() => (window as LucideWindow).lucide?.createIcons(), 0);
     }
   }
@@ -2922,6 +2923,14 @@ pdfFileInput.addEventListener('change', async (e) => {
   }
 });
 
+syncSeededToolFiles(
+  (files) => {
+    if (uploadedPdfDoc || files.length === 0) return;
+    void handlePdfUpload(files[0]);
+  },
+  { multiple: false }
+);
+
 blankPdfBtn.addEventListener('click', () => {
   pageSizeSelector.classList.remove('hidden');
 });
@@ -2977,9 +2986,14 @@ function extractExistingFields(pdfDoc: PDFDocument): void {
 }
 
 async function handlePdfUpload(file: File) {
+  if (uploadedPdfDoc || uploadedFileName) return;
+  uploadedFileName = file.name;
   try {
     const result = await loadPdfWithPasswordPrompt(file);
-    if (!result) return;
+    if (!result) {
+      uploadedFileName = null;
+      return;
+    }
     const arrayBuffer = result.bytes;
     uploadedPdfjsDoc = result.pdf;
     uploadedPdfDoc = await loadPdfDocument(arrayBuffer);

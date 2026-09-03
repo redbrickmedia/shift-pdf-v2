@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
@@ -7,6 +7,7 @@ import {
 } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
 import type { OverlayPdfState, QpdfInstanceExtended } from '@/types';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 const pageState: OverlayPdfState = {
   baseFile: null,
@@ -115,11 +116,7 @@ async function processOverlay() {
     );
     return;
   }
-
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loaderModal) loaderModal.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = 'Initializing PDF engine...';
+  showLoader('Initializing PDF engine...');
 
   const inputPath = '/input_base.pdf';
   const overlayPath = '/input_overlay.pdf';
@@ -129,7 +126,7 @@ async function processOverlay() {
   try {
     qpdf = await initializeQpdf();
 
-    if (loaderText) loaderText.textContent = 'Reading files...';
+    showLoader('Reading files...');
 
     const baseBuffer = await readFileAsArrayBuffer(pageState.baseFile);
     const overlayBuffer = await readFileAsArrayBuffer(pageState.overlayFile);
@@ -154,8 +151,7 @@ async function processOverlay() {
     const pageRange = pageRangeInput?.value.trim();
     const shouldRepeat = repeatCheckbox?.checked;
 
-    if (loaderText)
-      loaderText.textContent = `Applying ${mode.replace('--', '')}...`;
+    showLoader(`Applying ${mode.replace('--', '')}...`);
 
     const args = [inputPath, mode, overlayPath];
 
@@ -207,7 +203,7 @@ async function processOverlay() {
     } catch (cleanupError) {
       console.warn('Failed to cleanup WASM FS:', cleanupError);
     }
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
   }
 }
 
@@ -275,4 +271,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', processOverlay);
   }
+
+  syncSeededToolFiles(
+    (files) => {
+      if (pageState.baseFile || files.length === 0) return;
+      pageState.baseFile = files[0];
+      updateUI();
+    },
+    { multiple: false }
+  );
 });
