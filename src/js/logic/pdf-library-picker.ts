@@ -148,7 +148,8 @@ function createUploadAction(
 
   const upload = root.createElement('button');
   upload.type = 'button';
-  upload.className = 'shift-library-picker-upload';
+  upload.className =
+    'shift-button shift-button-secondary shift-button-block shift-library-picker-upload';
   upload.textContent = 'Upload from device';
   upload.addEventListener('click', () => {
     closePicker(root);
