@@ -11,7 +11,7 @@ export async function wordToPdf() {
     return;
   }
 
-  showLoader('Preparing preview...');
+  showLoader('Preparing preview...', { job: false });
 
   try {
     const mammothOptions = {

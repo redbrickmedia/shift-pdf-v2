@@ -17,7 +17,11 @@ import {
   createDefaultToolCompletionPanel,
   type ToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
+import {
+  markJobStarted,
+  reportJobResult,
+  setJobDetails,
+} from '../host/job-lifecycle.js';
 
 let files: File[] = [];
 let completionPanel: ToolCompletionPanel | null = null;
@@ -107,16 +111,11 @@ async function convert() {
     return;
   }
   const startedAt = performance.now();
-  const operation: ToolOperation | null =
-    pdfEngineAnalytics?.startToolOperation('pdf-to-jpg') ?? null;
+  markJobStarted();
   try {
     const result = await loadPdfWithPasswordPrompt(files[0], files, 0);
     if (!result) {
-      operation?.finish({
-        result: 'cancelled',
-        inputCount: 1,
-        outputCount: 0,
-      });
+      reportJobResult('cancelled', { inputCount: 1, outputCount: 0 });
       return;
     }
     showLoader(t('tools:pdfToJpg.loader.converting'));
@@ -150,6 +149,7 @@ async function convert() {
       outputFilename = getCleanPdfFilename(files[0].name) + '_jpgs.zip';
     }
 
+    setJobDetails({ inputCount: 1, outputCount: pdf.numPages });
     downloadFile(outputBlob, outputFilename);
     completionPanel?.show({
       blob: outputBlob,
@@ -157,14 +157,8 @@ async function convert() {
       summary: `${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'} converted to JPG.`,
       timing: completionTiming(startedAt),
     });
-    operation?.finish({
-      result: 'success',
-      inputCount: 1,
-      outputCount: pdf.numPages,
-    });
   } catch (e) {
-    operation?.finish({
-      result: 'error',
+    reportJobResult('error', {
       inputCount: 1,
       outputCount: 0,
       errorCategory: 'processing',

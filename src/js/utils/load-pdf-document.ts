@@ -6,7 +6,7 @@ type PDFDocumentInstance = Awaited<ReturnType<typeof PDFDocument.load>>;
 
 async function repairPdfBytes(pdf: Uint8Array): Promise<Uint8Array | null> {
   try {
-    const qpdf = await initializeQpdf();
+    const qpdf = await initializeQpdf({ job: false });
     qpdf.FS.writeFile('/input.pdf', pdf);
 
     try {

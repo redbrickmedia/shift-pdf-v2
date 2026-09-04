@@ -219,7 +219,7 @@ function displayAttachments(attachments: AttachmentInfo[]) {
 async function loadAttachments() {
   if (!pageState.file) return;
 
-  showLoader('Loading attachments...');
+  showLoader('Loading attachments...', { job: false });
 
   // Check if CPDF is configured
   if (!isCpdfAvailable()) {

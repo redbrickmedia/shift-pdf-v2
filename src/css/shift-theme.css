@@ -6,7 +6,7 @@
  * `--shift-*` aliases for themed values.
  *
  * Hex values below are the light / default-brand resolutions; the `html.dark`
- * block at the foot of the file carries the dark ones. src/js/shift/theme.ts
+ * block at the foot of the file carries the dark ones. src/js/host/theme.ts
  * toggles `.light` / `.dark` on <html> from the host's colour mode.
  * App-local geometry (sidebar width, panel radius, font stack) stays
  * `--shift-*` because those are not themed.

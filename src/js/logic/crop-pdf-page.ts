@@ -89,7 +89,7 @@ async function handleFile(file: File) {
       cropperState.file = null;
       return;
     }
-    showLoader('Loading PDF...');
+    showLoader('Loading PDF...', { job: false });
     cropperState.file = result.file;
     cropperState.originalPdfBytes = result.bytes;
     cropperState.pdfDoc = result.pdf;
@@ -152,7 +152,7 @@ function saveCurrentCrop() {
 }
 
 async function displayPageAsImage(num: number) {
-  showLoader(`Rendering Page ${num}...`);
+  showLoader(`Rendering Page ${num}...`, { job: false });
 
   try {
     const page = await cropperState.pdfDoc.getPage(num);

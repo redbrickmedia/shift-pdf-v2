@@ -1,27 +1,26 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  bootstrapShiftHost,
+  bootstrapHostIntegration,
   resetBootstrapForTests,
-} from '../js/shift/bootstrap';
+} from '../js/host/bootstrap';
 import {
-  EXPERIENCE_STARTED_EVENT,
-  EXPERIENCE_STARTED_STORAGE_KEY,
+  EXPERIENCE_SENT_STORAGE_KEY,
   getToolIdFromPath,
-  trackExperienceStarted,
-  trackPdfEngine,
-  TOOL_USED_EVENT,
-} from '../js/shift/analytics';
+  PDF_ENGINE_EVENTS,
+  trackPdfEngineExperience,
+} from '../js/host/analytics';
 import {
   applyColorMode,
   applyDataTheme,
   startThemeSync,
-} from '../js/shift/theme';
+} from '../js/host/theme';
 import {
   listenForJobCancel,
   markJobStarted,
   reportJobResult,
   resetJobLifecycleForTests,
-} from '../js/shift/job-lifecycle';
+  setJobDetails,
+} from '../js/host/job-lifecycle';
 import { downloadFile } from '../js/utils/helpers';
 import { dom, hideLoader, showAlert, showLoader } from '../js/ui';
 
@@ -29,34 +28,21 @@ type HostOptions = {
   track?: ReturnType<typeof vi.fn>;
 };
 
-/** Stub the analytics host used in production; theme is driven by matchMedia. */
 function installHost(options: HostOptions = {}) {
-  vi.stubEnv('VITE_SHIFT_API_ROOT', 'chrome.shift');
+  vi.stubEnv('VITE_HOST_API_ROOT', 'testHost.api');
   const track = options.track ?? vi.fn();
-
-  Object.defineProperty(window, 'chrome', {
-    configurable: true,
-    writable: true,
-    value: {
-      shift: {
-        analytics: { track },
-      },
-    },
-  });
-
+  vi.stubGlobal('testHost', { api: { analytics: { track } } });
   return { track };
 }
 
 function uninstallHost() {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
-  Reflect.deleteProperty(window, 'chrome');
+  Reflect.deleteProperty(globalThis, 'testHost');
 }
 
-/** Stands in for the preferred colour scheme Shift pushes to the renderer. */
 function stubPrefersDark(matches: boolean) {
   const listeners: Array<(event: MediaQueryListEvent) => void> = [];
-
   vi.stubGlobal(
     'matchMedia',
     vi.fn((query: string) => ({
@@ -65,9 +51,7 @@ function stubPrefersDark(matches: boolean) {
       addEventListener: (
         _type: string,
         listener: (event: MediaQueryListEvent) => void
-      ) => {
-        listeners.push(listener);
-      },
+      ) => listeners.push(listener),
       removeEventListener: (): void => undefined,
     }))
   );
@@ -81,39 +65,44 @@ function stubPrefersDark(matches: boolean) {
   };
 }
 
-describe('shift host bootstrap', () => {
+describe('host bootstrap', () => {
   beforeEach(() => {
     resetBootstrapForTests();
     sessionStorage.clear();
+    localStorage.clear();
+    window.history.replaceState({}, '', '/merge-pdf.html');
     document.documentElement.className = '';
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.style.colorScheme = '';
     uninstallHost();
   });
 
-  afterEach(() => {
-    uninstallHost();
-  });
+  afterEach(uninstallHost);
 
-  it('bootstraps once', () => {
+  it('bootstraps once when the generic host is present', () => {
     const { track } = installHost();
-    bootstrapShiftHost();
-    bootstrapShiftHost();
+    bootstrapHostIntegration();
+    bootstrapHostIntegration();
+
     expect(track).toHaveBeenCalledTimes(1);
-    expect(track).toHaveBeenCalledWith(EXPERIENCE_STARTED_EVENT, {
-      event_type: 'state-change',
-      trigger: 'system',
-    });
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.experienceStarted,
+      expect.objectContaining({
+        event_type: 'state-change',
+        trigger: 'tool-route',
+        tool_id: 'merge-pdf',
+      })
+    );
   });
 
-  it('does not throw when the host is missing', () => {
-    expect(() => bootstrapShiftHost()).not.toThrow();
+  it('does not throw when the host is absent', () => {
+    expect(() => bootstrapHostIntegration()).not.toThrow();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.style.colorScheme).toBe('dark');
   });
 });
 
-describe('shift theme', () => {
+describe('host theme', () => {
   beforeEach(() => {
     document.documentElement.className = '';
     document.documentElement.removeAttribute('data-theme');
@@ -121,9 +110,7 @@ describe('shift theme', () => {
     uninstallHost();
   });
 
-  afterEach(() => {
-    uninstallHost();
-  });
+  afterEach(uninstallHost);
 
   it('applies light and dark classes plus data-theme', () => {
     applyColorMode('light');
@@ -140,7 +127,7 @@ describe('shift theme', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark');
   });
 
-  it('follows prefers-color-scheme in a Shift build', () => {
+  it('follows prefers-color-scheme when a host is configured', () => {
     const media = stubPrefersDark(false);
     installHost();
     startThemeSync();
@@ -152,103 +139,55 @@ describe('shift theme', () => {
     expect(document.documentElement.classList.contains('light')).toBe(false);
   });
 
-  it('ignores the OS preference when the API root is unset', () => {
+  it('retains the default when the host root is unset', () => {
     const media = stubPrefersDark(false);
     startThemeSync();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
 
     media.emit(false);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
-
-  it('starts no timer in either build', () => {
-    const setSpy = vi.spyOn(window, 'setInterval');
-
-    startThemeSync();
-    installHost();
-    stubPrefersDark(true);
-    startThemeSync();
-
-    expect(setSpy).not.toHaveBeenCalled();
-    setSpy.mockRestore();
-  });
 });
 
-describe('shift analytics', () => {
+describe('host analytics through the bridge', () => {
   let track: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     resetJobLifecycleForTests();
     sessionStorage.clear();
+    localStorage.clear();
     window.history.replaceState({}, '', '/merge-pdf.html');
     uninstallHost();
     track = installHost().track;
   });
 
-  afterEach(() => {
-    uninstallHost();
-  });
+  afterEach(uninstallHost);
 
   it('emits ExperienceStarted once per session', () => {
-    trackExperienceStarted();
-    trackExperienceStarted();
+    trackPdfEngineExperience();
+    trackPdfEngineExperience();
     expect(track).toHaveBeenCalledTimes(1);
-    expect(track).toHaveBeenCalledWith(EXPERIENCE_STARTED_EVENT, {
-      event_type: 'state-change',
-      trigger: 'system',
-    });
-    expect(sessionStorage.getItem(EXPERIENCE_STARTED_STORAGE_KEY)).toBe('1');
+    expect(sessionStorage.getItem(EXPERIENCE_SENT_STORAGE_KEY)).toBe('true');
   });
 
-  it('does not send document-derived strings on ToolUsed', () => {
-    markJobStarted();
-    reportJobResult('success');
-    expect(track).toHaveBeenCalledWith(TOOL_USED_EVENT, {
-      event_type: 'state-change',
-      trigger: 'system',
-      tool_id: 'merge-pdf',
-      result: 'success',
-    });
-    const payload = track.mock.calls[0][1] as Record<string, unknown>;
-    expect(JSON.stringify(payload)).not.toMatch(/\.pdf|\/tmp|document/i);
-  });
-
-  it('strips unknown properties', () => {
-    trackPdfEngine(TOOL_USED_EVENT, {
-      event_type: 'state-change',
-      trigger: 'system',
-      tool_id: 'merge-pdf',
-      result: 'success',
-      filename: 'secret.pdf',
-      path: '/Users/me/file.pdf',
-    });
-    expect(track).toHaveBeenCalledWith(TOOL_USED_EVENT, {
-      event_type: 'state-change',
-      trigger: 'system',
-      tool_id: 'merge-pdf',
-      result: 'success',
-    });
-  });
-
-  it('no-ops when the API root is unset', () => {
-    vi.stubEnv('VITE_SHIFT_API_ROOT', '');
-    track.mockClear();
-    trackExperienceStarted();
+  it('no-ops when the host root is unset', () => {
+    vi.stubEnv('VITE_HOST_API_ROOT', '');
+    trackPdfEngineExperience();
     expect(track).not.toHaveBeenCalled();
   });
 
-  it('maps tool pages to tool_id', () => {
+  it('maps tool pages to stable route identifiers', () => {
     expect(getToolIdFromPath('/en/compress-pdf.html')).toBe('compress-pdf');
     expect(getToolIdFromPath('/')).toBe('home');
   });
 });
 
-describe('shift job lifecycle', () => {
+describe('host job lifecycle', () => {
   let track: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     resetJobLifecycleForTests();
+    sessionStorage.clear();
     window.history.replaceState({}, '', '/merge-pdf.html');
     uninstallHost();
     track = installHost().track;
@@ -268,11 +207,9 @@ describe('shift job lifecycle', () => {
     });
   });
 
-  afterEach(() => {
-    uninstallHost();
-  });
+  afterEach(uninstallHost);
 
-  it('fires ToolUsed success from downloadFile without the filename', () => {
+  it('reports one success carrying counts but no filename', () => {
     const createObjectURL = vi
       .spyOn(URL, 'createObjectURL')
       .mockReturnValue('blob:test');
@@ -280,59 +217,75 @@ describe('shift job lifecycle', () => {
       .spyOn(URL, 'revokeObjectURL')
       .mockImplementation(() => undefined);
 
+    showLoader('Merging PDFs...');
+    setJobDetails({ inputCount: 3, outputCount: 1 });
+    downloadFile(new Blob(['pdf']), 'invoice-secret.pdf');
     downloadFile(new Blob(['pdf']), 'invoice-secret.pdf');
 
     expect(track).toHaveBeenCalledTimes(1);
-    const payload = track.mock.calls[0][1] as Record<string, unknown>;
-    expect(payload.result).toBe('success');
-    expect(JSON.stringify(payload)).not.toContain('invoice-secret');
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({
+        result: 'success',
+        tool_id: 'merge-pdf',
+        input_count: 3,
+        output_count: 1,
+      })
+    );
+    expect(JSON.stringify(track.mock.calls[0][1])).not.toContain(
+      'invoice-secret'
+    );
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
   });
 
-  it('does not fire ToolUsed for validation alerts without a loader', () => {
+  it('does not report validation alerts or non-job loaders', () => {
     showAlert('No File', 'Please upload a PDF file first.');
-    expect(track).not.toHaveBeenCalled();
-  });
-
-  it('does not treat file load or render loaders as in-flight jobs after hideLoader', () => {
-    listenForJobCancel();
-    showLoader('Loading PDF...', { job: false });
+    showLoader('Loading PDF documents...', { job: false });
     hideLoader();
-    showAlert('No File', 'Please upload a PDF file first.');
-    expect(track).not.toHaveBeenCalled();
-
-    showLoader('Rendering page previews: 1/3', { job: false });
+    showLoader('Rendering page previews...', { job: false });
+    hideLoader();
+    showLoader('Restoring merge state...', { job: false });
     hideLoader();
     window.dispatchEvent(new Event('pagehide'));
     expect(track).not.toHaveBeenCalled();
   });
 
-  it('fires ToolUsed error after a loader plus error alert', () => {
+  it('reports one error with its category for an in-flight job', () => {
     showLoader('Working');
+    reportJobResult('error', { inputCount: 2, errorCategory: 'processing' });
     showAlert('Error', 'Failed to merge.');
+
+    expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith(
-      TOOL_USED_EVENT,
-      expect.objectContaining({ result: 'error', tool_id: 'merge-pdf' })
+      PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({
+        result: 'error',
+        tool_id: 'merge-pdf',
+        error_category: 'processing',
+      })
     );
   });
 
-  it('fires ToolUsed error when hideLoader runs before the error alert', () => {
+  it('reports error once when the alert is the only signal', () => {
     showLoader('Merging PDFs...');
     hideLoader();
     showAlert('Error', 'Failed to merge PDFs.');
+    expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith(
-      TOOL_USED_EVENT,
-      expect.objectContaining({ result: 'error', tool_id: 'merge-pdf' })
+      PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({ result: 'error' })
     );
   });
 
-  it('fires ToolUsed cancelled on pagehide while a job is in flight', () => {
+  it('reports cancellation once on pagehide', () => {
     listenForJobCancel();
     markJobStarted();
     window.dispatchEvent(new Event('pagehide'));
+    reportJobResult('cancelled');
+    expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith(
-      TOOL_USED_EVENT,
+      PDF_ENGINE_EVENTS.toolUsed,
       expect.objectContaining({ result: 'cancelled' })
     );
   });

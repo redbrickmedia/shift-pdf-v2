@@ -166,7 +166,7 @@ async function displayMetadata() {
   try {
     const result = await loadPdfWithPasswordPrompt(pageState.file);
     if (!result) return;
-    showLoader('Analyzing full PDF metadata...');
+    showLoader('Analyzing full PDF metadata...', { job: false });
     const { pdf: pdfjsDoc, file: currentFile } = result;
     pageState.file = currentFile;
 

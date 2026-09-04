@@ -1,4 +1,4 @@
-import { isShiftBuild } from './host-api.js';
+import { hasHostConfiguration } from './bridge.js';
 
 type ColorMode = 'light' | 'dark';
 
@@ -26,18 +26,13 @@ export function applyStandaloneTheme(): void {
   applyDataTheme(null);
 }
 
-function colorModeFromPrefersScheme(): ColorMode {
+function colorModeFromPreferredScheme(): ColorMode {
   if (typeof window.matchMedia !== 'function') return STANDALONE_COLOR_MODE;
   return window.matchMedia(DARK_SCHEME_QUERY).matches ? 'dark' : 'light';
 }
 
-/**
- * Colour mode for a Shift build comes from prefers-color-scheme, which the
- * host updates when appearance changes. Page content does not call
- * chrome.shift.appearance.
- */
 function startColorModeSync(): void {
-  applyColorMode(colorModeFromPrefersScheme());
+  applyColorMode(colorModeFromPreferredScheme());
   applyDataTheme(null);
   if (typeof window.matchMedia !== 'function') return;
 
@@ -47,12 +42,11 @@ function startColorModeSync(): void {
 }
 
 /**
- * Standalone builds hold the fixed look rather than inheriting the visitor's
- * OS preference, which is not a Shift setting and would flip Cloudflare Pages
- * and dev hosts with the machine's appearance.
+ * Standalone builds retain the current default appearance. Integrated builds
+ * follow the standard colour-scheme media query maintained by their host.
  */
 export function startThemeSync(): void {
   applyStandaloneTheme();
-  if (!isShiftBuild()) return;
+  if (!hasHostConfiguration()) return;
   startColorModeSync();
 }

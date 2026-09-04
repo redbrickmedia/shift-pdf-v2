@@ -72,7 +72,7 @@ async function updateUI() {
         resetState();
         return;
       }
-      showLoader('Loading PDF...');
+      showLoader('Loading PDF...', { job: false });
       result.pdf.destroy();
       pageState.file = result.file;
       pageState.pdfDoc = await loadPdfDocument(result.bytes);

@@ -14,7 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
-import { markJobStarted, reportJobResult } from './shift/job-lifecycle.js';
+import { markJobStarted, reportJobResult } from './host/job-lifecycle.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -59,10 +59,12 @@ export const showLoader = (
   text = t('common.loading'),
   progressOrOptions?: number | ShowLoaderOptions
 ) => {
-  const options =
-    typeof progressOrOptions === 'object' && progressOrOptions !== null
-      ? progressOrOptions
-      : { progress: progressOrOptions, job: true };
+  let options: ShowLoaderOptions;
+  if (typeof progressOrOptions === 'number') {
+    options = { progress: progressOrOptions, job: true };
+  } else {
+    options = progressOrOptions ?? { job: true };
+  }
   if (options.job !== false) {
     markJobStarted();
   }

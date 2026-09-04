@@ -15,7 +15,7 @@ import {
   completionTiming,
   createDefaultToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics } from '../analytics/index.js';
+import { reportJobResult, setJobDetails } from '../host/job-lifecycle.js';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
@@ -402,19 +402,12 @@ document.addEventListener('DOMContentLoaded', () => {
       customSettings = convertToGrayscale ? { convertToGrayscale } : undefined;
     }
 
-    const operation =
-      pdfEngineAnalytics?.startToolOperation('compress-pdf') ?? null;
     const startedAt = performance.now();
     const inputCount = state.files.length;
 
     try {
       if (state.files.length === 0) {
-        operation?.finish({
-          result: 'error',
-          inputCount,
-          outputCount: 0,
-          errorCategory: 'invalid-input',
-        });
+        reportJobResult('error', { inputCount, errorCategory: 'invalid-input' });
         showAlert('No Files', 'Please select at least one PDF file.');
         hideLoader();
         return;
@@ -422,12 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Check WASM availability for Condense mode
       if (algorithm === 'condense' && !isPyMuPDFAvailable()) {
-        operation?.finish({
-          result: 'error',
-          inputCount,
-          outputCount: 0,
-          errorCategory: 'engine-load',
-        });
+        reportJobResult('error', { inputCount, errorCategory: 'engine-load' });
         showWasmRequiredDialog('pymupdf');
         return;
       }
@@ -466,11 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalFile
           );
           if (!resultBytes) {
-            operation?.finish({
-              result: 'cancelled',
-              inputCount,
-              outputCount: 0,
-            });
+            reportJobResult('cancelled', { inputCount, outputCount: 0 });
             return;
           }
           const buffer = resultBytes.buffer.slice(
@@ -488,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const savingsPercent =
           savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
 
+        setJobDetails({ inputCount, outputCount: 1 });
         downloadFile(resultBlob, originalFile.name);
 
         hideLoader();
@@ -501,11 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
           filename: originalFile.name,
           summary,
           timing: completionTiming(startedAt),
-        });
-        operation?.finish({
-          result: 'success',
-          inputCount,
-          outputCount: 1,
         });
       } else {
         showLoader('Compressing multiple PDFs...');
@@ -539,11 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
               file
             );
             if (!photonResult) {
-              operation?.finish({
-                result: 'cancelled',
-                inputCount,
-                outputCount: 0,
-              });
+              reportJobResult('cancelled', { inputCount, outputCount: 0 });
               return;
             }
             resultBytes = photonResult;
@@ -560,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? ((totalSavings / totalOriginalSize) * 100).toFixed(1)
             : 0;
 
+        setJobDetails({ inputCount, outputCount: 1 });
         downloadFile(zipBlob, 'compressed-pdfs.zip');
 
         hideLoader();
@@ -574,16 +551,10 @@ document.addEventListener('DOMContentLoaded', () => {
           summary,
           timing: completionTiming(startedAt),
         });
-        operation?.finish({
-          result: 'success',
-          inputCount,
-          outputCount: 1,
-        });
       }
     } catch (e: unknown) {
       hideLoader();
-      operation?.finish({
-        result: 'error',
+      reportJobResult('error', {
         inputCount,
         outputCount: 0,
         errorCategory: 'processing',

@@ -3,7 +3,7 @@ import {
   PDF_ENGINE_EVENTS,
   PdfEngineAnalytics,
   type AnalyticsTransport,
-} from '../js/analytics';
+} from '../js/host/analytics';
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const values = { ...initial };
@@ -68,6 +68,19 @@ describe('PDF engine analytics', () => {
         is_returning: false,
       }
     );
+  });
+
+  it('accepts a host entry surface without naming the host', () => {
+    const { analytics, transport } = setup();
+    expect(
+      analytics.trackExperienceStarted({
+        trigger: 'app-open',
+        entrySurface: 'host-app',
+      })
+    ).toBe(true);
+    expect(transport.mock.calls[0][1]).toMatchObject({
+      entry_surface: 'host-app',
+    });
   });
 
   it('allowlists terminal properties and emits only once per operation', () => {

@@ -402,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const result = await loadPdfWithPasswordPrompt(validFiles[0]);
       if (!result) return;
-      showLoader('Loading preview...');
+      showLoader('Loading preview...', { job: false });
       files = [result.file];
       updateUI();
       pdfjsDoc = result.pdf;

@@ -1,4 +1,5 @@
 import { categories } from '../config/tools.js';
+import { getHostAnalytics } from './bridge.js';
 
 export const PDF_ENGINE_EVENTS = {
   experienceStarted: 'PdfEngine_ExperienceStarted',
@@ -37,7 +38,7 @@ interface AnalyticsDependencies {
 
 export interface ExperienceStartedInput {
   trigger: 'app-open' | 'tool-route';
-  entrySurface: 'toolkit-home' | 'direct-tool-route' | 'shift-app' | 'unknown';
+  entrySurface: 'toolkit-home' | 'direct-tool-route' | 'host-app' | 'unknown';
   toolId?: string;
   experimentVariant?: string;
 }
@@ -53,10 +54,11 @@ export interface ToolOperation {
   finish(result: ToolOperationResult): boolean;
 }
 
-const SESSION_ID_KEY = 'shift-pdf:analytics:session-id';
-const EXPERIENCE_SENT_KEY = 'shift-pdf:analytics:experience-sent';
-const LAST_VISIT_KEY = 'shift-pdf:analytics:last-visit';
-const PREVIOUS_TOOL_KEY = 'shift-pdf:analytics:previous-tool';
+const SESSION_ID_KEY = 'pdf-engine:analytics:session-id';
+export const EXPERIENCE_SENT_STORAGE_KEY =
+  'pdf-engine:analytics:experience-sent';
+const LAST_VISIT_KEY = 'pdf-engine:analytics:last-visit';
+const PREVIOUS_TOOL_KEY = 'pdf-engine:analytics:previous-tool';
 const DAY_MS = 86_400_000;
 const TOOL_RESULTS = new Set<ToolResult>(['success', 'error', 'cancelled']);
 const ERROR_CATEGORIES = new Set<ErrorCategory>([
@@ -71,7 +73,7 @@ const EXPERIENCE_TRIGGERS = new Set(['app-open', 'tool-route']);
 const ENTRY_SURFACES = new Set([
   'toolkit-home',
   'direct-tool-route',
-  'shift-app',
+  'host-app',
   'unknown',
 ]);
 const STABLE_TOOL_IDS = new Set(
@@ -136,6 +138,14 @@ function storageSet(storage: StorageLike, key: string, value: string): void {
   }
 }
 
+/** Route segment for the current page, used as the stable tool identifier. */
+export function getToolIdFromPath(pathname = window.location.pathname): string {
+  const segment = pathname.replace(/\/+$/, '').split('/').pop() ?? '';
+  const id = segment.replace(/\.html$/, '');
+  if (!id || id === 'index') return 'home';
+  return id;
+}
+
 export class PdfEngineAnalytics {
   private readonly sessionId: string;
 
@@ -162,7 +172,8 @@ export class PdfEngineAnalytics {
         ? candidateToolId
         : undefined;
     if (
-      storageGet(this.deps.sessionStorage, EXPERIENCE_SENT_KEY) === 'true' ||
+      storageGet(this.deps.sessionStorage, EXPERIENCE_SENT_STORAGE_KEY) ===
+        'true' ||
       !EXPERIENCE_TRIGGERS.has(input.trigger) ||
       !ENTRY_SURFACES.has(input.entrySurface) ||
       (input.trigger === 'tool-route' && !toolId)
@@ -204,7 +215,7 @@ export class PdfEngineAnalytics {
     }
 
     this.emit(PDF_ENGINE_EVENTS.experienceStarted, payload);
-    storageSet(this.deps.sessionStorage, EXPERIENCE_SENT_KEY, 'true');
+    storageSet(this.deps.sessionStorage, EXPERIENCE_SENT_STORAGE_KEY, 'true');
     storageSet(this.deps.localStorage, LAST_VISIT_KEY, String(now));
     if (toolId) {
       storageSet(this.deps.localStorage, PREVIOUS_TOOL_KEY, toolId);
@@ -265,34 +276,20 @@ export class PdfEngineAnalytics {
   }
 }
 
-interface ShiftAnalyticsBridge {
-  track(eventName: string, payload: AnalyticsPayload): void;
-}
-
-interface ShiftWindow extends Window {
-  shift?: { analytics?: ShiftAnalyticsBridge };
-  Shift?: { analytics?: ShiftAnalyticsBridge };
-  shiftAnalytics?: ShiftAnalyticsBridge;
-}
-
 function browserTransport(
   eventName: PdfEngineEventName,
   payload: AnalyticsPayload
 ): void {
-  const shiftWindow = window as ShiftWindow;
-  const bridge =
-    shiftWindow.shift?.analytics ??
-    shiftWindow.Shift?.analytics ??
-    shiftWindow.shiftAnalytics;
+  const analytics = getHostAnalytics();
 
   try {
-    if (bridge?.track) {
-      bridge.track(eventName, payload);
+    if (analytics) {
+      analytics.track(eventName, payload);
     } else if (import.meta.env.DEV) {
-      console.debug('[Shift PDF analytics]', eventName, payload);
+      console.debug('[pdf-engine analytics]', eventName, payload);
     }
   } catch {
-    // The host bridge is optional and cannot affect local PDF processing.
+    // The host surface is optional and cannot affect local PDF processing.
   }
 }
 
@@ -324,20 +321,14 @@ export const pdfEngineAnalytics =
       });
 
 export function trackPdfEngineExperience(
-  validToolIds?: ReadonlySet<string>
+  validToolIds: ReadonlySet<string> = STABLE_TOOL_IDS
 ): void {
   if (!pdfEngineAnalytics) return;
-  const route = window.location.pathname
-    .replace(/\/+$/, '')
-    .split('/')
-    .pop()
-    ?.replace(/\.html$/, '');
-  const isHome = !route || route === 'index';
+  const route = getToolIdFromPath();
+  const isHome = route === 'home';
   const routeToolId = isHome ? undefined : optionalSafeId(route);
   const toolId =
-    routeToolId && (!validToolIds || validToolIds.has(routeToolId))
-      ? routeToolId
-      : undefined;
+    routeToolId && validToolIds.has(routeToolId) ? routeToolId : undefined;
   pdfEngineAnalytics.trackExperienceStarted({
     trigger: toolId ? 'tool-route' : 'app-open',
     entrySurface: isHome

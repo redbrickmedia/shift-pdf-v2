@@ -129,8 +129,6 @@
     "markdown-it-toc-done-right": "^4.2.0",
     "mermaid": "^11.16.0",
     "microdiff": "^1.5.0",
-    "mobx": "^6.13.7",
-    "mobx-react-lite": "^4.1.1",
     "node-forge": "^1.4.0",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
@@ -138,8 +136,6 @@
     "pdfkit": "^0.17.2",
     "pixelmatch": "^7.1.0",
     "postal-mime": "^2.7.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "rete": "^2.0.6",
     "rete-area-plugin": "^2.1.5",
     "rete-connection-plugin": "^2.0.5",
@@ -154,8 +150,7 @@
     "vite-plugin-static-copy": "^3.2.0",
     "wasm-vips": "^0.0.17",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zgapdfsigner": "^2.7.5",
-    "zod": "^3.25.76"
+    "zgapdfsigner": "^2.7.5"
   },
   "lint-staged": {
     "*.{js,ts,mjs,cjs}": [
@@ -170,8 +165,6 @@
     "uuid": "^14",
     "node-forge": "^1.4.0",
     "flatted": "^3.4.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "lodash-es": "^4.18.1",
     "follow-redirects": "^1.15.11",
     "esbuild": "^0.25.0"
