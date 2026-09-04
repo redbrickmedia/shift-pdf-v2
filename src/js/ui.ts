@@ -14,11 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
-import {
-  markJobEnded,
-  markJobStarted,
-  reportJobResult,
-} from './shift/job-lifecycle.js';
+import { markJobStarted, reportJobResult } from './shift/job-lifecycle.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -53,8 +49,24 @@ export const dom = {
   warningConfirmBtn: document.getElementById('warning-confirm-btn'),
 };
 
-export const showLoader = (text = t('common.loading'), progress?: number) => {
-  markJobStarted();
+type ShowLoaderOptions = {
+  progress?: number;
+  /** False for file-load/render UI. Default true so process errors still report after hideLoader. */
+  job?: boolean;
+};
+
+export const showLoader = (
+  text = t('common.loading'),
+  progressOrOptions?: number | ShowLoaderOptions
+) => {
+  const options =
+    typeof progressOrOptions === 'object' && progressOrOptions !== null
+      ? progressOrOptions
+      : { progress: progressOrOptions, job: true };
+  if (options.job !== false) {
+    markJobStarted();
+  }
+  const progress = options.progress;
   if (dom.loaderText) dom.loaderText.textContent = text;
 
   // Add or update progress bar if progress is provided
@@ -109,7 +121,6 @@ export const showLoader = (text = t('common.loading'), progress?: number) => {
 };
 
 export const hideLoader = () => {
-  markJobEnded();
   if (dom.loaderModal) dom.loaderModal.classList.add('hidden');
 };
 
@@ -240,7 +251,7 @@ export const renderPageThumbnails = async (
   const currentRenderId = Date.now();
   container.dataset.renderId = currentRenderId.toString();
 
-  showLoader(t('multiTool.renderingTitle'));
+  showLoader(t('multiTool.renderingTitle'), { job: false });
 
   const pdfData = await pdfDoc.save();
   const pdf = await getPDFDocument({ data: pdfData }).promise;
@@ -436,7 +447,9 @@ export const renderPageThumbnails = async (
       useLazyLoading: true,
       lazyLoadMargin: '300px',
       onProgress: (current, total) => {
-        showLoader(`Rendering page previews: ${current}/${total}`);
+        showLoader(`Rendering page previews: ${current}/${total}`, {
+          job: false,
+        });
       },
       onBatchComplete: () => {
         createIcons({ icons });

@@ -297,12 +297,12 @@ describe('shift job lifecycle', () => {
 
   it('does not treat file load or render loaders as in-flight jobs after hideLoader', () => {
     listenForJobCancel();
-    showLoader('Loading PDF...');
+    showLoader('Loading PDF...', { job: false });
     hideLoader();
     showAlert('No File', 'Please upload a PDF file first.');
     expect(track).not.toHaveBeenCalled();
 
-    showLoader('Rendering page previews: 1/3');
+    showLoader('Rendering page previews: 1/3', { job: false });
     hideLoader();
     window.dispatchEvent(new Event('pagehide'));
     expect(track).not.toHaveBeenCalled();
@@ -311,6 +311,16 @@ describe('shift job lifecycle', () => {
   it('fires ToolUsed error after a loader plus error alert', () => {
     showLoader('Working');
     showAlert('Error', 'Failed to merge.');
+    expect(track).toHaveBeenCalledWith(
+      TOOL_USED_EVENT,
+      expect.objectContaining({ result: 'error', tool_id: 'merge-pdf' })
+    );
+  });
+
+  it('fires ToolUsed error when hideLoader runs before the error alert', () => {
+    showLoader('Merging PDFs...');
+    hideLoader();
+    showAlert('Error', 'Failed to merge PDFs.');
     expect(track).toHaveBeenCalledWith(
       TOOL_USED_EVENT,
       expect.objectContaining({ result: 'error', tool_id: 'merge-pdf' })

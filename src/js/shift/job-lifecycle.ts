@@ -8,6 +8,7 @@ export function markJobStarted(): void {
   jobReported = false;
 }
 
+/** Clears in-flight without emitting a result (non-job loaders, tests). */
 export function markJobEnded(): void {
   jobInFlight = false;
 }
