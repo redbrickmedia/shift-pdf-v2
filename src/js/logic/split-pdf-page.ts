@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cleanup any previous lazy loading observers
     cleanupLazyRendering();
 
-    showLoader('Rendering page previews...');
+    showLoader('Rendering page previews...', { job: false });
 
     try {
       if (!state.pdfDoc) {
@@ -151,13 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
           hideLoader();
           const result = await loadPdfWithPasswordPrompt(file);
           if (!result) {
-            showLoader('Rendering page previews...');
+            showLoader('Rendering page previews...', { job: false });
             throw new Error('No PDF document loaded');
           }
           result.pdf.destroy();
           state.files[0] = result.file;
           state.pdfDoc = await loadPdfDocument(result.bytes);
-          showLoader('Rendering page previews...');
+          showLoader('Rendering page previews...', { job: false });
         } else {
           throw new Error('No PDF document loaded');
         }
@@ -220,7 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
         useLazyLoading: true,
         lazyLoadMargin: '400px',
         onProgress: (current, total) => {
-          showLoader(`Rendering page previews: ${current}/${total}`);
+          showLoader(`Rendering page previews: ${current}/${total}`, {
+            job: false,
+          });
         },
         onBatchComplete: () => {
           createIcons({ icons });

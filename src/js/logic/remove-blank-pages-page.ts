@@ -5,7 +5,8 @@ import { createIcons, icons } from 'lucide';
 import { initPagePreview } from '../utils/page-preview.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-import { escapeHtml } from '../utils/helpers.js';
+import { escapeHtml, downloadFile } from '../utils/helpers.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 // State
 const pageState: {
@@ -19,48 +20,6 @@ const pageState: {
   detectedBlankPages: [],
   pageThumbnails: new Map(),
 };
-
-function showLoader(msg = 'Processing...') {
-  document.getElementById('loader-modal')?.classList.remove('hidden');
-  const txt = document.getElementById('loader-text');
-  if (txt) txt.textContent = msg;
-}
-
-function hideLoader() {
-  document.getElementById('loader-modal')?.classList.add('hidden');
-}
-
-function showAlert(
-  title: string,
-  msg: string,
-  _type = 'error',
-  cb?: () => void
-) {
-  const modal = document.getElementById('alert-modal');
-  const t = document.getElementById('alert-title');
-  const m = document.getElementById('alert-message');
-  if (t) t.textContent = title;
-  if (m) m.textContent = msg;
-  modal?.classList.remove('hidden');
-  const okBtn = document.getElementById('alert-ok');
-  if (okBtn) {
-    const newBtn = okBtn.cloneNode(true) as HTMLElement;
-    okBtn.replaceWith(newBtn);
-    newBtn.addEventListener('click', () => {
-      modal?.classList.add('hidden');
-      if (cb) cb();
-    });
-  }
-}
-
-function downloadFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function updateFileDisplay() {
   const area = document.getElementById('file-display-area');
@@ -118,7 +77,7 @@ async function handleFileUpload(file: File) {
   try {
     const result = await loadPdfWithPasswordPrompt(file);
     if (!result) return;
-    showLoader('Loading PDF...');
+    showLoader('Loading PDF...', { job: false });
     result.pdf.destroy();
     pageState.pdfDoc = await loadPdfDocument(result.bytes);
     pageState.file = result.file;

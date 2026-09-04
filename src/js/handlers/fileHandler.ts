@@ -42,7 +42,7 @@ let imageSortableInstance: Sortable | null = null;
 const activeImageUrls = new Map<File, string>();
 
 async function handleSinglePdfUpload(toolId: string, file: File) {
-  showLoader('Loading PDF...');
+  showLoader('Loading PDF...', { job: false });
   try {
     if (toolId === 'form-filler') {
       hideLoader();
@@ -217,7 +217,7 @@ async function handleSinglePdfUpload(toolId: string, file: File) {
 
     if (toolId === 'view-metadata') {
       const resultsDiv = document.getElementById('metadata-results');
-      showLoader('Analyzing full PDF metadata...');
+      showLoader('Analyzing full PDF metadata...', { job: false });
 
       try {
         const pdfBytes = await readFileAsArrayBuffer(state.files[0]);
@@ -597,7 +597,7 @@ async function handleMultiFileUpload(toolId: string) {
     toolId === 'alternate-merge' ||
     toolId === 'reverse-pages'
   ) {
-    showLoader('Loading PDF documents...');
+    showLoader('Loading PDF documents...', { job: false });
 
     const pdfFilesUnloaded: File[] = [];
 
@@ -656,7 +656,7 @@ async function handleMultiFileUpload(toolId: string) {
         return;
       }
 
-      showLoader('Loading PDF documents...');
+      showLoader('Loading PDF documents...', { job: false });
     }
   }
 

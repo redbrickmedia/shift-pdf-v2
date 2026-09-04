@@ -176,14 +176,14 @@ function initSortable() {
 }
 
 async function handleFiles(fileList: FileList) {
-  showLoader('Loading PDFs...');
+  showLoader('Loading PDFs...', { job: false });
   try {
     for (const file of Array.from(fileList)) {
       if (file.type !== 'application/pdf') continue;
       hideLoader();
       const result = await loadPdfWithPasswordPrompt(file);
       if (!result) continue;
-      showLoader('Loading PDFs...');
+      showLoader('Loading PDFs...', { job: false });
       result.pdf.destroy();
       const pdfDoc = await loadPdfDocument(result.bytes);
       files.push({ file: result.file, pageCount: pdfDoc.getPageCount() });

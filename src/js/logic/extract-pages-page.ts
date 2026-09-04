@@ -97,7 +97,7 @@ async function handleFile(file: File) {
       extractState.file = null;
       return;
     }
-    showLoader('Loading PDF...');
+    showLoader('Loading PDF...', { job: false });
     extractState.file = result.file;
     result.pdf.destroy();
     extractState.pdfDoc = await loadPdfDocument(result.bytes);

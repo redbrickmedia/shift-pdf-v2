@@ -90,7 +90,7 @@ async function updateUI() {
         resetState();
         return;
       }
-      showLoader('Loading PDF...');
+      showLoader('Loading PDF...', { job: false });
       pageState.file = result.file;
       pageState.pdfBytes = new Uint8Array(result.bytes);
       pageState.pdfjsDoc = result.pdf;

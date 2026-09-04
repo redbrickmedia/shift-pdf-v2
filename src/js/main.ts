@@ -22,6 +22,7 @@ import {
   isToolDisabled,
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
+import { bootstrapHostIntegration } from './host/bootstrap.js';
 import {
   applyFavoritePinTitles,
   FAVORITE_CATALOG_COPY_ATTR,
@@ -40,7 +41,6 @@ import {
 } from './logic/promise-banner.js';
 import { initToolBackNavigation } from './logic/tool-back.js';
 import { initToolBackMenu } from './logic/tool-back-menu.js';
-import { trackPdfEngineExperience } from './analytics/index.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -239,18 +239,13 @@ function markActiveNavLinks() {
 }
 
 const init = async () => {
+  bootstrapHostIntegration();
   await initI18n();
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
 
   initShiftShell();
-  trackPdfEngineExperience(
-    new Set(
-      categories.flatMap((category) => category.tools.map((tool) => tool.id))
-    )
-  );
-
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
     const main = document.querySelector('main') || document.body;

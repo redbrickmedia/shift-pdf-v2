@@ -1,15 +1,15 @@
 /* Shift theme — Concept A (sidebar shell)
  *
  * Semantic colour / radius tokens use the SAME names as
- * @redbrickmedia/shift-design-system (css-exports/variables.css). The Shift
- * browser toolkit drives embedded apps by toggling `.light` / `.dark` and
- * `data-theme` on <html>, which only updates properties that share those
- * names — so do not invent `--shift-*` aliases for themed values.
+ * Shift design system, so that
+ * loading that stylesheet would re-theme this shell — do not invent
+ * `--shift-*` aliases for themed values.
  *
- * Hex values below are the light / default-brand resolutions, used as
- * standalone fallbacks until the design-system stylesheet is loaded.
+ * Hex values below are the light / default-brand resolutions; the `html.dark`
+ * block at the foot of the file carries the dark ones. src/js/host/theme.ts
+ * toggles `.light` / `.dark` on <html> from the host's colour mode.
  * App-local geometry (sidebar width, panel radius, font stack) stays
- * `--shift-*` because the toolkit does not theme those.
+ * `--shift-*` because those are not themed.
  *
  * Sidebar geometry mirrors shift-pdf's .sidebar / .nav-item / .logo.
  */
@@ -1491,4 +1491,98 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
   > .min-h-screen {
   min-height: 0;
   flex-grow: 1;
+}
+
+/* ---- Dark mode ----
+ * Only the values change here: every rule above reads these tokens, so the
+ * shell, the rail and the tool pages all follow this block.
+ *
+ * The grey ramp goes back to Tailwind's stock scale. src/pages was authored
+ * for a dark theme, so undoing the inversion in :root is all those pages need
+ * — `bg-gray-800` is a card again and `text-gray-400` is a label again. The
+ * pale accent levels come back for the same reason: on a dark surface they
+ * read as accent ink at their authored weights.
+ */
+html.dark {
+  /* The panel takes gray-900 so the retinted tool pages sit flush on it, and
+     the rail goes a step darker to keep the Shift shell's layering. */
+  --background-bar-primary: #0b0e14;
+  --background-secondary: #111827;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --border-divider-secondary: #1f2937;
+  --border-outer-primary: #374151;
+  --action-button-surface-primary-default: #3b82f6;
+  --action-button-surface-primary-hover: #60a5fa;
+  /* Used as a tint *surface* (favourites pill, tile hover, indigo panels), so
+     it inverts to the deep end of the brand ramp rather than staying pale. */
+  --brand-50: #172554;
+  --brand-500: #60a5fa;
+  --action-controls-surface-primary-default: #1f2937;
+  --action-controls-surface-primary-hover: #374151;
+  --action-controls-surface-secondary-active-tertiary: #4b5563;
+  --action-text-neutral-default: #d1d5db;
+  --action-text-neutral-hover: #f3f4f6;
+  --action-text-neutral-selected: #ffffff;
+
+  --color-gray-900: #111827;
+  --color-gray-800: #1f2937;
+  --color-gray-700: #374151;
+  --color-gray-600: #4b5563;
+  --color-gray-500: #6b7280;
+  --color-gray-400: #9ca3af;
+  --color-gray-300: #d1d5db;
+
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
+  --color-green-400: #4ade80;
+  --color-yellow-200: #fef08a;
+  --color-yellow-300: #fde047;
+  --color-yellow-400: #facc15;
+  --color-yellow-500: #eab308;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-purple-300: #d8b4fe;
+  --color-purple-400: #c084fc;
+  --color-violet-300: #c4b5fd;
+  --color-teal-300: #5eead4;
+  --color-rose-300: #fda4af;
+}
+
+/* The tinted alert panels are the one place the light shell hard-codes a hex
+   instead of reading a token, because each hue needed a flat tint of its own.
+   Dark mode hands them back their authored -900 fills. */
+html.dark :is(.bg-red-900, [class*='bg-red-900/']) {
+  background-color: #7f1d1d !important;
+}
+
+html.dark :is(.bg-green-900, [class*='bg-green-900/']) {
+  background-color: #14532d !important;
+}
+
+html.dark :is(.bg-blue-900, [class*='bg-blue-900/']) {
+  background-color: #1e3a8a !important;
+}
+
+html.dark :is(.bg-yellow-900, [class*='bg-yellow-900/']) {
+  background-color: #713f12 !important;
+}
+
+html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
+  background-color: #78350f !important;
+}
+
+/* Gold again rather than the deeper amber a white card needed. */
+html.dark .testimonial-card [class*='text-yellow-'] {
+  color: #facc15 !important;
 }

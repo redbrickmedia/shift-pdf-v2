@@ -14,6 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
+import { markJobStarted, reportJobResult } from './host/job-lifecycle.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -48,7 +49,26 @@ export const dom = {
   warningConfirmBtn: document.getElementById('warning-confirm-btn'),
 };
 
-export const showLoader = (text = t('common.loading'), progress?: number) => {
+type ShowLoaderOptions = {
+  progress?: number;
+  /** False for file-load/render UI. Default true so process errors still report after hideLoader. */
+  job?: boolean;
+};
+
+export const showLoader = (
+  text = t('common.loading'),
+  progressOrOptions?: number | ShowLoaderOptions
+) => {
+  let options: ShowLoaderOptions;
+  if (typeof progressOrOptions === 'number') {
+    options = { progress: progressOrOptions, job: true };
+  } else {
+    options = progressOrOptions ?? { job: true };
+  }
+  if (options.job !== false) {
+    markJobStarted();
+  }
+  const progress = options.progress;
   if (dom.loaderText) dom.loaderText.textContent = text;
 
   // Add or update progress bar if progress is provided
@@ -112,9 +132,21 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
+  if (type !== 'success') {
+    reportJobResult('error');
+  }
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
-  if (dom.alertModal) dom.alertModal.classList.remove('hidden');
+  if (dom.alertModal) {
+    dom.alertModal.classList.remove(
+      'alert-modal--error',
+      'alert-modal--success'
+    );
+    dom.alertModal.classList.add(
+      type === 'success' ? 'alert-modal--success' : 'alert-modal--error'
+    );
+    dom.alertModal.classList.remove('hidden');
+  }
 
   if (dom.alertOkBtn) {
     const newOkBtn = dom.alertOkBtn.cloneNode(true) as HTMLElement;
@@ -221,7 +253,7 @@ export const renderPageThumbnails = async (
   const currentRenderId = Date.now();
   container.dataset.renderId = currentRenderId.toString();
 
-  showLoader(t('multiTool.renderingTitle'));
+  showLoader(t('multiTool.renderingTitle'), { job: false });
 
   const pdfData = await pdfDoc.save();
   const pdf = await getPDFDocument({ data: pdfData }).promise;
@@ -417,7 +449,9 @@ export const renderPageThumbnails = async (
       useLazyLoading: true,
       lazyLoadMargin: '300px',
       onProgress: (current, total) => {
-        showLoader(`Rendering page previews: ${current}/${total}`);
+        showLoader(`Rendering page previews: ${current}/${total}`, {
+          job: false,
+        });
       },
       onBatchComplete: () => {
         createIcons({ icons });

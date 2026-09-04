@@ -13,7 +13,7 @@ import {
   createDefaultToolCompletionPanel,
   type ToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
+import { reportJobResult, setJobDetails } from '../host/job-lifecycle.js';
 import {
   exportFlattenedSignedPdf,
   exportPdfJsAnnotations,
@@ -195,7 +195,7 @@ async function setupSignTool(loadVersion: number) {
     signatureEditor.classList.remove('hidden');
   }
 
-  showLoader('Loading PDF viewer...');
+  showLoader('Loading PDF viewer...', { job: false });
 
   const container = document.getElementById('canvas-container-sign');
   if (!container) {
@@ -305,7 +305,6 @@ async function applyAndSaveSignatures() {
     return;
   }
 
-  let operation: ToolOperation | null = null;
   const startedAt = performance.now();
   try {
     const viewerWindow = signState.viewerIframe
@@ -320,7 +319,6 @@ async function applyAndSaveSignatures() {
       'flatten-signature-toggle'
     ) as HTMLInputElement | null;
     const shouldFlatten = flattenCheckbox?.checked;
-    operation = pdfEngineAnalytics?.startToolOperation('sign-pdf') ?? null;
     showLoader(
       shouldFlatten ? 'Flattening and saving PDF...' : 'Saving signed PDF...'
     );
@@ -336,6 +334,7 @@ async function applyAndSaveSignatures() {
       type: 'application/pdf',
     });
     const filename = getSignedPdfFilename(signState.file?.name, shouldFlatten);
+    setJobDetails({ inputCount: 1, outputCount: 1 });
     downloadFile(blob, filename);
     hideLoader();
     completionPanel?.show({
@@ -346,14 +345,8 @@ async function applyAndSaveSignatures() {
         : t('tools:signPdf.ready'),
       timing: completionTiming(startedAt),
     });
-    operation?.finish({
-      result: 'success',
-      inputCount: 1,
-      outputCount: 1,
-    });
   } catch (error) {
-    operation?.finish({
-      result: 'error',
+    reportJobResult('error', {
       inputCount: 1,
       outputCount: 0,
       errorCategory: 'processing',

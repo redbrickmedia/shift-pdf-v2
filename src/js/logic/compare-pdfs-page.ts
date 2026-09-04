@@ -557,7 +557,8 @@ async function renderBothPages() {
   const gen = ++renderGeneration;
 
   showLoader(
-    `Loading comparison ${pageState.currentPage} of ${pageState.pagePairs.length}...`
+    `Loading comparison ${pageState.currentPage} of ${pageState.pagePairs.length}...`,
+    { job: false }
   );
 
   const canvas1 = getElement<HTMLCanvasElement>(
@@ -743,7 +744,7 @@ async function handleFileInput(
       hideLoader();
       const result = await loadPdfWithPasswordPrompt(file);
       if (!result) return;
-      showLoader(`Loading ${result.file.name}...`);
+      showLoader(`Loading ${result.file.name}...`, { job: false });
       pageState[docKey] = result.pdf;
       caches.pageModelCache.clear();
       caches.comparisonCache.clear();
