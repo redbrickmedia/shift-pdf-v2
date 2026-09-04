@@ -241,7 +241,7 @@ async function setupSignTool(loadVersion: number) {
   signState.blobUrl = URL.createObjectURL(blob);
 
   const viewerUrl = new URL(
-    `${import.meta.env.BASE_URL}pdfjs-viewer/sign-viewer.html`,
+    `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html`,
     window.location.origin
   );
   const query = new URLSearchParams({
