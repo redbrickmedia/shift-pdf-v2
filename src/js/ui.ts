@@ -14,7 +14,11 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
-import { markJobStarted, reportJobResult } from './shift/job-lifecycle.js';
+import {
+  markJobEnded,
+  markJobStarted,
+  reportJobResult,
+} from './shift/job-lifecycle.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -105,6 +109,7 @@ export const showLoader = (text = t('common.loading'), progress?: number) => {
 };
 
 export const hideLoader = () => {
+  markJobEnded();
   if (dom.loaderModal) dom.loaderModal.classList.add('hidden');
 };
 

@@ -8,6 +8,10 @@ export function markJobStarted(): void {
   jobReported = false;
 }
 
+export function markJobEnded(): void {
+  jobInFlight = false;
+}
+
 export function isJobInFlight(): boolean {
   return jobInFlight;
 }

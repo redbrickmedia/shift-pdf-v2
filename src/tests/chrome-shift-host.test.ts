@@ -23,7 +23,7 @@ import {
   resetJobLifecycleForTests,
 } from '../js/shift/job-lifecycle';
 import { downloadFile } from '../js/utils/helpers';
-import { dom, showAlert, showLoader } from '../js/ui';
+import { dom, hideLoader, showAlert, showLoader } from '../js/ui';
 
 type HostOptions = {
   track?: ReturnType<typeof vi.fn>;
@@ -292,6 +292,19 @@ describe('shift job lifecycle', () => {
 
   it('does not fire ToolUsed for validation alerts without a loader', () => {
     showAlert('No File', 'Please upload a PDF file first.');
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('does not treat file load or render loaders as in-flight jobs after hideLoader', () => {
+    listenForJobCancel();
+    showLoader('Loading PDF...');
+    hideLoader();
+    showAlert('No File', 'Please upload a PDF file first.');
+    expect(track).not.toHaveBeenCalled();
+
+    showLoader('Rendering page previews: 1/3');
+    hideLoader();
+    window.dispatchEvent(new Event('pagehide'));
     expect(track).not.toHaveBeenCalled();
   });
 
