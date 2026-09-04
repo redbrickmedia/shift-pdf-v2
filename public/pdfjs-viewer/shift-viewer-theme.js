@@ -5,9 +5,9 @@
  * any chrome paints, so the viewer never flashes its dark default.
  *
  * Every embed is themed the same way; the value only records which one it is.
- * `bentoSign` is the flag sign-viewer.html adds to the URL and viewer.mjs reads
- * to enable the signature editor, so it distinguishes the signing viewer from a
- * plain one for an exception the theme does not need today.
+ * `bentoSign` is the flag sign-pdf-page.ts puts on the iframe URL and viewer.mjs
+ * reads to enable the signature editor, so it distinguishes the signing viewer
+ * from a plain one for an exception the theme does not need today.
  */
 (function () {
   'use strict';
