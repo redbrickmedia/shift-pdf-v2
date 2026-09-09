@@ -148,9 +148,7 @@ async function handleFiles(files: FileList) {
     return;
   }
 
-  showLoader(translate('tools:addPageLabels.loadingPdf', 'Loading PDF...'), {
-    job: false,
-  });
+  showLoader(translate('tools:addPageLabels.loadingPdf', 'Loading PDF...'));
   try {
     const arrayBuffer = await readFileAsArrayBuffer(file);
     const pdfDoc = await loadPdfDocument(arrayBuffer as ArrayBuffer);

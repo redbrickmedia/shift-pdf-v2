@@ -325,15 +325,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      showLoader('Loading engine...', { job: false });
+      showLoader('Loading engine...');
       const pymupdf = await loadPyMuPDF();
 
-      showLoader(`Loading layers from ${currentFile.name}...`, { job: false });
+      showLoader(`Loading layers from ${currentFile.name}...`);
       currentDoc = await (
         pymupdf as { open: (file: File) => Promise<PyMuPDFDocument> }
       ).open(currentFile);
 
-      showLoader('Reading layer configuration...', { job: false });
+      showLoader('Reading layer configuration...');
       const existingLayers = currentDoc.getLayerConfig();
 
       layersMap.clear();

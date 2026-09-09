@@ -53,7 +53,7 @@ function saveCurrentCrop() {
  */
 
 async function displayPageAsImage(num: number) {
-  showLoader(`Rendering Page ${num}...`, { job: false });
+  showLoader(`Rendering Page ${num}...`);
 
   try {
     const page = await cropperState.pdfDoc.getPage(num);

@@ -1,5 +1,4 @@
-import { trackPdfEngineExperience } from './analytics.js';
-import { listenForJobCancel } from './job-lifecycle.js';
+import { listenForToolJobs, trackExperienceStarted } from './analytics.js';
 import { startThemeSync } from './theme.js';
 
 let bootstrapped = false;
@@ -9,8 +8,8 @@ export function bootstrapHostIntegration(): void {
   bootstrapped = true;
 
   startThemeSync();
-  trackPdfEngineExperience();
-  listenForJobCancel();
+  trackExperienceStarted();
+  listenForToolJobs();
 }
 
 export function resetBootstrapForTests(): void {

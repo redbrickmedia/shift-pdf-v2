@@ -14,7 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
-import { markJobStarted, reportJobResult } from './host/job-lifecycle.js';
+import { noteProcessAlert } from './host/analytics.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -49,26 +49,7 @@ export const dom = {
   warningConfirmBtn: document.getElementById('warning-confirm-btn'),
 };
 
-type ShowLoaderOptions = {
-  progress?: number;
-  /** False for file-load/render UI. Default true so process errors still report after hideLoader. */
-  job?: boolean;
-};
-
-export const showLoader = (
-  text = t('common.loading'),
-  progressOrOptions?: number | ShowLoaderOptions
-) => {
-  let options: ShowLoaderOptions;
-  if (typeof progressOrOptions === 'number') {
-    options = { progress: progressOrOptions, job: true };
-  } else {
-    options = progressOrOptions ?? { job: true };
-  }
-  if (options.job !== false) {
-    markJobStarted();
-  }
-  const progress = options.progress;
+export const showLoader = (text = t('common.loading'), progress?: number) => {
   if (dom.loaderText) dom.loaderText.textContent = text;
 
   // Add or update progress bar if progress is provided
@@ -132,9 +113,7 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
-  if (type !== 'success') {
-    reportJobResult('error');
-  }
+  noteProcessAlert();
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
   if (dom.alertModal) {
@@ -253,7 +232,7 @@ export const renderPageThumbnails = async (
   const currentRenderId = Date.now();
   container.dataset.renderId = currentRenderId.toString();
 
-  showLoader(t('multiTool.renderingTitle'), { job: false });
+  showLoader(t('multiTool.renderingTitle'));
 
   const pdfData = await pdfDoc.save();
   const pdf = await getPDFDocument({ data: pdfData }).promise;
@@ -449,9 +428,7 @@ export const renderPageThumbnails = async (
       useLazyLoading: true,
       lazyLoadMargin: '300px',
       onProgress: (current, total) => {
-        showLoader(`Rendering page previews: ${current}/${total}`, {
-          job: false,
-        });
+        showLoader(`Rendering page previews: ${current}/${total}`);
       },
       onBatchComplete: () => {
         createIcons({ icons });

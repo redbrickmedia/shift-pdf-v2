@@ -88,7 +88,7 @@ async function handleFiles(files: FileList) {
   try {
     const result = await loadPdfWithPasswordPrompt(file);
     if (!result) return;
-    showLoader('Loading PDF...', { job: false });
+    showLoader('Loading PDF...');
 
     pageState.pdfDoc = await loadPdfDocument(result.bytes);
     pageState.file = result.file;

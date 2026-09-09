@@ -7,13 +7,13 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { t } from '../i18n/i18n';
+import { endToolUse } from '../host/analytics.js';
 import type { SignState, PDFViewerWindow } from '@/types';
 import {
   completionTiming,
   createDefaultToolCompletionPanel,
   type ToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { reportJobResult, setJobDetails } from '../host/job-lifecycle.js';
 import {
   exportFlattenedSignedPdf,
   exportPdfJsAnnotations,
@@ -195,7 +195,7 @@ async function setupSignTool(loadVersion: number) {
     signatureEditor.classList.remove('hidden');
   }
 
-  showLoader('Loading PDF viewer...', { job: false });
+  showLoader('Loading PDF viewer...');
 
   const container = document.getElementById('canvas-container-sign');
   if (!container) {
@@ -334,7 +334,6 @@ async function applyAndSaveSignatures() {
       type: 'application/pdf',
     });
     const filename = getSignedPdfFilename(signState.file?.name, shouldFlatten);
-    setJobDetails({ inputCount: 1, outputCount: 1 });
     downloadFile(blob, filename);
     hideLoader();
     completionPanel?.show({
@@ -346,13 +345,9 @@ async function applyAndSaveSignatures() {
       timing: completionTiming(startedAt),
     });
   } catch (error) {
-    reportJobResult('error', {
-      inputCount: 1,
-      outputCount: 0,
-      errorCategory: 'processing',
-    });
     console.error('Failed to export the signed PDF:', error);
     hideLoader();
+    endToolUse('error');
     showAlert(
       'Export failed',
       'Could not export the signed PDF. Please try again.'

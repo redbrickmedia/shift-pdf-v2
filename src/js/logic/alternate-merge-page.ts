@@ -66,7 +66,7 @@ async function updateUI() {
     // Load PDFs and populate list
     hideLoader();
     pageState.files = await batchDecryptIfNeeded(pageState.files);
-    showLoader('Loading PDF files...', { job: false });
+    showLoader('Loading PDF files...');
     fileList.innerHTML = '';
 
     try {

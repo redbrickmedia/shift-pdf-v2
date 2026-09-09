@@ -87,7 +87,7 @@ async function handleFile(file: File) {
       deleteState.file = null;
       return;
     }
-    showLoader('Loading PDF...', { job: false });
+    showLoader('Loading PDF...');
     deleteState.file = result.file;
     deleteState.pdfDoc = await loadPdfDocument(result.bytes);
     deleteState.pdfJsDoc = result.pdf;

@@ -6,6 +6,7 @@ import { PDFDocument as PDFLibDocument, degrees, PageSizes } from 'pdf-lib';
 
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { beginToolUse, endToolUse } from '../host/analytics.js';
 
 interface BookletState {
   file: File | null;
@@ -90,7 +91,7 @@ async function updateUI() {
         resetState();
         return;
       }
-      showLoader('Loading PDF...', { job: false });
+      showLoader('Loading PDF...');
       pageState.file = result.file;
       pageState.pdfBytes = new Uint8Array(result.bytes);
       pageState.pdfjsDoc = result.pdf;
@@ -423,6 +424,7 @@ async function createBooklet() {
   }
 
   showLoader('Creating Booklet...');
+  beginToolUse();
 
   try {
     const sourceDoc = await loadPdfDocument(pageState.pdfBytes.slice());
@@ -535,6 +537,7 @@ async function createBooklet() {
     );
   } catch (e) {
     console.error(e);
+    endToolUse('error');
     showAlert('Error', 'An error occurred while creating the booklet.');
   } finally {
     hideLoader();

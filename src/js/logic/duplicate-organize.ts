@@ -89,7 +89,7 @@ export async function renderDuplicateOrganizeThumbnails() {
   // Cleanup any previous lazy loading observers
   cleanupLazyRendering();
 
-  showLoader('Rendering page previews...', { job: false });
+  showLoader('Rendering page previews...');
   const pdfData = await state.pdfDoc.save();
   hideLoader();
   const loadResult = await loadPdfWithPasswordPrompt(
@@ -98,7 +98,7 @@ export async function renderDuplicateOrganizeThumbnails() {
     0
   );
   if (!loadResult) return;
-  showLoader('Rendering page previews...', { job: false });
+  showLoader('Rendering page previews...');
   const pdfjsDoc = loadResult.pdf;
 
   grid.textContent = '';
@@ -161,9 +161,7 @@ export async function renderDuplicateOrganizeThumbnails() {
       useLazyLoading: true,
       lazyLoadMargin: '400px',
       onProgress: (current, total) => {
-        showLoader(`Rendering page previews: ${current}/${total}`, {
-          job: false,
-        });
+        showLoader(`Rendering page previews: ${current}/${total}`);
       },
       onBatchComplete: () => {
         createIcons({ icons });

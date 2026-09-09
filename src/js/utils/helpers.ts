@@ -4,7 +4,7 @@ import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { createIcons } from 'lucide';
 import { state, resetState } from '../state.js';
 import DOMPurify from 'dompurify';
-import { reportJobResult } from '../host/job-lifecycle.js';
+import { endToolUse } from '../host/analytics.js';
 export { getPDFDocument } from './pdfjs.js';
 
 const STANDARD_SIZES = {
@@ -80,7 +80,7 @@ export const downloadFile = (blob: Blob, filename: string): void => {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  reportJobResult('success');
+  endToolUse('success');
 };
 
 export const readFileAsArrayBuffer = (
@@ -168,12 +168,10 @@ let qpdfInstance: QpdfInstanceExtended | null = null;
  * Initialize qpdf-wasm singleton.
  * Subsequent calls return the same instance.
  */
-export async function initializeQpdf(options?: {
-  job?: boolean;
-}): Promise<QpdfInstanceExtended> {
+export async function initializeQpdf(): Promise<QpdfInstanceExtended> {
   if (qpdfInstance) return qpdfInstance;
 
-  showLoader('Initializing PDF engine...', { job: options?.job !== false });
+  showLoader('Initializing PDF engine...');
   try {
     qpdfInstance = (await createModule({
       locateFile: () => import.meta.env.BASE_URL + 'qpdf.wasm',

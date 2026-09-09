@@ -1,4 +1,5 @@
 import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import {
   downloadFile,
   readFileAsArrayBuffer,
@@ -15,7 +16,6 @@ import {
   completionTiming,
   createDefaultToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { reportJobResult, setJobDetails } from '../host/job-lifecycle.js';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
@@ -407,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       if (state.files.length === 0) {
-        reportJobResult('error', { inputCount, errorCategory: 'invalid-input' });
         showAlert('No Files', 'Please select at least one PDF file.');
         hideLoader();
         return;
@@ -415,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Check WASM availability for Condense mode
       if (algorithm === 'condense' && !isPyMuPDFAvailable()) {
-        reportJobResult('error', { inputCount, errorCategory: 'engine-load' });
+        abandonToolUse();
         showWasmRequiredDialog('pymupdf');
         return;
       }
@@ -454,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalFile
           );
           if (!resultBytes) {
-            reportJobResult('cancelled', { inputCount, outputCount: 0 });
+            endToolUse('cancelled');
             return;
           }
           const buffer = resultBytes.buffer.slice(
@@ -472,7 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const savingsPercent =
           savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
 
-        setJobDetails({ inputCount, outputCount: 1 });
         downloadFile(resultBlob, originalFile.name);
 
         hideLoader();
@@ -519,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
               file
             );
             if (!photonResult) {
-              reportJobResult('cancelled', { inputCount, outputCount: 0 });
+              endToolUse('cancelled');
               return;
             }
             resultBytes = photonResult;
@@ -536,7 +534,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ? ((totalSavings / totalOriginalSize) * 100).toFixed(1)
             : 0;
 
-        setJobDetails({ inputCount, outputCount: 1 });
         downloadFile(zipBlob, 'compressed-pdfs.zip');
 
         hideLoader();
@@ -554,12 +551,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: unknown) {
       hideLoader();
-      reportJobResult('error', {
-        inputCount,
-        outputCount: 0,
-        errorCategory: 'processing',
-      });
       console.error('[CompressPDF] Error:', e);
+      endToolUse('error');
       showAlert(
         'Error',
         `An error occurred during compression. Error: ${e instanceof Error ? e.message : String(e)}`

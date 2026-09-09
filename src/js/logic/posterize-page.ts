@@ -47,7 +47,7 @@ async function renderPosterizePreview(pageNum: number) {
   if (!pageState.pdfJsDoc) return;
 
   pageState.currentPage = pageNum;
-  showLoader(`Rendering preview for page ${pageNum}...`, { job: false });
+  showLoader(`Rendering preview for page ${pageNum}...`);
 
   const canvas = document.getElementById(
     'posterize-preview-canvas'

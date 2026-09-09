@@ -60,7 +60,7 @@ function calculateFitScale(page: PDFPageProxy) {
  */
 async function renderPage(num: number) {
   editorState.pageRendering = true;
-  showLoader(`Loading page ${num}...`, { job: false });
+  showLoader(`Loading page ${num}...`);
 
   try {
     const page = await editorState.pdf!.getPage(num);

@@ -109,7 +109,7 @@ async function handleFiles(files: FileList) {
     return;
   }
 
-  showLoader('Loading PDF Editor...', { job: false });
+  showLoader('Loading PDF Editor...');
 
   try {
     const pdfWrapper = document.getElementById('embed-pdf-wrapper');
@@ -120,7 +120,7 @@ async function handleFiles(files: FileList) {
 
     hideLoader();
     const decryptedFiles = await batchDecryptIfNeeded(pdfFiles);
-    showLoader('Loading PDF Editor...', { job: false });
+    showLoader('Loading PDF Editor...');
 
     if (decryptedFiles.length === 0) {
       hideLoader();
