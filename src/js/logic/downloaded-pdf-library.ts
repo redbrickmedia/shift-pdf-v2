@@ -35,21 +35,4 @@ async function saveDownloadedPdf(
   const file = new File([blob], filename, { type: 'application/pdf' });
   await addPdfToLibrary(file, 'download');
   await syncHomeLibraryFromStore(root);
-  navigateToMyPdfs(root);
-}
-
-function isMyPdfsPage(root: Document): boolean {
-  if (root.getElementById('shift-my-pdfs')) return true;
-  const pathname = window.location?.pathname ?? '';
-  return /(^|\/)my-pdfs\.html$/i.test(pathname);
-}
-
-function myPdfsHref(root: Document): string {
-  const nav = root.querySelector<HTMLAnchorElement>('a[data-nav="my-pdfs"]');
-  return nav?.getAttribute('href')?.trim() || 'my-pdfs.html';
-}
-
-function navigateToMyPdfs(root: Document): void {
-  if (isMyPdfsPage(root)) return;
-  window.location.assign(myPdfsHref(root));
 }

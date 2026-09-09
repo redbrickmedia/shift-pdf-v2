@@ -152,6 +152,38 @@ describe('seed tool open file', () => {
     ]);
   });
 
+  it('aligns the sidebar with the single PDF a non-multiple tool actually receives', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['first'], 'first.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['second'], 'second.pdf', {
+          type: 'application/pdf',
+        }),
+        source: 'upload',
+      },
+    ]);
+
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    expect(Array.from(input.files ?? []).map((file) => file.name)).toEqual([
+      'second.pdf',
+    ]);
+    expect(state.files.map((file) => file.name)).toEqual(['second.pdf']);
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'second.pdf',
+    ]);
+  });
+
   it('uses the most recently selected PDF for a single file input', () => {
     document.body.innerHTML = `
       <input id="file-input" type="file" accept="application/pdf" />

@@ -49,6 +49,29 @@ describe('downloaded PDF library', () => {
     await expect(readPdfLibrary()).resolves.toHaveLength(0);
   });
 
+  it('keeps the user on the tool page after saving a download', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:download'),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('location', { ...window.location, assign });
+    document.body.innerHTML =
+      '<main id="compress-pdf"></main><a data-nav="my-pdfs" href="my-pdfs.html">My PDFs</a>';
+    initDownloadedPdfLibrary();
+
+    downloadFile(
+      new Blob(['generated'], { type: 'application/pdf' }),
+      'compressed.pdf'
+    );
+
+    await vi.waitFor(async () => {
+      await expect(readPdfLibrary()).resolves.toHaveLength(1);
+    });
+    expect(assign).not.toHaveBeenCalled();
+  });
+
   it('ignores malformed download events', async () => {
     initDownloadedPdfLibrary();
 

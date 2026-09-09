@@ -3,6 +3,7 @@ import {
   addPdfToLibrary,
   clearPdfLibrary,
   readPdfLibrary,
+  removePdfFromLibrary,
 } from '../js/logic/pdf-library-store';
 
 afterEach(async () => {
@@ -77,6 +78,22 @@ describe('PDF library store', () => {
 
     expect(entries).toHaveLength(2);
     expect(new Set(entries.map((entry) => entry.id)).size).toBe(2);
+  });
+
+  it('removes a stored PDF from memory and IndexedDB', async () => {
+    const saved = await addPdfToLibrary(
+      new File(['keep-me'], 'keep.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    await addPdfToLibrary(
+      new File(['drop-me'], 'drop.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+
+    await removePdfFromLibrary(saved.id);
+
+    const entries = await readPdfLibrary();
+    expect(entries.map((entry) => entry.name)).toEqual(['drop.pdf']);
   });
 
   it('returns independent File objects when the library is read', async () => {

@@ -54,26 +54,33 @@ export function applyFileToToolInput(
   return applyFilesToToolInput([file], root);
 }
 
+export function filesApplicableToToolInput(
+  files: File[],
+  root: Document = document
+): File[] {
+  const input = getActiveFileInput(root) ?? findToolFileInput(root);
+  const accepted = files.filter(
+    (file) => !input || inputAcceptsFile(input, file)
+  );
+  if (accepted.length === 0) return [];
+  return input && !input.multiple ? accepted.slice(-1) : accepted.slice();
+}
+
 export function applyFilesToToolInput(
   files: File[],
   root: Document = document
 ): boolean {
-  const input =
-    getActiveFileInput(root) ?? findToolFileInput(root);
-  const accepted = files.filter(
-    (file) => !input || inputAcceptsFile(input, file)
-  );
-  if (accepted.length === 0) return false;
-
-  const assigned = input && !input.multiple ? accepted.slice(-1) : accepted;
+  const input = getActiveFileInput(root) ?? findToolFileInput(root);
+  const applicable = filesApplicableToToolInput(files, root);
+  if (applicable.length === 0) return false;
 
   if (input) {
-    assignInputFiles(input, assigned);
+    assignInputFiles(input, applicable);
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   if (state.files.length === 0) {
-    state.files = assigned.slice();
+    state.files = applicable.slice();
   }
 
   markToolFilesSeeded(root);
@@ -144,8 +151,9 @@ export async function seedToolOpenFile(
 
   if (!files || files.length === 0) return abandonSeed(root);
 
+  const applicable = filesApplicableToToolInput(files, root);
   const applied = applyFilesToToolInput(files, root);
-  setWorkspaceFiles(files, root);
+  setWorkspaceFiles(applied ? applicable : files, root);
   if (applied) return true;
 
   // Nothing landed in the input — a PDF on an image-only tool, say. The file is

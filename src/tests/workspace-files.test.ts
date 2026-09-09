@@ -12,6 +12,11 @@ import {
   writePersistedOpenFile,
 } from '../js/logic/open-file-store';
 import {
+  addPdfToLibrary,
+  clearPdfLibrary,
+  readPdfLibrary,
+} from '../js/logic/pdf-library-store';
+import {
   clearWorkspaceOpenFile,
   copyFileOrigin,
   getHomeOpenFileView,
@@ -55,12 +60,13 @@ function mountLibrary() {
   `;
 }
 
-afterEach(() => {
+afterEach(async () => {
   document.body.className = '';
   state.files = [];
   resetWorkspaceFileIndicator();
   vi.mocked(renderPdfFirstPage).mockClear();
   vi.mocked(renderPdfFirstPage).mockResolvedValue(undefined);
+  await clearPdfLibrary();
 });
 
 describe('workspace files sidebar', () => {
@@ -1713,6 +1719,34 @@ describe('workspace files sidebar', () => {
 
     expect(getWorkspaceFiles()).toHaveLength(0);
     expect(document.querySelector('.shift-my-pdfs-empty-row')).not.toBeNull();
+  });
+
+  it('removes the IndexedDB library copy once delete is confirmed', async () => {
+    mountLibrary();
+    const saved = await addPdfToLibrary(
+      new File(['pdf'], 'stored.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    setHomeLibraryFiles([
+      {
+        id: saved.id,
+        name: saved.name,
+        size: saved.size,
+        source: saved.source,
+        blob: saved.file,
+      },
+    ]);
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '#shift-my-pdfs-body .shift-my-pdfs-delete'
+      )
+      ?.click();
+    document.querySelector<HTMLButtonElement>('.shift-confirm-accept')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-my-pdfs-row')).toBeNull();
+    });
+    await expect(readPdfLibrary()).resolves.toHaveLength(0);
   });
 
   it('removes the empty-state placeholder once a library file exists and restores it after the last file is cleared', () => {
