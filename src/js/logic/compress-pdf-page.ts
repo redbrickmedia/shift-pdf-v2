@@ -1,4 +1,5 @@
 import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import {
   downloadFile,
   readFileAsArrayBuffer,
@@ -15,7 +16,6 @@ import {
   completionTiming,
   createDefaultToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics } from '../analytics/index.js';
 
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
@@ -402,19 +402,11 @@ document.addEventListener('DOMContentLoaded', () => {
       customSettings = convertToGrayscale ? { convertToGrayscale } : undefined;
     }
 
-    const operation =
-      pdfEngineAnalytics?.startToolOperation('compress-pdf') ?? null;
     const startedAt = performance.now();
     const inputCount = state.files.length;
 
     try {
       if (state.files.length === 0) {
-        operation?.finish({
-          result: 'error',
-          inputCount,
-          outputCount: 0,
-          errorCategory: 'invalid-input',
-        });
         showAlert('No Files', 'Please select at least one PDF file.');
         hideLoader();
         return;
@@ -422,12 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Check WASM availability for Condense mode
       if (algorithm === 'condense' && !isPyMuPDFAvailable()) {
-        operation?.finish({
-          result: 'error',
-          inputCount,
-          outputCount: 0,
-          errorCategory: 'engine-load',
-        });
+        abandonToolUse();
         showWasmRequiredDialog('pymupdf');
         return;
       }
@@ -466,11 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalFile
           );
           if (!resultBytes) {
-            operation?.finish({
-              result: 'cancelled',
-              inputCount,
-              outputCount: 0,
-            });
+            endToolUse('cancelled');
             return;
           }
           const buffer = resultBytes.buffer.slice(
@@ -501,11 +484,6 @@ document.addEventListener('DOMContentLoaded', () => {
           filename: originalFile.name,
           summary,
           timing: completionTiming(startedAt),
-        });
-        operation?.finish({
-          result: 'success',
-          inputCount,
-          outputCount: 1,
         });
       } else {
         showLoader('Compressing multiple PDFs...');
@@ -539,11 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
               file
             );
             if (!photonResult) {
-              operation?.finish({
-                result: 'cancelled',
-                inputCount,
-                outputCount: 0,
-              });
+              endToolUse('cancelled');
               return;
             }
             resultBytes = photonResult;
@@ -574,21 +548,11 @@ document.addEventListener('DOMContentLoaded', () => {
           summary,
           timing: completionTiming(startedAt),
         });
-        operation?.finish({
-          result: 'success',
-          inputCount,
-          outputCount: 1,
-        });
       }
     } catch (e: unknown) {
       hideLoader();
-      operation?.finish({
-        result: 'error',
-        inputCount,
-        outputCount: 0,
-        errorCategory: 'processing',
-      });
       console.error('[CompressPDF] Error:', e);
+      endToolUse('error');
       showAlert(
         'Error',
         `An error occurred during compression. Error: ${e instanceof Error ? e.message : String(e)}`

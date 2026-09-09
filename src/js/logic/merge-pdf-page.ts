@@ -2,11 +2,7 @@ import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
 import type { MergeFile, MergeJob, MergeMessage, MergeResponse } from '@/types';
-import {
-  pdfEngineAnalytics,
-  type ErrorCategory,
-  type ToolOperation,
-} from '../analytics/index.js';
+import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import { state } from '../state.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { BoundedHistory } from '../utils/bounded-history.js';
@@ -569,15 +565,7 @@ export async function merge(): Promise<void> {
   }
   const inputCount = mergeModel.files.length;
   const startedAt = performance.now();
-  const operation: ToolOperation | null =
-    pdfEngineAnalytics?.startToolOperation('merge-pdf') ?? null;
-  const fail = (message: string, category: ErrorCategory = 'invalid-input') => {
-    operation?.finish({
-      result: 'error',
-      inputCount,
-      outputCount: 0,
-      errorCategory: category,
-    });
+  const fail = (message: string) => {
     showAlert('Cannot merge PDFs', message);
   };
 
@@ -586,12 +574,7 @@ export async function merge(): Promise<void> {
     return;
   }
   if (!isCpdfAvailable()) {
-    operation?.finish({
-      result: 'error',
-      inputCount,
-      outputCount: 0,
-      errorCategory: 'engine-load',
-    });
+    abandonToolUse();
     showWasmRequiredDialog('cpdf');
     return;
   }
@@ -626,12 +609,7 @@ export async function merge(): Promise<void> {
     if (!finishWorkerOperation()) return;
     hideLoader();
     if (event.data.status !== 'success') {
-      operation?.finish({
-        result: 'error',
-        inputCount,
-        outputCount: 0,
-        errorCategory: 'processing',
-      });
+      endToolUse('error');
       showAlert('Error', event.data.message || 'Failed to merge PDFs.');
       return;
     }
@@ -643,18 +621,12 @@ export async function merge(): Promise<void> {
       summary: `Merged ${inputCount} PDFs into one document.`,
       timing: completionTiming(startedAt),
     });
-    operation?.finish({ result: 'success', inputCount, outputCount: 1 });
   };
   mergeWorker.onerror = (error) => {
     if (!finishWorkerOperation()) return;
     hideLoader();
     console.error('Worker error:', error);
-    operation?.finish({
-      result: 'error',
-      inputCount,
-      outputCount: 0,
-      errorCategory: 'processing',
-    });
+    endToolUse('error');
     showAlert('Error', 'An unexpected error occurred in the merge worker.');
   };
   try {
@@ -666,12 +638,7 @@ export async function merge(): Promise<void> {
     finishWorkerOperation();
     hideLoader();
     console.error('Failed to start merge worker:', error);
-    operation?.finish({
-      result: 'error',
-      inputCount,
-      outputCount: 0,
-      errorCategory: 'processing',
-    });
+    endToolUse('error');
     showAlert('Error', 'Could not start the merge operation.');
   }
 }

@@ -14,6 +14,7 @@ import {
 
 import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
+import { noteProcessAlert } from './host/analytics.js';
 
 // Centralizing DOM element selection
 export const dom = {
@@ -112,9 +113,19 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
+  noteProcessAlert(type);
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
-  if (dom.alertModal) dom.alertModal.classList.remove('hidden');
+  if (dom.alertModal) {
+    dom.alertModal.classList.remove(
+      'alert-modal--error',
+      'alert-modal--success'
+    );
+    dom.alertModal.classList.add(
+      type === 'success' ? 'alert-modal--success' : 'alert-modal--error'
+    );
+    dom.alertModal.classList.remove('hidden');
+  }
 
   if (dom.alertOkBtn) {
     const newOkBtn = dom.alertOkBtn.cloneNode(true) as HTMLElement;

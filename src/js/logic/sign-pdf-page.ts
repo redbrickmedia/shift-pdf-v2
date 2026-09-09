@@ -7,13 +7,13 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { t } from '../i18n/i18n';
+import { endToolUse } from '../host/analytics.js';
 import type { SignState, PDFViewerWindow } from '@/types';
 import {
   completionTiming,
   createDefaultToolCompletionPanel,
   type ToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
 import {
   exportFlattenedSignedPdf,
   exportPdfJsAnnotations,
@@ -305,7 +305,6 @@ async function applyAndSaveSignatures() {
     return;
   }
 
-  let operation: ToolOperation | null = null;
   const startedAt = performance.now();
   try {
     const viewerWindow = signState.viewerIframe
@@ -320,7 +319,6 @@ async function applyAndSaveSignatures() {
       'flatten-signature-toggle'
     ) as HTMLInputElement | null;
     const shouldFlatten = flattenCheckbox?.checked;
-    operation = pdfEngineAnalytics?.startToolOperation('sign-pdf') ?? null;
     showLoader(
       shouldFlatten ? 'Flattening and saving PDF...' : 'Saving signed PDF...'
     );
@@ -346,20 +344,10 @@ async function applyAndSaveSignatures() {
         : t('tools:signPdf.ready'),
       timing: completionTiming(startedAt),
     });
-    operation?.finish({
-      result: 'success',
-      inputCount: 1,
-      outputCount: 1,
-    });
   } catch (error) {
-    operation?.finish({
-      result: 'error',
-      inputCount: 1,
-      outputCount: 0,
-      errorCategory: 'processing',
-    });
     console.error('Failed to export the signed PDF:', error);
     hideLoader();
+    endToolUse('error');
     showAlert(
       'Export failed',
       'Could not export the signed PDF. Please try again.'

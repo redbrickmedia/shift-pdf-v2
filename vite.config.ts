@@ -588,6 +588,9 @@ export default defineConfig(({ mode }) => {
     define: {
       __SIMPLE_MODE__: JSON.stringify(process.env.SIMPLE_MODE === 'true'),
       __BRAND_NAME__: JSON.stringify(process.env.VITE_BRAND_NAME || ''),
+      __APP_VERSION__: JSON.stringify(
+        process.env.npm_package_version || '2.8.7'
+      ),
       __DISABLED_TOOLS__: JSON.stringify(
         (process.env.DISABLE_TOOLS || '')
           .split(',')

@@ -11,13 +11,13 @@ import JSZip from 'jszip';
 
 import type { PDFPageProxy } from 'pdfjs-dist';
 import { t } from '../i18n/i18n';
+import { endToolUse } from '../host/analytics.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import {
   completionTiming,
   createDefaultToolCompletionPanel,
   type ToolCompletionPanel,
 } from '../utils/tool-completion.js';
-import { pdfEngineAnalytics, type ToolOperation } from '../analytics/index.js';
 
 let files: File[] = [];
 let completionPanel: ToolCompletionPanel | null = null;
@@ -107,16 +107,10 @@ async function convert() {
     return;
   }
   const startedAt = performance.now();
-  const operation: ToolOperation | null =
-    pdfEngineAnalytics?.startToolOperation('pdf-to-jpg') ?? null;
   try {
     const result = await loadPdfWithPasswordPrompt(files[0], files, 0);
     if (!result) {
-      operation?.finish({
-        result: 'cancelled',
-        inputCount: 1,
-        outputCount: 0,
-      });
+      endToolUse('cancelled');
       return;
     }
     showLoader(t('tools:pdfToJpg.loader.converting'));
@@ -157,19 +151,9 @@ async function convert() {
       summary: `${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'} converted to JPG.`,
       timing: completionTiming(startedAt),
     });
-    operation?.finish({
-      result: 'success',
-      inputCount: 1,
-      outputCount: pdf.numPages,
-    });
   } catch (e) {
-    operation?.finish({
-      result: 'error',
-      inputCount: 1,
-      outputCount: 0,
-      errorCategory: 'processing',
-    });
     console.error(e);
+    endToolUse('error');
     showAlert(t('common.error'), t('tools:pdfToJpg.alert.conversionError'));
   } finally {
     hideLoader();

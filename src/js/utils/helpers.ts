@@ -4,6 +4,7 @@ import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { createIcons } from 'lucide';
 import { state, resetState } from '../state.js';
 import DOMPurify from 'dompurify';
+import { endToolUse } from '../host/analytics.js';
 export { getPDFDocument } from './pdfjs.js';
 
 const STANDARD_SIZES = {
@@ -79,6 +80,7 @@ export const downloadFile = (blob: Blob, filename: string): void => {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  endToolUse('success');
 };
 
 export const readFileAsArrayBuffer = (

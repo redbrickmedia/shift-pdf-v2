@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_TESSERACT_AVAILABLE_LANGUAGES?: string;
   readonly VITE_OCR_FONT_BASE_URL?: string;
   readonly VITE_PROMISE_BANNER_UNTIL?: string;
+  readonly VITE_HOST_API_ROOT?: string;
 }
 
 interface ImportMeta {
@@ -15,3 +16,5 @@ interface ImportMeta {
 
 declare const __SIMPLE_MODE__: boolean;
 declare const __DISABLED_TOOLS__: string[];
+declare const __BRAND_NAME__: string;
+declare const __APP_VERSION__: string;
