@@ -82,8 +82,13 @@ export function endToolUse(result: ToolResult): void {
   });
 }
 
-export function noteProcessAlert(): void {
-  if (processClickActive) abandonToolUse();
+export function noteProcessAlert(type: string = 'error'): void {
+  if (type === 'success') return;
+  if (processClickActive) {
+    abandonToolUse();
+    return;
+  }
+  endToolUse('error');
 }
 
 export function listenForToolJobs(): void {

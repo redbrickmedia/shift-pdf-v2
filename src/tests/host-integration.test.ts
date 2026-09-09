@@ -244,4 +244,26 @@ describe('host analytics', () => {
     window.dispatchEvent(new Event('pagehide'));
     expect(trackFn).not.toHaveBeenCalled();
   });
+
+  it('reports error for an in-flight job that fails after the process click', () => {
+    listenForToolJobs();
+    document.getElementById('process-btn')?.click();
+    showAlert('Error', 'Could not add blank page.');
+    expect(trackFn).toHaveBeenCalledTimes(1);
+    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
+      tool_id: 'merge-pdf',
+      result: 'error',
+    });
+
+    trackFn.mockClear();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(trackFn).not.toHaveBeenCalled();
+  });
+
+  it('does not treat success alerts as job errors', () => {
+    listenForToolJobs();
+    document.getElementById('process-btn')?.click();
+    showAlert('Success', 'Metadata removed successfully!', 'success');
+    expect(trackFn).not.toHaveBeenCalled();
+  });
 });
