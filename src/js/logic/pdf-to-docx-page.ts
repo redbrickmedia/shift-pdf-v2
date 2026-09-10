@@ -15,6 +15,10 @@ import {
   loadPdfWithPasswordPrompt,
 } from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
+import {
+  markFileFromHandoff,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -84,11 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
       fileControls.classList.remove('hidden');
       convertOptions.classList.remove('hidden');
       (processBtn as HTMLButtonElement).disabled = false;
+      setWorkspaceFiles(state.files);
     } else {
       fileDisplayArea.innerHTML = '';
       fileControls.classList.add('hidden');
       convertOptions.classList.add('hidden');
       (processBtn as HTMLButtonElement).disabled = true;
+      setWorkspaceFiles([]);
     }
   };
 
@@ -171,16 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null): boolean => {
-    if (!files || files.length === 0) return false;
-    const pdfFiles = Array.from(files).filter(
-      (f) =>
-        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-    );
-    if (pdfFiles.length === 0) return false;
-    state.files = [...state.files, ...pdfFiles];
-    updateUI();
-    return true;
+  const handleFileSelect = (files: FileList | File[] | null) => {
+    if (files && files.length > 0) {
+      const pdfFiles = Array.from(files).filter(
+        (f) =>
+          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+      );
+      state.files = [...state.files, ...pdfFiles];
+      updateUI();
+    }
   };
 
   if (fileInput && dropZone) {
@@ -229,18 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   listenForShiftFileHandoff({
-    onFile: async (file) => {
-      try {
-        const loaded = await loadPdfWithPasswordPrompt(file);
-        if (!loaded) return false;
-        await loaded.pdf.destroy();
-        state.files = [...state.files, loaded.file];
-        await updateUI();
-        return true;
-      } catch {
-        showAlert('Error', 'Failed to load the PDF file.');
-        return false;
-      }
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      handleFileSelect([file]);
     },
   });
 });

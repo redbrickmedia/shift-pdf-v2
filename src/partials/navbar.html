@@ -20,12 +20,7 @@
     </div>
 
     <nav class="shift-primary-nav" aria-label="Primary tools">
-      <a
-        href="{{baseUrl}}index.html"
-        class="shift-nav-link"
-        data-nav="home"
-        title="All tools"
-      >
+      <a href="{{baseUrl}}index.html" class="shift-nav-link" data-nav="home">
         <svg
           class="shift-nav-icon"
           xmlns="http://www.w3.org/2000/svg"
@@ -49,7 +44,6 @@
         href="{{baseUrl}}compress-pdf.html"
         class="shift-nav-link"
         data-nav="compress"
-        title="Compress"
       >
         <svg
           class="shift-nav-icon with-padding"
@@ -77,7 +71,6 @@
         href="{{baseUrl}}merge-pdf.html"
         class="shift-nav-link"
         data-nav="merge"
-        title="Merge"
       >
         <svg
           class="shift-nav-icon"
@@ -101,7 +94,6 @@
         href="{{baseUrl}}pdf-converter.html"
         class="shift-nav-link"
         data-nav="convert"
-        title="Convert"
       >
         <svg
           class="shift-nav-icon"
@@ -125,7 +117,6 @@
         href="{{baseUrl}}sign-pdf.html"
         class="shift-nav-link"
         data-nav="esign"
-        title="E-sign"
       >
         <svg
           class="shift-nav-icon"
@@ -147,6 +138,22 @@
         <span class="shift-nav-label">E-sign</span>
       </a>
     </nav>
+
+    <section
+      id="shift-open-files"
+      class="shift-open-files"
+      aria-labelledby="shift-open-files-heading"
+      hidden
+    >
+      <h2 id="shift-open-files-heading" class="shift-sidebar-section-title">
+        Active file
+      </h2>
+      <div
+        id="shift-open-files-list"
+        class="shift-open-files-list"
+        aria-label="Active files"
+      ></div>
+    </section>
 
     <section
       id="shift-favorites"

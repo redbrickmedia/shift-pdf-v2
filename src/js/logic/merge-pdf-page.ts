@@ -24,6 +24,7 @@ import {
   showWasmRequiredDialog,
   WasmProvider,
 } from '../utils/wasm-provider.js';
+import { markFileFromHandoff, setWorkspaceFiles } from './workspace-files.js';
 
 type MergeMode = 'file' | 'page';
 
@@ -180,7 +181,10 @@ async function addFiles(files: File[]): Promise<boolean> {
       await loadRuntimeSource(source);
       added.push(source);
     }
-    if (added.length === 0) return false;
+    if (added.length === 0) {
+      await renderMergeUI(false);
+      return false;
+    }
 
     snapshot();
     mergeModel.files.push(...added);
@@ -204,6 +208,7 @@ async function addFiles(files: File[]): Promise<boolean> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
+    await renderMergeUI(false);
     return false;
   } finally {
     hideLoader();
@@ -409,9 +414,12 @@ function renderMode(): void {
   pageButton?.setAttribute('aria-pressed', String(!inFileMode));
 }
 
-async function renderMergeUI(): Promise<void> {
+async function renderMergeUI(syncWorkspace = true): Promise<void> {
   syncSharedFiles();
   const hasFiles = mergeModel.files.length > 0;
+  if (syncWorkspace) {
+    setWorkspaceFiles(mergeModel.files.map(({ file }) => file));
+  }
   document
     .getElementById('file-controls')
     ?.classList.toggle('hidden', !hasFiles);
@@ -731,8 +739,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  void renderMergeUI();
+  void renderMergeUI(false);
   listenForShiftFileHandoff({
-    onFile: (file) => addFiles([file]),
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      return addFiles([file]);
+    },
   });
 });
