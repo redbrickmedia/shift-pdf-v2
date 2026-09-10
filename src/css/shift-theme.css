@@ -2054,41 +2054,86 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
  * Only the values change here: every rule above reads these tokens, so the
  * shell, the rail and the tool pages all follow this block.
  *
- * The grey ramp goes back to Tailwind's stock scale. src/pages was authored
- * for a dark theme, so undoing the inversion in :root is all those pages need
- * — `bg-gray-800` is a card again and `text-gray-400` is a label again. The
- * pale accent levels come back for the same reason: on a dark surface they
- * read as accent ink at their authored weights.
+ * Values are shift-design-system's dark colour mode
+ * (src/styles/variables/color-mode-dark.css) resolved against the default grey
+ * palette, so this shell lands on the same greys as shift-pdf: the rail is
+ * `--background-bar-primary` (dark-700) and the panel is
+ * `--background-secondary` (dark-800), exactly as in shift-pdf's
+ * .main / .main-content. The DS dark ramp is neutral, so nothing here carries
+ * the blue cast Tailwind's stock grey scale has.
+ *
+ * Every light-mode token above that resolves to white or a light grey is
+ * answered here. A token left out would keep its `:root` value and punch a
+ * white surface — a button, an input, a pill — through the dark shell.
+ *
+ * The grey ramp becomes the DS dark scale rather than Tailwind's stock one.
+ * src/pages was authored for a dark theme, so undoing the inversion in :root
+ * is all those pages need — `bg-gray-800` is a card again and `text-gray-400`
+ * is a label again. The pale accent levels come back for the same reason: on a
+ * dark surface they read as accent ink at their authored weights.
  */
 html.dark {
-  /* The panel takes gray-900 so the retinted tool pages sit flush on it, and
-     the rail goes a step darker to keep the Shift shell's layering. */
-  --background-bar-primary: #0b0e14;
-  --background-secondary: #111827;
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --border-divider-secondary: #1f2937;
-  --border-outer-primary: #374151;
-  --action-button-surface-primary-default: #3b82f6;
-  --action-button-surface-primary-hover: #60a5fa;
+  /* dark-700 rail over a dark-800 panel, matching shift-pdf's layering. */
+  --background-bar-primary: #404040; /* dark-700 */
+  --background-secondary: #262626; /* dark-800 */
+  --text-primary: #fafafa; /* dark-50 */
+  --text-secondary: #e5e5e5; /* dark-200 */
+  --border-divider-secondary: #404040; /* dark-700 */
+  --border-outer-primary: #525252; /* dark-600 */
+  --border-brand-primary: #3b82f6; /* brand-500 */
+  --border-brand-secondary: #60a5fa; /* brand-400 */
+  --action-button-surface-primary-default: #3b82f6; /* brand-500 */
+  --action-button-surface-primary-hover: #2563eb; /* brand-600 */
+  --action-button-surface-primary-active: #1d4ed8; /* brand-700 */
+  --action-button-surface-primary-disabled: #404040; /* dark-700 */
+  --action-button-surface-secondary-default: #525252; /* dark-600 */
+  --action-button-surface-secondary-hover: #737373; /* dark-500 */
+  --action-button-surface-secondary-active: #a3a3a3; /* dark-400 */
+  --action-button-surface-secondary-disabled: #404040; /* dark-700 */
+  --action-button-border-secondary-default: #525252; /* dark-600 */
+  --action-button-border-secondary-hover: #737373; /* dark-500 */
+  --action-button-border-secondary-active: #a3a3a3; /* dark-400 */
+  /* The destructive button is a tinted *surface*, so it moves to the deep end
+     of the negative ramp instead of keeping its pale light-mode fill. */
+  --action-button-surface-negative-default: #b91c1c; /* negative-700 */
+  --action-button-surface-negative-hover: #dc2626; /* negative-600 */
+  --action-button-surface-negative-active: #ef4444; /* negative-500 */
+  --action-button-border-negative-default: #b91c1c; /* negative-700 */
+  --action-button-border-negative-hover: #dc2626; /* negative-600 */
+  --action-button-border-negative-active: #ef4444; /* negative-500 */
+  --text-negative-default: #fca5a5; /* negative-300 */
+  --border-negative-secondary: #ef4444; /* negative-500 */
   /* Used as a tint *surface* (favourites pill, tile hover, indigo panels), so
      it inverts to the deep end of the brand ramp rather than staying pale. */
-  --brand-50: #172554;
-  --brand-500: #60a5fa;
-  --action-controls-surface-primary-default: #1f2937;
-  --action-controls-surface-primary-hover: #374151;
-  --action-controls-surface-secondary-active-tertiary: #4b5563;
-  --action-text-neutral-default: #d1d5db;
-  --action-text-neutral-hover: #f3f4f6;
-  --action-text-neutral-selected: #ffffff;
+  --brand-50: #1e3a8a; /* brand-900 */
+  --brand-500: #60a5fa; /* brand-400 — brand ink lightens on dark, as in DS */
+  --action-controls-surface-primary-default: #404040; /* dark-700 */
+  --action-controls-surface-primary-hover: #525252; /* dark-600 */
+  --action-controls-surface-secondary-active-tertiary: #262626; /* dark-800 */
+  --action-text-neutral-default: #d4d4d4; /* dark-300 */
+  --action-text-neutral-hover: #e5e5e5; /* dark-200 */
+  --action-text-neutral-active: #f5f5f5; /* dark-100 */
+  --action-text-neutral-selected: #fafafa; /* dark-50 */
+  --action-text-neutral-disabled: #737373; /* dark-500 */
 
-  --color-gray-900: #111827;
-  --color-gray-800: #1f2937;
-  --color-gray-700: #374151;
-  --color-gray-600: #4b5563;
-  --color-gray-500: #6b7280;
-  --color-gray-400: #9ca3af;
-  --color-gray-300: #d1d5db;
+  --form-input-border-default: #262626; /* dark-800 */
+  --form-input-border-hover: #525252; /* dark-600 */
+  --form-input-border-active: #93c5fd; /* brand-300 */
+  --form-input-border-focus: #60a5fa; /* brand-400 */
+  --form-input-surface-primary-default: #262626; /* dark-800 */
+  --form-input-surface-primary-disabled: #525252; /* dark-600 */
+  --form-input-surface-secondary-default: #171717; /* dark-900 */
+  --form-input-surface-secondary-disabled: #404040; /* dark-700 */
+
+  /* DS dark grey scale. gray-900 matches the panel so retinted tool pages sit
+     flush on it, gray-800 is the card a step up, gray-700 the rules between. */
+  --color-gray-900: #262626; /* dark-800 */
+  --color-gray-800: #333333; /* dark-750 */
+  --color-gray-700: #404040; /* dark-700 */
+  --color-gray-600: #525252; /* dark-600 */
+  --color-gray-500: #737373; /* dark-500 */
+  --color-gray-400: #a3a3a3; /* dark-400 */
+  --color-gray-300: #d4d4d4; /* dark-300 */
 
   --color-indigo-200: #c7d2fe;
   --color-indigo-300: #a5b4fc;

@@ -57,7 +57,7 @@
         position: relative;
         display: flex;
         align-items: stretch;
-        background: #ffffff;
+        background: var(--background-secondary);
         overflow: hidden;
         min-height: 0;
         padding: 1.5rem;
@@ -109,7 +109,7 @@
         display: flex;
         gap: 0;
         padding: 0;
-        background: #ffffff;
+        background: var(--background-secondary);
       }
 
       .compare-workspace {
@@ -137,14 +137,14 @@
       }
 
       .compare-viewer-wrapper.side-by-side-mode #panel-1 {
-        border-right: 2px solid #cbd5e1;
+        border-right: 2px solid var(--border-divider-secondary);
       }
 
       .compare-panel {
         position: relative;
         min-width: 0;
         min-height: 0;
-        background: #ffffff;
+        background: var(--background-secondary);
       }
 
       .compare-panel-label {
@@ -156,10 +156,9 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #64748b;
-        background: rgba(255, 255, 255, 0.95);
-        border-bottom: 1px solid #e2e8f0;
-        backdrop-filter: blur(4px);
+        color: var(--text-secondary);
+        background: var(--background-secondary);
+        border-bottom: 1px solid var(--border-divider-secondary);
       }
 
       .compare-canvas-stage {
@@ -225,10 +224,10 @@
         justify-content: center;
         text-align: center;
         padding: 1rem;
-        border: 1px dashed #94a3b8;
+        border: 1px dashed var(--border-outer-primary);
         border-radius: 0.75rem;
-        color: #475569;
-        background: rgba(255, 255, 255, 0.92);
+        color: var(--text-secondary);
+        background: var(--background-secondary);
       }
 
       .compare-placeholder.hidden {

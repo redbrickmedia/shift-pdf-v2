@@ -36,6 +36,13 @@ See https://github.com/adobe-type-tools/cmap-resources
 
     <link rel="stylesheet" href="viewer.css" />
 
+    <!-- Shift chrome, shared with the signing/form-filling viewer so both
+         embeds follow the app shell's colour mode. Relative so it resolves
+         under any deployment base. The script is parser-blocking and comes
+         before the stylesheet takes effect on paint. -->
+    <script src="../../pdfjs-viewer/shift-viewer-theme.js"></script>
+    <link rel="stylesheet" href="../../pdfjs-viewer/shift-viewer-theme.css" />
+
     <script src="viewer.mjs" type="module"></script>
     <script src="./hash-params.js"></script>
     <script

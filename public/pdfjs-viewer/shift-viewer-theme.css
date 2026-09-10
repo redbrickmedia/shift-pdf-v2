@@ -6,27 +6,38 @@
  * dark chrome inside the light Shift shell.
  *
  * Two things happen below:
- *   1. `color-scheme: only light` pins every `light-dark()` value in viewer.css
- *      to its light branch, so nothing follows the OS setting any more.
+ *   1. shift-viewer-theme.js mirrors the shell's colour mode onto this document
+ *      as `.light` / `.dark` plus `color-scheme: only <mode>`, which pins every
+ *      `light-dark()` value in viewer.css to one branch so nothing follows the
+ *      OS setting independently of the app.
  *   2. PDF.js chrome variables are re-pointed at Shift design-system tokens.
  *
  * Token names match @redbrickmedia/shift-design-system (the same names used in
  * src/css/shift-theme.css) so the Shift browser toolkit can re-theme this
- * document by toggling those properties. Hex values are the light/default-brand
- * resolutions, repeated here because the iframe cannot read the app's copy.
+ * document by toggling those properties. Values are repeated here, per mode,
+ * because the iframe cannot read the app's copy.
  *
  * Scoped to `[data-shift-viewer]`, which shift-viewer-theme.js sets on every
  * embed of viewer.html, so the signing and form-filling viewers are one look
  * rather than two. The attribute is kept for its specificity: `:root` in
  * viewer.css would otherwise outrank a bare `html` and win the tokens back.
  * Page rendering (canvas, text layer, page geometry) is left alone; only the
- * surrounding chrome is restyled.
+ * surrounding chrome is restyled — a PDF page stays paper-white in both modes
+ * because it is document content, not app surface.
  */
 
 html[data-shift-viewer] {
-  color-scheme: only light;
+  --radius-8: 8px;
+  --radius-12: 12px;
 
-  /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
+  /* App-local geometry, matching --shift-font in src/css/shift-theme.css. The
+     iframe has no @font-face for Inter, so this resolves to the system stack
+     unless Inter is installed locally; both beat PDF.js's `font: menu`. */
+  --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ---- Design-system semantic tokens, light mode ---- */
+html[data-shift-viewer].light {
   --background-bar-primary: #f3f4f6; /* light-100 */
   --background-secondary: #ffffff; /* basic-white */
   --text-primary: #111827; /* light-900 */
@@ -37,8 +48,6 @@ html[data-shift-viewer] {
   --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
   --brand-50: #eff6ff;
   --brand-500: #3b82f6;
-  --radius-8: 8px;
-  --radius-12: 12px;
   --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
   --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
   --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
@@ -46,18 +55,52 @@ html[data-shift-viewer] {
   --action-text-neutral-hover: #1f2937; /* light-800 */
   --action-text-neutral-selected: #111827; /* light-900 */
 
-  /* App-local geometry, matching --shift-font in src/css/shift-theme.css. The
-     iframe has no @font-face for Inter, so this resolves to the system stack
-     unless Inter is installed locally; both beat PDF.js's `font: menu`. */
-  --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Hover states darken a light surface; the stock dark rule brightens it. */
+  --shift-hover-filter: brightness(0.95);
+  --shift-chrome-shadow-rgb: 17 24 39;
 
-  /* ---- PDF.js chrome, mapped onto the tokens above ---- */
+  /* The workspace behind the pages sits a step off the toolbar so white pages
+     stay visible against it without touching page borders or margins. */
+  --shift-viewer-workspace: var(--action-controls-surface-primary-hover);
+}
 
-  /* Toolbar surface and the workspace behind the pages. The workspace uses
-     light-200 rather than light-100 so white pages stay visible against it
-     without touching page borders or margins. */
+/* ---- Design-system semantic tokens, dark mode ----
+   Same values as the html.dark block in src/css/shift-theme.css, so the viewer
+   chrome and the shell around it land on one set of greys. */
+html[data-shift-viewer].dark {
+  --background-bar-primary: #404040; /* dark-700 */
+  --background-secondary: #262626; /* dark-800 */
+  --text-primary: #fafafa; /* dark-50 */
+  --text-secondary: #e5e5e5; /* dark-200 */
+  --border-divider-secondary: #404040; /* dark-700 */
+  --border-outer-primary: #525252; /* dark-600 */
+  --action-button-surface-primary-default: #3b82f6; /* brand-500 */
+  --action-button-surface-primary-hover: #2563eb; /* brand-600 */
+  --brand-50: #1e3a8a; /* brand-900 */
+  --brand-500: #60a5fa; /* brand-400 */
+  --action-controls-surface-primary-default: #404040; /* dark-700 */
+  --action-controls-surface-primary-hover: #525252; /* dark-600 */
+  --action-controls-surface-secondary-active-tertiary: #262626; /* dark-800 */
+  --action-text-neutral-default: #d4d4d4; /* dark-300 */
+  --action-text-neutral-hover: #e5e5e5; /* dark-200 */
+  --action-text-neutral-selected: #fafafa; /* dark-50 */
+
+  /* Hover has to lift a dark surface rather than darken a light one. */
+  --shift-hover-filter: brightness(1.15);
+  --shift-chrome-shadow-rgb: 0 0 0;
+
+  /* Dark pages need no separation from the workspace — the paper provides it —
+     so this takes the rail colour and matches shift-pdf's own viewer. */
+  --shift-viewer-workspace: var(--background-bar-primary);
+}
+
+/* ---- PDF.js chrome, mapped onto the tokens above ----
+   Mode-independent: every value here resolves through a semantic token, so this
+   block is written once and follows whichever mode block above is active. */
+html[data-shift-viewer] {
+  /* Toolbar surface and the workspace behind the pages. */
   --main-color: var(--text-primary);
-  --body-bg-color: var(--action-controls-surface-primary-hover);
+  --body-bg-color: var(--shift-viewer-workspace);
   --toolbar-bg-color: var(--background-secondary);
   --toolbar-border-color: var(--border-divider-secondary);
   --sidebar-toolbar-bg-color: var(--background-bar-primary);
@@ -106,7 +149,8 @@ html[data-shift-viewer] {
   --editor-toolbar-focus-outline-color: var(
     --action-button-surface-primary-default
   );
-  --editor-toolbar-shadow: 0 2px 6px 0 rgb(17 24 39 / 0.12);
+  --editor-toolbar-shadow: 0 2px 6px 0
+    rgb(var(--shift-chrome-shadow-rgb) / 0.12);
 
   /* Saved-signature rows inside the signature popover. */
   --signature-bg: var(--background-bar-primary);
@@ -121,9 +165,13 @@ html[data-shift-viewer] {
 }
 
 /* These components re-declare `color-scheme: light dark` on themselves, which
-   would otherwise re-enable the dark branch inside them. */
-html[data-shift-viewer] :is(.commentPopup, .annotationCommentButton) {
+   would otherwise let them pick a branch independently of the shell. */
+html[data-shift-viewer].light :is(.commentPopup, .annotationCommentButton) {
   color-scheme: only light;
+}
+
+html[data-shift-viewer].dark :is(.commentPopup, .annotationCommentButton) {
+  color-scheme: only dark;
 }
 
 html[data-shift-viewer] body {
@@ -150,8 +198,8 @@ html[data-shift-viewer] .toolbarField:focus {
 html[data-shift-viewer] :is(.doorHanger, .doorHangerRight) {
   border-radius: var(--radius-12);
   box-shadow:
-    0 1px 2px rgb(17 24 39 / 0.06),
-    0 8px 24px rgb(17 24 39 / 0.12),
+    0 1px 2px rgb(var(--shift-chrome-shadow-rgb) / 0.06),
+    0 8px 24px rgb(var(--shift-chrome-shadow-rgb) / 0.12),
     0 0 0 1px var(--border-divider-secondary);
 }
 
@@ -172,23 +220,22 @@ html[data-shift-viewer] #editorUndoBar {
   --undo-button-fg-color: var(--action-button-surface-primary-default);
 
   border-radius: var(--radius-8);
-  box-shadow: 0 8px 24px rgb(17 24 39 / 0.12);
+  box-shadow: 0 8px 24px rgb(var(--shift-chrome-shadow-rgb) / 0.12);
 }
 
 html[data-shift-viewer] #editorUndoBar #editorUndoBarUndoButton {
   border-radius: var(--radius-8);
 }
 
-/* "Add a signature" dialog: white surface, Shift blue primary action. */
+/* "Add a signature" dialog: panel surface, Shift blue primary action. */
 html[data-shift-viewer] .dialog {
   --dialog-bg-color: var(--background-secondary);
   --dialog-border-color: var(--border-divider-secondary);
-  --dialog-shadow: 0 8px 32px 0 rgb(17 24 39 / 0.16);
+  --dialog-shadow: 0 8px 32px 0 rgb(var(--shift-chrome-shadow-rgb) / 0.16);
   --text-primary-color: var(--text-primary);
   --text-secondary-color: var(--text-secondary);
   --separator-color: var(--border-divider-secondary);
-  /* Hover states darken a light surface; the stock dark rule brightens it. */
-  --hover-filter: brightness(0.95);
+  --hover-filter: var(--shift-hover-filter);
   --button-disabled-opacity: 0.4;
   --link-fg-color: var(--action-button-surface-primary-default);
   --link-hover-fg-color: var(--action-button-surface-primary-hover);
@@ -214,7 +261,9 @@ html[data-shift-viewer] .dialog {
   --button-secondary-active-border-color: var(--border-outer-primary);
 
   --button-primary-bg-color: var(--action-button-surface-primary-default);
-  --button-primary-fg-color: var(--background-secondary);
+  /* Sits on a brand-blue fill in both modes, so it stays white rather than
+     following the panel surface. */
+  --button-primary-fg-color: #ffffff;
   --button-primary-hover-bg-color: var(--action-button-surface-primary-hover);
   --button-primary-active-bg-color: var(--action-button-surface-primary-hover);
 
@@ -236,7 +285,7 @@ html[data-shift-viewer] #addSignatureDialog {
   --secondary-color: var(--text-secondary);
   --border-color: var(--border-outer-primary);
   --bg-hover: var(--action-controls-surface-primary-hover);
-  --hover-filter: brightness(0.95);
+  --hover-filter: var(--shift-hover-filter);
 
   --tab-top-line-active-color: var(--action-button-surface-primary-default);
   --tab-top-line-hover-color: var(--border-outer-primary);
@@ -260,4 +309,32 @@ html[data-shift-viewer] #signatureTypeControls {
 
 html[data-shift-viewer] #signatureTypeControls label {
   color: var(--text-secondary);
+}
+
+/* ---- Annotation-extension controls (stamps viewer only) ----
+ * That build ships an older PDF.js whose dark rules live in
+ * `@media (prefers-color-scheme: dark)` blocks guarded by
+ * `:where(html:not(.is-light))`. `:where()` contributes no specificity, so
+ * these element-scoped rules outrank both the stock light and stock dark
+ * declarations and the controls follow the shell instead of the OS. Both
+ * components resolve entirely through tokens, so one block serves both modes.
+ * The current viewer has neither component, where this is inert.
+ */
+html[data-shift-viewer] .toggle-button {
+  --button-background-color: var(--action-controls-surface-primary-default);
+  --button-background-color-hover: var(--action-controls-surface-primary-hover);
+  --button-background-color-active: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --color-accent-primary: var(--action-button-surface-primary-default);
+  --color-accent-primary-hover: var(--action-button-surface-primary-hover);
+  --color-accent-primary-active: var(--action-button-surface-primary-hover);
+  --border-interactive-color: var(--border-outer-primary);
+  --color-canvas: var(--background-secondary);
+}
+
+html[data-shift-viewer] .colorPicker {
+  --hover-outline-color: var(--action-button-surface-primary-hover);
+  --selected-outline-color: var(--action-button-surface-primary-default);
+  --swatch-border-color: var(--border-outer-primary);
 }
