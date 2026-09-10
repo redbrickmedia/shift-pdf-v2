@@ -271,11 +271,6 @@ const init = async () => {
   if (!hasShiftFileHandoffRequest()) {
     await seedToolOpenFile();
   }
-  trackPdfEngineExperience(
-    new Set(
-      categories.flatMap((category) => category.tools.map((tool) => tool.id))
-    )
-  );
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
