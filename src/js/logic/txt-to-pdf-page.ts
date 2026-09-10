@@ -167,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const uploadModeBtn = document.getElementById('txt-mode-upload-btn');
   const textModeBtn = document.getElementById('txt-mode-text-btn');
   const uploadPanel = document.getElementById('txt-upload-panel');
@@ -177,11 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ) as HTMLTextAreaElement;
 
   // Back control
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   // Mode switching
   if (uploadModeBtn && textModeBtn && uploadPanel && textPanel) {

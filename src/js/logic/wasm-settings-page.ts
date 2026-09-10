@@ -72,12 +72,6 @@ async function initializePage() {
 
   const saveBtn = document.getElementById('save-btn') as HTMLButtonElement;
   const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
-  const backBtn = document.getElementById('back-to-tools');
-
-  backBtn?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-
   loadConfiguration();
 
   function loadConfiguration() {

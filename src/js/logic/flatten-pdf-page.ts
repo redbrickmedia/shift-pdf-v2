@@ -1,4 +1,4 @@
-import { showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { PDFDocument } from 'pdf-lib';
@@ -104,15 +104,11 @@ async function flattenPdf() {
     return;
   }
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-
   pageState.files = await batchDecryptIfNeeded(pageState.files);
 
   try {
     if (pageState.files.length === 1) {
-      if (loaderModal) loaderModal.classList.remove('hidden');
-      if (loaderText) loaderText.textContent = 'Flattening PDF...';
+      showLoader('Flattening PDF...');
 
       const file = pageState.files[0];
       const arrayBuffer = await file.arrayBuffer();
@@ -139,10 +135,9 @@ async function flattenPdf() {
         new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
         `flattened_${file.name}`
       );
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
     } else {
-      if (loaderModal) loaderModal.classList.remove('hidden');
-      if (loaderText) loaderText.textContent = 'Flattening multiple PDFs...';
+      showLoader('Flattening multiple PDFs...');
 
       const zip = new JSZip();
       const usedNames = new Set<string>();
@@ -150,8 +145,9 @@ async function flattenPdf() {
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
-        if (loaderText)
-          loaderText.textContent = `Flattening ${i + 1}/${pageState.files.length}: ${file.name}...`;
+        showLoader(
+          `Flattening ${i + 1}/${pageState.files.length}: ${file.name}...`
+        );
 
         try {
           const arrayBuffer = await file.arrayBuffer();
@@ -196,11 +192,11 @@ async function flattenPdf() {
       } else {
         showAlert('Error', 'No PDFs could be processed.');
       }
-      if (loaderModal) loaderModal.classList.add('hidden');
+      hideLoader();
     }
   } catch (e: unknown) {
     console.error(e);
-    if (loaderModal) loaderModal.classList.add('hidden');
+    hideLoader();
     const errorMessage =
       e instanceof Error ? e.message : 'An unexpected error occurred.';
     showAlert('Error', errorMessage);
@@ -213,13 +209,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const processBtn = document.getElementById('process-btn');
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {

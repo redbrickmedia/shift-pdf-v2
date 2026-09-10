@@ -74,7 +74,6 @@ function initializePage() {
   const dropZone = document.getElementById(
     'drop-zone'
   ) as HTMLDivElement | null;
-  const backBtn = document.getElementById('back-to-tools');
   const processBtn = document.getElementById('process-btn');
   const addRuleBtn = document.getElementById('add-rule-btn');
 
@@ -101,12 +100,6 @@ function initializePage() {
       if (event.dataTransfer?.files.length) {
         handleFiles(event.dataTransfer.files);
       }
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
     });
   }
 

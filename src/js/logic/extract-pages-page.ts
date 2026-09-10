@@ -9,6 +9,7 @@ import { PDFDocument } from 'pdf-lib';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import JSZip from 'jszip';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 interface ExtractState {
   file: File | null;
@@ -68,9 +69,13 @@ function initializePage() {
     processBtn.addEventListener('click', extractPages);
   }
 
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
+  syncSeededToolFiles(
+    (files) => {
+      if (extractState.file || files.length === 0) return;
+      void handleFile(files[0]);
+    },
+    { multiple: false }
+  );
 }
 
 function handleFileUpload(e: Event) {

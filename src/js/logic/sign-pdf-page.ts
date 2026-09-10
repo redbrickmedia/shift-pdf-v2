@@ -96,11 +96,6 @@ function initializePage() {
   document
     .getElementById('flatten-signature-toggle')
     ?.addEventListener('change', updateDownloadButtonLabel);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    cleanup();
-    window.location.href = import.meta.env.BASE_URL;
-  });
   window.addEventListener('pagehide', cleanup, { once: true });
   listenForShiftFileHandoff({
     onFile: (file) => {
@@ -250,7 +245,7 @@ async function setupSignTool(loadVersion: number) {
   signState.blobUrl = URL.createObjectURL(blob);
 
   const viewerUrl = new URL(
-    `${import.meta.env.BASE_URL}pdfjs-viewer/sign-viewer.html`,
+    `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html`,
     window.location.origin
   );
   const query = new URLSearchParams({

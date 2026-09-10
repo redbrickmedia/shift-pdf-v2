@@ -2,23 +2,11 @@
 import { createIcons, icons } from 'lucide';
 import { getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { hideLoader, showLoader } from '../ui.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
 let currentFile: File | null = null;
-
-// UI helpers
-function showLoader(message: string = 'Processing...') {
-  const loader = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  if (loader) loader.classList.remove('hidden');
-  if (loaderText) loaderText.textContent = message;
-}
-
-function hideLoader() {
-  const loader = document.getElementById('loader-modal');
-  if (loader) loader.classList.add('hidden');
-}
 
 function showAlert(
   title: string,
@@ -285,8 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
   fileInput?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) handleFileUpload(file);
@@ -309,8 +295,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   processBtn?.addEventListener('click', processAndDownloadForm);
-
-  backBtn?.addEventListener('click', () => {
-    window.location.href = '../../index.html';
-  });
 });

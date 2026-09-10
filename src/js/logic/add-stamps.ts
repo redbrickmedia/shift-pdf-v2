@@ -6,6 +6,7 @@ import {
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { createIcons, icons } from 'lucide';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 let selectedFile: File | null = null;
 let viewerIframe: HTMLIFrameElement | null = null;
@@ -22,9 +23,6 @@ const viewerCard = document.getElementById(
 const saveStampedBtn = document.getElementById(
   'save-stamped-btn'
 ) as HTMLButtonElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement | null;
 const toolUploader = document.getElementById(
   'tool-uploader'
 ) as HTMLDivElement | null;
@@ -258,8 +256,13 @@ function setupAnnotationViewer(iframe: HTMLIFrameElement) {
 }
 
 async function onPdfSelected(file: File) {
+  if (selectedFile) return;
+  selectedFile = file;
   const result = await loadPdfWithPasswordPrompt(file);
-  if (!result) return;
+  if (!result) {
+    selectedFile = null;
+    return;
+  }
   result.pdf.destroy();
   selectedFile = result.file;
   updateFileList();
@@ -296,6 +299,14 @@ if (dropZone) {
     }
   });
 }
+
+syncSeededToolFiles(
+  (files) => {
+    if (selectedFile || files.length === 0) return;
+    void onPdfSelected(files[0]);
+  },
+  { multiple: false }
+);
 
 if (saveStampedBtn) {
   saveStampedBtn.addEventListener('click', () => {
@@ -346,12 +357,6 @@ if (saveStampedBtn) {
         'Could not export the stamped PDF. Please use the Export → PDF button in the viewer toolbar as a fallback.'
       );
     }
-  });
-}
-
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
   });
 }
 

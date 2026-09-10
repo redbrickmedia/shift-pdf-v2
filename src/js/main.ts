@@ -23,6 +23,7 @@ import {
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
 import { bootstrapHostIntegration } from './host/bootstrap.js';
+import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
 import {
   FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
@@ -33,19 +34,24 @@ import {
   type FavoriteRailPin,
 } from './logic/tool-favorites.js';
 import { initHomeFiles } from './logic/home-files.js';
+import { initDownloadedPdfLibrary } from './logic/downloaded-pdf-library.js';
 import {
   initInPageToolOpenFileSeeding,
   isHomeDocument,
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
-import { hasOpenFileFlag } from './logic/open-file-store.js';
-import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
+import { initToolEmptyState } from './logic/tool-empty-state.js';
+import { applyOpenFileFlagClasses } from './logic/open-file-store.js';
 import {
+  ALL_TOOLS_CATEGORY_ID,
+  getCategoryChipOrder,
+  getDefaultSelectedCategory,
   setToolCatalogOpen,
   shouldShowCategoryGroup,
   shouldShowToolCatalog,
   toggleSelectedCategory,
 } from './logic/home-catalog.js';
+import { primaryNavKeyFromPath } from './logic/primary-nav.js';
 import {
   initWorkspaceFileIndicator,
   pickerAcceptsPdf,
@@ -76,15 +82,6 @@ if (typeof document !== 'undefined' && readSidebarCollapsed()) {
   document.documentElement.classList.add('shift-sidebar-collapsed-pending');
 }
 
-// At module scope rather than in init(): init() waits for `load`, and the tool
-// pages bind their own back handlers on DOMContentLoaded, so the shared one has
-// to be in place before that window opens.
-if (typeof document !== 'undefined') {
-  initToolBackNavigation();
-  // After, not before: the menu hangs off the class the call above adds.
-  initToolBackMenu();
-}
-
 /**
  * Element that actually scrolls. The Shift shell makes the main panel a fixed
  * height scrollport so its rounded corners stay on screen; pages without the
@@ -109,8 +106,8 @@ function getToolId(tool: { id?: string; href?: string }): string {
 
 /**
  * Every tool keeps its own Phosphor/Lucide artwork, in the catalog and on the
- * rail pins alike. The Shift design-system glyphs are reserved for the chrome
- * that is hand-authored for this shell: the primary rail items in navbar.html.
+ * rail pins alike. The Shift design-system glyphs are reserved for shell chrome
+ * authored in navbar.html (All tools, Collapse, My PDFs).
  */
 function createToolIcon(
   tool: { id?: string; href?: string; icon: string },
@@ -138,12 +135,12 @@ function createInlineIcon(pathData: string): SVGSVGElement {
 }
 
 function initShiftShell() {
-  if (!isHomeDocument() && hasOpenFileFlag()) {
-    document.body.classList.add('shift-has-open-file');
-    if (pickerAcceptsPdf()) {
-      document.body.classList.add('shift-open-file-in-tool');
-    }
-  }
+  // sidebar-boot.js usually applied these before first paint; re-apply so a
+  // missed boot (or tests) still hide the empty drop zone once main loads.
+  applyOpenFileFlagClasses(document, {
+    acceptsPdf: pickerAcceptsPdf(),
+    isHome: isHomeDocument(),
+  });
 
   const donationRibbon = document.getElementById('donation-ribbon');
   if (donationRibbon) {
@@ -201,27 +198,7 @@ function initShiftShell() {
 
   initWorkspaceFileIndicator();
 
-  const path = window.location.pathname.replace(/\/+$/, '');
-  const file = path.split('/').pop() || 'index.html';
-  const navMap: Record<string, string> = {
-    'index.html': 'home',
-    '': 'home',
-    'compress-pdf.html': 'compress',
-    'merge-pdf.html': 'merge',
-    'pdf-converter.html': 'convert',
-    'sign-pdf.html': 'esign',
-  };
-  // Clean URLs without .html (Cloudflare / nginx)
-  const cleanMap: Record<string, string> = {
-    'compress-pdf': 'compress',
-    'merge-pdf': 'merge',
-    'pdf-converter': 'convert',
-    'sign-pdf': 'esign',
-  };
-  const key =
-    navMap[file] ||
-    cleanMap[file.replace(/\.html$/, '')] ||
-    (file === 'index' || path.endsWith('/') ? 'home' : '');
+  const key = primaryNavKeyFromPath(window.location.pathname);
   if (key) {
     document
       .querySelectorAll(`.shift-nav-link[data-nav="${key}"]`)
@@ -240,10 +217,10 @@ function navPageId(pathname: string): string {
   return page === '' || page === 'index' ? 'index' : page;
 }
 
-/* Primary rail items are keyed by data-nav because their hrefs are aliased —
-   pdf-converter.html serves "Convert". Favourites come from the catalog and
-   only have an href, so they are matched by page instead. Both routes only
-   add, so neither clears what the other marked. */
+/* Authored nav links (All tools, My PDFs) are keyed by data-nav because some
+   hrefs are aliased. Favourite pins come from the catalog and only have an
+   href, so they are matched by page instead. Both routes only add, so neither
+   clears what the other marked. */
 function markActiveNavLinks() {
   const current = navPageId(window.location.pathname);
   document
@@ -258,19 +235,43 @@ function markActiveNavLinks() {
     });
 }
 
+/*
+ * Deferred modules run before DOMContentLoaded, and every tool page binds its
+ * own handlers in a DOMContentLoaded listener. Seeding earlier than that would
+ * dispatch `change` into a page that is not listening yet, so wait for the
+ * event explicitly rather than sniffing `readyState` (which already reads
+ * "interactive" while deferred scripts execute).
+ */
+const domReady: Promise<void> =
+  typeof document === 'undefined'
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+        document.addEventListener('DOMContentLoaded', () => resolve(), {
+          once: true,
+        });
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
 const init = async () => {
   bootstrapHostIntegration();
+  // Filling the tool card comes first. i18n and runtime config are both network
+  // round-trips, and awaiting them before seeding left the card showing a
+  // placeholder for several frames.
+  await domReady;
+  initShiftShell();
+  initHomeFiles();
+  initDownloadedPdfLibrary();
+  initInPageToolOpenFileSeeding();
+  if (!hasShiftFileHandoffRequest()) {
+    await seedToolOpenFile();
+  }
+
   await initI18n();
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
 
-  initShiftShell();
-  initHomeFiles();
-  initInPageToolOpenFileSeeding();
-  if (!hasShiftFileHandoffRequest()) {
-    await seedToolOpenFile();
-  }
+  initToolEmptyState();
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
@@ -383,6 +384,7 @@ const init = async () => {
   }
 
   const categoryTranslationKeys: Record<string, string> = {
+    [ALL_TOOLS_CATEGORY_ID]: 'tools:categories.allTools',
     'Popular Tools': 'tools:categories.popularTools',
     'Edit & Annotate': 'tools:categories.editAnnotate',
     'Convert to PDF': 'tools:categories.convertToPdf',
@@ -512,17 +514,10 @@ const init = async () => {
     'Rasterize PDF': 'tools:rasterizePdf',
   };
 
-  /* The rail's own items, pinned for everyone. They are excluded from the
-     favourites list and carry no star, because a control that offers to pin
-     something already permanently pinned has nothing to toggle. 'pdf-converter'
-     is the Convert item; it is a hub page rather than a catalog entry, so it
-     never reaches the grid, but it belongs here for the rail's sake. */
-  const primaryToolIds = new Set([
-    'compress-pdf',
-    'merge-pdf',
-    'pdf-converter',
-    'sign-pdf',
-  ]);
+  /* Favorites are a single localStorage list. Former prepinned Tools
+     (Compress / Merge / Convert / Sign) seed that list on first visit and are
+     otherwise identical to user pins — same star, same remove control, same
+     persistence. */
   const toolsById = new Map<
     string,
     (typeof categories)[number]['tools'][number]
@@ -568,18 +563,13 @@ const init = async () => {
   };
 
   const renderSidebarFavorites = () => {
-    const section = document.getElementById('shift-favorites');
-    const nav = document.getElementById('shift-favorites-nav');
-    if (!section || !nav) return;
+    const rail = document.getElementById('shift-favorite-tools');
+    if (!rail) return;
 
-    nav.textContent = '';
-    const sidebarFavoriteIds = favoriteToolIds.filter(
-      (toolId) => !primaryToolIds.has(toolId)
-    );
-    section.hidden = sidebarFavoriteIds.length === 0;
+    rail.textContent = '';
     const pins: FavoriteRailPin[] = [];
 
-    sidebarFavoriteIds.forEach((toolId) => {
+    favoriteToolIds.forEach((toolId) => {
       const tool = toolsById.get(toolId);
       if (!tool) return;
 
@@ -616,7 +606,7 @@ const init = async () => {
       });
 
       item.append(link, removeButton);
-      nav.appendChild(item);
+      rail.appendChild(item);
       pins.push({ name: getToolName(tool), href: tool.href, icon: tool.icon });
     });
 
@@ -887,23 +877,17 @@ const init = async () => {
           toolContent.appendChild(toolSubtitle);
         }
 
-        if (primaryToolIds.has(toolId)) {
-          toolCard.appendChild(toolContent);
-        } else {
-          const favoriteButton = document.createElement('button');
-          favoriteButton.type = 'button';
-          favoriteButton.className = 'shift-tool-favorite';
-          favoriteButton.dataset.toolId = toolId;
-          favoriteButton.appendChild(
-            createInlineIcon(
-              'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
-            )
-          );
-          favoriteButton.addEventListener('click', () =>
-            toggleFavorite(toolId)
-          );
-          toolCard.append(toolContent, favoriteButton);
-        }
+        const favoriteButton = document.createElement('button');
+        favoriteButton.type = 'button';
+        favoriteButton.className = 'shift-tool-favorite';
+        favoriteButton.dataset.toolId = toolId;
+        favoriteButton.appendChild(
+          createInlineIcon(
+            'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+          )
+        );
+        favoriteButton.addEventListener('click', () => toggleFavorite(toolId));
+        toolCard.append(toolContent, favoriteButton);
 
         toolsContainer.appendChild(toolCard);
       });
@@ -963,7 +947,7 @@ const init = async () => {
     const searchStatus = document.getElementById('tool-search-status');
     const searchEmpty = document.getElementById('tool-search-empty');
     const categoryChips = document.getElementById('home-category-chips');
-    let selectedCategory: string | null = null;
+    let selectedCategory: string | null = getDefaultSelectedCategory();
 
     const syncToolCatalog = (searchFocused: boolean, searchQuery: string) => {
       setToolCatalogOpen(
@@ -1118,21 +1102,28 @@ const init = async () => {
         revealSelectedCategory();
       };
 
-      filteredCategories.forEach((category) => {
+      const appendCategoryChip = (categoryName: string) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'shift-category-chip';
-        button.dataset.category = category.name;
-        const categoryKey = categoryTranslationKeys[category.name];
-        fillChipLabel(button, categoryKey ? t(categoryKey) : category.name);
+        button.dataset.category = categoryName;
+        const categoryKey = categoryTranslationKeys[categoryName];
+        fillChipLabel(button, categoryKey ? t(categoryKey) : categoryName);
         button.setAttribute('aria-pressed', 'false');
         button.addEventListener('click', () => {
           applyCategorySelection(
-            toggleSelectedCategory(selectedCategory, category.name)
+            toggleSelectedCategory(selectedCategory, categoryName)
           );
         });
         categoryChips.appendChild(button);
+      };
+
+      getCategoryChipOrder(
+        filteredCategories.map((category) => category.name)
+      ).forEach((categoryName) => {
+        appendCategoryChip(categoryName);
       });
+      syncCategoryChips();
     }
 
     if (searchBar) {

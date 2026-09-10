@@ -25,6 +25,12 @@ import {
   WasmProvider,
 } from '../utils/wasm-provider.js';
 import {
+  isDuplicateMergeFile,
+  mergeFileIdentityKey,
+} from './merge-file-identity.js';
+import { openPdfLibraryPicker } from './pdf-library-picker.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
+import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
@@ -174,13 +180,35 @@ async function ensureRuntimeDocuments(): Promise<void> {
   }
 }
 
+const pendingMergeFileKeys = new Set<string>();
+
+function currentMergeIdentities() {
+  return mergeModel.files.map((source) => ({
+    name: source.file.name,
+    size: source.file.size,
+  }));
+}
+
 async function addFiles(files: File[]): Promise<boolean> {
-  if (files.length === 0) return false;
+  const unique: File[] = [];
+  for (const file of files) {
+    const identity = { name: file.name, size: file.size };
+    const key = mergeFileIdentityKey(identity);
+    if (
+      isDuplicateMergeFile(currentMergeIdentities(), identity) ||
+      pendingMergeFileKeys.has(key)
+    ) {
+      continue;
+    }
+    pendingMergeFileKeys.add(key);
+    unique.push(file);
+  }
+  if (unique.length === 0) return false;
 
   showLoader('Loading PDF documents...');
   const added: MergeSource[] = [];
   try {
-    const decrypted = await batchDecryptIfNeeded(files);
+    const decrypted = await batchDecryptIfNeeded(unique);
     for (const file of decrypted) {
       const source = { id: generateId(), file, range: '' };
       await loadRuntimeSource(source);
@@ -216,6 +244,11 @@ async function addFiles(files: File[]): Promise<boolean> {
     await renderMergeUI(false);
     return false;
   } finally {
+    for (const file of unique) {
+      pendingMergeFileKeys.delete(
+        mergeFileIdentityKey({ name: file.name, size: file.size })
+      );
+    }
     hideLoader();
   }
 }
@@ -667,10 +700,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   completionPanel = createDefaultToolCompletionPanel(resetState);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
   fileInput?.addEventListener('change', () => {
     void addFiles(Array.from(fileInput.files ?? []));
   });
@@ -678,8 +707,20 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.value = '';
   });
   document.getElementById('add-more-btn')?.addEventListener('click', () => {
-    fileInput.value = '';
-    fileInput.click();
+    void openPdfLibraryPicker({
+      title: 'Add PDFs from library',
+      exclude: currentMergeIdentities(),
+      onSelect: (entries) => {
+        void addFiles(entries.map((entry) => entry.file));
+      },
+      onUpload: () => {
+        fileInput.value = '';
+        fileInput.click();
+      },
+    });
+  });
+  onToolFilesSeeded(() => {
+    void addFiles(state.files.slice());
   });
   document.getElementById('clear-files-btn')?.addEventListener('click', () => {
     void resetState();

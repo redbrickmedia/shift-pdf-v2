@@ -8,6 +8,7 @@ import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 
 import Sortable from 'sortablejs';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { syncSeededToolFiles } from './tool-file-seed.js';
 
 interface OrganizeState {
   file: File | null;
@@ -61,13 +62,16 @@ function initializePage() {
   }
 
   if (processBtn) processBtn.addEventListener('click', saveChanges);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-
   const applyOrderBtn = document.getElementById('apply-order-btn');
   if (applyOrderBtn) applyOrderBtn.addEventListener('click', applyCustomOrder);
+
+  syncSeededToolFiles(
+    (files) => {
+      if (organizeState.file || files.length === 0) return;
+      void handleFile(files[0]);
+    },
+    { multiple: false }
+  );
 }
 
 function applyCustomOrder() {

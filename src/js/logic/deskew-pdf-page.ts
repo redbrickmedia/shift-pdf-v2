@@ -5,6 +5,7 @@ import { createIcons, icons } from 'lucide';
 import { downloadFile } from '../utils/helpers';
 import { isWasmAvailable } from '../config/wasm-cdn-config.js';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
+import { hideLoader, showLoader } from '../ui.js';
 
 interface DeskewResult {
   totalPages: number;
@@ -21,22 +22,6 @@ async function initPyMuPDF(): Promise<PyMuPDFInstance> {
     pymupdf = (await loadPyMuPDF()) as PyMuPDFInstance;
   }
   return pymupdf;
-}
-
-function showLoader(message: string): void {
-  const loader = document.getElementById('loader-modal');
-  const text = document.getElementById('loader-text');
-  if (loader && text) {
-    text.textContent = message;
-    loader.classList.remove('hidden');
-  }
-}
-
-function hideLoader(): void {
-  const loader = document.getElementById('loader-modal');
-  if (loader) {
-    loader.classList.add('hidden');
-  }
 }
 
 function showAlert(title: string, message: string): void {
@@ -215,8 +200,6 @@ function initPage(): void {
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const processBtn = document.getElementById('process-btn');
   const alertOk = document.getElementById('alert-ok');
-  const backBtn = document.getElementById('back-to-tools');
-
   if (fileInput) {
     fileInput.addEventListener('change', () => {
       if (fileInput.files) {
@@ -268,12 +251,6 @@ function initPage(): void {
   if (alertOk) {
     alertOk.addEventListener('click', () => {
       document.getElementById('alert-modal')?.classList.add('hidden');
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = '/';
     });
   }
 

@@ -30,6 +30,7 @@ import {
   uniqueZipName,
   extractPagesWithQpdf,
 } from '../utils/split-pdf-helpers.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   let visualSelectorRendered = false;
@@ -40,8 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const processBtn = document.getElementById('process-btn');
   const fileDisplayArea = document.getElementById('file-display-area');
   const splitOptions = document.getElementById('split-options');
-  const backBtn = document.getElementById('back-to-tools');
-
   // Split Mode Elements
   const splitModeSelect = document.getElementById(
     'split-mode'
@@ -55,12 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const bookmarksPanel = document.getElementById('bookmarks-panel');
   const nTimesPanel = document.getElementById('n-times-panel');
   const nTimesWarning = document.getElementById('n-times-warning');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   const updateUI = async () => {
     if (state.files.length > 0) {
@@ -629,4 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', split);
   }
+
+  onToolFilesSeeded(() => {
+    void updateUI();
+  });
 });

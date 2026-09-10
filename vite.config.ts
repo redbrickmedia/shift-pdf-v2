@@ -57,6 +57,8 @@ function loadPages(): Set<string> {
 
   const rootPages = [
     'index',
+    'my-pdfs',
+    'all-tools',
     'about',
     'contact',
     'faq',
@@ -189,7 +191,7 @@ function createLanguageMiddleware(isDev: boolean): Connect.NextHandleFunction {
     }
 
     // Hub pages (Convert, Editor, …) link with clean URLs such as
-    // /word-to-pdf. Without this rewrite Vite serves index.html — All tools.
+    // /word-to-pdf. Without this rewrite Vite serves index.html — My PDFs.
     if (!pathname.startsWith('/src/')) {
       const pageName = pathname
         .replace(/^\//, '')
@@ -378,53 +380,27 @@ function languageRouterPlugin(): Plugin {
 
 function sidebarBootPlugin(): Plugin {
   let base = '/';
+  let hosted = false;
   return {
     name: 'sidebar-boot',
     configResolved(config) {
       base = config.base;
+      /* The boot script decides the colour mode before paint, and it is a
+         classic script so it cannot read import.meta.env. Mirror what
+         hasHostConfiguration() sees in bridge.ts onto the tag instead. */
+      hosted = String(config.env.VITE_HOST_API_ROOT ?? '').trim() !== '';
     },
     transformIndexHtml() {
       return [
         {
           tag: 'script',
-          attrs: { src: `${base}sidebar-boot.js` },
+          attrs: {
+            src: `${base}sidebar-boot.js`,
+            ...(hosted ? { 'data-shift-hosted': '' } : {}),
+          },
           injectTo: 'head-prepend',
         },
       ];
-    },
-  };
-}
-
-const TOOL_GRID_MARKER_PATTERN = /id\s*=\s*["']tool-grid["']/;
-const CLASS_ATTRIBUTE_PATTERN = /class\s*=\s*["']([^"']*)["']/g;
-const BACK_CONTROL_PATTERN =
-  /id\s*=\s*["']back-to-tools(?:-[^"']*)?["']|\bdata-tool-back(?:\s|=|>)/;
-
-function hasCatalogMarker(html: string): boolean {
-  if (TOOL_GRID_MARKER_PATTERN.test(html)) return true;
-
-  return Array.from(html.matchAll(CLASS_ATTRIBUTE_PATTERN)).some((match) =>
-    match[1].split(/\s+/).includes('tool-card')
-  );
-}
-
-/**
- * Puts an empty, height-stable shell in every tool page before paint. The
- * runtime uses the same catalog markers to distinguish catalog and tool
- * contexts, then moves the page's existing translated Back control into it.
- */
-function toolHeaderPlugin(): Plugin {
-  const partialPath = resolve(__dirname, 'src/partials/tool-header.html');
-
-  return {
-    name: 'tool-header',
-    transformIndexHtml(html) {
-      if (hasCatalogMarker(html) || !BACK_CONTROL_PATTERN.test(html)) {
-        return html;
-      }
-
-      const header = fs.readFileSync(partialPath, 'utf8').trim();
-      return html.replace(/<body([^>]*)>/i, (body) => `${body}\n${header}`);
     },
   };
 }
@@ -545,7 +521,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       // basicSsl(),
       sidebarBootPlugin(),
-      toolHeaderPlugin(),
       handlebars({
         partialDirectory: resolve(__dirname, 'src/partials'),
         context: {
@@ -641,6 +616,8 @@ export default defineConfig(({ mode }) => {
             process.env.SIMPLE_MODE === 'true'
               ? resolve(__dirname, 'simple-index.html')
               : resolve(__dirname, 'index.html'),
+          'my-pdfs': resolve(__dirname, 'my-pdfs.html'),
+          'all-tools': resolve(__dirname, 'all-tools.html'),
           about: resolve(__dirname, 'about.html'),
           contact: resolve(__dirname, 'contact.html'),
           faq: resolve(__dirname, 'faq.html'),

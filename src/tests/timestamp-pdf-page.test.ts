@@ -17,7 +17,6 @@ function buildPageHtml(): string {
       <select id="tsa-preset"></select>
     </div>
     <button id="process-btn" class="hidden" disabled></button>
-    <button id="back-to-tools"></button>
   `;
 }
 

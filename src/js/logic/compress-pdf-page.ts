@@ -14,6 +14,7 @@ import {
   setWorkspaceFiles,
   setWorkspaceFilesFromTool,
 } from './workspace-files.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -196,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
   const algorithmSelect = document.getElementById(
     'compression-algorithm'
   ) as HTMLSelectElement;
@@ -211,12 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   let useCustomSettings = false;
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
 
   // Toggle algorithm info
   if (algorithmSelect && condenseInfo && photonInfo) {
@@ -637,5 +631,11 @@ document.addEventListener('DOMContentLoaded', () => {
       dataTransfer.items.add(file);
       return handleFileSelect(dataTransfer.files);
     },
+  });
+
+  // Central seed (seedToolOpenFile) assigns #file-input and may fire change;
+  // also refresh UI if this page subscribed after the change event.
+  onToolFilesSeeded(() => {
+    void updateUI();
   });
 });

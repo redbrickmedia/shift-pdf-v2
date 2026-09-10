@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { clearPdfLibrary, readPdfLibrary } from '../logic/pdf-library-store';
 import { listenForShiftFileHandoff } from './shift-file-handoff';
 
 const SHIFT_ORIGIN = 'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna';
@@ -24,8 +25,9 @@ function dispatchMessage({
 describe('listenForShiftFileHandoff', () => {
   const originalSearch = window.location.search;
 
-  afterEach(() => {
+  afterEach(async () => {
     window.history.replaceState({}, '', `/${originalSearch}`);
+    await clearPdfLibrary();
     vi.restoreAllMocks();
   });
 
@@ -99,6 +101,14 @@ describe('listenForShiftFileHandoff', () => {
     expect(file).toBeInstanceOf(File);
     expect(file.name).toBe('Report.pdf');
     expect(file.type).toBe('application/pdf');
+    await vi.waitFor(async () => {
+      await expect(readPdfLibrary()).resolves.toEqual([
+        expect.objectContaining({
+          name: 'Report.pdf',
+          source: 'handoff',
+        }),
+      ]);
+    });
     expect(source.postMessage).toHaveBeenLastCalledWith(
       {
         channel: 'shift-file-handoff-accepted',

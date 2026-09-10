@@ -54,7 +54,6 @@ function initializePage(): void {
 
   const fileInput = getElement<HTMLInputElement>('file-input');
   const dropZone = getElement<HTMLDivElement>('drop-zone');
-  const backBtn = getElement<HTMLButtonElement>('back-to-tools');
   const certInput = getElement<HTMLInputElement>('cert-input');
   const certDropZone = getElement<HTMLDivElement>('cert-drop-zone');
 
@@ -109,12 +108,6 @@ function initializePage(): void {
       if (droppedFiles && droppedFiles.length > 0) {
         handleCertFile(droppedFiles[0]);
       }
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
     });
   }
 }
