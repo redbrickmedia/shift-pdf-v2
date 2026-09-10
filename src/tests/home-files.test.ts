@@ -12,7 +12,6 @@ import {
   addPdfToLibrary,
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,

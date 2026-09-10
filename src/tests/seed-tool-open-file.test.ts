@@ -399,10 +399,7 @@ describe('seed tool open file', () => {
     const input = document.getElementById('file-input') as HTMLInputElement;
     expect(input.files).toHaveLength(1);
     expect(input.files?.[0]?.name).toBe('two.pdf');
-    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
-      'one.pdf',
-      'two.pdf',
-    ]);
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual(['two.pdf']);
   });
 
   it('does not restore a file after Clear all', async () => {

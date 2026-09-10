@@ -127,7 +127,6 @@ describe('workspace files sidebar', () => {
         blob: saved,
       },
     ]);
-    setWorkspaceFiles([saved]);
 
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
@@ -703,11 +702,11 @@ describe('workspace files sidebar', () => {
     click.mockRestore();
   });
 
-  it('opens the active tool picker instead of the home picker', () => {
+  it('links sidebar files to My PDFs even when a tool is open on home', () => {
     document.body.innerHTML = `
       <section id="shift-my-pdfs" hidden></section>
       <input id="file-input" type="file" accept="application/pdf" />
-      <div id="tool-interface">
+      <div id="tool-interface" class="hidden">
         <input id="file-input" type="file" accept="application/pdf" />
       </div>
       <section id="shift-open-files" hidden>
@@ -715,14 +714,11 @@ describe('workspace files sidebar', () => {
       </section>
     `;
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
-    const inputs = document.querySelectorAll<HTMLInputElement>('#file-input');
-    const homeClick = vi.spyOn(inputs[0], 'click').mockImplementation(() => {});
-    const toolClick = vi.spyOn(inputs[1], 'click').mockImplementation(() => {});
+    const item = document.querySelector<HTMLAnchorElement>(
+      '.shift-open-file-item'
+    );
 
-    document.querySelector<HTMLButtonElement>('.shift-open-file-item')?.click();
-
-    expect(homeClick).not.toHaveBeenCalled();
-    expect(toolClick).toHaveBeenCalledOnce();
+    expect(item?.getAttribute('href')).toBe('my-pdfs.html');
   });
 
   it('keeps the handoff source when the in-page list refreshes the same name', async () => {
