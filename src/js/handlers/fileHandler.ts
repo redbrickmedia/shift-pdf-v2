@@ -30,6 +30,7 @@ import {
 import { getActiveFileInput } from '../logic/workspace-files.js';
 
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { clearWorkspaceOpenFile } from '../logic/workspace-files.js';
 
 export {
   getRotationState,
@@ -965,6 +966,7 @@ export function setupFileInputHandler(toolId: string) {
 
         const processBtn = document.getElementById('process-btn');
         if (processBtn) (processBtn as HTMLButtonElement).disabled = true;
+        void clearWorkspaceOpenFile();
       });
     }
   };

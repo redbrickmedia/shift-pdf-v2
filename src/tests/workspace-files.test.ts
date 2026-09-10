@@ -6,6 +6,12 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import {
+  hasOpenFileFlag,
+  readPersistedOpenFile,
+  writePersistedOpenFile,
+} from '../js/logic/open-file-store';
+import {
+  clearWorkspaceOpenFile,
   copyFileOrigin,
   getHomeOpenFileView,
   getWorkspaceFiles,
@@ -67,6 +73,28 @@ describe('workspace files sidebar', () => {
     ).not.toBeNull();
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+  });
+
+  it('keeps the upload picker on tools that accept multiple files', () => {
+    document.body.innerHTML = `
+      <section id="shift-open-files" hidden>
+        <h2 id="shift-open-files-heading">Active file</h2>
+        <div id="shift-open-files-list"></div>
+      </section>
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+    `;
+    setWorkspaceFiles([
+      new File(['x'], 'one.pdf', { type: 'application/pdf' }),
+      new File(['y'], 'two.pdf', { type: 'application/pdf' }),
+    ]);
+
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
+      false
+    );
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
   it('keeps the upload picker when the tool does not accept the active PDF', () => {
@@ -301,6 +329,24 @@ describe('workspace files sidebar', () => {
     });
   });
 
+  it('keeps the Shift origin on a decrypted File copy', () => {
+    mountShell();
+    const original = new File([new Uint8Array([1, 2, 3])], 'locked.pdf', {
+      type: 'application/pdf',
+    });
+    markFileFromHandoff(original);
+    const decrypted = new File([new Uint8Array([4, 5, 6])], original.name, {
+      type: original.type,
+    });
+    copyFileOrigin(original, decrypted);
+    setWorkspaceFiles([decrypted]);
+
+    expect(getWorkspaceFiles()[0]).toMatchObject({
+      name: 'locked.pdf',
+      source: 'handoff',
+    });
+  });
+
   it('opens the file picker when a handoff file is clicked', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
@@ -409,10 +455,11 @@ describe('workspace files sidebar', () => {
 
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
     expect(section?.hidden).toBe(false);
-    expect(heading?.textContent).toBe('Active file');
-    expect(rows).toHaveLength(1);
+    expect(heading?.textContent).toBe('Active files');
+    expect(rows).toHaveLength(2);
     expect(cells?.[0]?.textContent).toContain('upload.pdf');
     expect(cells?.[2]?.textContent).toBe('512 B');
+    expect(rows[1]?.querySelector('td')?.textContent).toContain('briefing.pdf');
   });
 
   it('shows an uploaded file in the home Open file section', () => {
@@ -456,10 +503,13 @@ describe('workspace files sidebar', () => {
     ).toContain('from-tab.pdf');
     expect(document.querySelectorAll('.shift-open-file-item')).toHaveLength(1);
     expect(document.getElementById('shift-my-pdfs')?.hidden).toBe(false);
-    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(1);
+    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(2);
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('upload.pdf');
+    expect(
+      document.querySelectorAll('#shift-my-pdfs-body tr')[1]?.textContent
+    ).toContain('from-tab.pdf');
   });
 
   it('does not open the file picker from an uploaded home-table row', () => {
@@ -581,5 +631,33 @@ describe('workspace files sidebar', () => {
         .getElementById('shift-open-file-view-list')
         ?.getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  it('clears persisted files on explicit Clear all', async () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', { type: 'application/pdf' });
+    await writePersistedOpenFile(file, { source: 'upload' });
+    setWorkspaceFiles([file]);
+
+    await clearWorkspaceOpenFile();
+
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(document.getElementById('shift-open-files')?.hidden).toBe(true);
+    expect(document.body.classList.contains('shift-has-open-file')).toBe(false);
+    expect(hasOpenFileFlag()).toBe(false);
+    await expect(readPersistedOpenFile()).resolves.toBeNull();
+  });
+
+  it('clears persisted files when the workspace is emptied', async () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', { type: 'application/pdf' });
+    setWorkspaceFiles([file]);
+
+    setWorkspaceFiles([]);
+
+    await vi.waitFor(async () => {
+      expect(hasOpenFileFlag()).toBe(false);
+      expect(await readPersistedOpenFile()).toBeNull();
+    });
   });
 });

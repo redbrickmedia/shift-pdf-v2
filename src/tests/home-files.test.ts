@@ -15,7 +15,7 @@ import {
 function mountHome() {
   document.body.innerHTML = `
     <div id="drop-zone">
-      <input id="file-input" type="file" accept="application/pdf,.pdf" />
+      <input id="file-input" type="file" accept="application/pdf,.pdf" multiple />
     </div>
     <section id="shift-my-pdfs" hidden data-view="thumbnail">
       <h2 id="shift-my-pdfs-heading">Open file</h2>
@@ -86,20 +86,26 @@ describe('home files', () => {
     expect(document.querySelector('#shift-my-pdfs-body tr')).toBeNull();
   });
 
-  it('skips non-PDF files and keeps a single open file', () => {
+  it('keeps every PDF from a multi-file drop and skips other types', () => {
     mountHome();
-    setWorkspaceFiles([{ name: 'briefing.pdf' }]);
+    setWorkspaceFiles([{ name: 'previous.pdf' }]);
     initHomeFiles();
-    const replacement = new File(['x'], 'briefing.pdf', {
+    const notes = new File(['x'], 'notes.txt', { type: 'text/plain' });
+    const briefing = new File(['x'], 'briefing.pdf', {
       type: 'application/pdf',
     });
-    const notes = new File(['x'], 'notes.txt', { type: 'text/plain' });
     const extra = new File(['x'], 'second.pdf', { type: 'application/pdf' });
 
-    dispatchDrop([notes, replacement, extra]);
+    dispatchDrop([notes, briefing, extra]);
 
-    expect(getWorkspaceFiles()).toHaveLength(1);
-    expect(getWorkspaceFiles()[0]?.name).toBe('second.pdf');
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'briefing.pdf',
+      'second.pdf',
+    ]);
+    expect(document.getElementById('shift-my-pdfs-heading')?.textContent).toBe(
+      'Active files'
+    );
+    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(2);
   });
 
   it('replaces the open file instead of adding another', () => {
@@ -134,6 +140,26 @@ describe('home files', () => {
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('picked.pdf');
+  });
+
+  it('keeps every PDF from one multi-select in the file input', () => {
+    mountHome();
+    initHomeFiles();
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    const first = new File(['a'], 'one.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'two.pdf', { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [first, second],
+    });
+
+    input.dispatchEvent(new Event('change'));
+
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+    expect(document.querySelectorAll('#shift-my-pdfs-body tr')).toHaveLength(2);
   });
 
   it('restores a handed-off file from the workspace store', async () => {

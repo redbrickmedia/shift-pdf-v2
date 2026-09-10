@@ -6,11 +6,17 @@ import {
   isHomeDocument,
   seedToolOpenFile,
 } from '../js/logic/seed-tool-open-file';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
+import {
+  writePersistedOpenFile,
+  writePersistedOpenFiles,
+} from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import {
+  clearWorkspaceOpenFile,
   getWorkspaceFiles,
+  persistWorkspaceOpenFile,
   resetWorkspaceFileIndicator,
+  setWorkspaceFiles,
 } from '../js/logic/workspace-files';
 
 afterEach(() => {
@@ -105,5 +111,115 @@ describe('seed tool open file', () => {
 
     expect(inputAcceptsFile(input, file)).toBe(false);
     expect(applyFileToToolInput(file)).toBe(false);
+  });
+
+  it('loads every persisted file into a multi-file tool', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+    expect(state.files.map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+  });
+
+  it('does not drop extra workspace files on a single-file picker', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    expect(input.files).toHaveLength(1);
+    expect(input.files?.[0]?.name).toBe('one.pdf');
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'one.pdf',
+      'two.pdf',
+    ]);
+  });
+
+  it('does not restore a file after Clear all', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFile(
+      new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+
+    await clearWorkspaceOpenFile();
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(state.files).toEqual([]);
+  });
+
+  it('does not restore a file after emptying the workspace', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    const file = new File(['x'], 'briefing.pdf', { type: 'application/pdf' });
+    setWorkspaceFiles([file]);
+    await persistWorkspaceOpenFile();
+    setWorkspaceFiles([]);
+    await persistWorkspaceOpenFile();
+
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(state.files).toEqual([]);
   });
 });

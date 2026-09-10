@@ -5,6 +5,12 @@ import type { SocketData } from '../types';
 import { requirePdfInput, extractAllPdfs } from '../types';
 import { downloadFile } from '../../utils/helpers.js';
 import { loadPyMuPDF } from '../../utils/pymupdf-loader.js';
+import {
+  DEFAULT_CONVERSION_LIMITS,
+  runWithTimeout,
+  validateInputFile,
+  validateOutputBlob,
+} from '../../utils/conversion-guard.js';
 
 export class PdfToDocxNode extends BaseWorkflowNode {
   readonly category = 'Output' as const;
@@ -21,13 +27,25 @@ export class PdfToDocxNode extends BaseWorkflowNode {
   ): Promise<Record<string, SocketData>> {
     const pdfInputs = requirePdfInput(inputs, 'PDF to Word');
     const allPdfs = extractAllPdfs(pdfInputs);
-    const pymupdf = await loadPyMuPDF();
+    const pymupdf = await runWithTimeout(
+      loadPyMuPDF(),
+      DEFAULT_CONVERSION_LIMITS.initTimeoutMs,
+      'PDF to Word engine load'
+    );
 
     if (allPdfs.length === 1) {
       const blob = new Blob([new Uint8Array(allPdfs[0].bytes)], {
         type: 'application/pdf',
       });
-      const docxBlob = await pymupdf.pdfToDocx(blob);
+      validateInputFile(
+        new File([blob], allPdfs[0].filename, { type: 'application/pdf' })
+      );
+      const docxBlob = await runWithTimeout(
+        pymupdf.pdfToDocx(blob),
+        DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+        'PDF to Word conversion'
+      );
+      validateOutputBlob(docxBlob, blob.size);
       const name = allPdfs[0].filename.replace(/\.pdf$/i, '') + '.docx';
       downloadFile(docxBlob, name);
     } else {
@@ -37,7 +55,15 @@ export class PdfToDocxNode extends BaseWorkflowNode {
         const blob = new Blob([new Uint8Array(pdf.bytes)], {
           type: 'application/pdf',
         });
-        const docxBlob = await pymupdf.pdfToDocx(blob);
+        validateInputFile(
+          new File([blob], pdf.filename, { type: 'application/pdf' })
+        );
+        const docxBlob = await runWithTimeout(
+          pymupdf.pdfToDocx(blob),
+          DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+          'PDF to Word conversion'
+        );
+        validateOutputBlob(docxBlob, blob.size);
         const name = pdf.filename.replace(/\.pdf$/i, '') + '.docx';
         const arrayBuffer = await docxBlob.arrayBuffer();
         zip.file(name, arrayBuffer);

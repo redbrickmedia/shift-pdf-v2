@@ -1,6 +1,6 @@
 import { renderFileDisplay } from '../ui.js';
 import { state } from '../state.js';
-import { readPersistedOpenFile } from './open-file-store.js';
+import { readPersistedOpenFiles } from './open-file-store.js';
 import {
   getActiveFileInput,
   getWorkspaceFiles,
@@ -27,16 +27,30 @@ export function applyFileToToolInput(
   file: File,
   root: Document = document
 ): boolean {
-  const input = getActiveFileInput(root);
-  if (input && !inputAcceptsFile(input, file)) return false;
+  return applyFilesToToolInput([file], root);
+}
+
+export function applyFilesToToolInput(
+  files: File[],
+  root: Document = document
+): boolean {
+  const input =
+    getActiveFileInput(root) ??
+    (root.getElementById('file-input') as HTMLInputElement | null);
+  const accepted = files.filter(
+    (file) => !input || inputAcceptsFile(input, file)
+  );
+  if (accepted.length === 0) return false;
+
+  const assigned = input && !input.multiple ? accepted.slice(0, 1) : accepted;
 
   if (input) {
-    assignInputFiles(input, [file]);
+    assignInputFiles(input, assigned);
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   if (state.files.length === 0) {
-    state.files = [file];
+    state.files = assigned.slice();
   }
 
   const display = root.getElementById('file-display-area');
@@ -70,15 +84,14 @@ export async function seedToolOpenFile(
 ): Promise<boolean> {
   if (isHomeDocument(root)) return false;
 
-  const persisted = await readPersistedOpenFile();
-  if (!persisted) return false;
+  const persisted = await readPersistedOpenFiles();
+  if (persisted.length === 0) return false;
 
-  const file =
-    persisted.source === 'handoff'
-      ? markFileFromHandoff(persisted.file)
-      : persisted.file;
-  const applied = applyFileToToolInput(file, root);
-  setWorkspaceFiles([file], root);
+  const files = persisted.map((entry) =>
+    entry.source === 'handoff' ? markFileFromHandoff(entry.file) : entry.file
+  );
+  const applied = applyFilesToToolInput(files, root);
+  setWorkspaceFiles(files, root);
   return applied || getWorkspaceFiles().length > 0;
 }
 

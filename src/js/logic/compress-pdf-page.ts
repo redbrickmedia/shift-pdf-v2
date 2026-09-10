@@ -9,8 +9,10 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import {
+  clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
+  setWorkspaceFilesFromTool,
 } from './workspace-files.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
@@ -289,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       compressOptions.classList.remove('hidden');
       document.getElementById('file-controls')?.classList.remove('hidden');
-      setWorkspaceFiles(state.files);
+      setWorkspaceFilesFromTool(state.files);
     } else {
       compressOptions.classList.add('hidden');
       document.getElementById('file-controls')?.classList.add('hidden');
@@ -303,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
+    void clearWorkspaceOpenFile();
 
     const compressionLevel = document.getElementById(
       'compression-level'
@@ -569,11 +572,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | File[] | null) => {
-    if (files && files.length > 0) {
-      state.files = [...state.files, ...Array.from(files)];
-      updateUI();
-    }
+  const handleFileSelect = (files: FileList | null): boolean => {
+    if (!files || files.length === 0) return false;
+    state.files = [...state.files, ...Array.from(files)];
+    updateUI();
+    return true;
   };
 
   if (fileInput && dropZone) {
@@ -630,8 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   listenForShiftFileHandoff({
     onFile: (file) => {
-      markFileFromHandoff(file);
-      handleFileSelect([file]);
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      return handleFileSelect(dataTransfer.files);
     },
   });
 });

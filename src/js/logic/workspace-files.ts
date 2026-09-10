@@ -1,8 +1,7 @@
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import {
   clearPersistedOpenFile,
-  markOpenFilePresent,
-  writePersistedOpenFile,
+  writePersistedOpenFiles,
 } from './open-file-store.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 
@@ -69,21 +68,43 @@ export function setWorkspaceFiles(
   renderWorkspaceFiles(root);
 }
 
+export function setWorkspaceFilesFromTool(
+  files: File[],
+  root: Document = document
+): void {
+  if (getWorkspaceFiles().length > files.length) return;
+  setWorkspaceFiles(files, root);
+}
+
 export function getHomeOpenFileView(): HomeOpenFileView {
   return homeFileView;
 }
 
 function persistCurrentOpenFile(): Promise<void> {
-  const first = currentFiles[0];
-  if (!(first?.blob instanceof File)) return Promise.resolve();
-  markOpenFilePresent(true);
-  return writePersistedOpenFile(first.blob, {
-    source: first.source,
-  });
+  if (currentFiles.length === 0) return clearPersistedOpenFile();
+  const files = currentFiles.filter(
+    (file): file is WorkspaceFileInfo & { blob: File } =>
+      file.blob instanceof File
+  );
+  if (files.length === 0) return Promise.resolve();
+  return writePersistedOpenFiles(
+    files.map((file) => ({
+      file: file.blob,
+      source: file.source,
+    }))
+  );
 }
 
 export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
+}
+
+export async function clearWorkspaceOpenFile(
+  root: Document = document
+): Promise<void> {
+  currentFiles = [];
+  await clearPersistedOpenFile();
+  renderWorkspaceFiles(root);
 }
 
 export function setHomeOpenFileView(
@@ -177,6 +198,7 @@ function shouldHideDropZone(root: Document): boolean {
   if (isHomePage(root)) return true;
   const input = getActiveFileInput(root);
   if (!input) return false;
+  if (input.multiple) return false;
   const file = pickerFileFromWorkspace();
   if (!file) return true;
   return pickerAcceptsFile(input, file);
@@ -265,20 +287,20 @@ function renderHomeFilesTable(
   section.hidden = !hasFiles;
   const heading = root.getElementById('shift-my-pdfs-heading');
   if (heading && hasFiles) {
-    heading.textContent = 'Active file';
+    heading.textContent = activeFilesHeading(files.length);
   }
   body.replaceChildren();
   thumbs?.replaceChildren();
   applyHomeFileView(root);
   if (!hasFiles) return;
 
-  const openFile = files[0];
-  if (!openFile) return;
-  body.appendChild(createHomeFileRow(openFile, root));
-  thumbs?.appendChild(createHomeFileThumb(openFile, root));
+  for (const openFile of files) {
+    body.appendChild(createHomeFileRow(openFile, root));
+    thumbs?.appendChild(createHomeFileThumb(openFile, root));
+  }
 
   if (homeFileView === 'thumbnail') {
-    void fillHomeThumbnails(root, [openFile]);
+    void fillHomeThumbnails(root, files);
   }
 }
 

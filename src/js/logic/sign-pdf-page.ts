@@ -25,8 +25,9 @@ import {
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
 import {
+  clearWorkspaceOpenFile,
   markFileFromHandoff,
-  setWorkspaceFiles,
+  setWorkspaceFilesFromTool,
 } from './workspace-files.js';
 
 const signState: SignState = {
@@ -177,13 +178,13 @@ async function updateFileDisplay(
     signState.viewerReady = false;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
-    setWorkspaceFiles([]);
+    void clearWorkspaceOpenFile();
   };
 
   fileDiv.append(infoContainer, removeBtn);
   fileDisplayArea.appendChild(fileDiv);
   createIcons({ icons });
-  if (signState.file) setWorkspaceFiles([signState.file]);
+  if (signState.file) setWorkspaceFilesFromTool([signState.file]);
 
   const result = await loadPdfWithPasswordPrompt(requestedFile);
   if (loadVersion !== fileLoadVersion) {
@@ -195,13 +196,13 @@ async function updateFileDisplay(
     signState.pdfDoc = null;
     fileDisplayArea.innerHTML = '';
     document.getElementById('signature-editor')?.classList.add('hidden');
-    setWorkspaceFiles([]);
+    void clearWorkspaceOpenFile();
     return false;
   }
   signState.file = result.file;
   nameSpan.textContent = result.file.name;
   metaSpan.textContent = `${formatBytes(result.file.size)} • ${result.pdf.numPages} pages`;
-  setWorkspaceFiles([result.file]);
+  setWorkspaceFilesFromTool([result.file]);
   await result.pdf.destroy();
   return true;
 }
@@ -259,7 +260,9 @@ async function setupSignTool(loadVersion: number) {
   iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
 
   iframe.onload = async () => {
-    if (signState.viewerIframe !== iframe) return;
+    if (signState.viewerIframe !== iframe || loadVersion !== fileLoadVersion) {
+      return;
+    }
     try {
       const app = await waitForPdfJsSignViewer(iframe);
       configureSessionOnlySignatureUi(iframe, app);
@@ -378,6 +381,7 @@ function resetState() {
   signState.file = null;
   signState.viewerIframe = null;
   signState.viewerReady = false;
+  void clearWorkspaceOpenFile();
 
   const signatureEditor = document.getElementById('signature-editor');
   if (signatureEditor) {
