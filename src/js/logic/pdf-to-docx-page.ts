@@ -10,7 +10,10 @@ import {
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
-import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
+import {
+  batchDecryptIfNeeded,
+  loadPdfWithPasswordPrompt,
+} from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -226,10 +229,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   listenForShiftFileHandoff({
-    onFile: (file) => {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      return handleFileSelect(dataTransfer.files);
+    onFile: async (file) => {
+      try {
+        const loaded = await loadPdfWithPasswordPrompt(file);
+        if (!loaded) return false;
+        await loaded.pdf.destroy();
+        state.files = [...state.files, loaded.file];
+        await updateUI();
+        return true;
+      } catch {
+        showAlert('Error', 'Failed to load the PDF file.');
+        return false;
+      }
     },
   });
 });

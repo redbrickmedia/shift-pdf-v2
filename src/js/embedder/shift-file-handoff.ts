@@ -1,5 +1,7 @@
 const FILE_HANDOFF_VERSION = 1;
 const FILE_HANDOFF_MAX_BYTES = 16 * 1024 * 1024;
+const SHIFT_WEB_UI_ORIGIN =
+  'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna';
 const HANDOFF_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -23,11 +25,7 @@ function readHandoffId(): string | null {
 }
 
 function isShiftWebUiOrigin(origin: string): boolean {
-  try {
-    return new URL(origin).protocol === 'chrome-extension:';
-  } catch {
-    return false;
-  }
+  return origin === SHIFT_WEB_UI_ORIGIN;
 }
 
 type HandoffMessageSource = {

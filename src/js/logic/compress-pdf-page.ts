@@ -621,10 +621,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   listenForShiftFileHandoff({
-    onFile: (file) => {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      return handleFileSelect(dataTransfer.files);
+    onFile: async (file) => {
+      try {
+        const loaded = await loadPdfWithPasswordPrompt(file);
+        if (!loaded) return false;
+        await loaded.pdf.destroy();
+        state.files = [...state.files, loaded.file];
+        updateUI();
+        return true;
+      } catch {
+        showAlert('Error', 'Failed to load the PDF file.');
+        return false;
+      }
     },
   });
 });
