@@ -17,7 +17,6 @@ import {
   validateInputFile,
   validateOutputBlob,
 } from '../utils/conversion-guard.js';
-import { clearWorkspaceOpenFile } from './workspace-files.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.files = [];
@@ -92,7 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
-    void clearWorkspaceOpenFile();
     updateUI();
   };
 

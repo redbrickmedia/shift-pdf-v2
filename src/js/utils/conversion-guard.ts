@@ -3,6 +3,7 @@ export const DEFAULT_CONVERSION_LIMITS = {
   maxPages: 150,
   maxOutputBytes: 80 * 1024 * 1024,
   maxOutputRatio: 8,
+  minInputBytesForRatio: 512 * 1024,
   initTimeoutMs: 90_000,
   conversionTimeoutMs: 180_000,
 } as const;
@@ -12,6 +13,7 @@ export type ConversionLimits = {
   maxPages?: number;
   maxOutputBytes?: number;
   maxOutputRatio?: number;
+  minInputBytesForRatio?: number;
   initTimeoutMs?: number;
   conversionTimeoutMs?: number;
 };
@@ -77,6 +79,9 @@ export function validateOutputBlob(
     limits.maxOutputBytes ?? DEFAULT_CONVERSION_LIMITS.maxOutputBytes;
   const maxOutputRatio =
     limits.maxOutputRatio ?? DEFAULT_CONVERSION_LIMITS.maxOutputRatio;
+  const minInputBytesForRatio =
+    limits.minInputBytesForRatio ??
+    DEFAULT_CONVERSION_LIMITS.minInputBytesForRatio;
 
   if (blob.size > maxOutputBytes) {
     throw new ConversionGuardError(
@@ -84,7 +89,10 @@ export function validateOutputBlob(
     );
   }
 
-  if (inputBytes > 0 && blob.size / inputBytes > maxOutputRatio) {
+  if (
+    inputBytes >= minInputBytesForRatio &&
+    blob.size / inputBytes > maxOutputRatio
+  ) {
     throw new ConversionGuardError(
       `The converted file grew to ${formatMegabytes(blob.size)} from ${formatMegabytes(inputBytes)}. That usually means the output is unusable, so it was discarded.`
     );

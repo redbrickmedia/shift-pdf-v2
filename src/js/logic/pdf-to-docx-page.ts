@@ -14,7 +14,6 @@ import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
 import {
-  ConversionGuardError,
   createConversionSession,
   DEFAULT_CONVERSION_LIMITS,
   isConversionCancelled,
@@ -134,15 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const file of state.files) {
         validateInputFile(file);
-        try {
-          const arrayBuffer = await readFileAsArrayBuffer(file);
-          const pdfDoc = await getPDFDocument({ data: arrayBuffer }).promise;
-          validateInputPages(pdfDoc.numPages);
-        } catch (error) {
-          if (error instanceof ConversionGuardError) {
-            throw error;
-          }
-        }
       }
 
       showCancellableLoader('Loading PDF converter...', session.cancel);
@@ -154,6 +144,16 @@ document.addEventListener('DOMContentLoaded', () => {
       );
 
       state.files = await batchDecryptIfNeeded(state.files);
+
+      for (const file of state.files) {
+        const arrayBuffer = await readFileAsArrayBuffer(file);
+        const pdfDoc = await getPDFDocument({ data: arrayBuffer }).promise;
+        try {
+          validateInputPages(pdfDoc.numPages);
+        } finally {
+          await pdfDoc.destroy();
+        }
+      }
 
       if (state.files.length === 1) {
         const file = state.files[0];

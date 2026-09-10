@@ -12,6 +12,7 @@ import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFiles,
+  setWorkspaceFilesFromTool,
 } from './workspace-files.js';
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
@@ -290,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       compressOptions.classList.remove('hidden');
       document.getElementById('file-controls')?.classList.remove('hidden');
-      setWorkspaceFiles(state.files);
+      setWorkspaceFilesFromTool(state.files);
     } else {
       compressOptions.classList.add('hidden');
       document.getElementById('file-controls')?.classList.add('hidden');

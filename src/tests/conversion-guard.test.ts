@@ -40,6 +40,13 @@ describe('conversion guards', () => {
       size: DEFAULT_CONVERSION_LIMITS.maxOutputRatio * 1024 * 1024 + 1,
     } as Blob;
     expect(() => validateOutputBlob(exploded, 1024 * 1024)).toThrow(/unusable/);
+
+    const smallInputExpanded = {
+      size: 20 * 50 * 1024,
+    } as Blob;
+    expect(() =>
+      validateOutputBlob(smallInputExpanded, 50 * 1024)
+    ).not.toThrow();
   });
 
   it('accepts sane output', () => {

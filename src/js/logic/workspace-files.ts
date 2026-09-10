@@ -68,6 +68,14 @@ export function setWorkspaceFiles(
   renderWorkspaceFiles(root);
 }
 
+export function setWorkspaceFilesFromTool(
+  files: File[],
+  root: Document = document
+): void {
+  if (getWorkspaceFiles().length > files.length) return;
+  setWorkspaceFiles(files, root);
+}
+
 export function getHomeOpenFileView(): HomeOpenFileView {
   return homeFileView;
 }

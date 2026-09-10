@@ -34,19 +34,23 @@ export function applyFilesToToolInput(
   files: File[],
   root: Document = document
 ): boolean {
-  const input = root.getElementById('file-input') as HTMLInputElement | null;
+  const input =
+    getActiveFileInput(root) ??
+    (root.getElementById('file-input') as HTMLInputElement | null);
   const accepted = files.filter(
     (file) => !input || inputAcceptsFile(input, file)
   );
   if (accepted.length === 0) return false;
 
+  const assigned = input && !input.multiple ? accepted.slice(0, 1) : accepted;
+
   if (input) {
-    assignInputFiles(input, accepted);
+    assignInputFiles(input, assigned);
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   if (state.files.length === 0) {
-    state.files = accepted.slice();
+    state.files = assigned.slice();
   }
 
   const display = root.getElementById('file-display-area');

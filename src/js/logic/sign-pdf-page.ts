@@ -27,7 +27,7 @@ import {
 import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
-  setWorkspaceFiles,
+  setWorkspaceFilesFromTool,
 } from './workspace-files.js';
 
 const signState: SignState = {
@@ -184,7 +184,7 @@ async function updateFileDisplay(
   fileDiv.append(infoContainer, removeBtn);
   fileDisplayArea.appendChild(fileDiv);
   createIcons({ icons });
-  if (signState.file) setWorkspaceFiles([signState.file]);
+  if (signState.file) setWorkspaceFilesFromTool([signState.file]);
 
   const result = await loadPdfWithPasswordPrompt(requestedFile);
   if (loadVersion !== fileLoadVersion) {
@@ -202,7 +202,7 @@ async function updateFileDisplay(
   signState.file = result.file;
   nameSpan.textContent = result.file.name;
   metaSpan.textContent = `${formatBytes(result.file.size)} • ${result.pdf.numPages} pages`;
-  setWorkspaceFiles([result.file]);
+  setWorkspaceFilesFromTool([result.file]);
   await result.pdf.destroy();
   return true;
 }
