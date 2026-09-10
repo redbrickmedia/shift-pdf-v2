@@ -1,4 +1,5 @@
 import { createIcons, icons } from 'lucide';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import {
   readFileAsArrayBuffer,
@@ -96,6 +97,7 @@ function initializePage() {
     window.location.href = import.meta.env.BASE_URL;
   });
   window.addEventListener('pagehide', cleanup, { once: true });
+  listenForShiftFileHandoff({ onFile: handleFile });
 }
 
 async function handleFileUpload(e: Event) {
@@ -105,13 +107,13 @@ async function handleFileUpload(e: Event) {
   }
 }
 
-async function handleFile(file: File) {
+async function handleFile(file: File): Promise<boolean> {
   if (
     file.type !== 'application/pdf' &&
     !file.name.toLowerCase().endsWith('.pdf')
   ) {
     showAlert('Invalid File', 'Please select a PDF file.');
-    return;
+    return false;
   }
 
   const loadVersion = ++fileLoadVersion;
@@ -122,7 +124,9 @@ async function handleFile(file: File) {
   signState.file = file;
   if (await updateFileDisplay(file, loadVersion)) {
     await setupSignTool(loadVersion);
+    return true;
   }
+  return false;
 }
 
 async function updateFileDisplay(

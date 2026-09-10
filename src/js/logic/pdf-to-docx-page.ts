@@ -1,3 +1,4 @@
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
@@ -9,7 +10,10 @@ import {
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
-import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
+import {
+  batchDecryptIfNeeded,
+  loadPdfWithPasswordPrompt,
+} from '../utils/password-prompt.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -167,15 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      const pdfFiles = Array.from(files).filter(
-        (f) =>
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-      );
-      state.files = [...state.files, ...pdfFiles];
-      updateUI();
-    }
+  const handleFileSelect = (files: FileList | null): boolean => {
+    if (!files || files.length === 0) return false;
+    const pdfFiles = Array.from(files).filter(
+      (f) =>
+        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    );
+    if (pdfFiles.length === 0) return false;
+    state.files = [...state.files, ...pdfFiles];
+    updateUI();
+    return true;
   };
 
   if (fileInput && dropZone) {
@@ -222,4 +227,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', convert);
   }
+
+  listenForShiftFileHandoff({
+    onFile: async (file) => {
+      try {
+        const loaded = await loadPdfWithPasswordPrompt(file);
+        if (!loaded) return false;
+        await loaded.pdf.destroy();
+        state.files = [...state.files, loaded.file];
+        await updateUI();
+        return true;
+      } catch {
+        showAlert('Error', 'Failed to load the PDF file.');
+        return false;
+      }
+    },
+  });
 });

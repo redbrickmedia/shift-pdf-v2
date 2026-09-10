@@ -1,3 +1,4 @@
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import {
@@ -560,11 +561,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      state.files = [...state.files, ...Array.from(files)];
-      updateUI();
-    }
+  const handleFileSelect = (files: FileList | null): boolean => {
+    if (!files || files.length === 0) return false;
+    state.files = [...state.files, ...Array.from(files)];
+    updateUI();
+    return true;
   };
 
   if (fileInput && dropZone) {
@@ -618,4 +619,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', compress);
   }
+
+  listenForShiftFileHandoff({
+    onFile: async (file) => {
+      try {
+        const loaded = await loadPdfWithPasswordPrompt(file);
+        if (!loaded) return false;
+        await loaded.pdf.destroy();
+        state.files = [...state.files, loaded.file];
+        updateUI();
+        return true;
+      } catch {
+        showAlert('Error', 'Failed to load the PDF file.');
+        return false;
+      }
+    },
+  });
 });

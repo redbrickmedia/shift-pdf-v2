@@ -2,6 +2,7 @@ import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
 import type { MergeFile, MergeJob, MergeMessage, MergeResponse } from '@/types';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import { state } from '../state.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
@@ -167,8 +168,8 @@ async function ensureRuntimeDocuments(): Promise<void> {
   }
 }
 
-async function addFiles(files: File[]): Promise<void> {
-  if (files.length === 0) return;
+async function addFiles(files: File[]): Promise<boolean> {
+  if (files.length === 0) return false;
 
   showLoader('Loading PDF documents...');
   const added: MergeSource[] = [];
@@ -179,7 +180,7 @@ async function addFiles(files: File[]): Promise<void> {
       await loadRuntimeSource(source);
       added.push(source);
     }
-    if (added.length === 0) return;
+    if (added.length === 0) return false;
 
     snapshot();
     mergeModel.files.push(...added);
@@ -192,6 +193,7 @@ async function addFiles(files: File[]): Promise<void> {
     }
     syncSharedFiles();
     await renderMergeUI();
+    return true;
   } catch (error) {
     console.error('Error loading PDFs:', error);
     await Promise.allSettled(
@@ -202,6 +204,7 @@ async function addFiles(files: File[]): Promise<void> {
       })
     );
     showAlert('Error', 'Failed to load one or more PDF files.');
+    return false;
   } finally {
     hideLoader();
   }
@@ -729,4 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   void renderMergeUI();
+  listenForShiftFileHandoff({
+    onFile: (file) => addFiles([file]),
+  });
 });
