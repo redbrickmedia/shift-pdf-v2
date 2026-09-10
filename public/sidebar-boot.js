@@ -11,6 +11,12 @@
  * name and size so the card is never blank. Blobs still arrive asynchronously
  * via seedToolOpenFile, which swaps the placeholder for the real row.
  *
+ * It also settles the colour mode. startThemeSync() runs from main.ts on the
+ * load event, which is later still than the deferred module itself, so every
+ * document painted its light defaults first and corrected to dark a moment
+ * later. This is a multi-page app, so that flash landed on the first load and
+ * again on every navigation between tools.
+ *
  * A classic script in public/ rather than inline markup: the shipped headers
  * set script-src 'self' with no unsafe-inline.
  */
@@ -50,6 +56,25 @@
       return null;
     }
   }
+
+  /* Keep this in step with theme.ts: standalone builds are dark, and a build
+     wired to a host follows the colour-scheme query the host maintains. The
+     flag comes from the script tag because sidebarBootPlugin resolves
+     VITE_HOST_API_ROOT at build time and a classic script cannot read it.
+
+     startThemeSync() still owns the mode afterwards — it re-applies the same
+     value and registers the listener that follows the host mid-session — so
+     this only moves the first application ahead of paint. */
+  var bootScript = document.currentScript;
+  var hosted = !!bootScript && bootScript.hasAttribute('data-shift-hosted');
+  var colorMode =
+    hosted &&
+    typeof window.matchMedia === 'function' &&
+    !window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'light'
+      : 'dark';
+  document.documentElement.classList.add(colorMode);
+  document.documentElement.style.colorScheme = colorMode;
 
   if (read('shiftSidebarCollapsed') === 'true') {
     document.documentElement.classList.add('shift-sidebar-collapsed-pending');

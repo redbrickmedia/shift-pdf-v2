@@ -380,16 +380,24 @@ function languageRouterPlugin(): Plugin {
 
 function sidebarBootPlugin(): Plugin {
   let base = '/';
+  let hosted = false;
   return {
     name: 'sidebar-boot',
     configResolved(config) {
       base = config.base;
+      /* The boot script decides the colour mode before paint, and it is a
+         classic script so it cannot read import.meta.env. Mirror what
+         hasHostConfiguration() sees in bridge.ts onto the tag instead. */
+      hosted = String(config.env.VITE_HOST_API_ROOT ?? '').trim() !== '';
     },
     transformIndexHtml() {
       return [
         {
           tag: 'script',
-          attrs: { src: `${base}sidebar-boot.js` },
+          attrs: {
+            src: `${base}sidebar-boot.js`,
+            ...(hosted ? { 'data-shift-hosted': '' } : {}),
+          },
           injectTo: 'head-prepend',
         },
       ];
