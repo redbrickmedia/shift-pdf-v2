@@ -12,6 +12,7 @@ const paths = [
   '/compress-pdf.html',
   '/pdf-to-jpg.html',
   '/sign-pdf.html',
+  '/view-pdf.html',
   '/about.html',
   '/my-pdfs.html',
   '/all-tools.html',
@@ -23,6 +24,7 @@ const expectedTitles = new Map([
   ['/compress-pdf.html', 'Compress PDF | Shift PDF'],
   ['/pdf-to-jpg.html', 'PDF to JPG | Shift PDF'],
   ['/sign-pdf.html', 'Sign PDF | Shift PDF'],
+  ['/view-pdf.html', 'View PDF | Shift PDF'],
 ]);
 
 let failed = 0;

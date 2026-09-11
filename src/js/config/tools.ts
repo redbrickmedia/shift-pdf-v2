@@ -4,6 +4,13 @@ const baseCategories = [
     name: 'Popular Tools',
     tools: [
       {
+        href: import.meta.env.BASE_URL + 'view-pdf.html',
+        name: 'View PDF',
+        icon: 'ph-file-pdf',
+        subtitle:
+          'Open a PDF and launch Shift PDF tools from the document itself.',
+      },
+      {
         href: import.meta.env.BASE_URL + 'pdf-workflow.html',
         name: 'PDF Workflow Builder',
         icon: 'ph-tree-structure',
@@ -527,6 +534,13 @@ const baseCategories = [
   {
     name: 'Organize & Manage',
     tools: [
+      {
+        href: import.meta.env.BASE_URL + 'view-pdf.html',
+        name: 'View PDF',
+        icon: 'ph-file-pdf',
+        subtitle:
+          'Open a PDF and launch Shift PDF tools from the document itself.',
+      },
       {
         href: import.meta.env.BASE_URL + 'ocr-pdf.html',
         name: 'OCR PDF',

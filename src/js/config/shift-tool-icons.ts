@@ -265,6 +265,11 @@ export const shiftToolIcons: Record<string, ShiftToolIcon> = {
     grid: 16,
     svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 0 0-4.358 11.323c.417-.528.99-.93 1.595-1.215A6.6 6.6 0 0 1 8 11c.933 0 1.918.21 2.763.608.605.285 1.178.687 1.595 1.215A6.5 6.5 0 0 0 8 1.5m0 13a6.5 6.5 0 0 1-3.134-.804c.233-.273.574-.525 1.01-.731.636-.3 1.4-.465 2.124-.465.723 0 1.488.165 2.123.465.437.206.778.458 1.01.731A6.5 6.5 0 0 1 8 14.5M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m10.78-1.72a.75.75 0 1 0-1.06-1.06l-2.5 2.5a.75.75 0 0 0 1.06 1.06z" clip-rule="evenodd"></path></svg>',
   },
+  // FilePdfIcon
+  'view-pdf': {
+    grid: 24,
+    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.75 3.75h6.19L17.25 7.06v12.19a1 1 0 0 1-1 1H7.75a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1ZM13.75 3.75v3.5h3.5M8.75 13.25h6.5M8.75 16.25h4.5M8.75 10.25h2.5"/></svg>',
+  },
   // InfoIcon
   'view-metadata': {
     grid: 24,

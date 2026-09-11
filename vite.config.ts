@@ -693,6 +693,7 @@ export default defineConfig(({ mode }) => {
             __dirname,
             'src/pages/combine-single-page.html'
           ),
+          'view-pdf': resolve(__dirname, 'src/pages/view-pdf.html'),
           'view-metadata': resolve(__dirname, 'src/pages/view-metadata.html'),
           'edit-metadata': resolve(__dirname, 'src/pages/edit-metadata.html'),
           'pdf-to-zip': resolve(__dirname, 'src/pages/pdf-to-zip.html'),

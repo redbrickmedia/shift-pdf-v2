@@ -1365,6 +1365,61 @@ describe('workspace files sidebar', () => {
     expect(row?.getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('opens a My PDFs row in the viewer without toggling its selection', async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign },
+    });
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" hidden data-view="list">
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+    const pdf = new File(['a'], 'readable.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([pdf]);
+
+    const row = document.querySelector<HTMLTableRowElement>(
+      '.shift-my-pdfs-row[data-file-name="readable.pdf"]'
+    );
+    const view = row?.querySelector<HTMLButtonElement>('.shift-my-pdfs-view');
+    expect(view?.textContent).toBe('View');
+
+    view?.click();
+
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        expect.stringContaining('view-pdf.html')
+      )
+    );
+    expect(getWorkspaceFiles()).toMatchObject([{ name: 'readable.pdf' }]);
+  });
+
+  it('offers the same View action on a My PDFs thumbnail', async () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign },
+    });
+    mountLibrary();
+    const pdf = new File(['a'], 'card.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([pdf]);
+
+    const view = document
+      .querySelector('.shift-my-pdfs-thumb-item')
+      ?.querySelector<HTMLButtonElement>('.shift-my-pdfs-view');
+    view?.click();
+
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        expect.stringContaining('view-pdf.html')
+      )
+    );
+    expect(getWorkspaceFiles()).toMatchObject([{ name: 'card.pdf' }]);
+  });
+
   it('hides My PDFs header tool actions when no file is selected', () => {
     document.body.innerHTML = `
       <section id="shift-my-pdfs" hidden data-view="thumbnail">
