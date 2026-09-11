@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta name="title" content="View PDF | Shift PDF" />
+    <meta
+      name="description"
+      content="Open a PDF in Shift and launch tools such as eSign, Convert, and your favorites without leaving the document."
+    />
+    <meta name="keywords" content="view pdf, pdf viewer, shift pdf tools" />
+    <meta name="author" content="Shift PDF" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="View PDF | Shift PDF" />
+    <meta
+      property="og:description"
+      content="Open a PDF in Shift and launch tools from the document itself."
+    />
+    <meta property="og:site_name" content="Shift PDF" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="View PDF | Shift PDF" />
+    <meta
+      name="twitter:description"
+      content="Open a PDF in Shift and launch tools from the document itself."
+    />
+
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="View PDF" />
+
+    <title>View PDF | Shift PDF</title>
+
+    <link href="/src/css/styles.css" rel="stylesheet" />
+
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/images/shift-pdf-logo.svg" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/images/favicon-192x192.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="512x512"
+      href="/images/favicon-512x512.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/images/apple-touch-icon.png"
+    />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+  </head>
+
+  <body class="antialiased bg-gray-900 shift-pdf-viewer-page">
+    {{> navbar }}
+
+    <div id="pdf-viewer-page">
+      <div
+        id="uploader"
+        class="min-h-screen flex flex-col items-center justify-start py-12 p-4"
+      >
+        <div
+          id="tool-uploader"
+          class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
+        >
+          <h1 class="text-2xl font-bold text-white mb-2">View PDF</h1>
+          <p class="text-gray-400 mb-6">
+            Open a document, then launch eSign, Convert, favorites, or any other
+            Shift PDF tool from the viewer.
+          </p>
+          <div
+            id="drop-zone"
+            class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+          >
+            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+              <i
+                data-lucide="upload-cloud"
+                class="w-10 h-10 mb-3 text-gray-400"
+              ></i>
+              <p class="mb-2 text-sm text-gray-400">
+                <span class="font-semibold">Click to select</span> or drag and
+                drop
+              </p>
+              <p class="text-xs text-gray-500">A single PDF file</p>
+              <p class="text-xs text-gray-500">Files never leave your device</p>
+            </div>
+            <input
+              id="file-input"
+              type="file"
+              class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+              accept="application/pdf"
+            />
+          </div>
+        </div>
+      </div>
+
+      <section id="pdf-viewer-stage" class="shift-pdf-viewer-stage" hidden>
+        <header class="shift-pdf-viewer-bar">
+          <p id="pdf-viewer-filename" class="shift-pdf-viewer-filename"></p>
+          <button
+            id="pdf-viewer-change-file"
+            type="button"
+            class="shift-pdf-viewer-change"
+          >
+            Choose another PDF
+          </button>
+        </header>
+        <div id="pdf-viewer-frame" class="shift-pdf-viewer-frame"></div>
+        <div class="shift-pdf-viewer-dock">
+          <div
+            id="pdf-viewer-pins"
+            class="shift-pdf-viewer-pins"
+            aria-label="Favorite tools"
+          ></div>
+          <button
+            id="pdf-viewer-more-tools"
+            type="button"
+            class="shift-pdf-viewer-more"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="pdf-viewer-more-menu"
+          >
+            More tools
+          </button>
+          <div
+            id="pdf-viewer-more-menu"
+            class="shift-pdf-viewer-menu"
+            role="menu"
+            hidden
+          ></div>
+        </div>
+      </section>
+    </div>
+
+    <div
+      id="loader-modal"
+      class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-800 p-8 rounded-lg flex flex-col items-center gap-4 border border-gray-700 shadow-xl"
+      >
+        <div class="solid-spinner"></div>
+        <p id="loader-text" class="text-white text-lg font-medium">
+          Processing...
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="alert-modal"
+      class="fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 hidden"
+    >
+      <div
+        class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full border border-gray-700"
+      >
+        <h3 id="alert-title" class="text-xl font-bold text-white mb-2">
+          Alert
+        </h3>
+        <p id="alert-message" class="text-gray-300 mb-6"></p>
+        <button
+          id="alert-ok"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+
+    {{> footer }}
+    <script type="module" src="/src/js/utils/lucide-init.ts"></script>
+    <script type="module" src="/src/js/utils/full-width.ts"></script>
+    <script type="module" src="/src/js/utils/simple-mode-footer.ts"></script>
+    <script type="module" src="/src/js/logic/pdf-viewer-page.ts"></script>
+    <script type="module" src="/src/js/mobileMenu.ts"></script>
+    <script type="module" src="/src/js/main.ts"></script>
+  </body>
+</html>
