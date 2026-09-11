@@ -2662,6 +2662,53 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
 }
 
+.shift-my-pdfs-thumb-item .shift-my-pdfs-view {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+}
+
+/* Like the delete control, View stays hidden until the file is hovered or
+   focused so the list does not read as a column of buttons. */
+.shift-my-pdfs-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  margin-right: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--action-button-border-secondary-default);
+  border-radius: var(--radius-8);
+  background: var(--action-button-surface-secondary-default);
+  color: var(--action-text-neutral-default);
+  cursor: pointer;
+  opacity: 0;
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
+  transition:
+    opacity 120ms linear,
+    background-color 120ms linear;
+}
+
+.shift-my-pdfs-row:hover .shift-my-pdfs-view,
+.shift-my-pdfs-row:focus-within .shift-my-pdfs-view,
+.shift-my-pdfs-thumb-item:hover .shift-my-pdfs-view,
+.shift-my-pdfs-thumb-item:focus-within .shift-my-pdfs-view,
+.shift-my-pdfs-view:focus-visible {
+  opacity: 1;
+}
+
+.shift-my-pdfs-view:hover,
+.shift-my-pdfs-view:focus-visible {
+  color: var(--action-text-neutral-hover);
+  border-color: var(--action-button-border-secondary-hover);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
+}
+
 /* The delete control stays out of the way until the file is hovered or the
    button itself is focused, so the grid does not read as a row of trash cans. */
 .shift-my-pdfs-delete {

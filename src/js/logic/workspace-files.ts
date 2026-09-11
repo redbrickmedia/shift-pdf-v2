@@ -45,6 +45,7 @@ const EMPTY_LIBRARY_MESSAGE =
 const EMPTY_LIBRARY_ACTION = 'Choose files';
 const DELETE_ICON_PATH =
   'M5.75 7.25h12.5M9.75 7.25V5.75a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1v1.5M7.25 7.25l.7 11a1 1 0 0 0 1 .95h6.1a1 1 0 0 0 1-.95l.7-11M10.5 10.75v5M13.5 10.75v5';
+const VIEW_PDF_HREF = import.meta.env.BASE_URL + 'view-pdf.html';
 const MY_PDFS_SELECT_ALL_ID = 'shift-my-pdfs-select-all';
 const MY_PDFS_SELECTION_COUNT_ID = 'shift-my-pdfs-selection-count';
 const MY_PDFS_DELETE_SELECTED_ID = 'shift-my-pdfs-delete-selected';
@@ -1403,7 +1404,10 @@ function createHomeFileRow(
 
   const actionCell = root.createElement('td');
   actionCell.className = 'shift-my-pdfs-action-cell';
-  actionCell.appendChild(createHomeFileDeleteButton(file, root));
+  actionCell.append(
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
 
   row.append(nameCell, dateCell, sizeCell, actionCell);
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
@@ -1484,8 +1488,51 @@ function createHomeFileThumb(
 
   const item = root.createElement('div');
   item.className = 'shift-my-pdfs-thumb-item';
-  item.append(card, createHomeFileDeleteButton(file, root));
+  item.append(
+    card,
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
   return item;
+}
+
+/**
+ * Opens the PDF in the viewer instead of only selecting it, so a file in the
+ * library can be read before a tool is chosen. Selecting it on the way keeps
+ * the viewer's own tool launchers working on the same document.
+ */
+export async function openHomeLibraryFileInViewer(
+  file: WorkspaceFileInfo,
+  root: Document = document
+): Promise<void> {
+  if (!file.blob) return;
+
+  fileOrigins.set(file.blob, file.source);
+  setWorkspaceFiles([file.blob], root);
+  await persistWorkspaceOpenFile();
+  window.location.assign(VIEW_PDF_HREF);
+}
+
+function createHomeFileViewButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-view';
+  button.dataset.fileName = file.name;
+  button.textContent = 'View';
+  button.setAttribute('aria-label', `View ${file.name}`);
+
+  button.addEventListener('click', (event) => {
+    // Both the row and the card select the file on click; viewing must not
+    // also toggle that selection underneath the navigation.
+    event.stopPropagation();
+    hideShiftTooltip();
+    void openHomeLibraryFileInViewer(file, root);
+  });
+
+  return button;
 }
 
 function createHomeFileDeleteButton(
