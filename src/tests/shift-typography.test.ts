@@ -73,6 +73,48 @@ describe('central typography', () => {
     expect(section).toContain('appearance: none');
   });
 
+  /**
+   * shift-theme.css is otherwise unlayered while Tailwind's output sits in
+   * @layer base and @layer utilities, and an unlayered rule beats every
+   * layered one whatever the specificity. Stating the heading defaults on bare
+   * element selectors therefore outranked the utilities pages ask for:
+   * `margin: 0` collapsed `mt-*`/`mb-*`, and the weight flattened `font-bold`.
+   * Preflight zeroes margin and padding in @layer base already, so the reset
+   * drops them entirely and keeps only the weight, from inside that layer.
+   */
+  it('lets headings keep their own spacing and weight utilities', async () => {
+    const css = await readText('src/css/shift-theme.css');
+    const start = css.indexOf('@layer base {\n  h1,');
+    const reset = css.slice(start, css.indexOf('\n}', start));
+
+    expect(start).toBeGreaterThan(-1);
+    expect(reset).toContain('font-weight: var(--font-weight-normal)');
+    expect(reset).not.toMatch(/\bmargin\b/);
+    expect(reset).not.toMatch(/\bpadding\b/);
+
+    // An unlayered copy anywhere else would defeat the utilities again.
+    expect(css).not.toMatch(/\nh1,\n\s*h2,\n\s*h3,\n\s*h4,\n\s*h5,\n\s*h6 \{/);
+  });
+
+  it('keeps headings asking for that spacing and weight', async () => {
+    // The other half of the rule above: the fix is only observable while the
+    // markup still requests them, so assert the callers too.
+    const hero = (await readText('about.html')).match(
+      /<h1[^>]*class="([^"]+)"/
+    )?.[1];
+    const toolTitle = (await readText('src/pages/compress-pdf.html')).match(
+      /<h1[^>]*class="([^"]+)"/
+    )?.[1];
+
+    expect(hero).toBeDefined();
+    expect(hero).toContain('mt-3');
+    expect(hero).toContain('mb-5');
+
+    expect(toolTitle).toBeDefined();
+    expect(toolTitle).toContain('font-bold');
+    expect(toolTitle).toContain('mb-2');
+  });
+
   it('does not leave off-scale text-[10px] utilities in the app', async () => {
     const files = [
       'src/pages/compare-pdfs.html',

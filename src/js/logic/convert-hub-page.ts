@@ -15,7 +15,7 @@ import {
 } from './merge-file-identity.js';
 import { addPdfToLibrary } from './pdf-library-store.js';
 import { openPdfLibraryPicker } from './pdf-library-picker.js';
-import { syncHomeLibraryFromStore } from './home-files.js';
+import { syncHomeLibraryFromStore } from './workspace-files.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
 import {
   clearWorkspaceOpenFile,
@@ -275,6 +275,7 @@ function createSourceRow(
   remove.type = 'button';
   remove.className = 'shift-convert-source-remove';
   remove.setAttribute('aria-label', `Remove ${file.name}`);
+  remove.title = `Remove ${file.name}`;
   remove.textContent = 'Remove';
   remove.addEventListener('click', () => onRemove(toIdentity(file)));
 

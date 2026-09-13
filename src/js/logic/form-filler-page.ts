@@ -66,12 +66,13 @@ function updateFileDisplay() {
 
   const removeBtn = document.createElement('button');
   removeBtn.id = 'remove-file';
-  removeBtn.className =
-    'text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2';
-  removeBtn.title = 'Remove file';
+  removeBtn.type = 'button';
+  removeBtn.className = 'p-2 flex-shrink-0 ml-2 shift-tool-file-remove';
+  removeBtn.setAttribute('aria-label', `Remove ${currentFile.name}`);
+  removeBtn.title = `Remove ${currentFile.name}`;
 
   const removeIcon = document.createElement('i');
-  removeIcon.setAttribute('data-lucide', 'trash-2');
+  removeIcon.setAttribute('data-lucide', 'x');
   removeIcon.className = 'w-4 h-4';
   removeBtn.appendChild(removeIcon);
 

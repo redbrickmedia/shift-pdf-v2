@@ -472,7 +472,7 @@ const createFileInputHTML = (options: FileInputOptions = {}) => {
   return `
         <div id="drop-zone" class="relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300">
             <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                <i data-lucide="upload-cloud" class="w-10 h-10 mb-3 text-gray-400"></i>
+                <i data-lucide="circle-arrow-up" class="w-10 h-10 mb-3 text-gray-400"></i>
                 <p class="mb-2 text-sm text-gray-400"><span class="font-semibold">${t('upload.clickToSelect')}</span> ${t('upload.orDragAndDrop')}</p>
                 <p class="text-xs text-gray-500">${multiple ? t('upload.pdfOrImages') : 'A single PDF file'}</p>
                 <p class="text-xs text-gray-500">${t('upload.filesNeverLeave')}</p>
@@ -489,7 +489,7 @@ const createFileInputHTML = (options: FileInputOptions = {}) => {
                     <i data-lucide="plus"></i> ${t('upload.addMore')}
                 </button>
                 <button id="clear-files-btn" class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2">
-                    <i data-lucide="trash-2"></i> ${t('upload.clearAll')}
+                    <i data-lucide="x"></i> ${t('upload.clearAll')}
                 </button>
             </div>
         `

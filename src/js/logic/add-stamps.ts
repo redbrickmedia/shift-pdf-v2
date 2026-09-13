@@ -101,10 +101,11 @@ function updateFileList() {
   infoDiv.append(nameSpan, sizeSpan);
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.className =
-    'text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2';
-  deleteBtn.title = 'Remove file';
-  deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'p-2 flex-shrink-0 ml-2 shift-tool-file-remove';
+  deleteBtn.setAttribute('aria-label', `Remove ${selectedFile.name}`);
+  deleteBtn.title = `Remove ${selectedFile.name}`;
+  deleteBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   deleteBtn.onclick = (e) => {
     e.stopPropagation();
     resetState();

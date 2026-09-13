@@ -27,8 +27,8 @@ function updateFileDisplay() {
                     <p class="truncate font-medium text-white">${escapeHtml(pageState.file.name)}</p>
                     <p class="text-gray-400 text-sm">${fileSize} • ${pageCount} page${pageCount !== 1 ? 's' : ''}</p>
                 </div>
-                <button id="remove-file" class="text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2" title="Remove file">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <button id="remove-file" class="p-2 flex-shrink-0 ml-2 shift-tool-file-remove" title="Remove ${escapeHtml(pageState.file.name)}" aria-label="Remove ${escapeHtml(pageState.file.name)}">
+                    <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
         </div>

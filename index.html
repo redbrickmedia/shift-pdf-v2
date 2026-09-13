@@ -39,6 +39,92 @@
 
     <div id="app" class="min-h-screen container mx-auto p-4 md:p-8">
       <section
+        id="shift-promise-banner"
+        class="shift-promise-banner bg-gray-800 border border-gray-700 rounded-xl p-5 md:p-6"
+        aria-labelledby="shift-pdf-promise"
+        hidden
+      >
+        <button
+          id="shift-promise-dismiss"
+          type="button"
+          class="shift-promise-dismiss"
+          title="Hide this message"
+        >
+          <span class="sr-only">Hide this message</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.75"
+              d="m6 6 12 12M18 6 6 18"
+            />
+          </svg>
+        </button>
+        <p
+          id="shift-pdf-promise"
+          class="text-2xl md:text-3xl font-bold text-white pr-8"
+        >
+          Welcome to the PDF App 👋
+        </p>
+        <ol class="shift-onboarding-steps">
+          <li class="shift-onboarding-step">
+            <span class="shift-onboarding-step-index" aria-hidden="true"
+              >1</span
+            >
+            <div>
+              <p class="shift-onboarding-step-title">Add your PDFs</p>
+              <p class="shift-onboarding-step-copy">
+                Drag files onto the panel below, or choose them from your
+                device.
+              </p>
+            </div>
+          </li>
+          <li class="shift-onboarding-step">
+            <span class="shift-onboarding-step-index" aria-hidden="true"
+              >2</span
+            >
+            <div>
+              <p class="shift-onboarding-step-title">Select the one you need</p>
+              <p class="shift-onboarding-step-copy">
+                Click a PDF to use it. It stays with you in the sidebar as you
+                move around.
+              </p>
+            </div>
+          </li>
+          <li class="shift-onboarding-step">
+            <span class="shift-onboarding-step-index" aria-hidden="true"
+              >3</span
+            >
+            <div>
+              <p class="shift-onboarding-step-title">Pick a tool</p>
+              <p class="shift-onboarding-step-copy">
+                Open a tool and it starts with your selected PDF already loaded.
+              </p>
+            </div>
+          </li>
+        </ol>
+        <div
+          class="mt-5 flex flex-wrap items-center justify-end gap-x-5 gap-y-3 text-sm"
+        >
+          <button
+            type="button"
+            id="shift-promise-upload"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Upload a PDF
+            <i data-lucide="arrow-right" class="w-4 h-4" aria-hidden="true"></i>
+          </button>
+        </div>
+      </section>
+
+      <section
         id="shift-my-pdfs"
         class="shift-my-pdfs"
         aria-labelledby="shift-my-pdfs-heading"

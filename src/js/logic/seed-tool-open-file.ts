@@ -1,6 +1,6 @@
 import { hasShiftFileHandoffRequest } from '../embedder/shift-file-handoff.js';
 import { state } from '../state.js';
-import { syncHomeLibraryFromStore } from './home-files.js';
+import { syncHomeLibraryFromStore } from './workspace-files.js';
 import {
   clearOpenFileFlagClasses,
   forgetRevealedPanels,
@@ -90,6 +90,25 @@ export function applyFilesToToolInput(
   });
 
   return Boolean(input?.files?.length) || state.files.length > 0;
+}
+
+/**
+ * Assign files to one specific picker and let that page's own change handler
+ * take over. Tools with more than one drop target (compare-pdfs, overlay-pdf)
+ * need this rather than applyFilesToToolInput, which resolves a single
+ * canonical `#file-input` and also seeds `state.files`.
+ */
+export function applyFilesToInput(
+  input: HTMLInputElement,
+  files: File[]
+): boolean {
+  const accepted = files.filter((file) => inputAcceptsFile(input, file));
+  const applicable = input.multiple ? accepted : accepted.slice(-1);
+  if (applicable.length === 0) return false;
+
+  assignInputFiles(input, applicable);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
 }
 
 function assignInputFiles(input: HTMLInputElement, files: File[]): void {

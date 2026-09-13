@@ -1,7 +1,11 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import { confirmAction } from './confirm-dialog.js';
-import { removePdfFromLibrary } from './pdf-library-store.js';
+import {
+  addPdfToLibrary,
+  readPdfLibrary,
+  removePdfFromLibrary,
+} from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
   hasOpenFileFlag,
@@ -21,6 +25,7 @@ import {
   resetMyPdfsSearch,
 } from './my-pdfs-search.js';
 import { findToolFileInput } from './tool-file-seed.js';
+import { loadFavoriteRailSnapshot } from './tool-favorites.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
@@ -48,6 +53,7 @@ const DELETE_ICON_PATH =
 const MY_PDFS_SELECT_ALL_ID = 'shift-my-pdfs-select-all';
 const MY_PDFS_SELECTION_COUNT_ID = 'shift-my-pdfs-selection-count';
 const MY_PDFS_DELETE_SELECTED_ID = 'shift-my-pdfs-delete-selected';
+const MAX_OPEN_WITH_FAVORITES = 4;
 
 export type WorkspaceFileSource = 'upload' | 'handoff' | 'download';
 
@@ -72,6 +78,10 @@ const fileOrigins = new WeakMap<File, WorkspaceFileSource>();
 const sidebarThumbnailCanvases = new Map<string, HTMLCanvasElement>();
 let sidebarThumbnailDataUrls: Map<string, string> | null = null;
 let sidebarThumbnailsSerializable = true;
+
+/* Blobs already offered to the library, so repeat renders of the same
+   selection do not re-hash them. */
+const adoptedIntoLibrary = new WeakSet<File>();
 
 let currentFiles: WorkspaceFileInfo[] = [];
 let homeLibraryFiles: WorkspaceFileInfo[] = [];
@@ -141,7 +151,72 @@ export function setWorkspaceFiles(
     .map((file) => toFileInfo(file, currentFiles))
     .filter((file): file is WorkspaceFileInfo => file !== null);
   void persistCurrentOpenFile();
+  adoptSelectionIntoLibrary(root);
   renderWorkspaceFiles(root);
+}
+
+export async function syncHomeLibraryFromStore(
+  root: Document = document,
+  epoch: number = homeLibraryEpoch
+): Promise<void> {
+  const entries = await readPdfLibrary();
+  setHomeLibraryFiles(
+    entries.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      size: entry.size,
+      source: entry.source,
+      addedAt: entry.addedAt,
+      blob: entry.file,
+    })),
+    root,
+    epoch
+  );
+}
+
+/**
+ * Keep the sidebar and My PDFs in agreement: anything shown as selected must
+ * have a library record behind it.
+ *
+ * Home uploads save themselves in addOpenFiles, but tool pages set the
+ * workspace straight from their own pickers and drop zones, so a file opened
+ * inside a tool used to reach the sidebar and nothing else. Saving the tool's
+ * output then added a library row for the result only, which read as the
+ * original being replaced. Every path that fills the sidebar ends up here, so
+ * this is the one place the invariant can hold for all of them.
+ */
+function adoptSelectionIntoLibrary(root: Document): void {
+  const pending = currentFiles.filter(
+    (file): file is WorkspaceFileInfo & { blob: File } =>
+      file.blob instanceof File &&
+      isPdfBlob(file.blob) &&
+      !adoptedIntoLibrary.has(file.blob) &&
+      !homeLibraryFiles.some(
+        (entry) => entry.name === file.name && entry.size === file.size
+      )
+  );
+  if (pending.length === 0) return;
+
+  // Claim them before the first await: setWorkspaceFiles fires several times
+  // in a tick, and each pass would otherwise re-hash the same blobs.
+  for (const file of pending) adoptedIntoLibrary.add(file.blob);
+
+  // Adds run in series so each one sees the previous write and can dedupe
+  // against it. The epoch is captured now so a reset mid-flight discards the
+  // refresh instead of repopulating a library the user just cleared.
+  const epoch = homeLibraryEpoch;
+  void (async () => {
+    for (const file of pending) {
+      await addPdfToLibrary(file.blob, file.source);
+    }
+    await syncHomeLibraryFromStore(root, epoch);
+  })();
+}
+
+function isPdfBlob(file: File): boolean {
+  return (
+    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  );
 }
 
 export function setWorkspaceFilesFromTool(
@@ -269,6 +344,8 @@ function syncHomeHeaderToolActions(root: Document): void {
   const tools = root.getElementById('shift-open-file-tools');
   if (!tools) return;
 
+  renderOpenWithFavorites(root, tools);
+
   const hasSelection = currentFiles.length > 0;
   tools.hidden = false;
   tools.setAttribute('aria-disabled', String(!hasSelection));
@@ -297,6 +374,60 @@ function syncHomeHeaderToolActions(root: Document): void {
   tools.classList.remove(HEADER_TOOLS_ENTER_CLASS);
   void tools.offsetWidth;
   tools.classList.add(HEADER_TOOLS_ENTER_CLASS);
+}
+
+/**
+ * The Open-with row is the user's favorites, so it follows whatever the star
+ * buttons saved. The page markup ships the seeded four as a no-JS fallback;
+ * this replaces them once the rail cache is readable, and leaves the row alone
+ * when nothing is cached yet so the fallback never blanks out. Only the first
+ * few fit beside Delete, so the rest stay in the sidebar rail.
+ */
+function renderOpenWithFavorites(root: Document, tools: HTMLElement): void {
+  const toggle = tools.querySelector<HTMLElement>(
+    '.shift-open-file-tools-toggle'
+  );
+  if (!toggle) return;
+
+  const favorites = loadFavoriteRailSnapshot().slice(
+    0,
+    MAX_OPEN_WITH_FAVORITES
+  );
+  if (favorites.length === 0) return;
+
+  const existing = Array.from(
+    toggle.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
+  );
+  const unchanged =
+    existing.length === favorites.length &&
+    favorites.every(
+      (favorite, index) =>
+        existing[index]?.getAttribute('href') === favorite.href &&
+        existing[index]?.textContent === favorite.name
+    );
+  if (unchanged) return;
+
+  const links = favorites.map((favorite) => {
+    const link = root.createElement('a');
+    link.className = 'shift-open-file-tool-btn';
+    link.href = favorite.href;
+    link.dataset.tool = openWithToolId(favorite.href);
+    link.textContent = favorite.name;
+    return link;
+  });
+
+  existing.forEach((link) => link.remove());
+  // Delete is appended to the same toggle, so favorites go in front of it.
+  toggle.prepend(...links);
+}
+
+function openWithToolId(href: string): string {
+  return (
+    href
+      .split('/')
+      .pop()
+      ?.replace(/\.html$/, '') ?? href
+  );
 }
 
 /**
@@ -336,9 +467,50 @@ function ensureMyPdfsPageChrome(root: Document): void {
     controls.insertAdjacentElement('beforebegin', search);
   }
 
+  // List and grid share one scrollport so the chrome above stays put.
+  ensureMyPdfsScrollPane(root, section);
+
   if (myPdfsChromeBoundRoot === root) return;
   myPdfsChromeBoundRoot = root;
   bindMyPdfsSelectionControls(root);
+}
+
+/**
+ * Wrap the table and thumbnail grid in a flex child that owns overflow-y.
+ * Leaving them as siblings made the table itself the scrollport, which forced
+ * `display: block` and collapsed the auto-sized Date/Size columns.
+ */
+function ensureMyPdfsScrollPane(root: Document, section: HTMLElement): void {
+  const table = section.querySelector(
+    '.shift-my-pdfs-table'
+  ) as HTMLElement | null;
+  const thumbs = root.getElementById('shift-my-pdfs-thumbs');
+  if (!table && !thumbs) return;
+
+  let pane = section.querySelector(
+    '.shift-my-pdfs-scroll'
+  ) as HTMLElement | null;
+  if (!pane) {
+    pane = root.createElement('div');
+    pane.className = 'shift-my-pdfs-scroll';
+  }
+
+  const alreadyWrapped =
+    (!table || pane.contains(table)) && (!thumbs || pane.contains(thumbs));
+  if (alreadyWrapped && pane.parentElement === section) return;
+
+  const anchor =
+    table && table.parentElement !== pane
+      ? table
+      : thumbs && thumbs.parentElement !== pane
+        ? thumbs
+        : (table ?? thumbs);
+  if (pane.parentElement !== section && anchor) {
+    anchor.insertAdjacentElement('beforebegin', pane);
+  }
+
+  if (table && table.parentElement !== pane) pane.appendChild(table);
+  if (thumbs && thumbs.parentElement !== pane) pane.appendChild(thumbs);
 }
 
 function ensureMyPdfsControlsShell(
@@ -364,9 +536,10 @@ function ensureMyPdfsControlsShell(
     row.className = 'shift-my-pdfs-controls-row';
     const selection = root.createElement('div');
     selection.className = 'shift-my-pdfs-selection';
+    const cluster = root.createElement('div');
+    cluster.className = 'shift-my-pdfs-controls-cluster';
     const actions = root.createElement('div');
     actions.className = 'shift-my-pdfs-actions';
-    row.append(selection, actions);
 
     if (tools) {
       tools.querySelector(':scope > span')?.remove();
@@ -381,12 +554,18 @@ function ensureMyPdfsControlsShell(
       );
     }
 
-    controls.appendChild(row);
-    if (viewBy) controls.appendChild(viewBy);
+    // Right cluster: tools then View by (wrap together, never View by alone).
+    cluster.appendChild(actions);
+    if (viewBy) cluster.appendChild(viewBy);
+    row.append(selection, cluster);
 
+    controls.appendChild(row);
+
+    const scroll = section.querySelector('.shift-my-pdfs-scroll');
     const table = section.querySelector('.shift-my-pdfs-table');
     const thumbs = root.getElementById('shift-my-pdfs-thumbs');
-    if (table) table.insertAdjacentElement('beforebegin', controls);
+    if (scroll) scroll.insertAdjacentElement('beforebegin', controls);
+    else if (table) table.insertAdjacentElement('beforebegin', controls);
     else if (thumbs) thumbs.insertAdjacentElement('beforebegin', controls);
     else section.appendChild(controls);
 
@@ -398,7 +577,54 @@ function ensureMyPdfsControlsShell(
     }
   }
 
+  groupMyPdfsActionsAndViewBy(root, controls);
   return controls;
+}
+
+/**
+ * Keep library tools + View by in one flex item so `flex-wrap` on the controls
+ * row cannot leave View by alone on a second line (`margin-left: auto` used to).
+ */
+function groupMyPdfsActionsAndViewBy(
+  root: Document,
+  controls: HTMLElement
+): void {
+  const row =
+    (controls.querySelector(
+      '.shift-my-pdfs-controls-row'
+    ) as HTMLElement | null) ?? controls;
+
+  let cluster = row.querySelector(
+    '.shift-my-pdfs-controls-cluster'
+  ) as HTMLElement | null;
+  if (!cluster) {
+    cluster = root.createElement('div');
+    cluster.className = 'shift-my-pdfs-controls-cluster';
+  }
+
+  const actions = row.querySelector(
+    '.shift-my-pdfs-actions'
+  ) as HTMLElement | null;
+  const viewBy =
+    (row.querySelector(
+      ':scope > .shift-open-file-view-by'
+    ) as HTMLElement | null) ??
+    (controls.querySelector('.shift-open-file-view-by') as HTMLElement | null);
+
+  if (actions && !cluster.contains(actions)) {
+    if (!cluster.parentElement) {
+      actions.replaceWith(cluster);
+    }
+    cluster.appendChild(actions);
+  } else if (!cluster.parentElement) {
+    const selection = row.querySelector('.shift-my-pdfs-selection');
+    if (selection) selection.insertAdjacentElement('afterend', cluster);
+    else row.appendChild(cluster);
+  }
+
+  if (viewBy && !cluster.contains(viewBy)) {
+    cluster.appendChild(viewBy);
+  }
 }
 
 function ensureMyPdfsSelectionControls(

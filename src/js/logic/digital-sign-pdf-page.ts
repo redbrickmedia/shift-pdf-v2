@@ -189,7 +189,9 @@ function initializePage(): void {
         }
         state.sigImageData = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
         state.sigImageType = file.type.replace('image/', '') as
-          'png' | 'jpeg' | 'webp';
+          | 'png'
+          | 'jpeg'
+          | 'webp';
 
         if (sigImageThumb && sigImagePreview) {
           const url = URL.createObjectURL(file);
@@ -280,8 +282,11 @@ async function updatePdfDisplay(): Promise<void> {
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.pdfFile.name}`);
+  removeBtn.title = `Remove ${state.pdfFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     state.pdfFile = null;
     state.pdfBytes = null;
@@ -441,8 +446,11 @@ function updateCertDisplay(): void {
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.certFile.name}`);
+  removeBtn.title = `Remove ${state.certFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     state.certFile = null;
     state.certData = null;

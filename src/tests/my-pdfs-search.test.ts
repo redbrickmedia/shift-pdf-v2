@@ -335,10 +335,16 @@ describe('My PDFs library search', () => {
 
     // Grid comes first, matching My Images.
     expect(toggle?.firstElementChild).toBe(grid);
-    // The toggle moves into the new control row, replacing the old header.
+    // Tools + View by share one cluster (wrap together, View by at the end).
+    const controlsRow = document.querySelector('.shift-my-pdfs-controls-row');
+    const cluster = controlsRow?.querySelector(
+      '.shift-my-pdfs-controls-cluster'
+    );
+    expect(cluster?.querySelector('.shift-my-pdfs-actions')).not.toBeNull();
+    expect(cluster?.querySelector('.shift-open-file-view-by')).not.toBeNull();
     expect(
-      document.querySelector('.shift-my-pdfs-controls .shift-open-file-view-by')
-    ).not.toBeNull();
+      cluster?.lastElementChild?.classList.contains('shift-open-file-view-by')
+    ).toBe(true);
     expect(document.querySelector('.shift-open-file-header')).toBeNull();
   });
 

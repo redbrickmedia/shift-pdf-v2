@@ -53,9 +53,11 @@ function updateUI() {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+      removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', `Remove ${file.name}`);
+      removeBtn.title = `Remove ${file.name}`;
+      removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
       removeBtn.onclick = function () {
         pageState.files = pageState.files.filter(function (_, i) {
           return i !== index;

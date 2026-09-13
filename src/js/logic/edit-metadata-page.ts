@@ -84,8 +84,10 @@ function addCustomFieldRow(key: string = '', value: string = '') {
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
-  removeBtn.className = 'text-red-400 hover:text-red-300 p-2 self-center';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-5 h-5"></i>';
+  removeBtn.className = 'p-2 self-center shift-tool-file-remove';
+  removeBtn.setAttribute('aria-label', 'Remove field');
+  removeBtn.title = 'Remove field';
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-5 h-5"></i>';
   removeBtn.onclick = function () {
     row.remove();
   };
@@ -210,8 +212,11 @@ async function updateUI() {
     infoContainer.append(nameSpan, metaSpan);
 
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+    removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+    removeBtn.type = 'button';
+    removeBtn.setAttribute('aria-label', `Remove ${pageState.file.name}`);
+    removeBtn.title = `Remove ${pageState.file.name}`;
+    removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
     removeBtn.onclick = function () {
       resetState();
     };

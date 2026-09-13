@@ -81,8 +81,11 @@ document.addEventListener('DOMContentLoaded', () => {
       size.textContent = formatBytes(file.size);
 
       const remove = document.createElement('button');
-      remove.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      remove.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+      remove.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Remove ${file.name}`);
+      remove.title = `Remove ${file.name}`;
+      remove.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
       remove.onclick = () => {
         state.files = state.files.filter((_: File, i: number) => i !== index);
         updateUI();

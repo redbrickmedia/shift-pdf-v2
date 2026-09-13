@@ -16,6 +16,7 @@ import {
   clearPdfLibrary,
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
+import { TOOL_FAVORITES_RAIL_KEY } from '../js/logic/tool-favorites';
 import {
   clearWorkspaceOpenFile,
   copyFileOrigin,
@@ -63,6 +64,7 @@ function mountLibrary() {
 afterEach(async () => {
   document.body.className = '';
   state.files = [];
+  localStorage.removeItem(TOOL_FAVORITES_RAIL_KEY);
   resetWorkspaceFileIndicator();
   vi.mocked(renderPdfFirstPage).mockClear();
   vi.mocked(renderPdfFirstPage).mockResolvedValue(undefined);
@@ -1502,6 +1504,108 @@ describe('workspace files sidebar', () => {
     expect(tools?.classList.contains('shift-enter')).toBe(false);
   });
 
+  it('rebuilds the Open with row from saved favorites', () => {
+    localStorage.setItem(
+      TOOL_FAVORITES_RAIL_KEY,
+      JSON.stringify([
+        { name: 'Split PDF', href: 'split-pdf.html', icon: 'ph-scissors' },
+        { name: 'Crop PDF', href: 'crop-pdf.html', icon: 'ph-crop' },
+      ])
+    );
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" data-view="thumbnail">
+        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
+          <div class="shift-open-file-tools-toggle">
+            <a href="compress-pdf.html" class="shift-open-file-tool-btn">Compress</a>
+            <a href="merge-pdf.html" class="shift-open-file-tool-btn">Merge</a>
+            <a href="pdf-converter.html" class="shift-open-file-tool-btn">Convert</a>
+            <a href="sign-pdf.html" class="shift-open-file-tool-btn">E-sign</a>
+          </div>
+        </div>
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+
+    setHomeLibraryFiles([]);
+
+    const links = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('.shift-open-file-tool-btn')
+    );
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Split PDF',
+      'Crop PDF',
+    ]);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      'split-pdf.html',
+      'crop-pdf.html',
+    ]);
+    expect(links.map((link) => link.dataset.tool)).toEqual([
+      'split-pdf',
+      'crop-pdf',
+    ]);
+    // Delete is appended to the same row, so favorites must stay ahead of it.
+    const toggle = document.querySelector('.shift-open-file-tools-toggle');
+    expect(toggle?.lastElementChild?.id).toBe('shift-my-pdfs-delete-selected');
+  });
+
+  it('keeps the markup fallback when no favorites are cached', () => {
+    localStorage.removeItem(TOOL_FAVORITES_RAIL_KEY);
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" data-view="thumbnail">
+        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
+          <div class="shift-open-file-tools-toggle">
+            <a href="compress-pdf.html" class="shift-open-file-tool-btn">Compress</a>
+            <a href="merge-pdf.html" class="shift-open-file-tool-btn">Merge</a>
+          </div>
+        </div>
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+
+    setHomeLibraryFiles([]);
+
+    expect(
+      Array.from(
+        document.querySelectorAll<HTMLAnchorElement>(
+          '.shift-open-file-tool-btn'
+        )
+      ).map((link) => link.textContent)
+    ).toEqual(['Compress', 'Merge']);
+  });
+
+  it('shows at most four favorites beside Delete', () => {
+    localStorage.setItem(
+      TOOL_FAVORITES_RAIL_KEY,
+      JSON.stringify(
+        ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({
+          name: id.toUpperCase(),
+          href: `${id}.html`,
+          icon: '',
+        }))
+      )
+    );
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" data-view="thumbnail">
+        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
+          <div class="shift-open-file-tools-toggle"></div>
+        </div>
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+
+    setHomeLibraryFiles([]);
+
+    expect(document.querySelectorAll('.shift-open-file-tool-btn')).toHaveLength(
+      4
+    );
+  });
+
   it('renders an empty-state placeholder in list and thumbnail markup when the library is empty', () => {
     document.body.innerHTML = `
       <div id="drop-zone">
@@ -1539,7 +1643,9 @@ describe('workspace files sidebar', () => {
     const card = document.querySelector('.shift-my-pdfs-empty-card');
 
     expect(section?.hidden).toBe(false);
-    expect(document.querySelector('.shift-open-file-view-by')).not.toBeNull();
+    const cluster = document.querySelector('.shift-my-pdfs-controls-cluster');
+    expect(cluster?.querySelector('.shift-my-pdfs-actions')).not.toBeNull();
+    expect(cluster?.querySelector('.shift-open-file-view-by')).not.toBeNull();
     expect(document.getElementById('shift-open-file-tools')?.hidden).toBe(
       false
     );
@@ -1562,6 +1668,42 @@ describe('workspace files sidebar', () => {
     expect(
       document.querySelector('#shift-my-pdfs-body tr.shift-my-pdfs-empty-row')
     ).not.toBeNull();
+  });
+
+  it('wraps the table and thumbs in one scroll pane under the controls', () => {
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" data-view="thumbnail">
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <div id="drop-zone"></div>
+        <div class="shift-open-file-header">
+          <div class="shift-open-file-header-controls">
+            <div id="shift-open-file-tools" hidden></div>
+            <div class="shift-open-file-view-by">
+              <span>View by</span>
+            </div>
+          </div>
+        </div>
+        <table class="shift-my-pdfs-table">
+          <tbody id="shift-my-pdfs-body"></tbody>
+        </table>
+        <div id="shift-my-pdfs-thumbs" class="shift-open-file-thumbs"></div>
+      </section>
+    `;
+    setHomeLibraryFiles([]);
+
+    const section = document.getElementById('shift-my-pdfs');
+    const pane = section?.querySelector('.shift-my-pdfs-scroll');
+    const controls = section?.querySelector('.shift-my-pdfs-controls');
+    const table = section?.querySelector('.shift-my-pdfs-table');
+    const thumbs = document.getElementById('shift-my-pdfs-thumbs');
+
+    expect(pane).not.toBeNull();
+    expect(pane?.contains(table as Node)).toBe(true);
+    expect(pane?.contains(thumbs as Node)).toBe(true);
+    expect(controls?.nextElementSibling).toBe(pane);
+    // Idempotent — a second paint must not nest another pane.
+    setHomeLibraryFiles([]);
+    expect(section?.querySelectorAll('.shift-my-pdfs-scroll')).toHaveLength(1);
   });
 
   it('offers a delete control on every library row and thumbnail', () => {

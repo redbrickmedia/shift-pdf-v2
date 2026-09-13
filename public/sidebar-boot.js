@@ -19,8 +19,34 @@
  *
  * A classic script in public/ rather than inline markup: the shipped headers
  * set script-src 'self' with no unsafe-inline.
+ *
+ * Dev reset: on localhost / 127.0.0.1, ?dev-reset=1 bounces to /dev-reset.html
+ * before this script paints from storage or main.ts opens IndexedDB. Wiping
+ * from the live app page often leaves My PDFs intact because deleteDatabase
+ * stays blocked while connections are open.
  */
 (function () {
+  try {
+    var resetParams = new URLSearchParams(location.search);
+    if (resetParams.get('dev-reset') === '1') {
+      var resetHost = location.hostname;
+      if (resetHost === 'localhost' || resetHost === '127.0.0.1') {
+        resetParams.delete('dev-reset');
+        var resetQuery = resetParams.toString();
+        var resetReturn =
+          location.pathname +
+          (resetQuery ? '?' + resetQuery : '') +
+          location.hash;
+        location.replace(
+          '/dev-reset.html?return=' + encodeURIComponent(resetReturn || '/')
+        );
+        return;
+      }
+    }
+  } catch (resetError) {
+    // Continue normal boot if URL parsing fails.
+  }
+
   var RAIL_KEY = 'shiftPdfFavoriteRail';
   var OPEN_FILE_KEY = 'shiftHasOpenFile';
   var OPEN_FILE_SNAPSHOT_KEY = 'shiftOpenFileSnapshot';

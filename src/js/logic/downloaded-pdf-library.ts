@@ -1,5 +1,5 @@
 import { PDF_OUTPUT_DOWNLOADED_EVENT } from '../utils/helpers.js';
-import { syncHomeLibraryFromStore } from './home-files.js';
+import { syncHomeLibraryFromStore } from './workspace-files.js';
 import { addPdfToLibrary } from './pdf-library-store.js';
 
 type DownloadedPdfDetail = {

@@ -597,8 +597,11 @@ function buildFileList(
     row.appendChild(nameEl);
 
     const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
     removeBtn.className =
-      'text-gray-500 hover:text-red-400 text-lg leading-none flex-shrink-0';
+      'text-lg leading-none flex-shrink-0 shift-tool-file-remove';
+    removeBtn.setAttribute('aria-label', `Remove ${name}`);
+    removeBtn.title = `Remove ${name}`;
     removeBtn.innerHTML = '&times;';
     removeBtn.addEventListener('click', () => onRemove(i));
     row.appendChild(removeBtn);
@@ -801,8 +804,7 @@ function showNodeSettings(node: BaseWorkflowNode) {
       statusDot.className = `w-2 h-2 rounded-full flex-shrink-0 mx-2 ${node.hasCert() ? 'bg-green-400' : 'bg-yellow-400'}`;
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'text-red-400 hover:text-red-300 text-xs flex-shrink-0';
+      removeBtn.className = 'text-xs flex-shrink-0 shift-tool-file-remove';
       removeBtn.textContent = 'Remove';
       removeBtn.addEventListener('click', () => {
         node.removeCert();
@@ -1543,7 +1545,8 @@ function showNodeSettings(node: BaseWorkflowNode) {
 
   for (const [dropdownKey] of Object.entries(conditionalVisibility)) {
     const ctrl = controlEntries.find(([k]) => k === dropdownKey)?.[1] as
-      { value?: unknown } | undefined;
+      | { value?: unknown }
+      | undefined;
     if (ctrl) {
       applyConditionalVisibility(dropdownKey, String(ctrl.value ?? ''));
     }

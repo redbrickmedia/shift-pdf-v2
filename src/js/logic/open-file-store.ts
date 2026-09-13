@@ -67,6 +67,26 @@ const RECORD_KEY = 'current';
 let memoryRecord: StoredOpenFileRecord | null = null;
 let persistGeneration = 0;
 
+/**
+ * Every write and clear goes through here in turn.
+ *
+ * withStore opens its own connection per call, so two operations started close
+ * together commit in whichever order their `open` happens to resolve. A clear
+ * issued just before a new selection could therefore land after that
+ * selection's put and delete it, leaving sessionStorage naming a file the
+ * store no longer holds — a selection visible in the sidebar and backed by
+ * nothing. Checking persistGeneration inside the queued task rather than
+ * before it means the last intent the caller expressed is the one that runs.
+ */
+let storeQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueStoreWrite(task: () => Promise<void>): Promise<void> {
+  const run: Promise<void> = storeQueue.then(task, task);
+  // A failed task must not stall everything queued behind it.
+  storeQueue = run.catch((): void => undefined);
+  return run;
+}
+
 export function markOpenFilePresent(present: boolean): void {
   try {
     if (present) {
@@ -74,6 +94,10 @@ export function markOpenFilePresent(present: boolean): void {
       return;
     }
     sessionStorage.removeItem(OPEN_FILE_FLAG_KEY);
+    // The snapshot only ever exists to paint rows for the flag. Leaving it
+    // behind lets sidebar-boot.js repaint a withdrawn selection on the next
+    // load, so the two are always cleared together.
+    writeOpenFileSnapshot([]);
   } catch {
     // Private mode can block storage.
   }
@@ -320,20 +344,22 @@ export async function writePersistedOpenFiles(
       };
     })
   );
-  if (generation !== persistGeneration) return;
-
   const lastStored = storedFiles[storedFiles.length - 1];
   if (!lastStored) return;
   const record: StoredOpenFileRecord = {
     ...lastStored,
     files: storedFiles,
   };
-  memoryRecord = record;
-  try {
-    await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
-  } catch {
-    // IndexedDB can be unavailable in tests and private mode.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    memoryRecord = record;
+    try {
+      await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
+    } catch {
+      // IndexedDB can be unavailable in tests and private mode.
+    }
+  });
 }
 
 export async function writePersistedOpenFile(
@@ -352,13 +378,16 @@ export async function writePersistedOpenFile(
     source: meta.source,
     buffer: await file.arrayBuffer(),
   };
-  if (generation !== persistGeneration) return;
-  memoryRecord = record;
-  try {
-    await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
-  } catch {
-    // IndexedDB can be unavailable in tests and private mode.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    memoryRecord = record;
+    try {
+      await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
+    } catch {
+      // IndexedDB can be unavailable in tests and private mode.
+    }
+  });
 }
 
 export async function readPersistedOpenFiles(): Promise<PersistedOpenFile[]> {
@@ -398,15 +427,18 @@ function storedEntryToPersistedFile(
 }
 
 export async function clearPersistedOpenFile(): Promise<void> {
-  persistGeneration += 1;
+  const generation = ++persistGeneration;
   memoryRecord = null;
   markOpenFilePresent(false);
-  writeOpenFileSnapshot([]);
-  try {
-    await withStore('readwrite', (store) => store.delete(RECORD_KEY));
-  } catch {
-    // Ignore storage failures.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    try {
+      await withStore('readwrite', (store) => store.delete(RECORD_KEY));
+    } catch {
+      // Ignore storage failures.
+    }
+  });
 }
 
 function withStore<T>(

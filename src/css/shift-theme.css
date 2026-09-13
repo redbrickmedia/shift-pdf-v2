@@ -138,10 +138,21 @@
   /* Dark themes reach for the pale -200/-400 shades as accent *ink*: links,
    * icons, status pills and "Note:" copy. Across these pages those levels are
    * ink far more often than surface, and every one of them washes out on white,
-   * so each hue drops to a readable weight in the same family. */
-  --color-indigo-200: #2563eb;
-  --color-indigo-300: #2563eb;
-  --color-indigo-400: #2563eb;
+   * so each hue drops to a readable weight in the same family.
+   *
+   * Indigo is special: Bento used it as the brand accent (Custom Settings
+   * toggles, hub icons, inline links). On Shift that accent is not indigo —
+   * pale indigo utilities become neutral secondary ink (disclosure toggles,
+   * icons, link-like text), and mid/deep indigo (borders, rings, checkbox
+   * fills, primary button backgrounds) map onto brand tokens. True primary
+   * actions still go through the central `button` / `.bg-indigo-*` rules. */
+  --color-indigo-50: var(--brand-50);
+  --color-indigo-200: var(--action-text-neutral-default);
+  --color-indigo-300: var(--action-text-neutral-hover);
+  --color-indigo-400: var(--action-text-neutral-default);
+  --color-indigo-500: var(--brand-500);
+  --color-indigo-600: var(--action-button-surface-primary-default);
+  --color-indigo-700: var(--action-button-surface-primary-hover);
   --color-blue-200: #1d4ed8;
   --color-blue-300: #1d4ed8;
   --color-blue-400: #1d4ed8;
@@ -191,15 +202,24 @@ body {
   min-height: 100vh;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  margin: 0;
-  padding: 0;
-  font-weight: var(--font-weight-normal);
+/* Layered on purpose, and carrying no margin or padding reset at all.
+   The rest of this file is unlayered, and an unlayered rule beats every
+   layered one whatever the specificity — so stating these on bare element
+   selectors silently defeated the utilities each page asks for: `margin: 0`
+   collapsed `mt-*`/`mb-*` on 72 headings, and the weight below flattened
+   `font-bold` on 138 more, tool titles included. Preflight zeroes margin and
+   padding in @layer base already, so those two are simply gone. The weight
+   stays, but from inside @layer base, which still defaults every heading to
+   normal while letting a page ask for bold. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: var(--font-weight-normal);
+  }
 }
 
 h1 {
@@ -220,6 +240,9 @@ h6 {
 html:has(body:not(.simple-mode) #shift-sidebar) {
   height: 100%;
   overflow: hidden;
+  /* Body is a rounded panel over the rail. Paint html with the rail colour
+     so the corners don't flash the browser's default white canvas. */
+  background-color: var(--background-bar-primary);
 }
 
 /* The panel is its own scrollport rather than growing with the document, so it
@@ -361,7 +384,11 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Nest file rows + "N more" under My PDFs; heading/link stays flush.
+     Indent is expanded-only — collapsed rail keeps thumbs centered. */
   margin-top: 16px;
+  padding-inline-start: var(--spacing-16);
+  transition: padding-inline-start 200ms ease;
 }
 
 .shift-open-files-list[hidden] {
@@ -403,6 +430,22 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
 
 .shift-open-file-item.is-selected .shift-open-file-preview {
   box-shadow: inset 0 0 0 1.5px var(--action-button-surface-primary-default);
+}
+
+/* Nested file rows inherit .shift-nav-link, including .is-active fill. They
+   sit under My PDFs, so they should not look like another selected tab.
+   The Selected chip and preview ring stay; hover matches other rail links. */
+.shift-nav-link.shift-open-file-item,
+.shift-nav-link.shift-open-file-item.is-active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--action-text-neutral-default);
+}
+
+.shift-nav-link.shift-open-file-item:hover {
+  background: var(--action-controls-surface-primary-hover);
+  color: var(--action-text-neutral-hover);
+  box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
 }
 
 /* Compact first-page preview in the 24px nav-icon slot. Falls back to the
@@ -590,6 +633,22 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
 }
 
+/* Ghost slot under the pins so the rail reads as a list you can grow, not a
+   fixed set of four. Same 40px row as the links above, dashed instead of
+   filled so it does not look like another favorite. */
+.shift-nav-link.shift-add-tool-link {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px transparent;
+  border: 1px dashed var(--border-outer-primary);
+}
+
+.shift-nav-link.shift-add-tool-link:hover:not(.is-active) {
+  background: var(--action-controls-surface-primary-hover);
+  color: var(--action-text-neutral-hover);
+  box-shadow: none;
+  border-color: var(--border-outer-primary);
+}
+
 .shift-nav-link.is-active {
   background: var(--action-controls-surface-secondary-active-tertiary);
   color: var(--action-text-neutral-selected);
@@ -634,6 +693,17 @@ html.shift-sidebar-collapsed-pending .shift-open-files,
 html.shift-sidebar-collapsed-pending .shift-tools,
 html.shift-sidebar-collapsed-pending .shift-sidebar-footer {
   padding: 0 var(--shift-sidebar-pad-collapsed);
+}
+
+/* Drop the nested-list indent on the icon rail so thumbs stay centered in
+   the 64px column; animate with the sidebar width (200ms ease). */
+body.shift-sidebar-collapsed .shift-open-files-list,
+html.shift-sidebar-collapsed-pending .shift-open-files-list {
+  padding-inline-start: 0;
+}
+
+html.shift-sidebar-collapsed-pending .shift-open-files-list {
+  transition: none;
 }
 
 body.shift-sidebar-collapsed .shift-sidebar-section-title,
@@ -681,20 +751,28 @@ body.shift-open-file-in-tool #drop-zone,
   display: none;
 }
 
+/* These conditions all mean "the one tool picker already has its file", so
+ * they only speak for the primary CTA. Multi-slot pages (compare-pdfs,
+ * overlay-pdf) mark their wraps .tool-library-slot-wrap and track visibility
+ * per slot through the [hidden] rule below — a PDF in the first slot must not
+ * blank the second slot's CTA. */
 html.shift-open-file-pending
   body:not(.shift-home):not(:has(#shift-my-pdfs))
   #tool-library-btn,
 html.shift-open-file-pending
   body:not(.shift-home):not(:has(#shift-my-pdfs))
-  .tool-library-btn-wrap,
+  .tool-library-btn-wrap:not(.tool-library-slot-wrap),
 #tool-library-btn[hidden],
 .tool-library-btn-wrap[hidden],
 body.shift-open-file-in-tool #tool-library-btn,
-body.shift-open-file-in-tool .tool-library-btn-wrap,
+body.shift-open-file-in-tool
+  .tool-library-btn-wrap:not(.tool-library-slot-wrap),
 #tool-uploader:has(#file-display-area:not(:empty)) #tool-library-btn,
-#tool-uploader:has(#file-display-area:not(:empty)) .tool-library-btn-wrap,
+#tool-uploader:has(#file-display-area:not(:empty))
+  .tool-library-btn-wrap:not(.tool-library-slot-wrap),
 #tool-uploader:has(#file-controls:not(.hidden)) #tool-library-btn,
-#tool-uploader:has(#file-controls:not(.hidden)) .tool-library-btn-wrap {
+#tool-uploader:has(#file-controls:not(.hidden))
+  .tool-library-btn-wrap:not(.tool-library-slot-wrap) {
   display: none;
 }
 
@@ -883,10 +961,83 @@ body.shift-open-file-in-tool #convert-destination-step.hidden {
   text-align: right;
 }
 
+/* Library CTA lives inside #drop-zone (after primary copy, before the
+ * absolute file-input overlay). Keep it above the overlay so clicks open
+ * My PDFs instead of the device file picker. */
 .tool-library-btn-wrap {
-  margin-top: 1rem;
+  position: relative;
+  z-index: 2;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: var(--spacing-12, 12px);
+  width: 100%;
+  max-width: 18rem;
+  margin-top: var(--spacing-8, 8px);
+  padding: 0 var(--spacing-16, 16px);
+  pointer-events: auto;
+}
+
+.tool-library-or {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--spacing-12, 12px);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  line-height: var(--text-xs--line-height);
+  text-transform: uppercase;
+}
+
+.tool-library-or::before,
+.tool-library-or::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border-divider-secondary);
+  opacity: 0.55;
+}
+
+/* Appearance comes from the shared `.btn` secondary button engine; only
+ * stacking / hit-testing need to live here so the file-input overlay loses. */
+#tool-library-btn.tool-library-btn {
+  position: relative;
+  z-index: 2;
+  width: auto;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+/* Fixed Tailwind heights (h-48 / md:h-64) clip the OR + library button.
+ * Grow the empty drop zone when the shared CTA is visible. */
+#drop-zone:has(.tool-library-btn-wrap:not([hidden])) {
+  height: auto;
+  min-height: 16rem;
+  padding-block: var(--spacing-16, 16px);
+}
+
+/* The authored copy block carries `pt-5 pb-6`, which is invisible while it is
+ * the only child of a centred fixed-height zone. With the CTA below it, that
+ * asymmetry lands on the zone's edges — 20px of it above the icon and none
+ * under the button. Let the zone's own padding set both edges. */
+#drop-zone:has(.tool-library-btn-wrap:not([hidden]))
+  > div:not(.tool-library-btn-wrap) {
+  padding-block: 0;
+}
+
+/* Same clipping on the multi-slot zones, which are shorter still (overlay-pdf
+ * pins its two at h-32). No min-height here: these size to their own content
+ * so the paired slots stay the same height as each other. */
+#drop-zone-1:has(.tool-library-slot-wrap:not([hidden])),
+#drop-zone-2:has(.tool-library-slot-wrap:not([hidden])),
+#base-drop-zone:has(.tool-library-slot-wrap:not([hidden])),
+#overlay-drop-zone:has(.tool-library-slot-wrap:not([hidden])),
+#dropZone:has(.tool-library-slot-wrap:not([hidden])) {
+  height: auto;
+  padding-block: var(--spacing-16, 16px);
 }
 
 /* ---- Card order ----
@@ -924,6 +1075,182 @@ body.shift-open-file-in-tool #convert-destination-step.hidden {
    margin. The controls sit below the list and keep theirs for separation. */
 body.shift-has-open-file #file-display-area {
   margin-top: 0;
+}
+
+/* ---- PDF viewer tools (full-panel layout) ----
+ * edit-pdf / sign-pdf / form-filler / crop-pdf / compare-pdfs / add-stamps
+ * mount an in-page viewer. Once that viewer is revealed,
+ * `tool-viewer-layout.ts` toggles `body.shift-tool-viewer` and marks upload
+ * chrome with `.shift-tool-viewer-suppressed`. The drop zone and file chips
+ * stay available while empty; when viewing, the panel is a header + viewer
+ * column so upload UI never stacks above the document.
+ * Scoped away from My PDFs and the catalog (those never get the body class).
+ * Thumbnail-grid tools (rotate / organize / split) stay out on purpose.
+ */
+.shift-tool-viewer-bar,
+.shift-tool-viewer-title {
+  display: contents;
+}
+
+.shift-tool-viewer-actions {
+  display: none;
+}
+
+body.shift-tool-viewer .shift-tool-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  width: 100%;
+  margin-bottom: var(--spacing-8);
+  /* Beat the global #tool-uploader > #file-display-area { order: 1 } rule so
+     the title/Download row stays above chips if chips are briefly visible. */
+  order: 0;
+}
+
+body.shift-tool-viewer .shift-tool-viewer-title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+body.shift-tool-viewer .shift-tool-viewer-title > h1 {
+  margin-bottom: 0;
+}
+
+/* Subtitle / empty-state copy compete with the viewer; the heading alone is
+   enough once a file is open. */
+body.shift-tool-viewer .shift-tool-viewer-title > p {
+  display: none;
+}
+
+body.shift-tool-viewer .shift-tool-viewer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-8);
+}
+
+/* Download was authored full-width under the viewer; in the header it is an
+   inline primary action. */
+body.shift-tool-viewer
+  .shift-tool-viewer-actions
+  :is(#process-btn, #crop-button, #download-edited-pdf, .btn-gradient) {
+  width: auto;
+  min-width: 10rem;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Drop zone + file chips + empty-state chrome stay out of the way while
+   viewing. Keep the header bar and the in-card viewer roots. */
+body.shift-tool-viewer
+  #tool-uploader
+  > :not(.shift-tool-viewer-bar):not(#embed-pdf-wrapper):not(
+    #form-filler-options
+  ):not(#compare-viewer):not(#viewer-card):not(#file-controls):not(
+    [data-shift-skeleton]
+  ) {
+  display: none !important;
+}
+
+body.shift-tool-viewer #drop-zone,
+body.shift-tool-viewer #drop-zone-1,
+body.shift-tool-viewer #drop-zone-2,
+body.shift-tool-viewer #file-display-area,
+body.shift-tool-viewer #file-list,
+.shift-tool-viewer-suppressed {
+  display: none !important;
+}
+
+/* Claim the leftover column height above the sticky footer without pinning
+   to 100% (that would push the footer off-screen). Body stops scrolling so
+   the viewer scrolls inside its own pane. */
+body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar) {
+  overflow: hidden;
+}
+
+body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
+    > .shift-footer
+  )
+  > #uploader {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-block: var(--spacing-12);
+}
+
+body.shift-tool-viewer #tool-uploader {
+  max-width: none !important;
+  width: 100%;
+  flex: 0 0 auto;
+  padding-block: var(--spacing-12);
+}
+
+/* Viewer lives inside the card (edit-pdf, form-filler, compare, stamps): the
+   card itself grows. */
+body.shift-tool-viewer
+  #tool-uploader:has(
+    #embed-pdf-wrapper:not(.hidden),
+    #form-filler-options:not(.hidden),
+    #compare-viewer:not(.hidden),
+    #viewer-card:not(.hidden)
+  ) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.shift-tool-viewer #embed-pdf-wrapper:not(.hidden),
+body.shift-tool-viewer #form-filler-options:not(.hidden),
+body.shift-tool-viewer #signature-editor:not(.hidden),
+body.shift-tool-viewer #cropper-editor:not(.hidden),
+body.shift-tool-viewer #compare-viewer:not(.hidden),
+body.shift-tool-viewer #viewer-card:not(.hidden) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: none;
+  width: 100%;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  order: 2;
+}
+
+body.shift-tool-viewer #embed-pdf-container,
+body.shift-tool-viewer #pdf-viewer-container,
+body.shift-tool-viewer #canvas-container-sign,
+body.shift-tool-viewer #cropper-container,
+body.shift-tool-viewer #compare-viewer-wrapper,
+body.shift-tool-viewer #stamp-viewer-container {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none;
+  aspect-ratio: auto !important;
+  width: 100%;
+}
+
+body.shift-tool-viewer #embed-pdf-container,
+body.shift-tool-viewer #pdf-viewer-container,
+body.shift-tool-viewer #canvas-container-sign {
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+body.shift-tool-viewer #signature-editor > :not(#canvas-container-sign),
+body.shift-tool-viewer #cropper-editor > :not(#cropper-container) {
+  flex: 0 0 auto;
 }
 
 /* ---- Buttons ----
@@ -1153,6 +1480,69 @@ body:not(.simple-mode):has(#shift-sidebar) #app.container {
 
 .shift-promise-banner {
   position: relative;
+  /* Size the walkthrough grid against this panel, not the viewport: the card
+     sits ~276px narrower than the window, so a media query would put three
+     columns in a space that only fits one. */
+  container-type: inline-size;
+  /* The search bar that follows sets no top margin of its own, so the card
+     owned no gap and sat flush against it. Kept here rather than on the
+     markup's utility list so hiding the card also removes the spacing. */
+  margin-bottom: var(--spacing-16);
+}
+
+/* Numbered walkthrough of the app's actual path: upload to My PDFs, pick a
+   file, then open a tool. Always three equal columns when the banner is wide
+   enough; otherwise stack all three. Never wrap as two-plus-one. */
+.shift-onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-12) var(--spacing-16);
+  margin: var(--spacing-16) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container (max-width: 40rem) {
+  .shift-onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shift-onboarding-step {
+  display: flex;
+  gap: var(--spacing-12);
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.shift-onboarding-step-index {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-white);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
+  border-radius: 999px;
+  background: var(--action-button-surface-primary-default);
+}
+
+.shift-onboarding-step-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-sm--line-height);
+}
+
+.shift-onboarding-step-copy {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
 }
 
 .shift-promise-dismiss {
@@ -1297,8 +1687,8 @@ a.tool-card:focus-visible {
 
 .tool-card:hover {
   transform: translateY(-2px);
-  border-color: var(--action-button-surface-primary-default);
-  background-color: var(--brand-50);
+  border-color: var(--border-brand-primary);
+  background-color: var(--action-controls-surface-primary-hover);
   box-shadow: none;
 }
 
@@ -1307,7 +1697,8 @@ a.tool-card:focus-visible {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  color: var(--action-button-surface-primary-default);
+  /* Brand-600 / brand-500, not Bento indigo or electric blue-400. */
+  color: var(--border-brand-primary);
 }
 
 .shift-tool-icon svg {
@@ -1757,12 +2148,17 @@ select:not([multiple]):not([size]) {
     left 17px center;
 }
 
-/* Tool catalog search — mirrors Shift SearchField (secondary) geometry */
+/* Tool catalog search — mirrors Shift SearchField (secondary) geometry.
+ * Ordinary layout chrome: the catalog scroll pane (#grid-view) owns overflow,
+ * so search + chips stay put without sticky. Favorites live in #tool-grid and
+ * scroll with the tools. Catalog-only class — My PDFs has its own chrome. */
 .shift-tool-search {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 12px;
   width: 100%;
+  margin-bottom: var(--spacing-12);
 }
 
 .shift-search-bar {
@@ -2135,9 +2531,9 @@ html.dark {
   --color-gray-400: #a3a3a3; /* dark-400 */
   --color-gray-300: #d4d4d4; /* dark-300 */
 
-  --color-indigo-200: #c7d2fe;
-  --color-indigo-300: #a5b4fc;
-  --color-indigo-400: #818cf8;
+  /* Indigo pale/mid tokens stay on the :root var() aliases above so they
+   * track dark neutral ink and brand surfaces instead of restoring Bento's
+   * true indigo (#818cf8 / #a5b4fc). */
   --color-blue-200: #bfdbfe;
   --color-blue-300: #93c5fd;
   --color-blue-400: #60a5fa;
@@ -2174,6 +2570,15 @@ html.dark :is(.bg-green-900, [class*='bg-green-900/']) {
 
 html.dark :is(.bg-blue-900, [class*='bg-blue-900/']) {
   background-color: #1e3a8a !important;
+}
+
+/* The chip row lays itself out; without this the chips render as bare inline
+   boxes with no gutter, so they sit flush against each other and the toolbar
+   edges. */
+.shift-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .shift-category-chip {
@@ -2239,6 +2644,56 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   color: var(--text-secondary);
 }
 
+/* ---- Tool upload zone ----
+ * Each tool page ships its own hand-authored drop target, so their Tailwind
+ * utilities have drifted: most sit on gray-900, bookmark / table-of-contents /
+ * form-creator on gray-700, and pdf-multi-tool sizes the icon at 64px. Owning
+ * the surface here makes every tool render as the one component the My PDFs
+ * zone above defines, and stops a new page from drifting again — without
+ * editing 117 upstream files whose markup we want to stay mergeable.
+ *
+ * `:not(.shift-home-drop-zone)` matters: the My PDFs zone carries the same id,
+ * and an id would outrank the class rules that give it its own geometry.
+ *
+ * The trailing ids are the five pages that predate #drop-zone: two-slot
+ * uploaders (compare-pdfs, overlay-pdf) plus the bespoke single zones in
+ * form-creator and pdf-multi-tool. `#upload-area` is qualified because
+ * form-creator also uses that id for its outer solid-bordered card. */
+#drop-zone:not(.shift-home-drop-zone),
+#drop-zone-1,
+#drop-zone-2,
+#base-drop-zone,
+#overlay-drop-zone,
+#dropZone,
+#upload-area.border-dashed {
+  border-color: var(--border-outer-primary);
+  background: var(--background-bar-primary);
+}
+
+#drop-zone:not(.shift-home-drop-zone):hover,
+#drop-zone-1:hover,
+#drop-zone-2:hover,
+#base-drop-zone:hover,
+#overlay-drop-zone:hover,
+#dropZone:hover,
+#upload-area.border-dashed:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+/* Lucide ships a 2px stroke against the 1.5px of the hand-authored icon above,
+ * and renders at whatever size each page's utilities ask for. The two-slot
+ * uploaders keep their own file-text / layers glyphs: there the icon says
+ * which slot it is, not "upload". */
+#drop-zone .lucide-circle-arrow-up,
+#dropZone .lucide-circle-arrow-up,
+#upload-area .lucide-circle-arrow-up {
+  width: 40px;
+  height: 40px;
+  margin-inline: auto;
+  color: var(--text-secondary);
+  stroke-width: 1.5;
+}
+
 .shift-home-drop-hint {
   margin: 0;
   color: var(--text-secondary);
@@ -2275,6 +2730,81 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 16px;
+}
+
+/* ---- Catalog: the tools list scrolls, not the page ----
+ * Same inner-scroll idea as My PDFs: #app takes the leftover column height
+ * above the sticky footer, search + chips stay ordinary chrome, and #grid-view
+ * owns overflow-y. Favorites are injected into #tool-grid inside #grid-view, so
+ * they move with the tools.
+ *
+ * Scoped with body.shift-home:has(#tool-grid) — all-tools.html only. Tool pages
+ * and My PDFs (no #tool-grid) keep ordinary document scrolling. Do not set
+ * display on #grid-view: switchView toggles Tailwind `.hidden`, and a display
+ * declaration would un-hide it. */
+body.shift-home:has(#tool-grid) #app {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body.shift-home:has(#tool-grid) #grid-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so cards do not sit under it. */
+  padding-right: var(--spacing-4);
+}
+
+/* ---- My PDFs: the file list scrolls, not the page ----
+ * The body is already a fixed-height scrollport (see the panel rule above), so
+ * a library taller than the viewport used to scroll the whole page and take the
+ * filter and the selection row with it — you had to scroll back up to reach the
+ * controls for what you were looking at. Giving #app the leftover column height
+ * (footer stays below) and letting `.shift-my-pdfs-scroll` take the rest keeps
+ * the heading, drop zone, filter and selection row in place while the cards
+ * move under them.
+ *
+ * Scoped to the page that has the library so tool pages, which want ordinary
+ * document scrolling, are untouched. */
+/* The body is already a flex column ending in a sticky footer, so #app claims
+   the space the footer leaves rather than the whole height — which would push
+   the footer out and hand the scroll straight back to the body. The panel rule
+   sets flex-shrink to 0 to stop short pages collapsing; here the point is the
+   opposite, so it is restated. */
+body.shift-home:has(#shift-my-pdfs) #app {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  /* Without this a flex item refuses to shrink past its content, so the
+     section would grow and hand the scroll back to the body. */
+  min-height: 0;
+}
+
+/* One scrollport for both views. Table and thumbs stay siblings inside so the
+   table keeps auto layout (Date/Size stay narrow) while overflow lives here. */
+body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so cards do not sit under it. */
+  padding-right: var(--spacing-4);
+}
+
+/* Sticky column labels while list rows move under them. */
+body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--background-bar-primary);
 }
 
 /* Full-width library filter under the drop zone (My Images hierarchy). */
@@ -2337,7 +2867,6 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
 .shift-my-pdfs-controls-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -2380,12 +2909,38 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   color: var(--text-primary);
 }
 
+/* Tools + View by: one right-aligned unit that wraps together. */
+.shift-my-pdfs-controls-cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin-left: auto;
+}
+
 .shift-my-pdfs-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   gap: 8px;
+}
+
+/* Vertical hairline between actions (Delete) and View by — not full bar height. */
+.shift-my-pdfs-controls-cluster > .shift-open-file-view-by {
+  position: relative;
+  padding-inline-start: 12px;
+}
+
+.shift-my-pdfs-controls-cluster > .shift-open-file-view-by::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 18px;
+  background: var(--border-divider-secondary);
 }
 
 .shift-open-file-view-by,
@@ -2416,12 +2971,6 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   overflow: hidden;
 }
 
-/* The toggle is its own row under the selection controls, so it must hug the
-   left edge instead of stretching across the column flex container. */
-.shift-my-pdfs-controls > .shift-open-file-view-by {
-  align-self: flex-start;
-}
-
 .shift-open-file-tools-toggle {
   border: none;
   overflow: visible;
@@ -2432,10 +2981,6 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
-  border: none;
-  color: var(--action-text-neutral-default);
-  background: var(--background-secondary);
   cursor: pointer;
   font-family: inherit;
   font-size: inherit;
@@ -2445,10 +2990,30 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
 
 .shift-open-file-view-btn {
   width: 32px;
+  height: 28px;
   padding: 0;
+  border: none;
+  color: var(--action-text-neutral-default);
+  background: var(--background-secondary);
 }
 
-.shift-open-file-tool-btn,
+/* Favorite shortcuts (Compress / Merge / Convert / E-sign) — primary blue.
+   These match DEFAULT_FAVORITE_TOOL_IDS. Delete stays secondary below. */
+.shift-open-file-tool-btn {
+  height: auto;
+  min-height: 32px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-8);
+  background: var(--action-button-surface-primary-default);
+  color: var(--text-white);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-xs--line-height);
+}
+
 .shift-my-pdfs-delete-selected {
   height: auto;
   min-height: 32px;
@@ -2473,14 +3038,15 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   border-left: 1px solid var(--border-divider-secondary);
 }
 
-.shift-open-file-view-btn:hover,
-.shift-open-file-tool-btn:hover {
+.shift-open-file-view-btn:hover {
   color: var(--action-text-neutral-hover);
   background: var(--action-controls-surface-primary-default);
 }
 
 .shift-open-file-tool-btn:hover {
-  border-color: var(--action-button-border-secondary-hover);
+  color: var(--text-white);
+  background: var(--action-button-surface-primary-hover);
+  border-color: transparent;
 }
 
 .shift-open-file-view-btn[aria-pressed='true'],
@@ -2497,7 +3063,15 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
 }
 
 .shift-open-file-tools.is-disabled .shift-open-file-tool-btn,
-.shift-open-file-tool-btn.is-disabled,
+.shift-open-file-tool-btn.is-disabled {
+  color: var(--action-text-neutral-disabled);
+  border-color: transparent;
+  background: var(--action-button-surface-primary-disabled);
+  cursor: default;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .shift-my-pdfs-delete-selected:disabled {
   color: var(--action-text-neutral-disabled);
   border-color: var(--action-button-border-secondary-default);
@@ -2505,6 +3079,37 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   cursor: default;
   opacity: 0.72;
   pointer-events: none;
+}
+
+/* Selected-file X: remove from the tool, not delete. Neutral, not red.
+   Zero specificity on the box so the `p-2` / `ml-4` utilities the tool pages
+   spell out on this button still outrank it. */
+:where(.shift-tool-file-remove) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shift-tool-file-remove {
+  color: var(--text-secondary);
+  background: transparent;
+  border-radius: var(--radius-8);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.shift-tool-file-remove:hover {
+  color: var(--text-primary);
+}
+
+.shift-tool-file-remove:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 1px;
+}
+
+.shift-tool-file-remove:disabled {
+  color: var(--action-text-neutral-disabled);
+  cursor: not-allowed;
 }
 
 .shift-my-pdfs[data-view='thumbnail'] .shift-my-pdfs-table {
@@ -3255,7 +3860,7 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
 .shift-convert-destination-icon {
   flex: 0 0 auto;
   font-size: 2rem;
-  color: var(--text-accent, #818cf8);
+  color: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .shift-convert-destination-info {
@@ -3426,5 +4031,9 @@ html.dark :is(.bg-amber-900, [class*='bg-amber-900/']) {
   #compress-options:not(.hidden),
   body:not(.simple-mode):has(#shift-sidebar) {
     animation: none;
+  }
+
+  .shift-open-files-list {
+    transition: none;
   }
 }

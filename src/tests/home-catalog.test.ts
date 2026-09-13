@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -201,5 +203,56 @@ describe('home catalog visibility', () => {
 
     expect(visible).toEqual(groupOrder);
     expect(visible[0]).toBe('favorites');
+  });
+
+  it('spaces the category chip row', async () => {
+    const css = await readFile(
+      resolve(process.cwd(), 'src/css/shift-theme.css'),
+      'utf8'
+    );
+    const from = css.indexOf('.shift-category-chips {');
+    const rule = css.slice(from, css.indexOf('}', from));
+
+    expect(from).toBeGreaterThan(-1);
+    expect(rule).toContain('display: flex');
+    expect(rule).toContain('gap: 8px');
+  });
+
+  /**
+   * Search + chips stay put because #grid-view is the overflow owner — not
+   * because .shift-tool-search is sticky. Favorites live in #tool-grid inside
+   * that pane, so they scroll with the tools.
+   */
+  it('scrolls the catalog tools inside #grid-view, not the page', async () => {
+    const css = await readFile(
+      resolve(process.cwd(), 'src/css/shift-theme.css'),
+      'utf8'
+    );
+    const searchFrom = css.indexOf('.shift-tool-search {');
+    const searchRule = css.slice(searchFrom, css.indexOf('}', searchFrom));
+    const paneFrom = css.indexOf('body.shift-home:has(#tool-grid) #grid-view');
+    const paneRule = css.slice(paneFrom, css.indexOf('}', paneFrom));
+    const appFrom = css.indexOf('body.shift-home:has(#tool-grid) #app');
+    const appRule = css.slice(appFrom, css.indexOf('}', appFrom));
+    const catalog = await readFile(
+      resolve(process.cwd(), 'all-tools.html'),
+      'utf8'
+    );
+
+    expect(searchFrom).toBeGreaterThan(-1);
+    expect(searchRule).not.toContain('position: sticky');
+    expect(searchRule).not.toContain('z-index:');
+    expect(searchRule).not.toContain('margin-top: calc');
+    expect(paneFrom).toBeGreaterThan(-1);
+    expect(paneRule).toContain('overflow-y: auto');
+    expect(paneRule).toContain('min-height: 0');
+    expect(appFrom).toBeGreaterThan(-1);
+    expect(appRule).toContain('flex: 1 1 auto');
+    expect(appRule).toContain('min-height: 0');
+    // Search + chips only: Favorite Tools is injected into #tool-grid.
+    expect(catalog).toMatch(
+      /class="shift-tool-search"[\s\S]*id="home-category-chips"[\s\S]*<\/div>\s*<div id="grid-view"/
+    );
+    expect(catalog).toContain('id="tool-grid"');
   });
 });

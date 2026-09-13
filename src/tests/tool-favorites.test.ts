@@ -396,6 +396,18 @@ describe('sidebar pinned tools', () => {
     expect(library?.hasAttribute('hidden')).toBe(false);
   });
 
+  it('ends the Tools rail with an Add tool action that opens the catalog', () => {
+    const toolsNav = sidebar().querySelector('.shift-tools-nav');
+    const addTool = toolsNav?.querySelector('a.shift-add-tool-link');
+    const last = toolsNav?.lastElementChild;
+
+    expect(addTool).not.toBeNull();
+    expect(last).toBe(addTool);
+    expect(addTool?.getAttribute('href')).toContain('all-tools.html');
+    expect(addTool?.textContent).toMatch(/Add tool/);
+    expect(addTool?.hasAttribute('data-nav')).toBe(false);
+  });
+
   it('does not hardcode former prepinned tools in the Tools markup', () => {
     const toolsNav = sidebar().querySelector('.shift-tools-nav');
     const hrefs = Array.from(toolsNav?.querySelectorAll('a[href]') ?? []).map(
@@ -411,5 +423,40 @@ describe('sidebar pinned tools', () => {
       false
     );
     expect(hrefs.some((href) => href.includes('sign-pdf.html'))).toBe(false);
+  });
+});
+
+describe('Open with favorite shortcuts', () => {
+  const favoriteHrefs = DEFAULT_FAVORITE_TOOL_IDS.map((id) => `${id}.html`);
+
+  it.each(['my-pdfs.html', 'index.html'])(
+    'keeps %s Open with links aligned to default favorites',
+    (page) => {
+      const html = readFileSync(page, 'utf8');
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const hrefs = Array.from(
+        doc.querySelectorAll<HTMLAnchorElement>(
+          '#shift-open-file-tools a.shift-open-file-tool-btn'
+        )
+      ).map((link) => link.getAttribute('href'));
+
+      expect(hrefs).toEqual(favoriteHrefs);
+    }
+  );
+
+  it('paints Open with buttons as primary blue', () => {
+    const css = readFileSync('src/css/shift-theme.css', 'utf8');
+    const from = css.indexOf(
+      '/* Favorite shortcuts (Compress / Merge / Convert / E-sign)'
+    );
+    const section = css.slice(from, from + 1600);
+
+    expect(section).toContain(
+      'background: var(--action-button-surface-primary-default)'
+    );
+    expect(section).toContain('color: var(--text-white)');
+    expect(section).toContain(
+      'background: var(--action-button-surface-primary-hover)'
+    );
   });
 });

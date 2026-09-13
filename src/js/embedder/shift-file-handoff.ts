@@ -1,4 +1,4 @@
-import { syncHomeLibraryFromStore } from '../logic/home-files.js';
+import { syncHomeLibraryFromStore } from '../logic/workspace-files.js';
 import { addPdfToLibrary } from '../logic/pdf-library-store.js';
 
 const FILE_HANDOFF_VERSION = 1;
