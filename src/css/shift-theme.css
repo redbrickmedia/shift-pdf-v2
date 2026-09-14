@@ -115,6 +115,25 @@
   --shift-tool-card-row-height: 212px;
   --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
+  /* ---- Stacking order ----
+   * The values were already spread across the file as bare numbers, which is
+   * how a dropdown ended up painting under the file grid: `shift-rise-in`
+   * runs with `animation-fill-mode: both`, so every surface it animates stays
+   * a stacking context for good, and a `z-index` set inside one of those only
+   * ranks against its siblings. Anything that has to escape the list needs a
+   * level on the ancestor that traps it, so the levels are named here rather
+   * than guessed at each call site.
+   *
+   * `raised` is for pinned chrome whose overlays must clear the animated list
+   * surfaces below it; `popout` is for those overlays, and is relative to the
+   * raised ancestor rather than to the page. */
+  --shift-z-footer: 10;
+  --shift-z-popout: 20;
+  --shift-z-raised: 30;
+  --shift-z-sidebar: 40;
+  --shift-z-overlay: 60;
+  --shift-z-dialog: 70;
+
   /* ---- Bento grey ramp, reinterpreted for a light shell ----
    * The 117 tool pages in src/pages are authored for a dark theme: ~1300
    * `bg-gray-800` cards, ~1300 `border-gray-700` rules, ~1700 `text-gray-400`
@@ -276,7 +295,7 @@ html.shift-sidebar-collapsed-pending
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 40;
+  z-index: var(--shift-z-sidebar);
   display: flex;
   flex-direction: column;
   width: var(--shift-sidebar-width);
@@ -332,6 +351,7 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   height: 100%;
   padding: 40px 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .shift-logo {
@@ -1098,6 +1118,7 @@ body.shift-has-open-file #file-display-area {
 
 body.shift-tool-viewer .shift-tool-viewer-bar {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-12);
@@ -1172,6 +1193,7 @@ body.shift-tool-viewer #file-list,
    the viewer scrolls inside its own pane. */
 body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar) {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
@@ -1184,6 +1206,7 @@ body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: none;
   padding-block: var(--spacing-12);
 }
 
@@ -1224,6 +1247,7 @@ body.shift-tool-viewer #viewer-card:not(.hidden) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: none;
   order: 2;
 }
 
@@ -1232,25 +1256,56 @@ body.shift-tool-viewer #pdf-viewer-container,
 body.shift-tool-viewer #canvas-container-sign,
 body.shift-tool-viewer #cropper-container,
 body.shift-tool-viewer #compare-viewer-wrapper,
-body.shift-tool-viewer #stamp-viewer-container {
+body.shift-tool-viewer #stamp-viewer-container,
+body.shift-tool-viewer .shift-viewer-scroll-host {
   flex: 1 1 auto;
   min-height: 0 !important;
   height: auto !important;
   max-height: none;
   aspect-ratio: auto !important;
   width: 100%;
+  /* Beat page-authored Tailwind `overflow-auto` / fixed vh so Sign and Form
+     Filler do not nest an app scrollport around the PDF.js iframe. */
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }
 
 body.shift-tool-viewer #embed-pdf-container,
 body.shift-tool-viewer #pdf-viewer-container,
 body.shift-tool-viewer #canvas-container-sign {
   border-radius: var(--radius-8);
-  overflow: hidden;
+}
+
+/* Iframe fills the flex host so #viewerContainer (inside) is the only
+   vertical scroller for Sign / Form Filler / stamps. */
+body.shift-tool-viewer
+  :is(
+    #canvas-container-sign,
+    #pdf-viewer-container,
+    #embed-pdf-container,
+    #stamp-viewer-container
+  )
+  > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Compare panels are intentional inner scrollports (overlay + side-by-side). */
+body.shift-tool-viewer .compare-panel {
+  overscroll-behavior: contain;
 }
 
 body.shift-tool-viewer #signature-editor > :not(#canvas-container-sign),
 body.shift-tool-viewer #cropper-editor > :not(#cropper-container) {
   flex: 0 0 auto;
+}
+
+/* Multi-tool keeps its own flex column scroller; contain chaining here without
+   touching the page-authored overflow utilities. */
+#main-scroll-container {
+  overscroll-behavior: contain;
 }
 
 /* ---- Buttons ----
@@ -2408,7 +2463,7 @@ body:not(.simple-mode):has(#shift-sidebar) > .shift-footer {
   position: sticky;
   bottom: 0;
   /* Under #scroll-to-top-btn (z-40) and the tool modals (z-50). */
-  z-index: 10;
+  z-index: var(--shift-z-footer);
   /* Replaces the partial's mt-16 with the push that parks it on the bottom. */
   margin-top: auto;
   /* Opaque now that content passes behind it, in the panel's white rather than
@@ -2753,6 +2808,7 @@ body.shift-home:has(#tool-grid) #grid-view {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   /* Room for the scrollbar so cards do not sit under it. */
   padding-right: var(--spacing-4);
 }
@@ -2795,6 +2851,7 @@ body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   /* Room for the scrollbar so cards do not sit under it. */
   padding-right: var(--spacing-4);
 }
@@ -2864,18 +2921,25 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   margin: 0 0 16px;
 }
 
+/* One line, always. The tools do not drop below the count when the panel
+   narrows — they give up pinned favorites to the More tools menu instead,
+   which is driven from JS off the count truncating (below). */
 .shift-my-pdfs-controls-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
 }
 
+/* Takes the squeeze so the tools keep their width: `min-width: 0` is what
+   lets a flex item shrink past its content at all. */
 .shift-my-pdfs-selection {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
   gap: 12px;
+  min-width: 0;
   min-height: 28px;
   color: var(--text-primary);
   font-family: var(--shift-font);
@@ -2884,6 +2948,7 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 }
 
 .shift-my-pdfs-select-all {
+  flex: none;
   padding: 0;
   border: none;
   background: none;
@@ -2905,14 +2970,21 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   cursor: default;
 }
 
+/* The one thing in the row allowed to lose characters, and the thing whose
+   truncation tells the script a pinned favorite no longer fits. */
 .shift-my-pdfs-selection-count {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Tools + View by: one right-aligned unit that wraps together. */
+/* Tools + View by: one right-aligned unit, and never the part that gives. */
 .shift-my-pdfs-controls-cluster {
   display: flex;
   align-items: center;
+  flex: none;
   flex-wrap: nowrap;
   gap: 12px;
   margin-left: auto;
@@ -2953,6 +3025,16 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
   white-space: nowrap;
+}
+
+/* This row carries `shift-enter`, so it is already a stacking context it
+   cannot opt out of — and while it sat at `z-index: auto` the file grid below
+   won by document order, since those cards animate too and so are stacking
+   contexts of their own. Naming the level here is what lets the More tools
+   menu inside the row clear the grid; raising the menu alone did nothing. */
+.shift-open-file-tools {
+  position: relative;
+  z-index: var(--shift-z-raised);
 }
 
 .shift-open-file-view-toggle,
@@ -3014,7 +3096,113 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   line-height: var(--text-xs--line-height);
 }
 
-.shift-my-pdfs-delete-selected {
+/* Pins collapsed into the More tools menu on a narrow row. Required, not
+   belt-and-braces: the `display` above is unlayered and so outranks
+   Preflight's layered `[hidden]`, which would leave them on screen. */
+.shift-open-file-tool-btn[hidden] {
+  display: none;
+}
+
+/* ---- More tools overflow menu ----
+ * Anchors to the button rather than the row so the menu lines up under it
+ * however the controls wrap. The row itself keeps `overflow: visible`, and
+ * this sits in the pinned chrome above the scroll pane, so nothing clips it. */
+.shift-my-pdfs-more-tools-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Sized by the `.shift-button svg` rule; this only owns the flip. */
+.shift-my-pdfs-more-tools-caret {
+  transition: transform 150ms ease;
+}
+
+.shift-my-pdfs-more-tools[aria-expanded='true']
+  .shift-my-pdfs-more-tools-caret {
+  transform: rotate(180deg);
+}
+
+.shift-my-pdfs-more-tools-menu {
+  position: absolute;
+  top: calc(100% + var(--spacing-4));
+  inset-inline-end: 0;
+  z-index: var(--shift-z-popout);
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  /* The menu sizes to the longest tool name, and the list is now the whole
+     catalog, so it needs a ceiling — and one that also yields to a narrow
+     window, since it is anchored to the button's right edge. */
+  max-width: min(20rem, calc(100vw - var(--spacing-16)));
+  /* Padding moves to the scroll area so rows can run edge to edge under the
+     scrollbar, and so the pinned footer can span the full menu width. */
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.32);
+}
+
+/* The catalog is uncapped, so the menu is bounded here instead and the tools
+   scroll. `min-height: 0` is what actually lets it shrink inside the flex
+   column — without it the list forces the menu to its full content height. */
+.shift-my-pdfs-more-tools-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 16rem;
+  padding: var(--spacing-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shift-my-pdfs-more-tools-item {
+  /* Required, not cosmetic: these are flex children of a height-capped
+     column, and the `overflow` below drops their automatic minimum size from
+     min-content to 0. Without this the whole catalog squashes to fit the cap
+     instead of scrolling, and every row collapses onto its neighbour. */
+  flex: none;
+  padding: var(--spacing-8) var(--spacing-12);
+  border-radius: var(--radius-6);
+  color: var(--action-text-neutral-default);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--text-sm--line-height);
+  overflow: hidden;
+  text-align: start;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift-my-pdfs-more-tools-item:hover {
+  color: var(--action-text-neutral-hover);
+  background: var(--action-controls-surface-primary-hover);
+}
+
+/* Pinned below the scroll area, and on a darker shade than the rows above so
+   it reads as leaving the library rather than as one more tool in the list. */
+.shift-my-pdfs-more-tools-browse {
+  flex: none;
+  padding: var(--spacing-12);
+  border-top: 1px solid var(--border-divider-secondary);
+  border-radius: 0;
+  /* The menu sits on bar-primary, so this is the panel shade one step off it
+     in either theme: dark-800 under dark-700, white under light-100. */
+  background: var(--background-secondary);
+}
+
+.shift-my-pdfs-more-tools-browse:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-my-pdfs-delete-selected,
+.shift-my-pdfs-more-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   height: auto;
   min-height: 32px;
   padding: 8px 10px;
@@ -3056,7 +3244,8 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 }
 
 .shift-open-file-tool-btn:focus-visible,
-.shift-my-pdfs-delete-selected:focus-visible {
+.shift-my-pdfs-delete-selected:focus-visible,
+.shift-my-pdfs-more-tools:focus-visible {
   outline: 2px solid var(--action-button-surface-primary-default);
   outline-offset: 2px;
   z-index: 1;
@@ -3072,7 +3261,8 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   pointer-events: none;
 }
 
-.shift-my-pdfs-delete-selected:disabled {
+.shift-my-pdfs-delete-selected:disabled,
+.shift-my-pdfs-more-tools:disabled {
   color: var(--action-text-neutral-disabled);
   border-color: var(--action-button-border-secondary-default);
   background: var(--action-button-surface-secondary-disabled);
@@ -3158,16 +3348,21 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 .shift-open-file-thumb-preview {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  flex: none;
+  align-items: center;
   justify-content: center;
-  min-height: 154px;
+  height: 154px;
+  overflow: hidden;
   background: var(--action-controls-surface-primary-default);
 }
 
 .shift-open-file-thumb-preview canvas {
   display: block;
-  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
+  object-fit: contain;
 }
 
 .shift-open-file-thumb-preview.is-empty canvas {
@@ -3455,7 +3650,7 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 60;
+  z-index: var(--shift-z-overlay);
   max-width: 220px;
   padding: 6px 8px;
   border-radius: var(--radius-8);
@@ -3481,7 +3676,7 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 .shift-confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--shift-z-dialog);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3538,10 +3733,62 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   background: var(--action-button-surface-negative-active);
 }
 
+.shift-network-disclosure-panel {
+  width: min(100%, 28rem);
+}
+
+.shift-network-disclosure-message {
+  margin-bottom: 1rem;
+}
+
+.shift-network-disclosure-lead {
+  margin: 0 0 0.75rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+.shift-network-disclosure-dl {
+  margin: 0 0 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+.shift-network-disclosure-dl dt {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shift-network-disclosure-dl dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.shift-network-disclosure-policy {
+  margin: 0 0 0.75rem;
+  font-size: var(--text-sm);
+}
+
+.shift-network-disclosure-policy a {
+  color: var(--text-link, var(--border-brand-primary));
+  text-decoration: underline;
+}
+
+.shift-network-disclosure-remember {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.4;
+}
+
 .shift-library-picker-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--shift-z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3589,6 +3836,7 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 
 .shift-library-picker-list {
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.5rem;
 }
 
@@ -3915,6 +4163,47 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 #drop-zone.is-dragover {
   border-color: var(--action-button-surface-primary-default);
   background: var(--action-controls-surface-primary-hover);
+}
+
+/* ---- Whole-page file drop ----
+ * Shown while an external Files drag is over an eligible page background
+ * (not the dashed zone, sidebar, dialogs, or embedded viewers). Pointer-events
+ * stay none so the drag target under the outline remains accurate.
+ */
+body.shift-global-drop-active::before {
+  content: '';
+  position: fixed;
+  inset: 8px;
+  border: 2px dashed var(--action-button-surface-primary-default);
+  border-radius: 12px;
+  background: color-mix(
+    in srgb,
+    var(--action-controls-surface-primary-hover) 35%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: var(--shift-z-overlay);
+}
+
+.shift-global-drop-affordance {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--background-bar-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-outer-primary);
+  font-size: 0.875rem;
+  line-height: 1.25;
+  pointer-events: none;
+  z-index: calc(var(--shift-z-overlay) + 1);
+}
+
+.shift-global-drop-affordance[hidden] {
+  display: none !important;
 }
 
 /* ---- Motion ----

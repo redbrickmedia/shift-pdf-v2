@@ -1,4 +1,5 @@
 import { isValidImageFile } from './image-input-utils.js';
+import { isPdfFile } from './pdf-file.js';
 
 export interface PartitionedFiles {
   pdfFiles: File[];
@@ -12,7 +13,7 @@ export function partitionIncomingFiles(rawFiles: File[]): PartitionedFiles {
   const skipped: string[] = [];
 
   for (const f of rawFiles) {
-    if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) {
+    if (isPdfFile(f)) {
       pdfFiles.push(f);
     } else if (isValidImageFile(f)) {
       imageFiles.push(f);

@@ -74,6 +74,54 @@ export async function addPdfToLibrary(
   return toLibraryEntry(record);
 }
 
+/**
+ * Replace the bytes of an existing My PDFs record while keeping its stable id.
+ * Name stays the library entry's name so the row remains recognizable after
+ * tool edits; size/type/source update from the saved output.
+ */
+export async function replacePdfInLibrary(
+  id: string,
+  file: File,
+  source?: PdfLibrarySource
+): Promise<PdfLibraryEntry | null> {
+  const generation = libraryGeneration;
+  const existing = await findStoredById(id);
+  if (!existing) return null;
+
+  const buffer = await file.arrayBuffer();
+  if (generation !== libraryGeneration) {
+    return toLibraryEntry({
+      ...existing,
+      type: file.type || 'application/pdf',
+      size: file.size,
+      source: source ?? existing.source,
+      buffer,
+    });
+  }
+
+  const record: StoredPdfLibraryRecord = {
+    ...existing,
+    type: file.type || 'application/pdf',
+    size: file.size,
+    source: source ?? existing.source,
+    buffer,
+  };
+
+  memoryRecords = memoryRecords.some((entry) => entry.id === id)
+    ? memoryRecords.map((entry) => (entry.id === id ? record : entry))
+    : [...memoryRecords, record];
+
+  try {
+    await withStore('readwrite', (store) =>
+      store.put(toOriginalSavedPdfRecord(record), record.id)
+    );
+  } catch {
+    // Keep the in-memory library available when IndexedDB is unavailable.
+  }
+
+  return toLibraryEntry(record);
+}
+
 export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
   let records = memoryRecords;
   try {
@@ -116,6 +164,24 @@ export async function clearPdfLibrary(): Promise<void> {
   } catch {
     // Ignore storage failures.
   }
+}
+
+async function findStoredById(
+  id: string
+): Promise<StoredPdfLibraryRecord | null> {
+  const memory = memoryRecords.find((record) => record.id === id);
+  if (memory) return memory;
+
+  try {
+    const stored = await withStore('readonly', (store) => store.get(id));
+    if (isOriginalSavedPdfRecord(stored)) {
+      return fromOriginalSavedPdfRecord(stored);
+    }
+  } catch {
+    // Fall back to memory only when IndexedDB is unavailable.
+  }
+
+  return null;
 }
 
 async function findStoredDuplicate(

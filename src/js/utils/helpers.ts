@@ -72,6 +72,8 @@ export const formatBytes = (bytes: number, decimals = 1) => {
 };
 
 export const PDF_OUTPUT_DOWNLOADED_EVENT = 'shift:pdf-output-downloaded';
+/** Fired when a PDF tool output is ready for optional Save to Shift PDF. */
+export const PDF_OUTPUT_READY_EVENT = 'shift:pdf-output-ready';
 
 export const downloadFile = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
@@ -86,10 +88,10 @@ export const downloadFile = (blob: Blob, filename: string): void => {
     blob.type === 'application/pdf' ||
     filename.toLowerCase().endsWith('.pdf')
   ) {
+    const detail = { blob, filename };
+    document.dispatchEvent(new CustomEvent(PDF_OUTPUT_READY_EVENT, { detail }));
     document.dispatchEvent(
-      new CustomEvent(PDF_OUTPUT_DOWNLOADED_EVENT, {
-        detail: { blob, filename },
-      })
+      new CustomEvent(PDF_OUTPUT_DOWNLOADED_EVENT, { detail })
     );
   }
   endToolUse('success');

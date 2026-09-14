@@ -11,6 +11,7 @@ import {
   TOOL_VIEWER_BAR_CLASS,
   TOOL_VIEWER_BODY_CLASS,
   TOOL_VIEWER_CAPABLE_CLASS,
+  TOOL_VIEWER_SCROLL_HOST_CLASS,
   TOOL_VIEWER_SUPPRESS_CLASS,
 } from '../js/logic/tool-viewer-layout';
 
@@ -204,6 +205,68 @@ describe('tool viewer layout', () => {
     expect(css).toMatch(/body\.shift-tool-viewer[\s\S]*flex:\s*1 1 auto/);
     expect(css).not.toMatch(
       /body\.shift-home:has\(#shift-my-pdfs\).*shift-tool-viewer/s
+    );
+  });
+
+  it('marks scroll hosts and kills nested Sign/Form scrollports while viewing', () => {
+    mountSignLikeShell();
+    initToolViewerLayout();
+
+    const host = document.getElementById('canvas-container-sign');
+    expect(host?.classList.contains(TOOL_VIEWER_SCROLL_HOST_CLASS)).toBe(false);
+
+    document.getElementById('signature-editor')?.classList.remove('hidden');
+    syncToolViewerLayout();
+
+    expect(host?.classList.contains(TOOL_VIEWER_SCROLL_HOST_CLASS)).toBe(true);
+    expect(
+      document
+        .querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)
+        ?.closest('#tool-uploader')
+    ).not.toBeNull();
+    expect(host?.closest('#signature-editor')).not.toBeNull();
+
+    document.getElementById('signature-editor')?.classList.add('hidden');
+    syncToolViewerLayout();
+    expect(host?.classList.contains(TOOL_VIEWER_SCROLL_HOST_CLASS)).toBe(false);
+  });
+
+  it('scopes scroll containment CSS for viewer hosts and shell panes', () => {
+    const css = readFileSync(
+      resolve(process.cwd(), 'src/css/shift-theme.css'),
+      'utf8'
+    );
+
+    expect(css).toContain('.shift-viewer-scroll-host');
+    expect(css).toMatch(
+      /body\.shift-tool-viewer[\s\S]*#canvas-container-sign[\s\S]*overflow:\s*hidden\s*!important/
+    );
+    expect(css).toMatch(
+      /body\.shift-tool-viewer[\s\S]*#canvas-container-sign[\s\S]*> iframe/
+    );
+    expect(css).toMatch(
+      /body\.shift-tool-viewer:not\(\.simple-mode\):has\(#shift-sidebar\)\s*\{[^}]*overflow:\s*hidden/
+    );
+    expect(css).toContain('body.shift-tool-viewer .compare-panel');
+    expect(css).toMatch(
+      /\.shift-sidebar-content\s*\{[^}]*overscroll-behavior:\s*contain/s
+    );
+    expect(css).toMatch(
+      /body\.shift-home:has\(#tool-grid\) #grid-view\s*\{[^}]*overscroll-behavior:\s*contain/s
+    );
+    expect(css).toMatch(
+      /body\.shift-home:has\(#shift-my-pdfs\) \.shift-my-pdfs-scroll\s*\{[^}]*overscroll-behavior:\s*contain/s
+    );
+    expect(css).toMatch(
+      /\.shift-library-picker-list\s*\{[^}]*overscroll-behavior:\s*contain/s
+    );
+    expect(css).toContain('#main-scroll-container');
+    expect(css).toMatch(
+      /#main-scroll-container\s*\{[^}]*overscroll-behavior:\s*contain|#main-scroll-container[\s\S]{0,80}overscroll-behavior:\s*contain/
+    );
+    // Modal / dialog scroll is left alone — no global dialog overflow lock.
+    expect(css).not.toMatch(
+      /\.dialog[^{]*\{[^}]*overflow:\s*hidden[^}]*overscroll-behavior:\s*none/s
     );
   });
 });

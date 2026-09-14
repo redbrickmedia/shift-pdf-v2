@@ -446,17 +446,107 @@ describe('Open with favorite shortcuts', () => {
 
   it('paints Open with buttons as primary blue', () => {
     const css = readFileSync('src/css/shift-theme.css', 'utf8');
-    const from = css.indexOf(
-      '/* Favorite shortcuts (Compress / Merge / Convert / E-sign)'
-    );
-    const section = css.slice(from, from + 1600);
+    // Read each rule's own body rather than a fixed-length window from a
+    // nearby comment: any rule added in between used to push the hover
+    // declarations out of the slice and fail this on unrelated work.
+    const ruleBody = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Anchored to a line that starts its own rule: the shared
+      // `.shift-open-file-view-btn, .shift-open-file-tool-btn` rule also puts
+      // this selector at a line start, and carries none of these declarations.
+      const match = new RegExp(`(?<=\\n)(?<!,\\n)${escaped} \\{`).exec(css);
+      if (!match) throw new Error(`No rule found for ${selector}`);
+      return css.slice(match.index, css.indexOf('\n}', match.index));
+    };
 
-    expect(section).toContain(
+    const base = ruleBody('.shift-open-file-tool-btn');
+    const hover = ruleBody('.shift-open-file-tool-btn:hover');
+
+    expect(base).toContain(
       'background: var(--action-button-surface-primary-default)'
     );
-    expect(section).toContain('color: var(--text-white)');
-    expect(section).toContain(
+    expect(base).toContain('color: var(--text-white)');
+    expect(hover).toContain(
       'background: var(--action-button-surface-primary-hover)'
+    );
+  });
+
+  /**
+   * The More tools menu once rendered under the file grid, and raising the
+   * menu's own z-index did nothing about it: `shift-rise-in` runs with
+   * `animation-fill-mode: both`, so every surface it animates — the Open-with
+   * row included — stays a stacking context permanently, and a z-index set
+   * inside one only ranks against its siblings. The fix has to live on the
+   * row, so that is what this asserts, along with the grid cards still being
+   * animated. Drop either half and the menu goes back under the thumbnails.
+   */
+  it('keeps the More tools menu clear of the animated file grid', () => {
+    const css = readFileSync('src/css/shift-theme.css', 'utf8');
+    const ruleBody = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`(?<=\\n)(?<!,\\n)${escaped} \\{`).exec(css);
+      if (!match) throw new Error(`No rule found for ${selector}`);
+      return css.slice(match.index, css.indexOf('\n}', match.index));
+    };
+
+    // Both surfaces animate, which is what makes them stacking contexts.
+    const animated = css.slice(
+      css.indexOf('.shift-enter,'),
+      css.indexOf('animation: shift-rise-in')
+    );
+    expect(animated).toContain('.shift-open-file-thumb');
+
+    const row = ruleBody('.shift-open-file-tools');
+    expect(row).toContain('position: relative');
+    expect(row).toContain('z-index: var(--shift-z-raised)');
+
+    const menu = ruleBody('.shift-my-pdfs-more-tools-menu');
+    expect(menu).toContain('z-index: var(--shift-z-popout)');
+
+    // The menu's level is resolved inside the row, so it only has to beat the
+    // row's own children — but the scale still has to order the two that way
+    // for the nesting to read correctly.
+    const level = (token: string): number => {
+      const match = new RegExp(`--shift-z-${token}: (\\d+);`).exec(css);
+      if (!match) throw new Error(`No --shift-z-${token} token`);
+      return Number(match[1]);
+    };
+    expect(level('popout')).toBeLessThan(level('raised'));
+    // And the row must not climb over the shell chrome or the dialogs.
+    expect(level('raised')).toBeLessThan(level('sidebar'));
+    expect(level('sidebar')).toBeLessThan(level('dialog'));
+  });
+
+  /**
+   * The menu caps its height and scrolls the catalog, which makes the rows
+   * flex children of a bounded column. `overflow` on a flex child drops its
+   * automatic minimum size from min-content to 0, so without `flex: none`
+   * the rows shrink to 16px and clip their own text — and the list still
+   * reports itself as scrollable while doing it, so only the rendered row
+   * height catches this. The two declarations have to stay together.
+   */
+  it('keeps the More tools rows from shrinking inside the capped list', () => {
+    const css = readFileSync('src/css/shift-theme.css', 'utf8');
+    const ruleBody = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`(?<=\\n)(?<!,\\n)${escaped} \\{`).exec(css);
+      if (!match) throw new Error(`No rule found for ${selector}`);
+      return css.slice(match.index, css.indexOf('\n}', match.index));
+    };
+
+    const list = ruleBody('.shift-my-pdfs-more-tools-list');
+    expect(list).toContain('flex-direction: column');
+    expect(list).toContain('max-height');
+    expect(list).toContain('overflow-y: auto');
+
+    const item = ruleBody('.shift-my-pdfs-more-tools-item');
+    expect(item).toContain('overflow: hidden');
+    expect(item).toContain('flex: none');
+
+    // Browse all tools is outside the scroll area but shares the column, so
+    // it has to hold its height for the same reason.
+    expect(ruleBody('.shift-my-pdfs-more-tools-browse')).toContain(
+      'flex: none'
     );
   });
 });

@@ -3,6 +3,11 @@ import { createIcons, icons } from 'lucide';
 import { getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { hideLoader, showLoader } from '../ui.js';
+import {
+  applyPdfViewerDownloadFilename,
+  encodePdfjsViewerFileParam,
+  type PdfViewerFilenameTarget,
+} from '../utils/pdfjs-viewer-filename.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
@@ -187,12 +192,17 @@ async function setupFormViewer() {
     const blobUrl = URL.createObjectURL(blob);
 
     viewerIframe = document.createElement('iframe');
-    viewerIframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}`;
+    viewerIframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodePdfjsViewerFileParam(blobUrl, currentFile.name)}`;
     viewerIframe.style.width = '100%';
     viewerIframe.style.height = '100%';
     viewerIframe.style.border = 'none';
 
     viewerIframe.onload = () => {
+      const app = (
+        viewerIframe?.contentWindow as
+          (Window & { PDFViewerApplication?: PdfViewerFilenameTarget }) | null
+      )?.PDFViewerApplication;
+      applyPdfViewerDownloadFilename(app, currentFile?.name);
       viewerReady = true;
       hideLoader();
     };

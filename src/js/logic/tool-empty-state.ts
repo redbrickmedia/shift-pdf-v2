@@ -6,6 +6,7 @@ import {
 } from './seed-tool-open-file.js';
 import {
   getWorkspaceFiles,
+  markFileLibraryId,
   pickerAcceptsFile,
   pickerAcceptsPdf,
   WORKSPACE_FILES_RENDERED_EVENT,
@@ -305,7 +306,9 @@ async function openLibraryForSlot(
     root,
     title: 'Choose a PDF from your library',
     onSelect: (entries) => {
-      const files = entries.map((entry) => entry.file);
+      const files = entries.map((entry) =>
+        markFileLibraryId(entry.file, entry.id)
+      );
       if (slot.isPrimary) {
         applyFilesToToolInput(files, root);
         return;

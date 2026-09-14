@@ -25,6 +25,10 @@ import {
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
 import {
+  applyPdfViewerDownloadFilename,
+  withPdfViewerFilename,
+} from '../utils/pdfjs-viewer-filename.js';
+import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFilesFromTool,
@@ -252,7 +256,7 @@ async function setupSignTool(loadVersion: number) {
     window.location.origin
   );
   const query = new URLSearchParams({
-    file: signState.blobUrl,
+    file: withPdfViewerFilename(signState.blobUrl, signState.file?.name),
     bentoSign: '1',
   });
   iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
@@ -263,6 +267,7 @@ async function setupSignTool(loadVersion: number) {
     }
     try {
       const app = await waitForPdfJsSignViewer(iframe);
+      applyPdfViewerDownloadFilename(app, signState.file?.name);
       configureSessionOnlySignatureUi(iframe, app);
       signState.viewerReady = true;
 

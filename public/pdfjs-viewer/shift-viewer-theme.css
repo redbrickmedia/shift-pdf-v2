@@ -227,6 +227,13 @@ html[data-shift-viewer] #editorUndoBar #editorUndoBarUndoButton {
   border-radius: var(--radius-8);
 }
 
+/* The pages scroll here. Contain overscroll so rubber-band / trackpad
+   momentum does not chain into the host page behind the iframe (Sign PDF
+   nested-scroll complaint). Dialogs keep their own overflow. */
+html[data-shift-viewer] #viewerContainer {
+  overscroll-behavior: contain;
+}
+
 /* "Add a signature" dialog: panel surface, Shift blue primary action. */
 html[data-shift-viewer] .dialog {
   --dialog-bg-color: var(--background-secondary);

@@ -35,6 +35,23 @@ describe('open file persist ordering', () => {
     expect(stored.map((entry) => entry.source)).toEqual(['upload', 'handoff']);
   });
 
+  it('persists library ids with the open-file selection', async () => {
+    await writePersistedOpenFiles([
+      {
+        file: new File(['lib'], 'library.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+        libraryId: 'stable-library-id',
+      },
+    ]);
+
+    const [stored] = await readPersistedOpenFiles();
+    expect(stored).toMatchObject({
+      name: 'library.pdf',
+      libraryId: 'stable-library-id',
+      source: 'upload',
+    });
+  });
+
   it('does not let a slower write overwrite a later clear', async () => {
     const slow = new File(['slow-bytes'], 'slow.pdf', {
       type: 'application/pdf',

@@ -9,6 +9,10 @@ import {
 } from '../utils/helpers.js';
 import { TIMESTAMP_TSA_PRESETS } from '../config/timestamp-tsa.js';
 import { timestampPdf } from './digital-sign-pdf.js';
+import {
+  NetworkDisclosureBlockedError,
+  requireNetworkDisclosure,
+} from './network-disclosure-guard.js';
 
 interface TimestampState {
   pdfFile: File | null;
@@ -213,6 +217,13 @@ async function processTimestamp(): Promise<void> {
   const tsaUrl = getTsaUrl();
   if (!tsaUrl) return;
 
+  try {
+    await requireNetworkDisclosure('timestamp-tsa');
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    throw error;
+  }
+
   showLoader('Applying timestamp...');
 
   try {
@@ -231,6 +242,9 @@ async function processTimestamp(): Promise<void> {
 
     resetState();
   } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) {
+      return;
+    }
     console.error('Timestamp error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     showAlert(

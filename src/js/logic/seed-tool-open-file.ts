@@ -18,6 +18,7 @@ import {
   isInPageToolActive,
   markFileFromDownload,
   markFileFromHandoff,
+  markFileLibraryId,
   pickerAcceptsFile,
   renderWorkspaceFiles,
   setWorkspaceFiles,
@@ -160,9 +161,11 @@ export async function seedToolOpenFile(
 
   if (persisted.length > 0) {
     files = persisted.map((entry) => {
-      if (entry.source === 'handoff') return markFileFromHandoff(entry.file);
-      if (entry.source === 'download') return markFileFromDownload(entry.file);
-      return entry.file;
+      let file = entry.file;
+      if (entry.libraryId) file = markFileLibraryId(file, entry.libraryId);
+      if (entry.source === 'handoff') return markFileFromHandoff(file);
+      if (entry.source === 'download') return markFileFromDownload(file);
+      return file;
     });
   } else {
     files = workspaceFilesWithBlob();

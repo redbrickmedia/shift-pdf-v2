@@ -14,6 +14,10 @@ import {
   getCertificateInfo,
 } from './digital-sign-pdf.js';
 import {
+  NetworkDisclosureBlockedError,
+  requireNetworkDisclosure,
+} from './network-disclosure-guard.js';
+import {
   SignatureInfo,
   VisibleSignatureOptions,
   DigitalSignState,
@@ -189,9 +193,7 @@ function initializePage(): void {
         }
         state.sigImageData = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
         state.sigImageType = file.type.replace('image/', '') as
-          | 'png'
-          | 'jpeg'
-          | 'webp';
+          'png' | 'jpeg' | 'webp';
 
         if (sigImageThumb && sigImagePreview) {
           const url = URL.createObjectURL(file);
@@ -737,6 +739,13 @@ async function processSignature(): Promise<void> {
     };
   }
 
+  try {
+    await requireNetworkDisclosure('digital-sign-chain-fetch');
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    throw error;
+  }
+
   showLoader(t('tools:digitalSignPdf.applyingSignature'));
 
   try {
@@ -761,6 +770,9 @@ async function processSignature(): Promise<void> {
     );
   } catch (error) {
     hideLoader();
+    if (error instanceof NetworkDisclosureBlockedError) {
+      return;
+    }
     console.error('Signing error:', error);
     const errorMessage =
       error instanceof Error ? error.message : t('common.unknownError');

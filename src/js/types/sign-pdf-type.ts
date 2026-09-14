@@ -18,6 +18,11 @@ export interface PDFViewerApplication {
     annotationStorage: unknown;
   };
   triggerPrinting?: () => Promise<void>;
+  /** PDF.js private field used for toolbar Save/Download naming. */
+  _contentDispositionFilename?: string | null;
+  _title?: string;
+  setTitle?: (title: string) => void;
+  url?: string;
 }
 
 export interface PDFViewerWindow extends Window {

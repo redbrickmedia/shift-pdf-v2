@@ -15,14 +15,15 @@ import {
 } from './merge-file-identity.js';
 import { addPdfToLibrary } from './pdf-library-store.js';
 import { openPdfLibraryPicker } from './pdf-library-picker.js';
-import { syncHomeLibraryFromStore } from './workspace-files.js';
-import { onToolFilesSeeded } from './tool-file-seed.js';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,
+  markFileLibraryId,
   persistWorkspaceOpenFile,
   setWorkspaceFiles,
+  syncHomeLibraryFromStore,
 } from './workspace-files.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state as appState } from '../state.js';
 import { isToolDisabled } from '../utils/disabled-tools.js';
 import { formatBytes } from '../utils/helpers.js';
@@ -150,7 +151,9 @@ export async function openConvertSourcePicker(
     rowAriaLabel: (entry, disabled) =>
       disabled ? `${entry.name} already added` : `Use ${entry.name}`,
     onSelect: (selected) => {
-      onFileSelected(selected[0].file);
+      const entry = selected[0];
+      if (!entry) return;
+      onFileSelected(markFileLibraryId(entry.file, entry.id));
     },
     onUpload: () => {
       fileInput?.click();

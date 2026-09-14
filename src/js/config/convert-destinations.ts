@@ -1,4 +1,7 @@
 import { categories } from './tools.js';
+import { isPdfFile } from '../utils/pdf-file.js';
+
+export { isPdfFile } from '../utils/pdf-file.js';
 
 export type ConvertDestination = {
   id: string;
@@ -119,12 +122,6 @@ const IMAGE_EXTENSIONS = new Set([
 export function getFileExtension(filename: string): string {
   const parts = filename.toLowerCase().split('.');
   return parts.length > 1 ? (parts.pop() ?? '') : '';
-}
-
-export function isPdfFile(file: File): boolean {
-  return (
-    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  );
 }
 
 export function getConvertSourceKind(file: File): ConvertSourceKind {

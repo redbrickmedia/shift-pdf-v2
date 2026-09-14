@@ -1,3 +1,4 @@
+import { isPdfFile } from '../utils/pdf-file.js';
 import {
   markOpenFilePresent,
   readPersistedOpenFiles,
@@ -7,17 +8,12 @@ import {
   getWorkspaceFiles,
   markFileFromDownload,
   markFileFromHandoff,
+  markFileLibraryId,
   renderWorkspaceFiles,
   setWorkspaceFiles,
   syncHomeLibraryFromStore,
 } from './workspace-files.js';
 import { initMyPdfsSearch } from './my-pdfs-search.js';
-
-function isPdfFile(file: File): boolean {
-  return (
-    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  );
-}
 
 async function addOpenFiles(
   incoming: File[],
@@ -46,9 +42,11 @@ async function restoreOpenFiles(root: Document): Promise<void> {
   }
   setWorkspaceFiles(
     persisted.map((entry) => {
-      if (entry.source === 'handoff') return markFileFromHandoff(entry.file);
-      if (entry.source === 'download') return markFileFromDownload(entry.file);
-      return entry.file;
+      let file = entry.file;
+      if (entry.libraryId) file = markFileLibraryId(file, entry.libraryId);
+      if (entry.source === 'handoff') return markFileFromHandoff(file);
+      if (entry.source === 'download') return markFileFromDownload(file);
+      return file;
     }),
     root
   );

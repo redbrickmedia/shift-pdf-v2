@@ -10,7 +10,7 @@ afterEach(async () => {
 });
 
 describe('downloaded PDF library', () => {
-  it('adds a downloaded PDF output to the library', async () => {
+  it('does not add a downloaded PDF output to My PDFs', async () => {
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:download'),
       revokeObjectURL: vi.fn(),
@@ -23,14 +23,7 @@ describe('downloaded PDF library', () => {
       'merged.pdf'
     );
 
-    await vi.waitFor(async () => {
-      const entries = await readPdfLibrary();
-      expect(entries).toHaveLength(1);
-      expect(entries[0]).toMatchObject({
-        name: 'merged.pdf',
-        source: 'download',
-      });
-    });
+    await expect(readPdfLibrary()).resolves.toHaveLength(0);
   });
 
   it('does not add non-PDF downloads to the library', async () => {
@@ -49,35 +42,15 @@ describe('downloaded PDF library', () => {
     await expect(readPdfLibrary()).resolves.toHaveLength(0);
   });
 
-  it('keeps the user on the tool page after saving a download', async () => {
-    const assign = vi.fn();
-    vi.stubGlobal('URL', {
-      createObjectURL: vi.fn(() => 'blob:download'),
-      revokeObjectURL: vi.fn(),
-    });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    vi.stubGlobal('location', { ...window.location, assign });
-    document.body.innerHTML =
-      '<main id="compress-pdf"></main><a data-nav="my-pdfs" href="my-pdfs.html">My PDFs</a>';
-    initDownloadedPdfLibrary();
-
-    downloadFile(
-      new Blob(['generated'], { type: 'application/pdf' }),
-      'compressed.pdf'
-    );
-
-    await vi.waitFor(async () => {
-      await expect(readPdfLibrary()).resolves.toHaveLength(1);
-    });
-    expect(assign).not.toHaveBeenCalled();
-  });
-
-  it('ignores malformed download events', async () => {
+  it('ignores download events without mutating My PDFs', async () => {
     initDownloadedPdfLibrary();
 
     document.dispatchEvent(
       new CustomEvent('shift:pdf-output-downloaded', {
-        detail: { blob: new Blob(['x']), filename: '   ' },
+        detail: {
+          blob: new Blob(['x'], { type: 'application/pdf' }),
+          filename: 'output.pdf',
+        },
       })
     );
 

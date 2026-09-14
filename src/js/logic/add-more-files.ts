@@ -9,6 +9,7 @@ import { findToolFileInput } from './tool-file-seed.js';
 import {
   getActiveFileInput,
   getWorkspaceFiles,
+  markFileLibraryId,
   pickerAcceptsPdf,
 } from './workspace-files.js';
 
@@ -75,7 +76,7 @@ export async function openAddMoreLibraryPicker(
     exclude: options.exclude ?? currentAddMoreExcludeIdentities(),
     onSelect: (entries) => {
       applyFilesToToolInput(
-        entries.map((entry) => entry.file),
+        entries.map((entry) => markFileLibraryId(entry.file, entry.id)),
         root
       );
     },

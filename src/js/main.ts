@@ -35,6 +35,12 @@ import {
 } from './logic/tool-favorites.js';
 import { initHomeFiles } from './logic/home-files.js';
 import { initDownloadedPdfLibrary } from './logic/downloaded-pdf-library.js';
+import { initShiftPdfSave } from './logic/shift-pdf-save.js';
+import { initGlobalFileDrop } from './logic/global-file-drop.js';
+import {
+  listAcceptedNetworkDisclosures,
+  revokeAllNetworkDisclosures,
+} from './logic/network-disclosure-guard.js';
 import {
   initInPageToolOpenFileSeeding,
   isHomeDocument,
@@ -266,6 +272,8 @@ const init = async () => {
   initShiftShell();
   initHomeFiles();
   initDownloadedPdfLibrary();
+  initShiftPdfSave();
+  initGlobalFileDrop();
   initInPageToolOpenFileSeeding();
   if (!hasShiftFileHandoffRequest()) {
     await seedToolOpenFile();
@@ -1264,6 +1272,7 @@ const init = async () => {
       preferencesTabFooter?.classList.remove('hidden');
       shortcutsTabFooter?.classList.add('hidden');
       resetShortcutsBtn?.classList.add('hidden');
+      refreshNetworkDisclosuresStatus();
     });
   }
 
@@ -1341,6 +1350,31 @@ const init = async () => {
       const enabled = (e.target as HTMLInputElement).checked;
       localStorage.setItem('compactMode', enabled.toString());
       applyCompactMode(enabled);
+    });
+  }
+
+  const networkDisclosuresStatus = document.getElementById(
+    'network-disclosures-status'
+  );
+  const resetNetworkDisclosuresBtn = document.getElementById(
+    'reset-network-disclosures-btn'
+  );
+
+  function refreshNetworkDisclosuresStatus(): void {
+    if (!networkDisclosuresStatus) return;
+    const accepted = listAcceptedNetworkDisclosures();
+    networkDisclosuresStatus.textContent =
+      accepted.length === 0
+        ? 'No remembered remote-service choices.'
+        : `Remembered for: ${accepted.join(', ')}.`;
+  }
+
+  refreshNetworkDisclosuresStatus();
+
+  if (resetNetworkDisclosuresBtn) {
+    resetNetworkDisclosuresBtn.addEventListener('click', () => {
+      revokeAllNetworkDisclosures();
+      refreshNetworkDisclosuresStatus();
     });
   }
 

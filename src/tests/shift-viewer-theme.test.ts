@@ -42,6 +42,13 @@ describe('Shift theme for the PDF.js viewer', () => {
     }
   });
 
+  it('contains overscroll inside the PDF.js page scroller', async () => {
+    const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
+    expect(theme).toMatch(
+      /html\[data-shift-viewer\] #viewerContainer\s*\{[^}]*overscroll-behavior:\s*contain/s
+    );
+  });
+
   it('themes the signing embed', async () => {
     window.history.replaceState(
       {},

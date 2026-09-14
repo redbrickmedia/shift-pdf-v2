@@ -30,11 +30,26 @@ export const VIEWER_UPLOAD_CHROME_IDS = [
   'file-list',
 ] as const;
 
+/**
+ * Page-authored hosts that used to be their own scrollports (overflow-auto /
+ * fixed vh). While viewing they must clip only — the PDF.js iframe (or
+ * embedpdf / cropper / compare panel) owns the single vertical scroll.
+ */
+export const VIEWER_SCROLL_HOST_IDS = [
+  'canvas-container-sign',
+  'pdf-viewer-container',
+  'embed-pdf-container',
+  'cropper-container',
+  'compare-viewer-wrapper',
+  'stamp-viewer-container',
+] as const;
+
 export const TOOL_VIEWER_BODY_CLASS = 'shift-tool-viewer';
 export const TOOL_VIEWER_CAPABLE_CLASS = 'shift-tool-viewer-capable';
 export const TOOL_VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
 export const TOOL_VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
 export const TOOL_VIEWER_SUPPRESS_CLASS = 'shift-tool-viewer-suppressed';
+export const TOOL_VIEWER_SCROLL_HOST_CLASS = 'shift-viewer-scroll-host';
 export const TOOL_VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
 
 let boundRoot: Document | null = null;
@@ -99,6 +114,7 @@ export function syncToolViewerLayout(root: Document = document): void {
   if (!isViewerToolDocument(root)) {
     root.body.classList.remove(TOOL_VIEWER_BODY_CLASS);
     suppressUploadChrome(root, false);
+    markViewerScrollHosts(root, false);
     return;
   }
 
@@ -106,6 +122,7 @@ export function syncToolViewerLayout(root: Document = document): void {
   const active = isViewerActive(root);
   root.body.classList.toggle(TOOL_VIEWER_BODY_CLASS, active);
   suppressUploadChrome(root, active);
+  markViewerScrollHosts(root, active);
 
   if (active) {
     relocateDownloadButtons(root);
@@ -123,6 +140,7 @@ export function resetToolViewerLayout(): void {
       TOOL_VIEWER_CAPABLE_CLASS
     );
     suppressUploadChrome(boundRoot, false);
+    markViewerScrollHosts(boundRoot, false);
   }
   boundRoot = null;
 }
@@ -148,6 +166,19 @@ function suppressUploadChrome(root: Document, active: boolean): void {
     const el = root.getElementById(id);
     if (!(el instanceof HTMLElement)) continue;
     el.classList.toggle(TOOL_VIEWER_SUPPRESS_CLASS, active);
+  }
+}
+
+/**
+ * Mark the outer viewer hosts so scoped CSS can kill page-authored
+ * `overflow-auto` / fixed-vh scrollers without editing every tool HTML file.
+ * Cleared when the viewer hides so empty-state layouts stay untouched.
+ */
+function markViewerScrollHosts(root: Document, active: boolean): void {
+  for (const id of VIEWER_SCROLL_HOST_IDS) {
+    const el = root.getElementById(id);
+    if (!(el instanceof HTMLElement)) continue;
+    el.classList.toggle(TOOL_VIEWER_SCROLL_HOST_CLASS, active);
   }
 }
 

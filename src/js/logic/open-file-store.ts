@@ -43,6 +43,7 @@ export type PersistedOpenFileMeta = {
   name: string;
   type: string;
   source: 'upload' | 'handoff' | 'download';
+  libraryId?: string;
 };
 
 export type PersistedOpenFile = PersistedOpenFileMeta & {
@@ -322,7 +323,11 @@ export function applyOpenFileFlagClasses(
 }
 
 export async function writePersistedOpenFiles(
-  files: Array<{ file: File; source: PersistedOpenFileMeta['source'] }>
+  files: Array<{
+    file: File;
+    source: PersistedOpenFileMeta['source'];
+    libraryId?: string;
+  }>
 ): Promise<void> {
   const last = files[files.length - 1];
   if (!last) {
@@ -334,15 +339,18 @@ export async function writePersistedOpenFiles(
   writeOpenFileSnapshot(files.map((entry) => entry.file));
 
   const storedFiles = await Promise.all(
-    files.map(async ({ file, source }): Promise<StoredOpenFileEntry> => {
-      const buffer = await file.arrayBuffer();
-      return {
-        name: file.name,
-        type: file.type || 'application/pdf',
-        source,
-        buffer,
-      };
-    })
+    files.map(
+      async ({ file, source, libraryId }): Promise<StoredOpenFileEntry> => {
+        const buffer = await file.arrayBuffer();
+        return {
+          name: file.name,
+          type: file.type || 'application/pdf',
+          source,
+          ...(libraryId ? { libraryId } : {}),
+          buffer,
+        };
+      }
+    )
   );
   const lastStored = storedFiles[storedFiles.length - 1];
   if (!lastStored) return;
@@ -364,7 +372,7 @@ export async function writePersistedOpenFiles(
 
 export async function writePersistedOpenFile(
   file: File,
-  meta: Pick<PersistedOpenFileMeta, 'source'> & {
+  meta: Pick<PersistedOpenFileMeta, 'source' | 'libraryId'> & {
     snapshot?: Array<{ name: string; size: number }>;
   }
 ): Promise<void> {
@@ -376,6 +384,7 @@ export async function writePersistedOpenFile(
     name: file.name,
     type: file.type || 'application/pdf',
     source: meta.source,
+    ...(meta.libraryId ? { libraryId: meta.libraryId } : {}),
     buffer: await file.arrayBuffer(),
   };
 
@@ -422,6 +431,7 @@ function storedEntryToPersistedFile(
     name: record.name,
     type: record.type,
     source: record.source,
+    ...(record.libraryId ? { libraryId: record.libraryId } : {}),
     file: new File([record.buffer], record.name, { type: record.type }),
   };
 }
