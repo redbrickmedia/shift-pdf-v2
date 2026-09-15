@@ -8,6 +8,7 @@ export type PdfLibraryEntry = {
   addedAt: number;
   source: PdfLibrarySource;
   file: File;
+  handle?: FileSystemFileHandle;
 };
 
 type StoredPdfLibraryRecord = Omit<PdfLibraryEntry, 'file'> & {
@@ -23,6 +24,7 @@ type OriginalSavedPdfRecord = {
   pageCount: number;
   sizeInBytes: number;
   source?: PdfLibrarySource;
+  handle?: FileSystemFileHandle;
 };
 
 const DB_NAME = 'SavedPdfDatabase';
@@ -34,7 +36,8 @@ let libraryGeneration = 0;
 
 export async function addPdfToLibrary(
   file: File,
-  source: PdfLibrarySource
+  source: PdfLibrarySource,
+  options: { handle?: FileSystemFileHandle } = {}
 ): Promise<PdfLibraryEntry> {
   const generation = libraryGeneration;
   const buffer = await file.arrayBuffer();
@@ -42,7 +45,21 @@ export async function addPdfToLibrary(
   const base64 = bufferToDataUri(buffer, type);
   const duplicate = await findStoredDuplicate(file.name, file.size, base64);
   if (duplicate && generation === libraryGeneration) {
-    if (!memoryRecords.some((existing) => existing.id === duplicate.id)) {
+    if (options.handle) {
+      duplicate.handle = options.handle;
+      try {
+        await withStore('readwrite', (store) =>
+          store.put(toOriginalSavedPdfRecord(duplicate), duplicate.id)
+        );
+      } catch {
+        // Keep the handle available in memory when IndexedDB is unavailable.
+      }
+    }
+    if (memoryRecords.some((existing) => existing.id === duplicate.id)) {
+      memoryRecords = memoryRecords.map((existing) =>
+        existing.id === duplicate.id ? duplicate : existing
+      );
+    } else {
       memoryRecords = [...memoryRecords, duplicate];
     }
     return toLibraryEntry(duplicate);
@@ -57,6 +74,7 @@ export async function addPdfToLibrary(
     addedAt: Math.max(Date.now(), lastAddedAt + 1),
     source,
     buffer,
+    handle: options.handle,
   };
 
   if (generation !== libraryGeneration) {
@@ -181,6 +199,7 @@ function toOriginalSavedPdfRecord(
     pageCount: 0,
     sizeInBytes: record.size,
     source: record.source,
+    handle: record.handle,
   };
 }
 
@@ -198,6 +217,7 @@ function fromOriginalSavedPdfRecord(
         ? record.source
         : 'upload',
     buffer: dataUriToBuffer(record.base64),
+    handle: record.handle,
   };
 }
 
@@ -227,6 +247,7 @@ function toLibraryEntry(record: StoredPdfLibraryRecord): PdfLibraryEntry {
     addedAt: record.addedAt,
     source: record.source,
     file: new File([record.buffer], record.name, { type: record.type }),
+    handle: record.handle,
   };
 }
 
