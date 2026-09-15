@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   addPdfToLibrary,
+  classifyHandleFailure,
   clearPdfLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
@@ -127,4 +128,60 @@ describe('PDF library store', () => {
     });
     await expect(updated?.file.text()).resolves.toBe('after');
   });
+
+  it('treats a revoked grant as recoverable and a missing file as not', () => {
+    expect(
+      classifyHandleFailure(new DOMException('nope', 'NotAllowedError'))
+    ).toBe('needs-permission');
+    expect(
+      classifyHandleFailure(new DOMException('nope', 'SecurityError'))
+    ).toBe('needs-permission');
+    expect(
+      classifyHandleFailure(new DOMException('gone', 'NotFoundError'))
+    ).toBe('unavailable');
+    expect(
+      classifyHandleFailure(new DOMException('offline', 'NotReadableError'))
+    ).toBe('unavailable');
+  });
+
+  it('re-persists the handle after a rename so the entry stays readable', async () => {
+    const before = movableHandle('before.pdf');
+    const saved = await addPdfToLibrary(
+      new File(['doc'], 'before.pdf', { type: 'application/pdf' }),
+      'upload',
+      { handle: before }
+    );
+
+    await before.move('after.pdf');
+    await updatePdfInLibrary(saved.id, { name: 'after.pdf', handle: before });
+
+    const [entry] = await readPdfLibrary();
+    expect(entry).toMatchObject({
+      id: saved.id,
+      name: 'after.pdf',
+      availability: 'ready',
+    });
+  });
 });
+
+function movableHandle(
+  name: string
+): FileSystemFileHandle & { move: (next: string) => Promise<void> } {
+  const handle = {
+    kind: 'file',
+    name,
+    getFile: () =>
+      Promise.resolve(
+        new File(['doc'], handle.name, { type: 'application/pdf' })
+      ),
+    isSameEntry: (other: FileSystemFileHandle) =>
+      Promise.resolve(other === (handle as unknown as FileSystemFileHandle)),
+    move: (next: string) => {
+      handle.name = next;
+      return Promise.resolve();
+    },
+  };
+  return handle as unknown as FileSystemFileHandle & {
+    move: (next: string) => Promise<void>;
+  };
+}

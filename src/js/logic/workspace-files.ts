@@ -6,6 +6,7 @@ import {
   removePdfFromLibrary,
   updatePdfInLibrary,
 } from './pdf-library-store.js';
+import type { PdfLibraryAvailability } from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
   hasOpenFileFlag,
@@ -63,6 +64,7 @@ export type WorkspaceFileInfo = {
   addedAt?: number;
   blob?: File;
   handle?: FileSystemFileHandle;
+  availability?: PdfLibraryAvailability;
 };
 
 export type HomeOpenFileView = 'list' | 'thumbnail';
@@ -1049,6 +1051,7 @@ function toFileInfo(
     addedAt: file.addedAt ?? existing?.addedAt ?? Date.now(),
     blob: file.blob ?? existing?.blob,
     handle: file.handle ?? existing?.handle,
+    availability: file.availability ?? existing?.availability,
   };
 }
 
@@ -1569,7 +1572,11 @@ async function renameHomeLibraryFile(
           type: file.blob.type || 'application/pdf',
         })
       : undefined;
-    await updatePdfInLibrary(file.id, { name: renamed, file: blob });
+    await updatePdfInLibrary(file.id, {
+      name: renamed,
+      file: blob,
+      handle: file.handle,
+    });
     homeLibraryFiles = homeLibraryFiles.map((entry) =>
       entry.id === file.id
         ? { ...entry, name: renamed, blob: blob ?? entry.blob }

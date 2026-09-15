@@ -1,4 +1,16 @@
+import { ensureHandlePermission } from './pdf-file-handle.js';
+
 export type PdfLibrarySource = 'upload' | 'handoff' | 'download';
+
+/**
+ * `needs-permission` means the file is still on disk but this session has no
+ * grant for it yet; a user gesture can restore access. `unavailable` means the
+ * handle no longer resolves, so the bytes cannot be recovered without relinking.
+ */
+export type PdfLibraryAvailability =
+  | 'ready'
+  | 'needs-permission'
+  | 'unavailable';
 
 export type PdfLibraryEntry = {
   id: string;
@@ -7,6 +19,7 @@ export type PdfLibraryEntry = {
   size: number;
   addedAt: number;
   source: PdfLibrarySource;
+  availability: PdfLibraryAvailability;
   file: File;
   handle?: FileSystemFileHandle;
 };
@@ -52,6 +65,7 @@ export async function addPdfToLibrary(
   if (duplicate && generation === libraryGeneration) {
     if (options.handle) {
       duplicate.handle = options.handle;
+      duplicate.availability = 'ready';
       try {
         await withStore('readwrite', (store) =>
           store.put(toOriginalSavedPdfRecord(duplicate), duplicate.id)
@@ -78,6 +92,7 @@ export async function addPdfToLibrary(
     size: file.size,
     addedAt: Math.max(Date.now(), lastAddedAt + 1),
     source,
+    availability: 'ready',
     buffer,
     handle: options.handle,
   };
@@ -106,11 +121,7 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
         await Promise.all(
           stored.map(async (value) => {
             if (!isOriginalSavedPdfRecord(value)) return null;
-            try {
-              return await fromOriginalSavedPdfRecord(value);
-            } catch {
-              return null;
-            }
+            return await fromOriginalSavedPdfRecord(value);
           })
         )
       ).filter((record): record is StoredPdfLibraryRecord => record !== null);
@@ -128,7 +139,7 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
 
 export async function updatePdfInLibrary(
   id: string,
-  values: { file?: File; name?: string }
+  values: { file?: File; name?: string; handle?: FileSystemFileHandle }
 ): Promise<PdfLibraryEntry | undefined> {
   const records = await readStoredRecords();
   const current = records.find((record) => record.id === id);
@@ -141,6 +152,10 @@ export async function updatePdfInLibrary(
   }
   if (values.name) {
     current.name = values.name;
+  }
+  if (values.handle) {
+    current.handle = values.handle;
+    current.availability = 'ready';
   }
 
   memoryRecords = records.map((record) =>
@@ -171,6 +186,38 @@ export async function findWritableLibraryEntry(file: {
   const handle = entry?.handle ?? file.handle;
   if (!entry || !handle) return undefined;
   return { ...entry, handle };
+}
+
+/**
+ * Must be called from a user gesture so the permission prompt is allowed.
+ */
+export async function restoreLibraryEntryAccess(
+  id: string
+): Promise<PdfLibraryEntry | undefined> {
+  const records = await readStoredRecords();
+  const current = records.find((record) => record.id === id);
+  if (!current?.handle) return undefined;
+  if (current.availability === 'ready') return toLibraryEntry(current);
+  if (!(await ensureHandlePermission(current.handle, 'read'))) {
+    return toLibraryEntry(current);
+  }
+
+  try {
+    const file = await current.handle.getFile();
+    current.buffer = await file.arrayBuffer();
+    current.name = file.name;
+    current.size = file.size;
+    current.type = file.type || current.type;
+    current.availability = 'ready';
+  } catch (error) {
+    current.availability = classifyHandleFailure(error);
+    return toLibraryEntry(current);
+  }
+
+  memoryRecords = records.map((record) =>
+    record.id === id ? current : record
+  );
+  return toLibraryEntry(current);
 }
 
 async function readStoredRecords(): Promise<StoredPdfLibraryRecord[]> {
@@ -298,7 +345,15 @@ function toOriginalSavedPdfRecord(
 async function fromOriginalSavedPdfRecord(
   record: OriginalSavedPdfRecord
 ): Promise<StoredPdfLibraryRecord> {
-  const handledFile = record.handle ? await record.handle.getFile() : undefined;
+  let handledFile: File | undefined;
+  let availability: PdfLibraryAvailability = 'ready';
+  if (record.handle) {
+    try {
+      handledFile = await record.handle.getFile();
+    } catch (error) {
+      availability = classifyHandleFailure(error);
+    }
+  }
   const buffer = handledFile
     ? await handledFile.arrayBuffer()
     : dataUriToBuffer(record.base64 ?? '');
@@ -312,9 +367,21 @@ async function fromOriginalSavedPdfRecord(
       record.source === 'handoff' || record.source === 'download'
         ? record.source
         : 'upload',
+    availability,
     buffer,
     handle: record.handle,
   };
+}
+
+/**
+ * A revoked grant is recoverable from a user gesture; anything else means the
+ * handle no longer points at a readable file.
+ */
+export function classifyHandleFailure(error: unknown): PdfLibraryAvailability {
+  const name = error instanceof DOMException ? error.name : '';
+  return name === 'NotAllowedError' || name === 'SecurityError'
+    ? 'needs-permission'
+    : 'unavailable';
 }
 
 function isStoredFileHandle(value: unknown): value is FileSystemFileHandle {
@@ -353,6 +420,7 @@ function toLibraryEntry(record: StoredPdfLibraryRecord): PdfLibraryEntry {
     size: record.size,
     addedAt: record.addedAt,
     source: record.source,
+    availability: record.availability,
     file: new File([record.buffer], record.name, { type: record.type }),
     handle: record.handle,
   };
