@@ -4084,6 +4084,7 @@ button.shift-open-file-thumb:focus-visible {
    Hover-revealing them would leave an empty strip under every card. */
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-view,
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-download,
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-rename,
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-delete {
   opacity: 1;
 }
@@ -4145,10 +4146,11 @@ button.shift-open-file-thumb:focus-visible {
   }
 }
 
-/* On a list row the delete control stays out of the way until the row is
-   hovered or the button itself is focused, so the table does not read as a
-   column of trash cans. The grid tile keeps it visible in its action row. */
-.shift-my-pdfs-delete {
+/* On a list row the delete and rename controls stay out of the way until the
+   row is hovered or the button itself is focused, so the table does not read
+   as a column of icons. The grid tile keeps them visible in its action row. */
+.shift-my-pdfs-delete,
+.shift-my-pdfs-rename {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4167,15 +4169,27 @@ button.shift-open-file-thumb:focus-visible {
     background 120ms linear;
 }
 
-.shift-my-pdfs-delete-icon {
+.shift-my-pdfs-delete-icon,
+.shift-my-pdfs-rename-icon {
   width: 18px;
   height: 18px;
 }
 
 .shift-my-pdfs-row:hover .shift-my-pdfs-delete,
+.shift-my-pdfs-row:hover .shift-my-pdfs-rename,
 .shift-my-pdfs-row:focus-within .shift-my-pdfs-delete,
-.shift-my-pdfs-delete:focus-visible {
+.shift-my-pdfs-row:focus-within .shift-my-pdfs-rename,
+.shift-my-pdfs-delete:focus-visible,
+.shift-my-pdfs-rename:focus-visible {
   opacity: 1;
+}
+
+.shift-my-pdfs-rename:hover,
+.shift-my-pdfs-rename:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--border-outer-primary);
+  background: var(--action-controls-surface-primary-hover);
+  outline: none;
 }
 
 .shift-my-pdfs-delete:hover,
@@ -4741,6 +4755,19 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
   overflow-wrap: anywhere;
+}
+
+.shift-confirm-input {
+  display: block;
+  width: 100%;
+  margin: -0.5rem 0 1.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-8);
+  background: var(--background-primary);
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
 }
 
 .shift-confirm-actions {

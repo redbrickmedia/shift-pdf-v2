@@ -1,11 +1,13 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import { runAsyncRenderQueue } from '../utils/async-render-queue.js';
-import { confirmAction } from './confirm-dialog.js';
+import { confirmAction, promptFilename } from './confirm-dialog.js';
+import { renamePdfHandle } from './pdf-file-handle.js';
 import {
   addPdfToLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
+  updatePdfInLibrary,
 } from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
@@ -72,6 +74,7 @@ export type WorkspaceFileInfo = {
   source: WorkspaceFileSource;
   addedAt?: number;
   blob?: File;
+  handle?: FileSystemFileHandle;
 };
 
 export type HomeOpenFileView = 'list' | 'thumbnail';
@@ -198,6 +201,7 @@ export async function syncHomeLibraryFromStore(
       source: entry.source,
       addedAt: entry.addedAt,
       blob: entry.file,
+      handle: entry.handle,
     })),
     root,
     epoch
@@ -1693,6 +1697,7 @@ function toFileInfo(
     source: file.source ?? 'upload',
     addedAt: file.addedAt ?? existing?.addedAt ?? Date.now(),
     blob: file.blob ?? existing?.blob,
+    handle: file.handle ?? existing?.handle,
   };
 }
 
@@ -2197,9 +2202,12 @@ function createHomeFileRow(
   actionLayout.className = 'shift-my-pdfs-action-layout';
   actionLayout.append(
     createHomeFileViewButton(file, root),
-    createHomeFileDownloadButton(file, root),
-    createHomeFileDeleteButton(file, root)
+    createHomeFileDownloadButton(file, root)
   );
+  if (file.handle) {
+    actionLayout.appendChild(createHomeFileRenameButton(file, root));
+  }
+  actionLayout.appendChild(createHomeFileDeleteButton(file, root));
   actionCell.appendChild(actionLayout);
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
@@ -2278,9 +2286,12 @@ function createHomeFileThumb(
   actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
   actions.append(
     createHomeFileViewButton(file, root),
-    createHomeFileDownloadButton(file, root),
-    createHomeFileDeleteButton(file, root)
+    createHomeFileDownloadButton(file, root)
   );
+  if (file.handle) {
+    actions.appendChild(createHomeFileRenameButton(file, root));
+  }
+  actions.appendChild(createHomeFileDeleteButton(file, root));
   item.append(card, actions);
   return item;
 }
@@ -2322,6 +2333,89 @@ function createHomeFileDownloadButton(
     downloadBlob(file.blob, file.name);
   });
   return button;
+}
+
+function createHomeFileRenameButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-rename';
+  button.dataset.fileName = file.name;
+  button.setAttribute('aria-label', `Rename ${file.name}`);
+
+  const svg = root.createElementNS(namespace, 'svg');
+  svg.setAttribute('class', 'shift-my-pdfs-rename-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = root.createElementNS(namespace, 'path');
+  path.setAttribute('d', 'M4 20h4l10.5-10.5-4-4L4 16v4ZM14.5 5.5l4 4');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  button.appendChild(svg);
+
+  attachShiftTooltip(button, { placement: 'bottom', text: 'Rename PDF' });
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    void renameHomeLibraryFile(file, root);
+  });
+
+  return button;
+}
+
+async function renameHomeLibraryFile(
+  file: WorkspaceFileInfo,
+  root: Document
+): Promise<void> {
+  if (!file.id || !file.handle) return;
+
+  const nextName = await promptFilename({
+    root,
+    title: 'Rename this PDF?',
+    message: 'This updates the file name on disk.',
+    initialValue: file.name,
+  });
+  if (nextName === null) return;
+
+  try {
+    const renamed = await renamePdfHandle(file.handle, nextName);
+    const blob = file.blob
+      ? new File([file.blob], renamed, {
+          type: file.blob.type || 'application/pdf',
+        })
+      : undefined;
+    await updatePdfInLibrary(file.id, { name: renamed, file: blob });
+    homeLibraryFiles = homeLibraryFiles.map((entry) =>
+      entry.id === file.id
+        ? { ...entry, name: renamed, blob: blob ?? entry.blob }
+        : entry
+    );
+    currentFiles = currentFiles.map((entry) =>
+      entry.id === file.id || isSameLibraryFile(entry, file)
+        ? { ...entry, name: renamed, blob: blob ?? entry.blob }
+        : entry
+    );
+    lastRenderedHomeFiles = [];
+    renderWorkspaceFiles(root);
+  } catch (error) {
+    await confirmAction({
+      root,
+      title: 'Could not rename this PDF',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Shift could not rename this PDF.',
+      confirmLabel: 'OK',
+      cancelLabel: 'Close',
+    });
+  }
 }
 
 function createHomeFileDeleteButton(
