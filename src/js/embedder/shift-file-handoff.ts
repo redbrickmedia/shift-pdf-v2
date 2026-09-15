@@ -60,7 +60,42 @@ function sanitizeFilename(filename: string): string {
   return sanitized || 'document';
 }
 
-function buildFile(data: Record<string, unknown>): File {
+function isFileHandle(value: unknown): value is FileSystemFileHandle {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'file' &&
+    'getFile' in value &&
+    typeof value.getFile === 'function'
+  );
+}
+
+async function buildFile(data: Record<string, unknown>): Promise<{
+  file: File;
+  handle?: FileSystemFileHandle;
+}> {
+  const handle = isFileHandle(data.handle) ? data.handle : undefined;
+  if (handle) {
+    const sourceFile = await handle.getFile();
+    if (sourceFile.size === 0) {
+      throw new Error('The file is empty.');
+    }
+    const mimeType =
+      typeof data.mimeType === 'string' ? data.mimeType : sourceFile.type;
+    if (mimeType !== 'application/pdf') {
+      throw new Error('Only PDF files can be handed off.');
+    }
+    const filename =
+      typeof data.filename === 'string'
+        ? sanitizeFilename(data.filename)
+        : sanitizeFilename(sourceFile.name);
+    return {
+      file: new File([sourceFile], filename, { type: mimeType }),
+      handle,
+    };
+  }
+
   const bytes = data.bytes;
   if (!(bytes instanceof ArrayBuffer)) {
     throw new Error('The file payload is missing.');
@@ -80,7 +115,7 @@ function buildFile(data: Record<string, unknown>): File {
     typeof data.filename === 'string'
       ? sanitizeFilename(data.filename)
       : 'document.pdf';
-  return new File([bytes], filename, { type: mimeType });
+  return { file: new File([bytes], filename, { type: mimeType }) };
 }
 
 /**
@@ -118,12 +153,12 @@ export function listenForShiftFileHandoff(
 
     void (async () => {
       try {
-        const file = buildFile(data);
+        const { file, handle } = await buildFile(data);
         const loaded = await options.onFile(file);
         if (loaded === false) {
           throw new Error('Shift could not load this file.');
         }
-        await addPdfToLibrary(file, 'handoff');
+        await addPdfToLibrary(file, 'handoff', { handle });
         await syncHomeLibraryFromStore();
         reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.accepted,
