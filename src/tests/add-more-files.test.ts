@@ -137,6 +137,7 @@ describe('add more files library picker', () => {
             type: 'application/pdf',
             size: selected.size,
             source: 'upload',
+            availability: 'ready',
             addedAt: Date.now(),
             file: selected,
           },

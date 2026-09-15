@@ -38,6 +38,14 @@ function mockHandle(options: {
   };
 }
 
+function confirmSaveToDisk(): void {
+  const button = document.querySelector<HTMLButtonElement>(
+    '.shift-confirm-accept'
+  );
+  expect(button?.textContent).toBe('Save changes');
+  button?.click();
+}
+
 afterEach(async () => {
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
@@ -123,6 +131,11 @@ describe('downloaded PDF library', () => {
       'report.pdf'
     );
 
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
+    });
+    confirmSaveToDisk();
+
     await vi.waitFor(async () => {
       expect(writable.write).toHaveBeenCalledOnce();
     });
@@ -133,7 +146,7 @@ describe('downloaded PDF library', () => {
     await expect(entries[0]?.file.text()).resolves.toBe('after');
   });
 
-  it('does not add a library copy when the handle is not writable', async () => {
+  it('does not auto-download when saving through the handle fails', async () => {
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:download'),
       revokeObjectURL: vi.fn(),
@@ -163,11 +176,97 @@ describe('downloaded PDF library', () => {
       'compressed.pdf'
     );
 
-    await vi.waitFor(async () => {
-      const entries = await readPdfLibrary();
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.source).toBe('handoff');
-      await expect(entries[0]?.file.text()).resolves.toBe('before');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
+    });
+    confirmSaveToDisk();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-title')?.textContent).toBe(
+        'Could not save changes'
+      );
+    });
+    expect(click).not.toHaveBeenCalled();
+    await expect(readPdfLibrary()).resolves.toHaveLength(1);
+  });
+
+  it('does not download when the user keeps editing', async () => {
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:download'),
+      revokeObjectURL: vi.fn(),
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    const { handle, writable } = mockHandle({});
+    const saved = await addPdfToLibrary(
+      new File(['before'], 'report.pdf', { type: 'application/pdf' }),
+      'handoff',
+      { handle }
+    );
+    setWorkspaceFiles([
+      {
+        id: saved.id,
+        name: saved.name,
+        size: saved.size,
+        source: saved.source,
+        blob: saved.file,
+        handle,
+      },
+    ]);
+    initDownloadedPdfLibrary();
+
+    downloadFile(
+      new Blob(['after'], { type: 'application/pdf' }),
+      'report.pdf'
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-cancel')).not.toBeNull();
+    });
+    document.querySelector<HTMLButtonElement>('.shift-confirm-cancel')?.click();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-overlay')).toBeNull();
+    });
+    expect(writable.write).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it('suppresses download when the workspace handle has no library record', async () => {
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:download'),
+      revokeObjectURL: vi.fn(),
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    const { handle, writable } = mockHandle({});
+    setWorkspaceFiles([
+      {
+        name: 'report.pdf',
+        size: 6,
+        source: 'upload',
+        blob: new File(['before'], 'report.pdf', {
+          type: 'application/pdf',
+        }),
+        handle,
+      },
+    ]);
+    initDownloadedPdfLibrary();
+
+    downloadFile(
+      new Blob(['after'], { type: 'application/pdf' }),
+      'report.pdf'
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
+    });
+    confirmSaveToDisk();
+
+    await vi.waitFor(() => {
+      expect(writable.write).toHaveBeenCalledOnce();
     });
     expect(click).not.toHaveBeenCalled();
   });
