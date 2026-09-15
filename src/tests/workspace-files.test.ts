@@ -12,6 +12,7 @@ import {
   hasOpenFileFlag,
   markOpenFilePresent,
   readPersistedOpenFile,
+  readPersistedOpenFiles,
   writeOpenFileSnapshot,
   writePersistedOpenFile,
 } from '../js/logic/open-file-store';
@@ -33,6 +34,7 @@ import {
   markFileFromHandoff,
   markFileLibraryId,
   openLibraryFileInViewer,
+  persistWorkspaceOpenFile,
   renderWorkspaceFiles,
   resetWorkspaceFileIndicator,
   setHomeLibraryFiles,
@@ -163,7 +165,9 @@ describe('workspace files sidebar', () => {
     expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
     expect(button?.getAttribute('aria-current')).toBe('true');
     expect(button?.classList.contains('is-selected')).toBe(true);
-    expect(button?.getAttribute('href')).toBe('view-pdf.html');
+    expect(button?.getAttribute('href')).toBe(
+      'view-pdf.html?name=contract.pdf'
+    );
     expect(
       button?.querySelector('.shift-open-file-selected-label')?.textContent
     ).toBe('Selected');
@@ -391,7 +395,7 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
     expect(item?.tagName).toBe('A');
-    expect(item?.getAttribute('href')).toBe('view-pdf.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=report.pdf');
   });
 
   it('resolves the sidebar viewer href against the My PDFs nav link', () => {
@@ -410,7 +414,7 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('../view-pdf.html');
+    expect(item?.getAttribute('href')).toBe('../view-pdf.html?name=report.pdf');
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();
   });
@@ -758,7 +762,7 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('view-pdf.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=from-tab.pdf');
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();
   });
@@ -779,38 +783,28 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('view-pdf.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=from-tab.pdf');
   });
 
-  it('persists the sidebar file before opening it in the viewer', async () => {
-    const location = Object.getOwnPropertyDescriptor(window, 'location');
-    const assign = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { assign },
+  it('gives each sidebar file a directly loadable viewer URL by library id', () => {
+    mountShell();
+    const file = new File(['pdf'], 'briefing.pdf', {
+      type: 'application/pdf',
     });
+    setWorkspaceFiles([
+      {
+        id: 'briefing-id',
+        name: file.name,
+        size: file.size,
+        source: 'upload',
+        blob: file,
+      },
+    ]);
 
-    try {
-      mountShell();
-      const file = new File(['pdf'], 'briefing.pdf', {
-        type: 'application/pdf',
-      });
-      setWorkspaceFiles([file]);
-
-      const item = document.querySelector<HTMLAnchorElement>(
-        '.shift-open-file-item'
-      );
-      item?.click();
-
-      await vi.waitFor(() => {
-        expect(assign).toHaveBeenCalledOnce();
-      });
-      expect(assign.mock.calls[0]?.[0]).toMatch(/\/view-pdf\.html$/);
-      expect(getWorkspaceFiles()[0]?.blob).toBe(file);
-      expect((await readPersistedOpenFile())?.name).toBe('briefing.pdf');
-    } finally {
-      if (location) Object.defineProperty(window, 'location', location);
-    }
+    const item = document.querySelector<HTMLAnchorElement>(
+      '.shift-open-file-item'
+    );
+    expect(item?.getAttribute('href')).toBe('view-pdf.html?file=briefing-id');
   });
 
   /* The rail paints these from the session snapshot before IndexedDB resolves,
@@ -838,7 +832,7 @@ describe('workspace files sidebar', () => {
 
       expect(event.defaultPrevented).toBe(false);
       expect(assign).not.toHaveBeenCalled();
-      expect(item?.getAttribute('href')).toBe('view-pdf.html');
+      expect(item?.getAttribute('href')).toBe('view-pdf.html?name=pending.pdf');
       expect(item?.hasAttribute('title')).toBe(false);
       expect(item?.getAttribute('data-shift-tooltip')).toBe('pending.pdf');
     } finally {
@@ -863,6 +857,9 @@ describe('workspace files sidebar', () => {
       );
       expect(item?.hasAttribute(PENDING_FILE_ROW_ATTR)).toBe(true);
       expect(item?.hasAttribute('title')).toBe(false);
+      expect(item?.getAttribute('href')).toBe(
+        'view-pdf.html?name=Candidate+Sourcing+Pipeline_+Briefing+for+Mark+%282%29+%281%29.pdf'
+      );
       expect(item?.getAttribute('data-shift-tooltip')).toBe(
         'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
       );
@@ -2539,24 +2536,46 @@ describe('workspace files sidebar', () => {
     ).toBeNull();
   });
 
-  it('persists one library PDF before opening its viewer', async () => {
+  it('opens a library PDF without changing a multi-file selection', async () => {
     mountLibrary();
-    const file = new File(['pdf'], 'viewer.pdf', {
+    const first = new File(['first'], 'first.pdf', {
       type: 'application/pdf',
     });
+    const second = new File(['second'], 'second.pdf', {
+      type: 'application/pdf',
+    });
+    const viewed = new File(['viewed'], 'viewer.pdf', {
+      type: 'application/pdf',
+    });
+    setWorkspaceFiles([first, second]);
+    await persistWorkspaceOpenFile();
+    const persistedBefore = (await readPersistedOpenFiles()).map(
+      (entry) => entry.name
+    );
     const assignLocation = vi.fn();
 
     await expect(
       openLibraryFileInViewer(
-        { name: file.name, size: file.size, source: 'upload', blob: file },
+        {
+          id: 'viewer-id',
+          name: viewed.name,
+          size: viewed.size,
+          source: 'upload',
+          blob: viewed,
+        },
         document,
         assignLocation
       )
     ).resolves.toBe(true);
 
-    expect(assignLocation).toHaveBeenCalledWith('/view-pdf.html');
-    expect(getWorkspaceFiles()).toHaveLength(1);
-    expect((await readPersistedOpenFile())?.name).toBe('viewer.pdf');
+    expect(assignLocation).toHaveBeenCalledWith('view-pdf.html?file=viewer-id');
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'first.pdf',
+      'second.pdf',
+    ]);
+    expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
+      persistedBefore
+    );
   });
 
   it('paints thumbnails when the library first renders in list view', async () => {

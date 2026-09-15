@@ -3,15 +3,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   isPdf,
   launchViewerTool,
+  loadViewerDocumentFromUrl,
   resetPdfViewerPageForTests,
   showPdfInViewer,
   VIEWER_TOOL_TARGETS,
   viewerDisplayName,
 } from '../js/logic/pdf-viewer-page';
-import { clearPersistedOpenFile } from '../js/logic/open-file-store';
+import {
+  clearPersistedOpenFile,
+  readPersistedOpenFiles,
+  writePersistedOpenFiles,
+} from '../js/logic/open-file-store';
+import {
+  addPdfToLibrary,
+  clearPdfLibrary,
+} from '../js/logic/pdf-library-store';
 import {
   getWorkspaceFiles,
+  persistWorkspaceOpenFile,
   resetWorkspaceFileIndicator,
+  setWorkspaceFiles,
 } from '../js/logic/workspace-files';
 
 function mountViewer(): void {
@@ -28,6 +39,7 @@ afterEach(async () => {
   resetPdfViewerPageForTests();
   resetWorkspaceFileIndicator();
   await clearPersistedOpenFile();
+  await clearPdfLibrary();
   document.body.innerHTML = '';
   document.title = '';
 });
@@ -80,7 +92,80 @@ describe('PDF viewer page', () => {
     expect(document.getElementById('shift-pdf-viewer-title')?.textContent).toBe(
       'Quarterly report'
     );
-    expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+    expect(getWorkspaceFiles()).toEqual([]);
+  });
+
+  it('loads the URL-targeted library PDF without changing selection', async () => {
+    mountViewer();
+    const first = new File(['first'], 'first.pdf', {
+      type: 'application/pdf',
+    });
+    const second = new File(['second'], 'second.pdf', {
+      type: 'application/pdf',
+    });
+    setWorkspaceFiles([first, second]);
+    await persistWorkspaceOpenFile();
+    const target = await addPdfToLibrary(
+      new File(['target'], 'target.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+
+    await expect(
+      loadViewerDocumentFromUrl(document, `?file=${target.id}`, {
+        createObjectUrl: () => 'blob:target',
+        revokeObjectUrl: vi.fn(),
+      })
+    ).resolves.toBe(true);
+
+    expect(document.getElementById('shift-pdf-viewer-title')?.textContent).toBe(
+      'target'
+    );
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+      'first.pdf',
+      'second.pdf',
+    ]);
+    expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
+      ['first.pdf', 'second.pdf']
+    );
+  });
+
+  it('shows the empty state for a missing or stale viewer target', async () => {
+    mountViewer();
+
+    await expect(
+      loadViewerDocumentFromUrl(document, '?file=stale-id')
+    ).resolves.toBe(false);
+
+    expect(
+      (document.getElementById('shift-pdf-viewer-frame') as HTMLIFrameElement)
+        .hidden
+    ).toBe(true);
+    expect(
+      document.getElementById('shift-pdf-viewer-empty')?.hasAttribute('hidden')
+    ).toBe(false);
+  });
+
+  it('resolves a pending sidebar name from the persisted selection', async () => {
+    mountViewer();
+    const pending = new File(['pending'], 'pending report.pdf', {
+      type: 'application/pdf',
+    });
+    await writePersistedOpenFiles([{ file: pending, source: 'upload' }]);
+
+    await expect(
+      loadViewerDocumentFromUrl(document, '?name=pending+report.pdf', {
+        createObjectUrl: () => 'blob:pending',
+        revokeObjectUrl: vi.fn(),
+      })
+    ).resolves.toBe(true);
+
+    expect(document.getElementById('shift-pdf-viewer-title')?.textContent).toBe(
+      'pending report'
+    );
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
+      ['pending report.pdf']
+    );
   });
 
   it('persists the open PDF before routing to a header tool', async () => {

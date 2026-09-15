@@ -147,6 +147,15 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
     .map(toLibraryEntry);
 }
 
+export async function readPdfLibraryEntry(
+  id: string
+): Promise<PdfLibraryEntry | null> {
+  const normalized = id.trim();
+  if (!normalized) return null;
+  const record = await findStoredById(normalized);
+  return record ? toLibraryEntry(record) : null;
+}
+
 export async function removePdfFromLibrary(id: string): Promise<void> {
   memoryRecords = memoryRecords.filter((record) => record.id !== id);
   try {

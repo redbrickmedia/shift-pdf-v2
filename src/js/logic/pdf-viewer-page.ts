@@ -1,6 +1,10 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { runOnDomReady } from './tool-file-seed.js';
+import { readPdfLibrary, readPdfLibraryEntry } from './pdf-library-store.js';
+import { readPersistedOpenFiles } from './open-file-store.js';
 import {
+  markFileLibraryId,
+  markFileFromDownload,
   markFileFromHandoff,
   persistWorkspaceOpenFile,
   setWorkspaceFiles,
@@ -28,6 +32,17 @@ let currentObjectUrl: string | null = null;
 let currentRevokeObjectUrl: ((url: string) => void) | null = null;
 let downloadTimer: number | null = null;
 
+function markViewerFile(
+  file: File,
+  source: 'upload' | 'handoff' | 'download',
+  libraryId?: string
+): File {
+  if (libraryId) markFileLibraryId(file, libraryId);
+  if (source === 'handoff') markFileFromHandoff(file);
+  if (source === 'download') markFileFromDownload(file);
+  return file;
+}
+
 export function viewerDisplayName(filename: string): string {
   const trimmed = filename.trim();
   return trimmed.replace(/\.pdf$/i, '') || 'PDF';
@@ -52,8 +67,6 @@ export async function showPdfInViewer(
   if (!frame) return false;
 
   currentFile = file;
-  setWorkspaceFiles([file], root);
-  await persistWorkspaceOpenFile();
 
   const createObjectUrl =
     dependencies.createObjectUrl ??
@@ -76,6 +89,62 @@ export async function showPdfInViewer(
     currentObjectUrl
   )}&shiftLaunchpad=1`;
   return true;
+}
+
+export async function loadViewerDocumentFromUrl(
+  root: Document = document,
+  search = window.location.search,
+  dependencies: ViewerPageDependencies = {}
+): Promise<boolean> {
+  const params = new URLSearchParams(search);
+  const id = params.get('file')?.trim();
+  const name = params.get('name')?.trim();
+
+  if (id) {
+    const entry = await readPdfLibraryEntry(id);
+    if (!entry) {
+      showEmptyState(root);
+      return false;
+    }
+    return showPdfInViewer(
+      markViewerFile(entry.file, entry.source, entry.id),
+      root,
+      dependencies
+    );
+  }
+
+  if (name) {
+    const libraryMatches = (await readPdfLibrary()).filter(
+      (entry) => entry.name === name
+    );
+    if (libraryMatches.length === 1) {
+      const entry = libraryMatches[0];
+      if (!entry) return false;
+      return showPdfInViewer(
+        markViewerFile(entry.file, entry.source, entry.id),
+        root,
+        dependencies
+      );
+    }
+
+    // Pending sidebar rows are painted before their library id is available,
+    // but the existing workspace record still contains the selected files.
+    const persistedMatches = (await readPersistedOpenFiles()).filter(
+      (entry) => entry.name === name
+    );
+    if (persistedMatches.length === 1) {
+      const entry = persistedMatches[0];
+      if (!entry) return false;
+      return showPdfInViewer(
+        markViewerFile(entry.file, entry.source, entry.libraryId),
+        root,
+        dependencies
+      );
+    }
+  }
+
+  showEmptyState(root);
+  return false;
 }
 
 export async function launchViewerTool(
@@ -179,6 +248,7 @@ export function initPdfViewerPage(root: Document = document): void {
   if (!root.getElementById('shift-pdf-viewer')) return;
 
   bindViewerActions(root);
+  void loadViewerDocumentFromUrl(root);
 
   const input = root.getElementById('file-input') as HTMLInputElement | null;
   input?.addEventListener('change', () => {

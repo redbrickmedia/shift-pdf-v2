@@ -309,11 +309,9 @@ export async function openLibraryFileInViewer(
   assignLocation: (href: string) => void = (href) =>
     window.location.assign(href)
 ): Promise<boolean> {
-  if (!(file.blob instanceof File)) return false;
-  fileOrigins.set(file.blob, file.source);
-  setWorkspaceFiles([file.blob], root);
-  await persistCurrentOpenFile();
-  assignLocation(`${import.meta.env.BASE_URL}view-pdf.html`);
+  const href = viewPdfHref(root, file);
+  if (!href) return false;
+  assignLocation(href);
   return true;
 }
 
@@ -1866,8 +1864,21 @@ function myPdfsHref(root: Document): string {
 
 /* The viewer ships beside My PDFs, so that nav link is also the only reliable
    base path on a subdirectory deploy — there is no nav anchor of its own. */
-function viewPdfHref(root: Document): string {
-  return myPdfsHref(root).replace(/my-pdfs\.html/, 'view-pdf.html');
+function viewPdfHref(
+  root: Document,
+  file: Pick<WorkspaceFileInfo, 'id' | 'name'>
+): string {
+  const href = myPdfsHref(root).replace(/my-pdfs\.html/, 'view-pdf.html');
+  const params = new URLSearchParams();
+  if (file.id) {
+    params.set('file', file.id);
+  } else if (file.name) {
+    // Snapshot-painted pending rows have a name but no library id yet.
+    params.set('name', file.name);
+  } else {
+    return '';
+  }
+  return `${href}?${params.toString()}`;
 }
 
 function createFileButton(
@@ -1876,7 +1887,7 @@ function createFileButton(
 ): HTMLAnchorElement {
   const link = root.createElement('a');
   link.className = 'shift-nav-link shift-open-file-item is-selected';
-  link.href = viewPdfHref(root);
+  link.href = viewPdfHref(root, file);
   link.dataset.fileName = file.name;
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
@@ -1893,32 +1904,6 @@ function createFileButton(
     createLabel(file.name, root),
     createSelectedFileChip(root, 'shift-open-file-selected-label')
   );
-  link.addEventListener('click', (event) => {
-    // Middle-click and the modifier clicks that open a new tab stay with the
-    // browser: the href is the viewer, and that page seeds itself from the
-    // store, so those paths do not need this one to persist first.
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    ) {
-      return;
-    }
-    // A pending row is painted from the session snapshot before IndexedDB has
-    // resolved a blob, so there is nothing here to re-persist. The snapshot is
-    // only ever written alongside the record itself, so the href still reaches
-    // a viewer that can seed from the store — and its empty state covers the
-    // case where it cannot.
-    if (!(file.blob instanceof File)) return;
-    event.preventDefault();
-    // Navigate via the anchor rather than the module default, so the href
-    // resolved off the My PDFs nav link survives a subdirectory deploy.
-    void openLibraryFileInViewer(file, root, () =>
-      window.location.assign(link.href)
-    );
-  });
   return link;
 }
 
