@@ -18,6 +18,7 @@ import {
   addPdfToLibrary,
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
+import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
 import {
   getWorkspaceFiles,
   persistWorkspaceOpenFile,
@@ -166,6 +167,42 @@ describe('PDF viewer page', () => {
     expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
       ['pending report.pdf']
     );
+  });
+
+  /**
+   * The shared seeder runs on every non-home page, and the viewer's picker
+   * takes one file, so seeding it used to narrow a multi-file selection down to
+   * the last persisted file and write that back — clearing the My PDFs
+   * checkboxes each time a PDF was opened.
+   */
+  it('leaves a multi-file selection intact when the viewer page seeds', async () => {
+    document.body.innerHTML = `
+      <main id="shift-pdf-viewer">
+        <h1 id="shift-pdf-viewer-title">PDF</h1>
+        <iframe id="shift-pdf-viewer-frame"></iframe>
+        <div id="shift-pdf-viewer-empty"></div>
+        <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+      </main>
+    `;
+    const names = ['alpha.pdf', 'bravo.pdf', 'charlie.pdf'];
+    await writePersistedOpenFiles(
+      names.map((name) => ({
+        file: new File([name], name, { type: 'application/pdf' }),
+        source: 'upload' as const,
+      }))
+    );
+
+    await expect(seedToolOpenFile(document)).resolves.toBe(true);
+
+    expect(getWorkspaceFiles().map((file) => file.name)).toEqual(names);
+    expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
+      names
+    );
+    // Nothing was pushed into the viewer's own picker either.
+    expect(
+      (document.getElementById('file-input') as HTMLInputElement).files
+        ?.length ?? 0
+    ).toBe(0);
   });
 
   it('persists the open PDF before routing to a header tool', async () => {
