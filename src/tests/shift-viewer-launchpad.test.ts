@@ -76,6 +76,34 @@ describe('Shift launchpad controls for the PDF.js viewer', () => {
     );
   });
 
+  it('scales PDF.js thumbnail boxes from the 126px canvas to the 156px design size', async () => {
+    document.documentElement.dataset.shiftViewer = 'launchpad';
+    renderViewerMarkup();
+
+    await runLaunchpadScript();
+
+    const view = document.getElementById('thumbnailsView');
+    const thumb = document.createElement('div');
+    thumb.className = 'thumbnail';
+    const image = document.createElement('div');
+    image.className = 'thumbnailImageContainer';
+    // PDF.js writes the unscaled canvas height inline.
+    image.style.height = '163px';
+    thumb.append(image);
+    view.append(thumb);
+
+    // MutationObserver callbacks run as microtasks after the DOM change.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(image.style.width).toBe('156px');
+    // Content scale 152/126, plus 4px for the 2px border on each side.
+    expect(parseFloat(image.style.height)).toBeCloseTo(
+      (163 * 152) / 126 + 4,
+      1
+    );
+  });
+
   it('leaves other embeds untouched', async () => {
     document.documentElement.dataset.shiftViewer = 'embed';
     renderViewerMarkup();

@@ -3,6 +3,14 @@
 
   var CHANNEL = 'shift-pdf-viewer';
   var NARROW_QUERY = '(max-width: 560px)';
+  /* PDF.js paints thumbnails on a fixed 126px canvas (THUMBNAIL_WIDTH) and
+     writes that height inline. Figma's PDF/Page Thumbnail is 156px wide with a
+     2px border inside that box, so the bitmap fills a 152px content area. */
+  var THUMB_NATIVE_WIDTH = 126;
+  var THUMB_DESIGN_WIDTH = 156;
+  var THUMB_BORDER_WIDTH = 2;
+  var THUMB_CONTENT_WIDTH = THUMB_DESIGN_WIDTH - THUMB_BORDER_WIDTH * 2;
+  var THUMB_SCALE = THUMB_CONTENT_WIDTH / THUMB_NATIVE_WIDTH;
 
   function element(id) {
     return document.getElementById(id);
@@ -63,6 +71,72 @@
     var rail = element('viewsManager');
     if (!rail || rail.parentElement === outer) return;
     outer.append(rail);
+  }
+
+  /* PDF.js sets .thumbnailImageContainer height from the 126px canvas. Rewrite
+     width/height to the 156px border-box (152px content) whenever that inline
+     height changes, keeping the aspect ratio so the bitmap is not stretched. */
+  function scaleThumbnail(container) {
+    if (
+      !container ||
+      !container.classList ||
+      !container.classList.contains('thumbnailImageContainer')
+    ) {
+      return;
+    }
+    if (container.dataset.launchpadScaling === '1') return;
+
+    var height = parseFloat(container.style.height);
+    if (!height) return;
+
+    var scaled = container.dataset.launchpadScaledHeight;
+    if (scaled && Math.abs(height - parseFloat(scaled)) < 0.5) {
+      return;
+    }
+
+    /* Border-box height = scaled content height + top/bottom border. Mark the
+       dataset before writing style so the MutationObserver cannot re-enter and
+       scale the already-scaled value. */
+    var next = height * THUMB_SCALE + THUMB_BORDER_WIDTH * 2;
+    container.dataset.launchpadScaling = '1';
+    container.dataset.launchpadScaledHeight = String(next);
+    container.style.width = THUMB_DESIGN_WIDTH + 'px';
+    container.style.height = next + 'px';
+    container.dataset.launchpadScaling = '0';
+  }
+
+  function scaleAllThumbnails(root) {
+    var scope = root || document;
+    var nodes = scope.querySelectorAll
+      ? scope.querySelectorAll('.thumbnailImageContainer')
+      : [];
+    for (var i = 0; i < nodes.length; i += 1) {
+      scaleThumbnail(nodes[i]);
+    }
+  }
+
+  function watchThumbnails() {
+    var view = element('thumbnailsView');
+    if (!view || view.dataset.launchpadThumbWatch === '1') return;
+    view.dataset.launchpadThumbWatch = '1';
+
+    scaleAllThumbnails(view);
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i += 1) {
+        var record = records[i];
+        if (record.type === 'attributes' && record.target) {
+          scaleThumbnail(record.target);
+        }
+        if (record.type === 'childList') {
+          scaleAllThumbnails(view);
+        }
+      }
+    }).observe(view, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['style'],
+    });
   }
 
   function buildControls() {
@@ -169,6 +243,7 @@
     // The rail must survive that case, since the toggle stays usable.
     var outer = element('outerContainer');
     if (outer) relocateRail(outer);
+    watchThumbnails();
     buildControls();
     bindParentActions();
   }

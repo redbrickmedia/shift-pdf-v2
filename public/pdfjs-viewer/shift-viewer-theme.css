@@ -357,12 +357,15 @@ html[data-shift-viewer] .colorPicker {
  */
 html[data-shift-viewer='launchpad'] {
   --toolbar-height: 0px;
-  /* PDF.js renders every thumbnail on a fixed 126px-wide canvas and sets the
-     matching height inline, so a fluid rail would stretch the image rather than
-     scale it. The rail stays at the design width and overlays when space is
-     tight. */
+  /* Figma PDF/Page Thumbnail is 156×222 with a 2px border inside that box.
+     PDF.js still paints a 126px canvas and writes the matching height inline;
+     shift-viewer-launchpad.js scales those boxes up so the bitmap fills the
+     design width without distorting. */
   --launchpad-rail-width: 156px;
-  --launchpad-rail-gap: clamp(12px, 2.5vw, 24px);
+  --launchpad-thumb-width: 156px;
+  --launchpad-thumb-native-width: 126px;
+  --launchpad-thumb-gap: 24px;
+  --launchpad-rail-gap: 24px;
   --launchpad-controls-max: min(408px, calc(100% - 24px));
   --launchpad-controls-inset: clamp(12px, 3vw, 40px);
 }
@@ -421,12 +424,22 @@ html[data-shift-viewer='launchpad'] #viewsManager {
   --sidebar-max-width: var(--launchpad-rail-width);
   --sidebar-bg-color: transparent;
   --sidebar-backdrop-filter: none;
+  /* Figma draws a 2px border on every thumb (outer/primary idle, action
+     primary when selected). Use a real border inside the 156px box so the ring
+     is not clipped by the rail's overflow; PDF.js's box-shadow ring is cleared. */
   --image-border-width: 2px;
   --image-border-color: var(--border-outer-primary);
   --image-current-border-color: var(--action-button-surface-primary-default);
-  --image-shadow: 0 0 0 1px var(--image-border-color);
-  --image-hover-shadow: 0 0 0 2px var(--image-hover-border-color);
-  --image-current-shadow: 0 0 0 2px var(--image-current-border-color);
+  --image-hover-border-color: var(--action-button-surface-primary-default);
+  --image-shadow: none;
+  --image-hover-shadow: none;
+  --image-current-shadow: none;
+  --image-page-number-bg: var(--border-outer-primary);
+  --image-page-number-fg: #ffffff;
+  --image-hover-page-number-bg: var(--action-button-surface-primary-default);
+  --image-hover-page-number-fg: #ffffff;
+  --image-current-page-number-bg: var(--action-button-surface-primary-default);
+  --image-current-page-number-fg: #ffffff;
 
   box-sizing: border-box;
   inset-block: 0;
@@ -471,33 +484,75 @@ html[data-shift-viewer='launchpad'] #viewsManagerContent::-webkit-scrollbar {
   display: none;
 }
 
-html[data-shift-viewer='launchpad'] #viewsManagerContent #thumbnailsView {
+html[data-shift-viewer='launchpad']
+  #viewsManager
+  #viewsManagerContent
+  #thumbnailsView {
+  /* PDF.js nests three IDs here, which outranks a shorter launchpad selector —
+     match that specificity and pin the design tokens with !important. */
+  --thumbnail-width: 156px !important;
+
   box-sizing: border-box;
-  display: flex;
-  flex-flow: column nowrap;
-  justify-content: flex-start;
-  align-items: center;
-  width: 100%;
-  padding: 0 2px 2px;
-  gap: clamp(12px, 2.5vw, 24px);
+  display: flex !important;
+  flex-flow: column nowrap !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  padding: 0 !important;
+  gap: 24px !important;
 }
 
-html[data-shift-viewer='launchpad'] #thumbnailsView > .thumbnail {
+html[data-shift-viewer='launchpad'] #viewsManager #thumbnailsView > .thumbnail {
+  width: 100% !important;
+  margin: 0 !important;
   scroll-margin-top: 0;
 }
 
-html[data-shift-viewer='launchpad'] #thumbnailsView > .thumbnail > input {
-  display: none;
+html[data-shift-viewer='launchpad']
+  #viewsManager
+  #thumbnailsView
+  > .thumbnail
+  > input {
+  display: none !important;
 }
 
 html[data-shift-viewer='launchpad']
+  #viewsManager
   #thumbnailsView
   > .thumbnail
   > .thumbnailImageContainer {
-  border-radius: var(--radius-8);
+  box-sizing: border-box !important;
+  width: 156px !important;
+  max-width: 156px !important;
+  border: 2px solid var(--image-border-color) !important;
+  border-radius: var(--radius-8) !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 html[data-shift-viewer='launchpad']
+  #viewsManager
+  #thumbnailsView
+  > .thumbnail
+  > .thumbnailImageContainer:hover,
+html[data-shift-viewer='launchpad']
+  #viewsManager
+  #thumbnailsView
+  > .thumbnail
+  > .thumbnailImageContainer:focus-visible {
+  border-color: var(--image-hover-border-color) !important;
+}
+
+html[data-shift-viewer='launchpad']
+  #viewsManager
+  #thumbnailsView
+  > .thumbnail
+  > .thumbnailImageContainer[aria-current='page'] {
+  border-color: var(--image-current-border-color) !important;
+}
+
+html[data-shift-viewer='launchpad']
+  #viewsManager
   #thumbnailsView
   > .thumbnail
   > .thumbnailImageContainer
@@ -506,29 +561,42 @@ html[data-shift-viewer='launchpad']
 }
 
 html[data-shift-viewer='launchpad']
+  #viewsManager
   #thumbnailsView
   > .thumbnail:not(.isDragging)
   > .thumbnailImageContainer::after {
-  inset-block: 0 auto;
-  inset-inline: 0 auto;
-  box-sizing: border-box;
-  min-width: 24px;
-  height: 24px;
-  padding: 4px 2px;
-  border: 0;
-  border-radius: var(--radius-8) 0 var(--radius-8) 0;
-  font-family: var(--shift-font);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 16px;
-  translate: none;
+  inset-block: 0 auto !important;
+  inset-inline: 0 auto !important;
+  box-sizing: border-box !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  padding: 4px 2px !important;
+  border: 0 !important;
+  outline: none !important;
+  border-radius: var(--radius-8) 0 var(--radius-8) 0 !important;
+  font-family: var(--shift-font) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+  translate: none !important;
+}
+
+/* PDF.js adds a 1px outline on the current-page chip; Figma's badge is a flat
+   fill that shares the selection colour, so drop the extra ring. */
+html[data-shift-viewer='launchpad']
+  #viewsManager
+  #thumbnailsView
+  > .thumbnail:has([aria-current='page']):not(.isDragging)
+  > .thumbnailImageContainer::after {
+  outline: none !important;
 }
 
 html[data-shift-viewer='launchpad'] #viewsManagerToggleButton {
   position: absolute;
   z-index: 5;
-  inset-block-start: clamp(12px, 2.5vw, 24px);
-  inset-inline-start: clamp(12px, 2.5vw, 24px);
+  inset-block-start: 24px;
+  inset-inline-start: 24px;
   display: inline-flex;
   width: 32px;
   height: 32px;
@@ -543,8 +611,7 @@ html[data-shift-viewer='launchpad']
   #outerContainer.viewsManagerOpen
   #viewsManagerToggleButton {
   inset-inline-start: calc(
-    var(--launchpad-rail-width) + var(--launchpad-rail-gap) +
-      clamp(12px, 2.5vw, 24px)
+    var(--launchpad-rail-width) + var(--launchpad-rail-gap) + 24px
   );
 }
 
@@ -711,6 +778,7 @@ html[data-shift-viewer='launchpad'] #shiftLaunchpadFit svg {
 @media (max-width: 560px) {
   html[data-shift-viewer='launchpad'] {
     --launchpad-rail-gap: 8px;
+    --launchpad-thumb-gap: 16px;
     --launchpad-controls-max: calc(100% - 16px);
     --launchpad-controls-inset: 12px;
   }
