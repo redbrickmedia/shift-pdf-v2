@@ -53,6 +53,7 @@ const EMPTY_LIBRARY_ACTION = 'Choose files';
 const DELETE_ICON_PATH =
   'M5.75 7.25h12.5M9.75 7.25V5.75a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1v1.5M7.25 7.25l.7 11a1 1 0 0 0 1 .95h6.1a1 1 0 0 0 1-.95l.7-11M10.5 10.75v5M13.5 10.75v5';
 const MY_PDFS_SELECT_ALL_ID = 'shift-my-pdfs-select-all';
+const MY_PDFS_TABLE_SELECT_ALL_ID = 'shift-my-pdfs-table-select-all';
 const MY_PDFS_SELECTION_COUNT_ID = 'shift-my-pdfs-selection-count';
 const MY_PDFS_DELETE_SELECTED_ID = 'shift-my-pdfs-delete-selected';
 const MY_PDFS_MORE_TOOLS_ID = 'shift-my-pdfs-more-tools';
@@ -1078,6 +1079,10 @@ function bindMyPdfsSelectionControls(root: Document): void {
       toggleSelectAllVisible(root);
       return;
     }
+    if (target?.closest(`#${MY_PDFS_TABLE_SELECT_ALL_ID}`)) {
+      toggleSelectAllVisible(root);
+      return;
+    }
     if (target?.closest(`#${MY_PDFS_DELETE_SELECTED_ID}`)) {
       void deleteSelectedHomeLibraryFiles(root);
     }
@@ -1100,11 +1105,33 @@ function syncMyPdfsSelectionChrome(root: Document): void {
   const visible = visibleHomeLibraryFiles().filter(
     (file) => file.blob instanceof File
   );
-  const allVisibleSelected =
-    visible.length > 0 &&
-    visible.every((file) => isHomeLibraryFileSelected(file));
-  selectAll.textContent = allVisibleSelected ? 'Deselect all' : 'Select all';
+  const selectedVisible = visible.filter((file) =>
+    isHomeLibraryFileSelected(file)
+  ).length;
+  // The label follows the click: a partial selection clears, so it reads
+  // Deselect all from the first selected file onwards, not only when full.
+  selectAll.textContent = selectedVisible > 0 ? 'Deselect all' : 'Select all';
   selectAll.disabled = visible.length === 0;
+
+  const tableSelectAll = root.getElementById(
+    MY_PDFS_TABLE_SELECT_ALL_ID
+  ) as HTMLInputElement | null;
+  if (tableSelectAll) {
+    // Empty list rows have their own checkboxes; this one is only useful once
+    // something is already selected, and its only job then is to clear it.
+    tableSelectAll.hidden = selectedVisible === 0;
+    /* So it shows the dash for any non-empty selection, full included. A tick
+       there would say "all selected" — a state, when this control is an
+       action, and the one it offers is the same Deselect all the button above
+       names. */
+    tableSelectAll.checked = false;
+    tableSelectAll.indeterminate = selectedVisible > 0;
+    tableSelectAll.disabled = visible.length === 0;
+    tableSelectAll.setAttribute(
+      'aria-label',
+      selectedVisible > 0 ? 'Deselect all PDFs' : 'Select all PDFs'
+    );
+  }
 }
 
 function toggleSelectAllVisible(root: Document): void {
@@ -1113,11 +1140,14 @@ function toggleSelectAllVisible(root: Document): void {
   );
   if (visible.length === 0) return;
 
-  const allVisibleSelected = visible.every((file) =>
+  /* A partial selection clears rather than filling in the rest: from a half
+     state the useful move is starting over, and selecting the remainder would
+     leave no way back to empty in one click. */
+  const anyVisibleSelected = visible.some((file) =>
     isHomeLibraryFileSelected(file)
   );
 
-  if (allVisibleSelected) {
+  if (anyVisibleSelected) {
     currentFiles = currentFiles.filter(
       (current) => !visible.some((file) => isSameLibraryFile(current, file))
     );
@@ -1599,13 +1629,10 @@ function updateHomeLibrarySelection(
     if (row) {
       row.classList.toggle('is-selected', isSelected);
       row.setAttribute('aria-pressed', String(isSelected));
-      const nameCell = row.querySelector('.shift-my-pdfs-name');
-      const existingReplace = row.querySelector('.shift-my-pdfs-row-replace');
-      if (isSelected) {
-        existingReplace?.remove();
-      } else if (!existingReplace && nameCell) {
-        nameCell.appendChild(createHomeFileRowReplaceHint(root));
-      }
+      const checkbox = row.querySelector<HTMLInputElement>(
+        '.shift-my-pdfs-checkbox'
+      );
+      if (checkbox) checkbox.checked = isSelected;
     }
 
     const card = cards?.[index];
@@ -2060,34 +2087,43 @@ function createHomeFileRow(
   row.setAttribute('aria-label', `Use ${file.name}`);
   row.setAttribute('aria-pressed', String(isSelected));
 
+  const selectCell = root.createElement('td');
+  selectCell.className = 'shift-my-pdfs-select-cell';
+  const checkbox = root.createElement('input');
+  checkbox.className = 'shift-my-pdfs-checkbox';
+  checkbox.type = 'checkbox';
+  checkbox.checked = isSelected;
+  checkbox.tabIndex = -1;
+  checkbox.setAttribute('aria-hidden', 'true');
+  selectCell.appendChild(checkbox);
+
   const nameCell = root.createElement('td');
   nameCell.className = 'shift-my-pdfs-name-cell';
   const nameLayout = root.createElement('div');
   nameLayout.className = 'shift-my-pdfs-name';
   const name = root.createElement('span');
   name.textContent = file.name;
-  nameLayout.append(createFileIcon(file.source, root), name);
+  nameLayout.append(name);
   if (file.source === 'download') {
     nameLayout.appendChild(createDownloadedCopyBadge(root));
-  }
-  if (!isSelected) {
-    nameLayout.appendChild(createHomeFileRowReplaceHint(root));
   }
   nameCell.appendChild(nameLayout);
 
   const dateCell = root.createElement('td');
+  dateCell.className = 'shift-my-pdfs-date-cell';
   dateCell.textContent = file.addedAt
     ? new Date(file.addedAt).toDateString()
     : '';
 
   const sizeCell = root.createElement('td');
+  sizeCell.className = 'shift-my-pdfs-size-cell';
   sizeCell.textContent = formatFileSize(file.size);
 
   const actionCell = root.createElement('td');
   actionCell.className = 'shift-my-pdfs-action-cell';
   actionCell.appendChild(createHomeFileDeleteButton(file, root));
 
-  row.append(nameCell, dateCell, sizeCell, actionCell);
+  row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
   row.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -2096,15 +2132,6 @@ function createHomeFileRow(
   });
 
   return row;
-}
-
-function createHomeFileRowReplaceHint(root: Document): HTMLSpanElement {
-  const replaceHint = root.createElement('span');
-  replaceHint.className =
-    'shift-open-file-thumb-replace shift-my-pdfs-row-replace';
-  replaceHint.textContent = 'Use this PDF';
-  replaceHint.setAttribute('aria-hidden', 'true');
-  return replaceHint;
 }
 
 /* The card is a button, so the delete control cannot nest inside it. Both sit

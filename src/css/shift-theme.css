@@ -58,9 +58,18 @@
   --spacing-8: 8px;
   --spacing-12: 12px;
   --spacing-16: 16px;
+  /* One gutter between the sidebar rail and the page content, at every width. */
+  --shift-panel-gutter: 32px;
+  /* Widest the page content gets; the footer shares it so their edges match. */
+  --shift-panel-max: 1400px;
   --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
   --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
   --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
+  /* Surface behind the pages in a PDF viewer. A step off the toolbar so white
+     pages stay visible against it. Same value as the copy in
+     public/pdfjs-viewer/shift-viewer-theme.css (that document is an iframe and
+     cannot read this one), so both viewers share one workspace colour. */
+  --shift-viewer-workspace: var(--action-controls-surface-primary-hover);
   --action-text-neutral-default: #374151; /* light-700 */
   --action-text-neutral-hover: #1f2937; /* light-800 */
   --action-text-neutral-active: #111827; /* light-900 */
@@ -1168,14 +1177,16 @@ body.shift-tool-viewer
 }
 
 /* Drop zone + file chips + empty-state chrome stay out of the way while
-   viewing. Keep the header bar and the in-card viewer roots. */
+   viewing. Keep the header bar and the viewer roots — every one of them is a
+   child of the card, moved there by the shell if the page authored it as a
+   sibling (see adoptViewerIntoCard in tool-viewer-layout.ts). */
 body.shift-tool-viewer
   #tool-uploader
   > :not(.shift-tool-viewer-bar):not(#embed-pdf-wrapper):not(
     #form-filler-options
-  ):not(#compare-viewer):not(#viewer-card):not(#file-controls):not(
-    [data-shift-skeleton]
-  ) {
+  ):not(#signature-editor):not(#cropper-editor):not(#compare-viewer):not(
+    #viewer-card
+  ):not(#file-controls):not([data-shift-skeleton]) {
   display: none !important;
 }
 
@@ -1217,12 +1228,14 @@ body.shift-tool-viewer #tool-uploader {
   padding-block: var(--spacing-12);
 }
 
-/* Viewer lives inside the card (edit-pdf, form-filler, compare, stamps): the
-   card itself grows. */
+/* The viewer lives inside the card on every viewer tool, so the card is what
+   grows to fill the panel. */
 body.shift-tool-viewer
   #tool-uploader:has(
     #embed-pdf-wrapper:not(.hidden),
     #form-filler-options:not(.hidden),
+    #signature-editor:not(.hidden),
+    #cropper-editor:not(.hidden),
     #compare-viewer:not(.hidden),
     #viewer-card:not(.hidden)
   ) {
@@ -1290,6 +1303,156 @@ body.shift-tool-viewer
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+/* ---- Edit PDF chrome (EmbedPDF) ----
+ * The editor is a web component whose UI lives in a shadow root, so none of
+ * the rules above reach it and it ships its own palette: Tailwind slate
+ * (#111827 / #1f2937 / #374151), which reads blue next to Shift's neutral
+ * greys. Its `theme.preference` also defaults to `system`, so the chrome
+ * followed the OS rather than the shell.
+ *
+ * EmbedPDF resolves every internal `--color-*` from an `--ep-*` input layer it
+ * declares on `:host`. Declarations from this document target the host element
+ * itself, and for the host element the outer tree wins over the shadow tree,
+ * so setting the inputs here re-points the whole palette — in both modes at
+ * once, because the values are shell tokens rather than hexes. That also
+ * settles the OS question: whichever branch the component injects, these win.
+ * Done in CSS so src/js/logic/edit-pdf-page.ts needs no theme config and no
+ * mode listener.
+ *
+ * `state.warning` / `state.success` keep the component's own amber and green;
+ * the shell has no tokens for them. `accent.primaryActive`, `interactive.focus`
+ * and `state.info` are mapped ahead of use: the installed build declares them
+ * but reads neither, so they are here for the upgrade that starts to. Page
+ * rendering is left alone — a PDF page is document content, not app surface,
+ * so it stays paper-white in both modes.
+ */
+#embed-pdf-container embedpdf-container {
+  --ep-background-app: var(--shift-viewer-workspace);
+  --ep-background-surface: var(--background-secondary);
+  --ep-background-surface-alt: var(--background-bar-primary);
+  --ep-background-elevated: var(--background-secondary);
+  --ep-background-overlay: rgba(0, 0, 0, 0.75);
+  --ep-background-input: var(--form-input-surface-primary-default);
+
+  --ep-foreground-primary: var(--text-primary);
+  --ep-foreground-secondary: var(--text-secondary);
+  --ep-foreground-muted: var(--action-text-neutral-disabled);
+  --ep-foreground-disabled: var(--action-text-neutral-disabled);
+  /* Sits on a brand-blue fill in both modes, so it stays white rather than
+     following the panel surface. */
+  --ep-foreground-on-accent: var(--text-white);
+
+  --ep-border-default: var(--border-outer-primary);
+  --ep-border-subtle: var(--border-divider-secondary);
+  --ep-border-strong: var(--action-button-border-secondary-active);
+
+  --ep-accent-primary: var(--action-button-surface-primary-default);
+  --ep-accent-primary-hover: var(--action-button-surface-primary-hover);
+  --ep-accent-primary-active: var(--action-button-surface-primary-active);
+  --ep-accent-primary-light: var(--brand-50);
+  --ep-accent-primary-foreground: var(--text-white);
+
+  --ep-interactive-hover: var(--action-controls-surface-primary-hover);
+  --ep-interactive-active: var(
+    --action-controls-surface-secondary-active-tertiary
+  );
+  --ep-interactive-selected: var(--brand-50);
+  --ep-interactive-focus: var(--action-button-surface-primary-default);
+  --ep-interactive-focus-ring: var(--brand-500);
+
+  --ep-state-error: var(--text-negative-default);
+  --ep-state-error-light: var(--action-button-surface-negative-default);
+  --ep-state-info: var(--action-button-surface-primary-default);
+  --ep-state-info-light: var(--brand-50);
+
+  /* Inverse surface and timing match .shift-tooltip. */
+  --ep-tooltip-background: var(--text-primary);
+  --ep-tooltip-foreground: var(--background-secondary);
+
+  --ep-scrollbar-track: var(--background-bar-primary);
+  --ep-scrollbar-thumb: var(--border-outer-primary);
+  --ep-scrollbar-thumb-hover: var(--action-button-border-secondary-active);
+
+  /* The component's Tailwind build keeps its own type and radius scales on
+     `:host` too. Font family and radii are the visible ones; its px sizes
+     already match the Shift ladder at the sizes the chrome uses. */
+  --font-sans: var(--shift-font);
+  --radius-md: var(--radius-6);
+  --radius-lg: var(--radius-8);
+  --radius-xl: var(--radius-12);
+  --radius-2xl: var(--radius-12);
+}
+
+/* ---- Viewer layout before the blob lands ----
+ * Everything above keys off `shift-tool-viewer`, which tool-viewer-layout.ts
+ * could only add once the module had run and the file had resolved — about
+ * 250ms after the card had painted, so entering a tool with a file selected
+ * looked like the tool loading twice. sidebar-boot.js now claims the same
+ * layout before paint and adds this class with it, and the rules below stand a
+ * pane where the viewer is about to mount. The layout is identical either side
+ * of the handover, so the viewer replaces the pane without anything moving.
+ * The pending class is dropped when the viewer arrives, or on the module's
+ * backstop if it never does, which hands the tool back its own card.
+ */
+body.shift-tool-viewer-pending
+  :is(
+    #embed-pdf-wrapper,
+    #signature-editor,
+    #form-filler-options,
+    #cropper-editor,
+    #viewer-card
+  ).hidden {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Same box the revealed viewer gets below: the pages are what set the width,
+     not the `max-w-2xl` sign-pdf authored for its empty card. */
+  max-width: none;
+  width: 100%;
+  margin-top: 0;
+  border-radius: var(--radius-8);
+  /* The colour the viewer puts behind its pages, so the pane reads as the
+     document area arriving rather than a grey block of its own. */
+  background: var(--shift-viewer-workspace);
+  animation: shift-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+/* The card grows for the reservation exactly as it does for the viewer, so it
+   already has the viewer's shape while the root is still hidden. */
+body.shift-tool-viewer-pending
+  #tool-uploader:has(
+    #embed-pdf-wrapper,
+    #form-filler-options,
+    #signature-editor,
+    #cropper-editor,
+    #viewer-card
+  ) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Placeholder file rows have nothing to sit above once the pane is reserved,
+   and the sidebar is already naming the file. */
+body.shift-tool-viewer-pending #tool-uploader > [data-shift-skeleton] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.shift-tool-viewer-pending
+    :is(
+      #embed-pdf-wrapper,
+      #signature-editor,
+      #form-filler-options,
+      #cropper-editor,
+      #viewer-card
+    ).hidden {
+    animation: none;
+  }
 }
 
 /* Compare panels are intentional inner scrollports (overlay + side-by-side). */
@@ -1530,7 +1693,14 @@ button:not(:disabled):focus-visible,
    the catalog width lurched between fixed sizes while the panel beside the rail
    changed continuously. One fluid cap lets the grid track the space it has. */
 body:not(.simple-mode):has(#shift-sidebar) #app.container {
-  max-width: 1400px;
+  max-width: var(--shift-panel-max);
+}
+
+/* `p-4 md:p-8` doubles the gutter at 768px, so dragging the window a pixel
+   past that made the content *narrower* than it was a moment earlier. The
+   panel keeps one gutter at every width instead. */
+body:not(.simple-mode):has(#shift-sidebar) #app.container {
+  padding: var(--shift-panel-gutter);
 }
 
 .shift-promise-banner {
@@ -2476,8 +2646,14 @@ body:not(.simple-mode):has(#shift-sidebar) > .shift-footer {
   min-height: 64px;
 }
 
+/* The footer is a `.container` too, so its width stepped with the breakpoints
+   on its own — 1536px against the panel's cap, which both misaligned the brand
+   and moved it as the window crossed a breakpoint. Sharing the panel's cap and
+   gutter keeps the brand under the page content at every width. */
 body:not(.simple-mode):has(#shift-sidebar) > .shift-footer > .container {
   width: 100%;
+  max-width: var(--shift-panel-max);
+  padding-inline: var(--shift-panel-gutter);
 }
 
 /* Every page wraps its content in a `min-h-screen` element — #uploader on the
@@ -2566,6 +2742,9 @@ html.dark {
   --action-text-neutral-active: #f5f5f5; /* dark-100 */
   --action-text-neutral-selected: #fafafa; /* dark-50 */
   --action-text-neutral-disabled: #737373; /* dark-500 */
+  /* Dark pages need no separation from the workspace — the paper provides it —
+     so this takes the rail colour, matching the PDF.js copy. */
+  --shift-viewer-workspace: var(--background-bar-primary);
 
   --form-input-border-default: #262626; /* dark-800 */
   --form-input-border-hover: #525252; /* dark-600 */
@@ -2856,12 +3035,22 @@ body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
   padding-right: var(--spacing-4);
 }
 
-/* Sticky column labels while list rows move under them. */
+/* Cards draw their selection ring just outside themselves, and this pane clips
+   both axes, so the left column and the first and last rows need 2px to paint
+   into. Thumbnails only: the table keeps its own edges. */
+body.shift-home #shift-my-pdfs[data-view='thumbnail'] .shift-my-pdfs-scroll {
+  padding-block: 2px;
+  padding-left: 2px;
+}
+
+/* Sticky column labels while list rows move under them. The fill matches the
+   page surface so the header reads as part of it, but it has to stay opaque or
+   rows would show through as they scroll underneath. */
 body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--background-bar-primary);
+  background: var(--background-secondary);
 }
 
 /* Full-width library filter under the drop zone (My Images hierarchy). */
@@ -3335,14 +3524,24 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   background: var(--action-controls-surface-primary-hover);
 }
 
+/* Selection reads the same in both views: one 2px ring just inside the edge
+   plus the raised fill. The card used a 1px border and a soft outer glow,
+   which looked nothing like the ring on the list rows. */
 .shift-open-file-thumb.is-selected {
-  border-color: var(--action-button-surface-primary-default);
-  box-shadow: 0 0 0 2px
-    color-mix(
-      in srgb,
-      var(--action-button-surface-primary-default) 28%,
-      transparent
-    );
+  outline: 2px solid var(--action-button-surface-primary-default);
+  /* Outside the card, not inside it: an inset ring painted over the top of the
+     preview and clipped the first 2px of the page thumbnail. */
+  outline-offset: 0;
+  background: var(--background-bar-primary);
+}
+
+/* Cards are buttons, so they inherit the global outer double-ring focus style.
+   The type selector matches its specificity, and this rule comes later, so the
+   two views share the same inner ring. */
+button.shift-open-file-thumb:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 0;
+  box-shadow: none;
 }
 
 .shift-open-file-thumb-preview {
@@ -3506,12 +3705,13 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 
 .shift-my-pdfs-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .shift-my-pdfs-table th,
 .shift-my-pdfs-table td {
-  padding: 12px 8px;
+  padding: 20px 12px;
   text-align: left;
   font-family: var(--shift-font);
   font-size: var(--text-sm);
@@ -3521,8 +3721,9 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 }
 
 .shift-my-pdfs-table th {
+  padding-block: 14px;
   color: var(--text-secondary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
 }
 
 .shift-my-pdfs-table td {
@@ -3531,20 +3732,71 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
 
 /* Date and size are fixed-width metadata. Wrapping them pushed the row taller
    than the name cell and broke the divider alignment. */
-.shift-my-pdfs-table th:nth-child(2),
-.shift-my-pdfs-table td:nth-child(2),
+.shift-my-pdfs-date-cell,
+.shift-my-pdfs-size-cell,
 .shift-my-pdfs-table th:nth-child(3),
-.shift-my-pdfs-table td:nth-child(3) {
+.shift-my-pdfs-table th:nth-child(4) {
   width: 1%;
   white-space: nowrap;
 }
 
 .shift-my-pdfs-table td.shift-my-pdfs-action-cell,
-.shift-my-pdfs-table th:nth-child(4) {
+.shift-my-pdfs-table th:nth-child(5) {
   width: 1%;
   padding-left: 0;
   text-align: right;
   white-space: nowrap;
+}
+
+.shift-my-pdfs-select-cell {
+  width: 40px;
+  padding-inline: 14px 0 !important;
+  text-align: left !important;
+}
+
+/* Drawn rather than native so the box keeps the design's 16px size and soft
+   corners; `appearance: none` also means the check and dash below are ours. */
+.shift-my-pdfs-checkbox {
+  appearance: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: var(--radius-4);
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.shift-my-pdfs-checkbox:checked,
+.shift-my-pdfs-checkbox:indeterminate {
+  border-color: var(--action-button-surface-primary-default);
+  background-color: var(--action-button-surface-primary-default);
+}
+
+.shift-my-pdfs-checkbox:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 8.4l2.6 2.6L12 5.4' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.shift-my-pdfs-checkbox:indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4.5 8h7' stroke='%23ffffff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.shift-my-pdfs-checkbox:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* `display: block` above outranks Preflight's `[hidden]`, so the header
+   checkbox would still occupy the cell while it is meant to be gone. */
+#shift-my-pdfs-table-select-all[hidden] {
+  display: none;
+}
+
+.shift-my-pdfs-table tbody .shift-my-pdfs-checkbox {
+  pointer-events: none;
 }
 
 .shift-my-pdfs-row {
@@ -3552,28 +3804,87 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   cursor: pointer;
 }
 
-.shift-my-pdfs-row:hover,
+/* List rows have no hover treatment: the checkbox already says what clicking
+   does. Rows are still focusable (role="button"), so the keyboard ring stays. */
 .shift-my-pdfs-row:focus-visible {
-  background: var(--action-controls-surface-primary-hover);
-  outline: none;
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: -2px;
 }
 
-.shift-my-pdfs-row-replace {
-  z-index: 1;
-}
-
-.shift-my-pdfs-row:not(.is-selected):hover .shift-my-pdfs-row-replace,
-.shift-my-pdfs-row:not(.is-selected):focus-visible .shift-my-pdfs-row-replace {
-  opacity: 1;
-  transition-delay: 100ms;
-}
-
+/* ---- Selected rows ----
+ * The outline belongs to a run of neighbouring selected rows, not to each row
+ * on its own: the blue edge is drawn only where a run starts and ends, so two
+ * rows selected side by side read as one block with a divider inside it.
+ * Cell backgrounds paint over the row, so the fill goes on the cells. */
 .shift-my-pdfs-row.is-selected {
-  background: color-mix(
-    in srgb,
-    var(--action-button-surface-primary-default) 12%,
-    transparent
-  );
+  background: transparent;
+}
+
+/* The edges are inset shadows, never borders. A border joins the row box, so
+   selecting would grow the row and shove every row below it down the page.
+   Shadows paint inside the cell it already occupies and cost no space.
+   Each edge is its own custom property because box-shadow does not
+   accumulate across rules: a later rule would drop the earlier edges, so the
+   rules below set one variable each and this one composes them. */
+.shift-my-pdfs-row.is-selected > td {
+  --shift-row-edge-top: 0 0 0 0 transparent;
+  --shift-row-edge-bottom: 0 0 0 0 transparent;
+  --shift-row-edge-left: 0 0 0 0 transparent;
+  --shift-row-edge-right: 0 0 0 0 transparent;
+  background: var(--background-bar-primary);
+  box-shadow:
+    inset var(--shift-row-edge-top),
+    inset var(--shift-row-edge-bottom),
+    inset var(--shift-row-edge-left),
+    inset var(--shift-row-edge-right);
+}
+
+.shift-my-pdfs-row.is-selected > td:first-child {
+  --shift-row-edge-left: 2px 0 0 0 var(--action-button-surface-primary-default);
+}
+
+.shift-my-pdfs-row.is-selected > td:last-child {
+  --shift-row-edge-right: -2px 0 0 0
+    var(--action-button-surface-primary-default);
+}
+
+/* Start of a run: either the first row, or the first one after an unselected
+   neighbour. Both look backwards, so a sibling combinator is enough. */
+.shift-my-pdfs-row.is-selected:first-child > td,
+tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td {
+  --shift-row-edge-top: 0 2px 0 0 var(--action-button-surface-primary-default);
+}
+
+.shift-my-pdfs-row.is-selected:first-child > td:first-child,
+tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:first-child {
+  border-top-left-radius: var(--radius-8);
+}
+
+.shift-my-pdfs-row.is-selected:first-child > td:last-child,
+tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
+  border-top-right-radius: var(--radius-8);
+}
+
+/* End of a run. This one has to look forwards, which only `:has()` can do —
+   without it the closing edge would land under every selected row and split
+   the run back into separate boxes. */
+.shift-my-pdfs-row.is-selected:last-child > td,
+.shift-my-pdfs-row.is-selected:has(+ tr:not(.is-selected)) > td {
+  --shift-row-edge-bottom: 0 -2px 0 0
+    var(--action-button-surface-primary-default);
+  /* The row's own divider would sit right under the closing edge as a second
+     line. Hiding it by colour keeps the 1px box every other row has. */
+  border-bottom-color: transparent;
+}
+
+.shift-my-pdfs-row.is-selected:last-child > td:first-child,
+.shift-my-pdfs-row.is-selected:has(+ tr:not(.is-selected)) > td:first-child {
+  border-bottom-left-radius: var(--radius-8);
+}
+
+.shift-my-pdfs-row.is-selected:last-child > td:last-child,
+.shift-my-pdfs-row.is-selected:has(+ tr:not(.is-selected)) > td:last-child {
+  border-bottom-right-radius: var(--radius-8);
 }
 
 /* max-width: 0 makes this the column the auto table layout shrinks first, so a

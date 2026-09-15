@@ -56,6 +56,29 @@
   var SKELETON_ATTR = 'data-shift-skeleton';
   var PENDING_FILE_ROW_ATTR = 'data-shift-pending-file';
   var REVEALED_PANEL_ATTR = 'data-shift-revealed';
+  /* Keep the viewer names below in step with tool-viewer-layout.ts; its test
+     asserts the literals match. */
+  var TOOL_VIEWER_CLASS = 'shift-tool-viewer';
+  var TOOL_VIEWER_PENDING_CLASS = 'shift-tool-viewer-pending';
+  var VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
+  var VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
+  var VIEWER_ACTIONS_CLASS = 'shift-tool-viewer-actions';
+  var VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
+  var VIEWER_SLOT_ATTR = 'data-shift-viewer-slot';
+  var VIEWER_ROOT_IDS = [
+    'embed-pdf-wrapper',
+    'signature-editor',
+    'form-filler-options',
+    'cropper-editor',
+    'compare-viewer',
+    'viewer-card',
+  ];
+  /* Needs a file per slot, so one selection must not claim the layout. */
+  var MULTI_FILE_VIEWER_ROOT_IDS = ['compare-viewer'];
+  var PENDING_VIEWER_ROOT_IDS = VIEWER_ROOT_IDS.filter(function (id) {
+    return MULTI_FILE_VIEWER_ROOT_IDS.indexOf(id) === -1;
+  });
+  var VIEWER_ACTION_IDS = ['download-edited-pdf', 'process-btn', 'crop-button'];
   var SIDEBAR_THUMB_STORE_KEY = 'shiftSidebarThumbnails';
   var SIDEBAR_THUMB_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
   var MAX_SIDEBAR_ROWS = 3;
@@ -370,6 +393,81 @@
       }
     }
 
+    /* Viewer tools open into a full-panel viewer, and tool-viewer-layout.ts can
+       only switch to it once the module has run and the blob has resolved —
+       around 250ms after the card has already painted, which read as the tool
+       loading twice. The layout is the same in both states, so claim it here
+       and let the reserved pane stand in for the viewer.
+
+       Mirrors ensureViewerChrome + relocateDownloadButtons in
+       tool-viewer-layout.ts, which take the markup over as-is. The module also
+       owns the way out: it drops the pending class when the viewer arrives, and
+       on a backstop if it never does. */
+    function paintViewerLayout(card) {
+      var hasViewer = PENDING_VIEWER_ROOT_IDS.some(function (id) {
+        return !!document.getElementById(id);
+      });
+      if (!hasViewer) return true;
+
+      var heading = card.querySelector('h1');
+      if (!heading) return false;
+
+      var bar = card.querySelector('.' + VIEWER_BAR_CLASS);
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = VIEWER_BAR_CLASS;
+
+        var title = document.createElement('div');
+        title.className = VIEWER_TITLE_CLASS;
+
+        var subtitle =
+          heading.nextElementSibling &&
+          heading.nextElementSibling.tagName === 'P'
+            ? heading.nextElementSibling
+            : null;
+
+        heading.replaceWith(bar);
+        title.appendChild(heading);
+        if (subtitle) title.appendChild(subtitle);
+
+        var actions = document.createElement('div');
+        actions.className = VIEWER_ACTIONS_CLASS;
+        actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
+
+        bar.appendChild(title);
+        bar.appendChild(actions);
+      }
+
+      document.body.classList.add(TOOL_VIEWER_CLASS);
+      document.body.classList.add(TOOL_VIEWER_PENDING_CLASS);
+      relocateViewerActions(bar.querySelector('[' + VIEWER_ACTIONS_ATTR + ']'));
+      return true;
+    }
+
+    /* Process / Download are authored at the foot of the card and belong in the
+       header row while viewing. The marker records where each came from: the
+       actions row is display:none outside the viewer layout, so a button left
+       behind after the fallback would disappear from the card. */
+    function relocateViewerActions(actions) {
+      if (!actions) return;
+
+      for (var i = 0; i < VIEWER_ACTION_IDS.length; i++) {
+        var id = VIEWER_ACTION_IDS[i];
+        var button = document.getElementById(id);
+        if (!button || actions.contains(button)) continue;
+        if (!button.parentNode) continue;
+        if (
+          !document.querySelector('[' + VIEWER_SLOT_ATTR + '="' + id + '"]')
+        ) {
+          var slot = document.createElement('span');
+          slot.setAttribute(VIEWER_SLOT_ATTR, id);
+          slot.hidden = true;
+          button.parentNode.insertBefore(slot, button);
+        }
+        actions.appendChild(button);
+      }
+    }
+
     function refineOpenFileClass() {
       var body = document.body;
       if (!body) return false;
@@ -394,9 +492,11 @@
       // this file, revealing #file-controls would hide the picker (see the
       // drop-zone rule in shift-theme.css) and strand the card with no way in.
       revealPanels();
+      var card = document.getElementById('tool-uploader');
+      var viewerDone = !card || paintViewerLayout(card);
       // The row container is parsed after #file-input, so keep watching until a
       // placeholder actually lands rather than leaving the card at its heading.
-      return paintSkeleton();
+      return paintSkeleton() && viewerDone;
     }
 
     function stopOpenFileObserver() {
@@ -435,6 +535,46 @@
         stopOpenFileObserver();
       });
     }
+  }
+
+  /* Every viewer tool should read as one panel: heading row and document inside
+     the same card. sign-pdf and crop-pdf author their viewer as a sibling of
+     #tool-uploader, so the shell moves it in. Mirrors adoptViewerIntoCard in
+     tool-viewer-layout.ts, and runs here because the move has to beat the tool
+     mounting its PDF.js iframe — reparenting one discards its browsing context
+     and reloads the document — and because doing it after first paint would
+     reintroduce the jump the pending layout above removes.
+
+     Outside the open-file branch: the structure is the same whether or not a
+     file is waiting. */
+  function adoptViewerIntoCard() {
+    var card = document.getElementById('tool-uploader');
+    if (!card) return false;
+
+    for (var i = 0; i < VIEWER_ROOT_IDS.length; i++) {
+      var viewer = document.getElementById(VIEWER_ROOT_IDS[i]);
+      if (!viewer || card.contains(viewer)) continue;
+      if (viewer.querySelector('iframe')) continue;
+      card.appendChild(viewer);
+      // One viewer per page, so there is nothing left to watch for.
+      return true;
+    }
+    return false;
+  }
+
+  if (!adoptViewerIntoCard()) {
+    var viewerObserver = new MutationObserver(function () {
+      if (adoptViewerIntoCard()) viewerObserver.disconnect();
+    });
+    viewerObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    // Backstop for the pages that never grow one.
+    document.addEventListener('DOMContentLoaded', function () {
+      adoptViewerIntoCard();
+      viewerObserver.disconnect();
+    });
   }
 
   var raw = read(RAIL_KEY);

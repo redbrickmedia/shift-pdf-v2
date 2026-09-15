@@ -365,12 +365,12 @@ describe('workspace files sidebar', () => {
     `;
     setWorkspaceFiles([{ name: 'tiny.pdf', size: 500 }]);
     expect(
-      document.querySelector('#shift-my-pdfs-body td:nth-child(3)')?.textContent
+      document.querySelector('.shift-my-pdfs-size-cell')?.textContent
     ).toBe('500 B');
 
     setWorkspaceFiles([{ name: 'large.pdf', size: 2 * 1024 * 1024 }]);
     expect(
-      document.querySelector('#shift-my-pdfs-body td:nth-child(3)')?.textContent
+      document.querySelector('.shift-my-pdfs-size-cell')?.textContent
     ).toBe('2.0 MB');
   });
 
@@ -868,9 +868,11 @@ describe('workspace files sidebar', () => {
     expect(section?.hidden).toBe(false);
     expect(heading?.textContent).toBe('My PDFs');
     expect(rows).toHaveLength(2);
-    expect(cells?.[0]?.textContent).toContain('upload.pdf');
-    expect(cells?.[2]?.textContent).toBe('512 B');
-    expect(rows[1]?.querySelector('td')?.textContent).toContain('briefing.pdf');
+    expect(cells?.[1]?.textContent).toContain('upload.pdf');
+    expect(cells?.[3]?.textContent).toBe('512 B');
+    expect(
+      rows[1]?.querySelector('.shift-my-pdfs-name-cell')?.textContent
+    ).toContain('briefing.pdf');
   });
 
   it('shows an uploaded file in the home Open file section', () => {
@@ -1056,7 +1058,7 @@ describe('workspace files sidebar', () => {
     const thumbnail = document.querySelector('.shift-open-file-thumb');
 
     expect(row?.getAttribute('data-source')).toBe('download');
-    expect(row?.querySelector('.shift-open-file-icon-download')).not.toBeNull();
+    expect(row?.querySelector('.shift-open-file-icon-download')).toBeNull();
     expect(row?.querySelector('.shift-my-pdfs-source-badge')?.textContent).toBe(
       'Downloaded copy'
     );
@@ -1126,7 +1128,7 @@ describe('workspace files sidebar', () => {
     ).toBe('true');
   });
 
-  it('shows Use this PDF only on unselected list rows', async () => {
+  it('tracks list selection through the checkbox with no hover hint', async () => {
     document.body.innerHTML = `
       <input id="file-input" type="file" />
       <section id="shift-my-pdfs" hidden data-view="thumbnail">
@@ -1154,18 +1156,35 @@ describe('workspace files sidebar', () => {
     const inactiveRow = rows[1];
     expect(activeRow?.classList.contains('is-selected')).toBe(true);
     expect(inactiveRow?.classList.contains('is-selected')).toBe(false);
-    expect(activeRow?.querySelector('.shift-my-pdfs-row-replace')).toBeNull();
     expect(
-      inactiveRow?.querySelector('.shift-my-pdfs-row-replace')?.textContent
-    ).toBe('Use this PDF');
+      activeRow?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')
+        ?.checked
+    ).toBe(true);
+    expect(
+      inactiveRow?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')
+        ?.checked
+    ).toBe(false);
+    // The hint belongs to the thumbnail cards only; list rows stay plain.
+    expect(
+      document.querySelectorAll(
+        '#shift-my-pdfs-body .shift-open-file-thumb-replace'
+      )
+    ).toHaveLength(0);
 
     inactiveRow?.click();
     await vi.waitFor(() => {
       expect(inactiveRow?.classList.contains('is-selected')).toBe(true);
     });
-    expect(inactiveRow?.querySelector('.shift-my-pdfs-row-replace')).toBeNull();
+    expect(
+      inactiveRow?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')
+        ?.checked
+    ).toBe(true);
     expect(activeRow?.classList.contains('is-selected')).toBe(true);
-    expect(activeRow?.querySelector('.shift-my-pdfs-row-replace')).toBeNull();
+    expect(
+      document.querySelectorAll(
+        '#shift-my-pdfs-body .shift-open-file-thumb-replace'
+      )
+    ).toHaveLength(0);
   });
 
   it('drops the sidebar row when the selected thumbnail is deselected, and moves it on reselect', async () => {
@@ -2084,6 +2103,191 @@ describe('workspace files sidebar', () => {
       const count = rule('.shift-my-pdfs-selection-count');
       expect(count).toMatch(/min-width:\s*0/);
       expect(count).toMatch(/text-overflow:\s*ellipsis/);
+    });
+  });
+
+  describe('list row selection styling', () => {
+    const css = readFileSync('src/css/shift-theme.css', 'utf8');
+    const body = (pattern: RegExp): string => {
+      const match = pattern.exec(css);
+      if (!match) throw new Error(`No rule found for ${pattern.source}`);
+      return match[1];
+    };
+
+    it('draws the row checkbox at the design size', () => {
+      const checkbox = body(/\n\.shift-my-pdfs-checkbox \{([^}]*)\}/);
+
+      expect(checkbox).toMatch(/appearance:\s*none/);
+      expect(checkbox).toMatch(/width:\s*16px/);
+      expect(checkbox).toMatch(/height:\s*16px/);
+      expect(checkbox).toMatch(/border-radius:\s*var\(--radius-4\)/);
+      // `appearance: none` drops the native tick, so both marks are ours.
+      // The lookbehind skips the shared colour rule that lists both states.
+      expect(
+        body(/(?<=\n)(?<!,\n)\.shift-my-pdfs-checkbox:checked \{([^}]*)\}/)
+      ).toMatch(/data:image\/svg\+xml/);
+      expect(
+        body(
+          /(?<=\n)(?<!,\n)\.shift-my-pdfs-checkbox:indeterminate \{([^}]*)\}/
+        )
+      ).toMatch(/data:image\/svg\+xml/);
+    });
+
+    /**
+     * `p-4 md:p-8` used to double the gutter at 768px, which made the content
+     * narrower as the window got wider. The override has to stay unlayered to
+     * outrank those utilities, and must not reintroduce a breakpoint.
+     */
+    it('keeps one panel gutter at every width', () => {
+      const gutter = body(
+        /body:not\(\.simple-mode\):has\(#shift-sidebar\) #app\.container \{([^}]*padding[^}]*)\}/
+      );
+      expect(gutter).toMatch(/padding:\s*var\(--shift-panel-gutter\)/);
+      expect(body(/\n:root \{([\s\S]*?)\n\}/)).toMatch(
+        /--shift-panel-gutter:\s*\d+px/
+      );
+
+      // The footer is a `.container` as well, so it steps on its own unless it
+      // shares the panel's cap and gutter.
+      const footer = body(
+        /body:not\(\.simple-mode\):has\(#shift-sidebar\) > \.shift-footer > \.container \{([^}]*)\}/
+      );
+      expect(footer).toMatch(/padding-inline:\s*var\(--shift-panel-gutter\)/);
+      expect(footer).toMatch(/max-width:\s*var\(--shift-panel-max\)/);
+      expect(
+        body(
+          /body:not\(\.simple-mode\):has\(#shift-sidebar\) #app\.container \{([^}]*max-width[^}]*)\}/
+        )
+      ).toMatch(/max-width:\s*var\(--shift-panel-max\)/);
+
+      // Nothing may wrap the panel gutter in a media query again.
+      const gutterRules = css.match(/[^}]*--shift-panel-gutter[^}]*\}/g) ?? [];
+      for (const rule of gutterRules) {
+        expect(rule).not.toMatch(/@media/);
+      }
+    });
+
+    it('fills the sticky header with the page surface', () => {
+      const header = body(/\.shift-my-pdfs-table thead \{([^}]*)\}/);
+
+      // Opaque, so rows do not show through while scrolling, but the same
+      // colour as the page behind it rather than a raised bar.
+      expect(header).toMatch(/background:\s*var\(--background-secondary\)/);
+      expect(header).not.toMatch(/--background-bar-primary/);
+    });
+
+    /**
+     * Grid cards are buttons, so without an override they take the global
+     * outer double-ring focus style while list rows use an inner ring. The two
+     * views have to agree on both the focus ring and the selection ring.
+     */
+    it('rings selection and focus the same way in both views', () => {
+      const ring =
+        /outline:\s*2px solid\s*var\(--action-button-surface-primary-default\)/;
+
+      const cardFocus = body(
+        /\nbutton\.shift-open-file-thumb:focus-visible \{([^}]*)\}/
+      );
+      expect(cardFocus).toMatch(ring);
+      // The type selector is what matches the global button rule's weight.
+      expect(cardFocus).toMatch(/box-shadow:\s*none/);
+
+      const rowFocus = body(/\n\.shift-my-pdfs-row:focus-visible \{([^}]*)\}/);
+      expect(rowFocus).toMatch(ring);
+
+      // Selected: same ring, same raised fill, no soft outer glow.
+      const cardSelected = body(
+        /\n\.shift-open-file-thumb\.is-selected \{([^}]*)\}/
+      );
+      expect(cardSelected).toMatch(ring);
+      expect(cardSelected).toMatch(
+        /background:\s*var\(--background-bar-primary\)/
+      );
+      expect(cardSelected).not.toMatch(/box-shadow:\s*0 0 0/);
+      expect(
+        body(/\n\.shift-my-pdfs-row\.is-selected > td \{([^}]*)\}/)
+      ).toMatch(/background:\s*var\(--background-bar-primary\)/);
+    });
+
+    /**
+     * A card is filled edge to edge by the page preview, so an inset ring
+     * paints over the thumbnail. Both card rings sit outside the box instead,
+     * which only works if the scrollport leaves them room.
+     */
+    it('keeps the card ring outside the preview and unclipped', () => {
+      for (const rule of [
+        /\n\.shift-open-file-thumb\.is-selected \{([^}]*)\}/,
+        /\nbutton\.shift-open-file-thumb:focus-visible \{([^}]*)\}/,
+      ]) {
+        const declarations = body(rule);
+        expect(declarations).toMatch(/outline-offset:\s*0/);
+        expect(declarations).not.toMatch(/outline-offset:\s*-/);
+      }
+
+      // The pane clips both axes, so the left column and end rows need space.
+      const pane = body(
+        /body\.shift-home #shift-my-pdfs\[data-view='thumbnail'\] \.shift-my-pdfs-scroll \{([^}]*)\}/
+      );
+      expect(pane).toMatch(/padding-block:\s*2px/);
+      expect(pane).toMatch(/padding-left:\s*2px/);
+    });
+
+    it('leaves list rows plain on hover but keeps the focus ring', () => {
+      // Hover may still reveal the row's delete control; what it must not do
+      // is restyle the row itself, so nothing may target the row on hover.
+      expect(css).not.toMatch(/\.shift-my-pdfs-row:hover\s*[,{]/);
+      expect(body(/\n\.shift-my-pdfs-row:focus-visible \{([^}]*)\}/)).toMatch(
+        /outline:\s*2px solid/
+      );
+    });
+
+    it('outlines neighbouring selected rows as one block', () => {
+      const shared = body(
+        /\n\.shift-my-pdfs-row\.is-selected > td \{([^}]*)\}/
+      );
+
+      // A row in the middle of a run keeps the plain divider, so neither
+      // horizontal edge may be set on every selected row.
+      expect(shared).not.toMatch(/--shift-row-edge-top:\s*0 2px/);
+      expect(shared).not.toMatch(/--shift-row-edge-bottom:\s*0 -2px/);
+
+      expect(
+        body(
+          /\ntr:not\(\.is-selected\) \+ \.shift-my-pdfs-row\.is-selected > td \{([^}]*)\}/
+        )
+      ).toMatch(/--shift-row-edge-top:\s*0 2px/);
+      // Only `:has()` can see the next row, which is what keeps the closing
+      // edge off rows that continue into another selected row.
+      expect(
+        body(
+          /\n\.shift-my-pdfs-row\.is-selected:has\(\+ tr:not\(\.is-selected\)\) > td \{([^}]*)\}/
+        )
+      ).toMatch(/--shift-row-edge-bottom:\s*0 -2px/);
+    });
+
+    /**
+     * Selection must not move the page. Borders and outlines with a positive
+     * offset both take space, so the edges are drawn as inset shadows.
+     */
+    it('draws the selection edges without taking up space', () => {
+      const shared = body(
+        /\n\.shift-my-pdfs-row\.is-selected > td \{([^}]*)\}/
+      );
+      expect(shared).toMatch(/box-shadow:/);
+      expect(shared).toMatch(/inset var\(--shift-row-edge-top\)/);
+      expect(shared).toMatch(/inset var\(--shift-row-edge-bottom\)/);
+      expect(shared).toMatch(/inset var\(--shift-row-edge-left\)/);
+      expect(shared).toMatch(/inset var\(--shift-row-edge-right\)/);
+
+      // No selected-row rule may add a border, which would change the row box.
+      const selectedRules = css.match(
+        /\n\.shift-my-pdfs-row\.is-selected[^{]*\{[^}]*\}/g
+      );
+      expect(selectedRules?.length).toBeGreaterThan(0);
+      for (const rule of selectedRules ?? []) {
+        expect(rule).not.toMatch(/border(-(top|bottom|left|right))?:\s*\d/);
+        expect(rule).not.toMatch(/border-\w+-width:/);
+      }
     });
   });
 
