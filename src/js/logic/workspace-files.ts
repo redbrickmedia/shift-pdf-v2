@@ -245,7 +245,9 @@ function adoptSelectionIntoLibrary(root: Document): void {
   const epoch = homeLibraryEpoch;
   void (async () => {
     for (const file of pending) {
-      const saved = await addPdfToLibrary(file.blob, file.source);
+      const saved = await addPdfToLibrary(file.blob, file.source, {
+        handle: file.handle,
+      });
       // Delete bumps the epoch. Only roll back this write when the PDF is
       // gone from both the grid and the selection — a sibling that is still
       // selected must stay, or deleting one in-flight file would abandon the
@@ -259,6 +261,11 @@ function adoptSelectionIntoLibrary(root: Document): void {
         isSameLibraryFile(entry, file)
       );
       if (selected) selected.id = saved.id;
+    }
+    for (const file of currentFiles) {
+      if (!file.handle || !(file.blob instanceof File)) continue;
+      if (pending.some((entry) => entry.blob === file.blob)) continue;
+      await addPdfToLibrary(file.blob, file.source, { handle: file.handle });
     }
     // Always refresh against the live epoch so remaining files paint after a
     // sibling was deleted; a captured epoch would no-op and leave them only
