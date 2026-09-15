@@ -1881,24 +1881,80 @@ function viewPdfHref(
   return `${href}?${params.toString()}`;
 }
 
+/**
+ * The viewer is the only page with a document of its own, and it names it in
+ * the URL. Everywhere else each listed row is simply a selected file, so there
+ * is no viewed row to mark.
+ */
+function viewedSidebarTarget(root: Document): URLSearchParams | null {
+  const location = root.defaultView?.location;
+  if (!location || !/(^|\/)view-pdf\.html$/.test(location.pathname)) {
+    return null;
+  }
+  return new URLSearchParams(location.search);
+}
+
+function isViewedSidebarFile(file: WorkspaceFileInfo, root: Document): boolean {
+  const target = viewedSidebarTarget(root);
+  if (!target) return false;
+  const id = target.get('file')?.trim();
+  if (id) return file.id === id;
+  // Pending rows reach the viewer by name, before they have a library id.
+  const name = target.get('name')?.trim();
+  return Boolean(name) && file.name === name;
+}
+
+function isSidebarCollapsed(root: Document): boolean {
+  return (
+    root.body.classList.contains('shift-sidebar-collapsed') ||
+    root.documentElement.classList.contains('shift-sidebar-collapsed-pending')
+  );
+}
+
+/**
+ * The expanded rail already spells the filename out in the row, so the tooltip
+ * would only repeat it. The collapsed rail is a 40px thumbnail with no label,
+ * which is the one case that needs it. The text is kept on the row either way
+ * so collapsing can restore the tooltip without a repaint.
+ */
+function applySidebarFileTooltip(link: HTMLElement, root: Document): void {
+  const text = link.dataset.shiftFileTooltip?.trim();
+  if (!text) return;
+  if (isSidebarCollapsed(root)) {
+    attachShiftTooltip(link, { placement: 'right', text });
+    return;
+  }
+  link.removeAttribute('data-shift-tooltip');
+}
+
+/** Called by the collapse control, which flips the state after the rows paint. */
+export function syncSidebarFileTooltips(root: Document = document): void {
+  hideShiftTooltip(root);
+  root
+    .querySelectorAll<HTMLElement>('.shift-open-file-item')
+    .forEach((link) => applySidebarFileTooltip(link, root));
+}
+
 function createFileButton(
   file: WorkspaceFileInfo,
   root: Document
 ): HTMLAnchorElement {
+  const viewed = isViewedSidebarFile(file, root);
   const link = root.createElement('a');
   link.className = 'shift-nav-link shift-open-file-item is-selected';
+  /* Several selected PDFs can be listed at once, so the row whose viewer is
+     open is the one that reads as current. The others stay plain rows. */
+  link.classList.toggle('is-viewing', viewed);
   link.href = viewPdfHref(root, file);
   link.dataset.fileName = file.name;
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
-  link.setAttribute('aria-current', 'true');
+  link.setAttribute('aria-current', viewed ? 'page' : 'true');
   /* Filename first: the collapsed rail is an icon, and the expanded label
      truncates. Skip data-i18n-tooltip — that path overwrites the whole string
      and would drop the name. aria-label already names the row for AT. */
-  attachShiftTooltip(link, {
-    placement: 'right',
-    text: sidebarFileTooltip(file),
-  });
+  link.dataset.shiftFileTooltip = sidebarFileTooltip(file);
+  applySidebarFileTooltip(link, root);
   link.append(
     createOpenFilePreview(file, root),
     createLabel(file.name, root),

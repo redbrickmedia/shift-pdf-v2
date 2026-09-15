@@ -63,6 +63,7 @@ import { primaryNavKeyFromPath } from './logic/primary-nav.js';
 import {
   initWorkspaceFileIndicator,
   pickerAcceptsPdf,
+  syncSidebarFileTooltips,
 } from './logic/workspace-files.js';
 import {
   dismissPromiseBanner,
@@ -187,6 +188,8 @@ function initShiftShell() {
       );
       const label = collapseBtn.querySelector('.shift-nav-label');
       if (label) label.textContent = collapsed ? 'Expand' : 'Collapse';
+      // Selected-file rows only carry a filename tooltip on the icon rail.
+      syncSidebarFileTooltips(document);
     };
 
     applyCollapsed(readSidebarCollapsed());
@@ -237,6 +240,10 @@ function markActiveNavLinks() {
       // Add tool also points at the catalog, but it is an action rather than
       // the current-page tab — All tools already owns that highlight.
       if (link.classList.contains('shift-add-tool-link')) return;
+      // Every selected-file row points at the viewer, so matching by page
+      // would mark all of them current. renderWorkspaceFiles marks the one
+      // file the viewer is actually showing.
+      if (link.classList.contains('shift-open-file-item')) return;
       const target = navPageId(
         new URL(link.href, window.location.href).pathname
       );

@@ -40,6 +40,7 @@ import {
   setHomeLibraryFiles,
   setHomeOpenFileView,
   setWorkspaceFiles,
+  syncSidebarFileTooltips,
 } from '../js/logic/workspace-files';
 
 function mountShell() {
@@ -161,7 +162,11 @@ describe('workspace files sidebar', () => {
     expect(list?.getAttribute('aria-label')).toBe('Selected file');
     expect(button?.textContent).toContain('contract.pdf');
     expect(button?.hasAttribute('title')).toBe(false);
-    expect(button?.getAttribute('data-shift-tooltip')).toBe('contract.pdf');
+    // Expanded rail: the row already shows the name, so no tooltip.
+    expect(button?.getAttribute('data-shift-tooltip')).toBeNull();
+    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
+      'contract.pdf'
+    );
     expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
     expect(button?.getAttribute('aria-current')).toBe('true');
     expect(button?.classList.contains('is-selected')).toBe(true);
@@ -675,6 +680,107 @@ describe('workspace files sidebar', () => {
     ).toBe(false);
   });
 
+  /**
+   * Opening the viewer no longer collapses the selection, so the rail can list
+   * several PDFs at once and needs to say which one is on screen.
+   */
+  it('marks only the viewed file as current on the viewer page', () => {
+    mountShell();
+    const path = window.location.pathname + window.location.search;
+    history.replaceState({}, '', '/view-pdf.html?file=second-id');
+    try {
+      setWorkspaceFiles([
+        { id: 'first-id', name: 'first.pdf' },
+        { id: 'second-id', name: 'second.pdf' },
+        { id: 'third-id', name: 'third.pdf' },
+      ]);
+
+      const rows = Array.from(
+        document.querySelectorAll<HTMLAnchorElement>('.shift-open-file-item')
+      );
+
+      expect(rows.map((row) => row.dataset.fileName)).toEqual([
+        'first.pdf',
+        'second.pdf',
+        'third.pdf',
+      ]);
+      // Every row stays listed and selected; one of them is the current page.
+      expect(rows.every((row) => row.classList.contains('is-selected'))).toBe(
+        true
+      );
+      expect(
+        rows
+          .filter((row) => row.classList.contains('is-viewing'))
+          .map((row) => row.dataset.fileName)
+      ).toEqual(['second.pdf']);
+      expect(rows.map((row) => row.getAttribute('aria-current'))).toEqual([
+        'true',
+        'page',
+        'true',
+      ]);
+    } finally {
+      history.replaceState({}, '', path);
+    }
+  });
+
+  it('marks no rail file as viewed away from the viewer page', () => {
+    mountShell();
+    setWorkspaceFiles([
+      { id: 'first-id', name: 'first.pdf' },
+      { id: 'second-id', name: 'second.pdf' },
+    ]);
+
+    expect(
+      document.querySelectorAll('.shift-open-file-item.is-viewing')
+    ).toHaveLength(0);
+    expect(
+      Array.from(document.querySelectorAll('.shift-open-file-item')).map(
+        (row) => row.getAttribute('aria-current')
+      )
+    ).toEqual(['true', 'true']);
+  });
+
+  /**
+   * The expanded row spells the filename out, so the tooltip is redundant
+   * there; the 40px icon rail is the one place it is needed.
+   */
+  it('tooltips rail filenames only while the sidebar is collapsed', () => {
+    mountShell();
+    document.body.classList.add('shift-sidebar-collapsed');
+    setWorkspaceFiles([
+      { name: 'first.pdf' },
+      { name: 'second.pdf', source: 'download' },
+    ]);
+
+    const tooltips = () =>
+      Array.from(
+        document.querySelectorAll<HTMLElement>('.shift-open-file-item')
+      ).map((row) => row.getAttribute('data-shift-tooltip'));
+
+    expect(tooltips()).toEqual(['first.pdf', 'second.pdf · Downloaded copy']);
+
+    document.body.classList.remove('shift-sidebar-collapsed');
+    syncSidebarFileTooltips();
+    expect(tooltips()).toEqual([null, null]);
+
+    document.body.classList.add('shift-sidebar-collapsed');
+    syncSidebarFileTooltips();
+    expect(tooltips()).toEqual(['first.pdf', 'second.pdf · Downloaded copy']);
+  });
+
+  it('tooltips a collapsed pending snapshot row', () => {
+    mountShell();
+    document.body.classList.add('shift-sidebar-collapsed');
+    markOpenFilePresent(true);
+    writeOpenFileSnapshot([{ name: 'pending.pdf', size: 64 }]);
+    renderWorkspaceFiles();
+
+    const item = document.querySelector('.shift-open-file-item');
+    expect(item?.hasAttribute(PENDING_FILE_ROW_ATTR)).toBe(true);
+    expect(item?.getAttribute('data-shift-tooltip')).toBe('pending.pdf');
+    expect(item?.hasAttribute('title')).toBe(false);
+  });
+
   it('uses a handoff icon for files received from Shift', () => {
     mountShell();
     setWorkspaceFiles([
@@ -684,7 +790,7 @@ describe('workspace files sidebar', () => {
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
     expect(button?.hasAttribute('title')).toBe(false);
-    expect(button?.getAttribute('data-shift-tooltip')).toBe(
+    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
       'from-tab.pdf · Received from Shift'
     );
     expect(button?.getAttribute('aria-label')).toBe(
@@ -706,7 +812,7 @@ describe('workspace files sidebar', () => {
 
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('download');
-    expect(button?.getAttribute('data-shift-tooltip')).toBe(
+    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
       'compressed.pdf · Downloaded copy'
     );
     expect(button?.getAttribute('aria-label')).toBe(
@@ -727,7 +833,7 @@ describe('workspace files sidebar', () => {
 
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
-    expect(button?.getAttribute('data-shift-tooltip')).toBe(
+    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
       'from-tab.pdf · Received from Shift'
     );
     expect(getWorkspaceFiles()[0]).toMatchObject({
@@ -834,7 +940,7 @@ describe('workspace files sidebar', () => {
       expect(assign).not.toHaveBeenCalled();
       expect(item?.getAttribute('href')).toBe('view-pdf.html?name=pending.pdf');
       expect(item?.hasAttribute('title')).toBe(false);
-      expect(item?.getAttribute('data-shift-tooltip')).toBe('pending.pdf');
+      expect(item?.getAttribute('data-shift-file-tooltip')).toBe('pending.pdf');
     } finally {
       if (location) Object.defineProperty(window, 'location', location);
     }
@@ -860,7 +966,7 @@ describe('workspace files sidebar', () => {
       expect(item?.getAttribute('href')).toBe(
         'view-pdf.html?name=Candidate+Sourcing+Pipeline_+Briefing+for+Mark+%282%29+%281%29.pdf'
       );
-      expect(item?.getAttribute('data-shift-tooltip')).toBe(
+      expect(item?.getAttribute('data-shift-file-tooltip')).toBe(
         'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
       );
       expect(item?.getAttribute('aria-label')).toBe(

@@ -477,6 +477,20 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
 }
 
+/* The rail lists every selected PDF, so the one the viewer is showing needs a
+   state of its own: the active-tab fill plus the blue ring that marks
+   selection elsewhere. Ordered after the hover rule so it holds on hover. */
+.shift-nav-link.shift-open-file-item.is-viewing,
+.shift-nav-link.shift-open-file-item.is-viewing:hover {
+  background: var(--action-controls-surface-secondary-active-tertiary);
+  color: var(--action-text-neutral-selected);
+  box-shadow: inset 0 0 0 1.5px var(--action-button-surface-primary-default);
+}
+
+.shift-open-file-item.is-viewing .shift-open-file-preview {
+  box-shadow: inset 0 0 0 1.5px var(--action-button-surface-primary-default);
+}
+
 /* Compact first-page preview in the 24px nav-icon slot. Falls back to the
    generic document SVG while empty or after a failed render. The width and
    height are restated so the square is definite: the canvas sizes itself from
@@ -762,6 +776,18 @@ body.shift-sidebar-collapsed .shift-nav-link,
 html.shift-sidebar-collapsed-pending .shift-nav-link {
   justify-content: center;
   padding: 8px;
+}
+
+/* No filename on the icon rail, so the viewed file is only distinguishable by
+   its ring — thicker here to stay legible around the 40px tile. */
+body.shift-sidebar-collapsed .shift-nav-link.shift-open-file-item.is-viewing,
+body.shift-sidebar-collapsed
+  .shift-nav-link.shift-open-file-item.is-viewing:hover,
+html.shift-sidebar-collapsed-pending
+  .shift-nav-link.shift-open-file-item.is-viewing,
+html.shift-sidebar-collapsed-pending
+  .shift-nav-link.shift-open-file-item.is-viewing:hover {
+  box-shadow: inset 0 0 0 2px var(--action-button-surface-primary-default);
 }
 
 /* Hide the dashed drop zone when a tool already has an open/seeded workspace
