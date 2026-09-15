@@ -18,7 +18,7 @@ type StoredPdfLibraryRecord = Omit<PdfLibraryEntry, 'file'> & {
 type OriginalSavedPdfRecord = {
   id: string;
   filename: string;
-  base64: string;
+  base64?: string;
   dateAddedTimestamp: number;
   folderId: string;
   pageCount: number;
@@ -42,8 +42,13 @@ export async function addPdfToLibrary(
   const generation = libraryGeneration;
   const buffer = await file.arrayBuffer();
   const type = file.type || 'application/pdf';
-  const base64 = bufferToDataUri(buffer, type);
-  const duplicate = await findStoredDuplicate(file.name, file.size, base64);
+  const base64 = options.handle ? undefined : bufferToDataUri(buffer, type);
+  const duplicate = await findStoredDuplicate({
+    base64,
+    handle: options.handle,
+    name: file.name,
+    size: file.size,
+  });
   if (duplicate && generation === libraryGeneration) {
     if (options.handle) {
       duplicate.handle = options.handle;
@@ -97,14 +102,18 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
   try {
     const stored = await withStore('readonly', (store) => store.getAll());
     if (Array.isArray(stored)) {
-      records = stored.flatMap((value) => {
-        if (!isOriginalSavedPdfRecord(value)) return [];
-        try {
-          return [fromOriginalSavedPdfRecord(value)];
-        } catch {
-          return [];
-        }
-      });
+      records = (
+        await Promise.all(
+          stored.map(async (value) => {
+            if (!isOriginalSavedPdfRecord(value)) return null;
+            try {
+              return await fromOriginalSavedPdfRecord(value);
+            } catch {
+              return null;
+            }
+          })
+        )
+      ).filter((record): record is StoredPdfLibraryRecord => record !== null);
       memoryRecords = records;
     }
   } catch {
@@ -155,6 +164,7 @@ export async function findWritableLibraryEntry(file: {
 }): Promise<PdfLibraryEntry | undefined> {
   const entries = await readPdfLibrary();
   const entry = entries.find((candidate) => {
+    if (!candidate.handle && !file.handle) return false;
     if (file.id) return candidate.id === file.id;
     return candidate.name === file.name && candidate.size === file.size;
   });
@@ -187,21 +197,36 @@ export async function clearPdfLibrary(): Promise<void> {
   }
 }
 
-async function findStoredDuplicate(
-  name: string,
-  size: number,
-  base64: string
-): Promise<StoredPdfLibraryRecord | null> {
-  const matches = (value: unknown): value is OriginalSavedPdfRecord =>
-    isOriginalSavedPdfRecord(value) &&
-    value.filename === name &&
-    value.sizeInBytes === size &&
-    value.base64 === base64;
-
+async function findStoredDuplicate({
+  base64,
+  handle,
+  name,
+  size,
+}: {
+  base64?: string;
+  handle?: FileSystemFileHandle;
+  name: string;
+  size: number;
+}): Promise<StoredPdfLibraryRecord | null> {
   try {
     const stored = await withStore('readonly', (store) => store.getAll());
-    const match = Array.isArray(stored) ? stored.find(matches) : undefined;
-    if (match) return fromOriginalSavedPdfRecord(match);
+    if (Array.isArray(stored)) {
+      for (const value of stored) {
+        if (!isOriginalSavedPdfRecord(value)) continue;
+        const sameHandle =
+          handle &&
+          value.handle &&
+          (await handlesReferToSameFile(handle, value.handle));
+        const sameCopy =
+          base64 !== undefined &&
+          value.filename === name &&
+          value.sizeInBytes === size &&
+          value.base64 === base64;
+        if (sameHandle || sameCopy) {
+          return await fromOriginalSavedPdfRecord(value);
+        }
+      }
+    }
   } catch {
     // Fall back to the in-memory library when IndexedDB is unavailable.
   }
@@ -209,11 +234,25 @@ async function findStoredDuplicate(
   return (
     memoryRecords.find(
       (record) =>
-        record.name === name &&
-        record.size === size &&
-        bufferToDataUri(record.buffer, record.type) === base64
+        (handle && record.handle && record.handle === handle) ||
+        (base64 !== undefined &&
+          record.name === name &&
+          record.size === size &&
+          bufferToDataUri(record.buffer, record.type) === base64)
     ) ?? null
   );
+}
+
+async function handlesReferToSameFile(
+  left: FileSystemFileHandle,
+  right: FileSystemFileHandle
+): Promise<boolean> {
+  if (left === right) return true;
+  try {
+    return await left.isSameEntry(right);
+  } catch {
+    return false;
+  }
 }
 
 function createId(): string {
@@ -231,7 +270,7 @@ function isOriginalSavedPdfRecord(
   return (
     typeof record.id === 'string' &&
     typeof record.filename === 'string' &&
-    typeof record.base64 === 'string' &&
+    (typeof record.base64 === 'string' || isStoredFileHandle(record.handle)) &&
     typeof record.dateAddedTimestamp === 'number' &&
     typeof record.sizeInBytes === 'number'
   );
@@ -239,7 +278,9 @@ function isOriginalSavedPdfRecord(
 
 function toOriginalSavedPdfRecord(
   record: StoredPdfLibraryRecord,
-  base64 = bufferToDataUri(record.buffer, record.type)
+  base64 = record.handle
+    ? undefined
+    : bufferToDataUri(record.buffer, record.type)
 ): OriginalSavedPdfRecord {
   return {
     id: record.id,
@@ -254,22 +295,37 @@ function toOriginalSavedPdfRecord(
   };
 }
 
-function fromOriginalSavedPdfRecord(
+async function fromOriginalSavedPdfRecord(
   record: OriginalSavedPdfRecord
-): StoredPdfLibraryRecord {
+): Promise<StoredPdfLibraryRecord> {
+  const handledFile = record.handle ? await record.handle.getFile() : undefined;
+  const buffer = handledFile
+    ? await handledFile.arrayBuffer()
+    : dataUriToBuffer(record.base64 ?? '');
   return {
     id: record.id,
-    name: record.filename,
-    type: 'application/pdf',
-    size: record.sizeInBytes,
+    name: handledFile?.name ?? record.filename,
+    type: handledFile?.type || 'application/pdf',
+    size: handledFile?.size ?? record.sizeInBytes,
     addedAt: record.dateAddedTimestamp,
     source:
       record.source === 'handoff' || record.source === 'download'
         ? record.source
         : 'upload',
-    buffer: dataUriToBuffer(record.base64),
+    buffer,
     handle: record.handle,
   };
+}
+
+function isStoredFileHandle(value: unknown): value is FileSystemFileHandle {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'file' &&
+    'getFile' in value &&
+    typeof value.getFile === 'function'
+  );
 }
 
 function bufferToDataUri(buffer: ArrayBuffer, type: string): string {

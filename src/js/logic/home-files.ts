@@ -20,16 +20,110 @@ function isPdfFile(file: File): boolean {
   );
 }
 
+type FileWithHandle = {
+  file: File;
+  handle?: FileSystemFileHandle;
+};
+
+type FilePickerWindow = Window & {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+    types?: Array<{
+      description?: string;
+      accept: Record<string, string[]>;
+    }>;
+  }) => Promise<FileSystemFileHandle[]>;
+};
+
+type HandleDataTransferItem = DataTransferItem & {
+  getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
+};
+
+function isFileHandle(
+  handle: FileSystemHandle | null | undefined
+): handle is FileSystemFileHandle {
+  return (
+    !!handle &&
+    handle.kind === 'file' &&
+    'getFile' in handle &&
+    typeof handle.getFile === 'function'
+  );
+}
+
 async function addOpenFiles(
-  incoming: File[],
+  incoming: FileWithHandle[],
   root: Document,
   epoch: number
 ): Promise<void> {
-  const pdfs = incoming.filter(isPdfFile);
+  const pdfs = incoming.filter(({ file }) => isPdfFile(file));
   if (pdfs.length === 0) return;
-  setWorkspaceFiles(pdfs, root);
-  await Promise.all(pdfs.map((file) => addPdfToLibrary(file, 'upload')));
+  setWorkspaceFiles(
+    pdfs.map(({ file, handle }) => ({
+      name: file.name,
+      size: file.size,
+      source: 'upload',
+      blob: file,
+      handle,
+    })),
+    root
+  );
+  await Promise.all(
+    pdfs.map(({ file, handle }) => addPdfToLibrary(file, 'upload', { handle }))
+  );
   await restorePdfLibrary(root, epoch);
+}
+
+async function chooseFilesWithHandles(
+  root: Document,
+  epoch: number
+): Promise<boolean> {
+  const picker = (window as FilePickerWindow).showOpenFilePicker;
+  if (!picker) return false;
+
+  try {
+    const handles: FileSystemFileHandle[] = await picker.call(window, {
+      multiple: true,
+      types: [
+        {
+          description: 'PDF documents',
+          accept: { 'application/pdf': ['.pdf'] },
+        },
+      ],
+    });
+    const files = await Promise.all(
+      handles.map(async (handle) => ({
+        file: await handle.getFile(),
+        handle,
+      }))
+    );
+    await addOpenFiles(files, root, epoch);
+  } catch (error) {
+    return error instanceof DOMException && error.name === 'AbortError';
+  }
+  return true;
+}
+
+async function filesFromDrop(event: DragEvent): Promise<FileWithHandle[]> {
+  const items = Array.from(event.dataTransfer?.items ?? []);
+  if (items.length > 0) {
+    const handled = await Promise.all(
+      items.map(async (item): Promise<FileWithHandle | null> => {
+        if (item.kind !== 'file') return null;
+        const handle = await (
+          item as HandleDataTransferItem
+        ).getAsFileSystemHandle?.();
+        if (isFileHandle(handle)) {
+          return { file: await handle.getFile(), handle };
+        }
+        const file = item.getAsFile();
+        return file ? { file } : null;
+      })
+    );
+    return handled.filter((item): item is FileWithHandle => item !== null);
+  }
+  return Array.from(event.dataTransfer?.files ?? []).map((file) => ({
+    file,
+  }));
 }
 
 async function restoreOpenFiles(root: Document): Promise<void> {
@@ -88,13 +182,21 @@ export function initHomeFiles(root: Document = document): void {
   const libraryEpoch = getHomeLibraryEpoch();
 
   const addFiles = (fileList: FileList | File[] | null) => {
-    if (fileList) void addOpenFiles(Array.from(fileList), root, libraryEpoch);
+    if (fileList) {
+      void addOpenFiles(
+        Array.from(fileList).map((file) => ({ file })),
+        root,
+        libraryEpoch
+      );
+    }
   };
 
   if (hasLibrary && dropZone) {
     dropZone.addEventListener('click', (event) => {
       if ((event.target as HTMLElement | null)?.closest('input')) return;
-      input?.click();
+      void chooseFilesWithHandles(root, libraryEpoch).then((usedPicker) => {
+        if (!usedPicker) input?.click();
+      });
     });
     dropZone.addEventListener('dragover', (event) => {
       event.preventDefault();
@@ -106,7 +208,19 @@ export function initHomeFiles(root: Document = document): void {
     dropZone.addEventListener('drop', (event) => {
       event.preventDefault();
       dropZone.classList.remove('is-dragover');
-      addFiles(event.dataTransfer?.files ?? null);
+      const items = Array.from(event.dataTransfer?.items ?? []);
+      const canReadHandle = items.some(
+        (item) =>
+          typeof (item as HandleDataTransferItem).getAsFileSystemHandle ===
+          'function'
+      );
+      if (canReadHandle) {
+        void filesFromDrop(event).then((files) =>
+          addOpenFiles(files, root, libraryEpoch)
+        );
+      } else {
+        addFiles(event.dataTransfer?.files ?? null);
+      }
     });
     input?.addEventListener('change', () => {
       addFiles(input.files);
