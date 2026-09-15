@@ -1864,12 +1864,10 @@ function myPdfsHref(root: Document): string {
   return nav?.getAttribute('href')?.trim() || 'my-pdfs.html';
 }
 
-function focusSelectedLibraryFile(root: Document): void {
-  const selected =
-    root.querySelector<HTMLElement>('.shift-open-file-thumb.is-selected') ??
-    root.querySelector<HTMLElement>('.shift-my-pdfs-row.is-selected');
-  selected?.scrollIntoView({ block: 'nearest' });
-  selected?.focus();
+/* The viewer ships beside My PDFs, so that nav link is also the only reliable
+   base path on a subdirectory deploy — there is no nav anchor of its own. */
+function viewPdfHref(root: Document): string {
+  return myPdfsHref(root).replace(/my-pdfs\.html/, 'view-pdf.html');
 }
 
 function createFileButton(
@@ -1878,7 +1876,7 @@ function createFileButton(
 ): HTMLAnchorElement {
   const link = root.createElement('a');
   link.className = 'shift-nav-link shift-open-file-item is-selected';
-  link.href = myPdfsHref(root);
+  link.href = viewPdfHref(root);
   link.dataset.fileName = file.name;
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
@@ -1901,9 +1899,30 @@ function createFileButton(
     createSelectedFileChip(root, 'shift-open-file-selected-label')
   );
   link.addEventListener('click', (event) => {
-    if (!root.getElementById('shift-my-pdfs')) return;
+    // Middle-click and the modifier clicks that open a new tab stay with the
+    // browser: the href is the viewer, and that page seeds itself from the
+    // store, so those paths do not need this one to persist first.
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    // A pending row is painted from the session snapshot before IndexedDB has
+    // resolved a blob, so there is nothing here to re-persist. The snapshot is
+    // only ever written alongside the record itself, so the href still reaches
+    // a viewer that can seed from the store — and its empty state covers the
+    // case where it cannot.
+    if (!(file.blob instanceof File)) return;
     event.preventDefault();
-    focusSelectedLibraryFile(root);
+    // Navigate via the anchor rather than the module default, so the href
+    // resolved off the My PDFs nav link survives a subdirectory deploy.
+    void openLibraryFileInViewer(file, root, () =>
+      window.location.assign(link.href)
+    );
   });
   return link;
 }
@@ -2068,20 +2087,20 @@ function findSidebarFileButton(
 
 function sidebarFileTooltip(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
-    return 'Received from Shift. Click to open in My PDFs.';
+    return 'Received from Shift. Click to open in the viewer.';
   }
   if (file.source === 'download') {
-    return 'Downloaded copy. Click to open in My PDFs.';
+    return 'Downloaded copy. Click to open in the viewer.';
   }
   return file.name;
 }
 
 function sidebarFileAriaLabel(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
-    return `Selected: ${file.name}. Received from Shift. Click to open in My PDFs.`;
+    return `Selected: ${file.name}. Received from Shift. Click to open in the viewer.`;
   }
   if (file.source === 'download') {
-    return `Selected: ${file.name}. Downloaded copy. Click to open in My PDFs.`;
+    return `Selected: ${file.name}. Downloaded copy. Click to open in the viewer.`;
   }
   return `Selected: ${file.name}`;
 }

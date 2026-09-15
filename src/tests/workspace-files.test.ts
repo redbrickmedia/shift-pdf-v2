@@ -160,7 +160,7 @@ describe('workspace files sidebar', () => {
     expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
     expect(button?.getAttribute('aria-current')).toBe('true');
     expect(button?.classList.contains('is-selected')).toBe(true);
-    expect(button?.getAttribute('href')).toBe('my-pdfs.html');
+    expect(button?.getAttribute('href')).toBe('view-pdf.html');
     expect(
       button?.querySelector('.shift-open-file-selected-label')?.textContent
     ).toBe('Selected');
@@ -375,7 +375,7 @@ describe('workspace files sidebar', () => {
     ).toBe('2.0 MB');
   });
 
-  it('links the sidebar file row to My PDFs without a file picker present', () => {
+  it('links the sidebar file row to the viewer without a file picker present', () => {
     document.body.innerHTML = `
       <section id="shift-open-files" hidden>
         <h2 id="shift-open-files-heading">Open file</h2>
@@ -388,10 +388,10 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
     expect(item?.tagName).toBe('A');
-    expect(item?.getAttribute('href')).toBe('my-pdfs.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html');
   });
 
-  it('points the sidebar file row at the My PDFs nav href instead of the picker', () => {
+  it('resolves the sidebar viewer href against the My PDFs nav link', () => {
     mountShell();
     document
       .querySelector('.shift-primary-nav')
@@ -407,7 +407,7 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('../my-pdfs.html');
+    expect(item?.getAttribute('href')).toBe('../view-pdf.html');
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();
   });
@@ -678,10 +678,10 @@ describe('workspace files sidebar', () => {
     expect(button?.getAttribute('data-source')).toBe('handoff');
     expect(button?.hasAttribute('title')).toBe(false);
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Received from Shift. Click to open in My PDFs.'
+      'Received from Shift. Click to open in the viewer.'
     );
     expect(button?.getAttribute('aria-label')).toBe(
-      'Selected: from-tab.pdf. Received from Shift. Click to open in My PDFs.'
+      'Selected: from-tab.pdf. Received from Shift. Click to open in the viewer.'
     );
     expect(
       button?.querySelector('.shift-open-file-icon-handoff')
@@ -700,10 +700,10 @@ describe('workspace files sidebar', () => {
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('download');
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Downloaded copy. Click to open in My PDFs.'
+      'Downloaded copy. Click to open in the viewer.'
     );
     expect(button?.getAttribute('aria-label')).toBe(
-      'Selected: compressed.pdf. Downloaded copy. Click to open in My PDFs.'
+      'Selected: compressed.pdf. Downloaded copy. Click to open in the viewer.'
     );
     expect(
       button?.querySelector('.shift-open-file-icon-download')
@@ -721,7 +721,7 @@ describe('workspace files sidebar', () => {
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Received from Shift. Click to open in My PDFs.'
+      'Received from Shift. Click to open in the viewer.'
     );
     expect(getWorkspaceFiles()[0]).toMatchObject({
       name: 'from-tab.pdf',
@@ -745,7 +745,7 @@ describe('workspace files sidebar', () => {
     });
   });
 
-  it('links a handoff sidebar row to My PDFs', () => {
+  it('links a handoff sidebar row to the viewer', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
     const input = document.getElementById('file-input') as HTMLInputElement;
@@ -755,12 +755,12 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('my-pdfs.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html');
     expect(click).not.toHaveBeenCalled();
     click.mockRestore();
   });
 
-  it('links sidebar files to My PDFs even when a tool is open on home', () => {
+  it('links sidebar files to the viewer even when a tool is open on home', () => {
     document.body.innerHTML = `
       <section id="shift-my-pdfs" hidden></section>
       <input id="file-input" type="file" accept="application/pdf" />
@@ -776,7 +776,69 @@ describe('workspace files sidebar', () => {
       '.shift-open-file-item'
     );
 
-    expect(item?.getAttribute('href')).toBe('my-pdfs.html');
+    expect(item?.getAttribute('href')).toBe('view-pdf.html');
+  });
+
+  it('persists the sidebar file before opening it in the viewer', async () => {
+    const location = Object.getOwnPropertyDescriptor(window, 'location');
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign },
+    });
+
+    try {
+      mountShell();
+      const file = new File(['pdf'], 'briefing.pdf', {
+        type: 'application/pdf',
+      });
+      setWorkspaceFiles([file]);
+
+      const item = document.querySelector<HTMLAnchorElement>(
+        '.shift-open-file-item'
+      );
+      item?.click();
+
+      await vi.waitFor(() => {
+        expect(assign).toHaveBeenCalledOnce();
+      });
+      expect(assign.mock.calls[0]?.[0]).toMatch(/\/view-pdf\.html$/);
+      expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+      expect((await readPersistedOpenFile())?.name).toBe('briefing.pdf');
+    } finally {
+      if (location) Object.defineProperty(window, 'location', location);
+    }
+  });
+
+  /* The rail paints these from the session snapshot before IndexedDB resolves,
+     so there is no blob to re-persist and the href has to carry the click. */
+  it('lets a pending sidebar row fall through to the viewer href', () => {
+    const location = Object.getOwnPropertyDescriptor(window, 'location');
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { assign },
+    });
+
+    try {
+      mountShell();
+      setWorkspaceFiles([{ name: 'pending.pdf', size: 128 }]);
+
+      const item = document.querySelector<HTMLAnchorElement>(
+        '.shift-open-file-item'
+      );
+      const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+      item?.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+      expect(assign).not.toHaveBeenCalled();
+      expect(item?.getAttribute('href')).toBe('view-pdf.html');
+    } finally {
+      if (location) Object.defineProperty(window, 'location', location);
+    }
   });
 
   it('keeps the handoff source when the in-page list refreshes the same name', async () => {
