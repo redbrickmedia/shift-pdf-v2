@@ -8,8 +8,11 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import { state } from '../js/state';
 import {
+  PENDING_FILE_ROW_ATTR,
   hasOpenFileFlag,
+  markOpenFilePresent,
   readPersistedOpenFile,
+  writeOpenFileSnapshot,
   writePersistedOpenFile,
 } from '../js/logic/open-file-store';
 import {
@@ -156,7 +159,7 @@ describe('workspace files sidebar', () => {
     expect(list?.getAttribute('aria-label')).toBe('Selected file');
     expect(button?.textContent).toContain('contract.pdf');
     expect(button?.hasAttribute('title')).toBe(false);
-    expect(button?.getAttribute('data-shift-tooltip')).toBeNull();
+    expect(button?.getAttribute('data-shift-tooltip')).toBe('contract.pdf');
     expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
     expect(button?.getAttribute('aria-current')).toBe('true');
     expect(button?.classList.contains('is-selected')).toBe(true);
@@ -678,7 +681,7 @@ describe('workspace files sidebar', () => {
     expect(button?.getAttribute('data-source')).toBe('handoff');
     expect(button?.hasAttribute('title')).toBe(false);
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Received from Shift. Click to open in the viewer.'
+      'from-tab.pdf · Received from Shift'
     );
     expect(button?.getAttribute('aria-label')).toBe(
       'Selected: from-tab.pdf. Received from Shift. Click to open in the viewer.'
@@ -700,7 +703,7 @@ describe('workspace files sidebar', () => {
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('download');
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Downloaded copy. Click to open in the viewer.'
+      'compressed.pdf · Downloaded copy'
     );
     expect(button?.getAttribute('aria-label')).toBe(
       'Selected: compressed.pdf. Downloaded copy. Click to open in the viewer.'
@@ -721,7 +724,7 @@ describe('workspace files sidebar', () => {
     const button = document.querySelector('.shift-open-file-item');
     expect(button?.getAttribute('data-source')).toBe('handoff');
     expect(button?.getAttribute('data-shift-tooltip')).toBe(
-      'Received from Shift. Click to open in the viewer.'
+      'from-tab.pdf · Received from Shift'
     );
     expect(getWorkspaceFiles()[0]).toMatchObject({
       name: 'from-tab.pdf',
@@ -836,8 +839,38 @@ describe('workspace files sidebar', () => {
       expect(event.defaultPrevented).toBe(false);
       expect(assign).not.toHaveBeenCalled();
       expect(item?.getAttribute('href')).toBe('view-pdf.html');
+      expect(item?.hasAttribute('title')).toBe(false);
+      expect(item?.getAttribute('data-shift-tooltip')).toBe('pending.pdf');
     } finally {
       if (location) Object.defineProperty(window, 'location', location);
+    }
+  });
+
+  it('tooltips a pending snapshot row with the full filename', () => {
+    mountShell();
+    markOpenFilePresent(true);
+    writeOpenFileSnapshot([
+      {
+        name: 'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf',
+        size: 2048,
+      },
+    ]);
+    try {
+      renderWorkspaceFiles();
+
+      const item = document.querySelector<HTMLAnchorElement>(
+        '.shift-open-file-item'
+      );
+      expect(item?.hasAttribute(PENDING_FILE_ROW_ATTR)).toBe(true);
+      expect(item?.hasAttribute('title')).toBe(false);
+      expect(item?.getAttribute('data-shift-tooltip')).toBe(
+        'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
+      );
+      expect(item?.getAttribute('aria-label')).toBe(
+        'Selected: Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
+      );
+    } finally {
+      markOpenFilePresent(false);
     }
   });
 

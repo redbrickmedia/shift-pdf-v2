@@ -1881,18 +1881,13 @@ function createFileButton(
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
   link.setAttribute('aria-current', 'true');
-  if (file.source === 'handoff') {
-    attachShiftTooltip(link, {
-      placement: 'right',
-      text: sidebarFileTooltip(file),
-    });
-    link.setAttribute('data-i18n-tooltip', 'home.fromShiftHandoffTooltip');
-  } else if (file.source === 'download') {
-    attachShiftTooltip(link, {
-      placement: 'right',
-      text: sidebarFileTooltip(file),
-    });
-  }
+  /* Filename first: the collapsed rail is an icon, and the expanded label
+     truncates. Skip data-i18n-tooltip — that path overwrites the whole string
+     and would drop the name. aria-label already names the row for AT. */
+  attachShiftTooltip(link, {
+    placement: 'right',
+    text: sidebarFileTooltip(file),
+  });
   link.append(
     createOpenFilePreview(file, root),
     createLabel(file.name, root),
@@ -2087,10 +2082,10 @@ function findSidebarFileButton(
 
 function sidebarFileTooltip(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
-    return 'Received from Shift. Click to open in the viewer.';
+    return `${file.name} · Received from Shift`;
   }
   if (file.source === 'download') {
-    return 'Downloaded copy. Click to open in the viewer.';
+    return `${file.name} · Downloaded copy`;
   }
   return file.name;
 }
