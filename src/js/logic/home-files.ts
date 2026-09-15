@@ -67,6 +67,7 @@ export async function syncHomeLibraryFromStore(
       source: entry.source,
       addedAt: entry.addedAt,
       blob: entry.file,
+      handle: entry.handle,
     })),
     root,
     epoch

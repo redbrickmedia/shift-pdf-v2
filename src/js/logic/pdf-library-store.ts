@@ -117,6 +117,57 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
     .map(toLibraryEntry);
 }
 
+export async function updatePdfInLibrary(
+  id: string,
+  values: { file?: File; name?: string }
+): Promise<PdfLibraryEntry | undefined> {
+  const records = await readStoredRecords();
+  const current = records.find((record) => record.id === id);
+  if (!current) return undefined;
+
+  if (values.file) {
+    current.buffer = await values.file.arrayBuffer();
+    current.type = values.file.type || current.type;
+    current.size = values.file.size;
+  }
+  if (values.name) {
+    current.name = values.name;
+  }
+
+  memoryRecords = records.map((record) =>
+    record.id === id ? current : record
+  );
+  try {
+    await withStore('readwrite', (store) =>
+      store.put(toOriginalSavedPdfRecord(current), current.id)
+    );
+  } catch {
+    // Keep the in-memory library available when IndexedDB is unavailable.
+  }
+  return toLibraryEntry(current);
+}
+
+export async function findWritableLibraryEntry(file: {
+  id?: string;
+  name: string;
+  size?: number;
+  handle?: FileSystemFileHandle;
+}): Promise<PdfLibraryEntry | undefined> {
+  const entries = await readPdfLibrary();
+  const entry = entries.find((candidate) => {
+    if (file.id) return candidate.id === file.id;
+    return candidate.name === file.name && candidate.size === file.size;
+  });
+  const handle = entry?.handle ?? file.handle;
+  if (!entry || !handle) return undefined;
+  return { ...entry, handle };
+}
+
+async function readStoredRecords(): Promise<StoredPdfLibraryRecord[]> {
+  await readPdfLibrary();
+  return memoryRecords;
+}
+
 export async function removePdfFromLibrary(id: string): Promise<void> {
   memoryRecords = memoryRecords.filter((record) => record.id !== id);
   try {

@@ -4,6 +4,7 @@ import {
   clearPdfLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
+  updatePdfInLibrary,
 } from '../js/logic/pdf-library-store';
 
 afterEach(async () => {
@@ -107,5 +108,23 @@ describe('PDF library store', () => {
     expect(saved?.file).not.toBe(original);
     expect(saved?.file.name).toBe('saved.pdf');
     await expect(saved?.file.text()).resolves.toBe('pdf');
+  });
+
+  it('updates a stored PDF snapshot and name', async () => {
+    const saved = await addPdfToLibrary(
+      new File(['before'], 'saved.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    await updatePdfInLibrary(saved.id, {
+      name: 'renamed.pdf',
+      file: new File(['after'], 'renamed.pdf', { type: 'application/pdf' }),
+    });
+
+    const [updated] = await readPdfLibrary();
+    expect(updated).toMatchObject({
+      id: saved.id,
+      name: 'renamed.pdf',
+    });
+    await expect(updated?.file.text()).resolves.toBe('after');
   });
 });
