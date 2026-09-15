@@ -357,7 +357,11 @@ html[data-shift-viewer] .colorPicker {
  */
 html[data-shift-viewer='launchpad'] {
   --toolbar-height: 0px;
-  --launchpad-rail-width: clamp(96px, 18vw, 156px);
+  /* PDF.js renders every thumbnail on a fixed 126px-wide canvas and sets the
+     matching height inline, so a fluid rail would stretch the image rather than
+     scale it. The rail stays at the design width and overlays when space is
+     tight. */
+  --launchpad-rail-width: 156px;
   --launchpad-rail-gap: clamp(12px, 2.5vw, 24px);
   --launchpad-controls-max: min(408px, calc(100% - 24px));
   --launchpad-controls-inset: clamp(12px, 3vw, 40px);
@@ -431,6 +435,10 @@ html[data-shift-viewer='launchpad'] #viewsManager {
   min-width: var(--launchpad-rail-width) !important;
   max-width: var(--launchpad-rail-width) !important;
   height: 100%;
+  /* Stock .menuContainer caps this against the toolbar and doorhanger heights,
+     neither of which exists here. */
+  min-height: 0;
+  max-height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -464,19 +472,17 @@ html[data-shift-viewer='launchpad'] #viewsManagerContent::-webkit-scrollbar {
 }
 
 html[data-shift-viewer='launchpad'] #viewsManagerContent #thumbnailsView {
-  --thumbnail-width: 100%;
-
   box-sizing: border-box;
   display: flex;
   flex-flow: column nowrap;
   justify-content: flex-start;
+  align-items: center;
   width: 100%;
   padding: 0 2px 2px;
   gap: clamp(12px, 2.5vw, 24px);
 }
 
 html[data-shift-viewer='launchpad'] #thumbnailsView > .thumbnail {
-  width: 100%;
   scroll-margin-top: 0;
 }
 
@@ -488,7 +494,6 @@ html[data-shift-viewer='launchpad']
   #thumbnailsView
   > .thumbnail
   > .thumbnailImageContainer {
-  width: 100%;
   border-radius: var(--radius-8);
 }
 
@@ -705,7 +710,6 @@ html[data-shift-viewer='launchpad'] #shiftLaunchpadFit svg {
    toggle reachable and leave the document full-bleed unless the user opens it. */
 @media (max-width: 560px) {
   html[data-shift-viewer='launchpad'] {
-    --launchpad-rail-width: 88px;
     --launchpad-rail-gap: 8px;
     --launchpad-controls-max: calc(100% - 16px);
     --launchpad-controls-inset: 12px;
@@ -734,29 +738,29 @@ html[data-shift-viewer='launchpad'] #shiftLaunchpadFit svg {
     #outerContainer.viewsManagerOpen
     #viewsManager {
     z-index: 6;
-    background: color-mix(
-      in srgb,
-      var(--background-bar-primary) 94%,
-      transparent
-    );
-    box-shadow: 0 0 0 1px var(--border-outer-primary);
+    /* Opaque, since it sits over the page rather than beside it. */
+    background: var(--background-bar-primary);
+    box-shadow:
+      0 0 0 1px var(--border-outer-primary),
+      8px 0 24px rgb(var(--shift-chrome-shadow-rgb) / 0.25);
   }
 
+  /* The toggle has to clear the overlaying rail, since the rail's own close
+     button belongs to the stock header this mode hides. */
   html[data-shift-viewer='launchpad']
     #outerContainer.viewsManagerOpen
-    #viewsManagerToggleButton,
-  html[data-shift-viewer='launchpad']
-    #outerContainer.viewsManagerOpen
-    #shiftLaunchpadControls {
+    #viewsManagerToggleButton {
+    z-index: 7;
     inset-inline-start: calc(
       var(--launchpad-rail-width) + var(--launchpad-rail-gap) + 12px
     );
   }
 
+  /* Too little room left beside the rail to keep the pill legible; it comes
+     back when the rail closes. */
   html[data-shift-viewer='launchpad']
     #outerContainer.viewsManagerOpen
     #shiftLaunchpadControls {
-    translate: 0 0;
-    max-width: calc(100% - var(--launchpad-rail-width) - 24px);
+    display: none;
   }
 }

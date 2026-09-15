@@ -54,6 +54,17 @@
     return !(window.matchMedia && window.matchMedia(NARROW_QUERY).matches);
   }
 
+  /* PDF.js nests the rail inside #toolbarViewerLeft, and launchpad mode hides
+     that stock toolbar. A hidden ancestor still resolves computed styles on the
+     rail, so it reads as visible while laying out at zero size — the rail has to
+     leave that subtree. #outerContainer is already the positioned ancestor the
+     stock open/close rules and the launchpad geometry both measure against. */
+  function relocateRail(outer) {
+    var rail = element('viewsManager');
+    if (!rail || rail.parentElement === outer) return;
+    outer.append(rail);
+  }
+
   function buildControls() {
     var previous = element('previous');
     var pageNumber = element('pageNumber');
@@ -154,6 +165,10 @@
 
   function init() {
     if (document.documentElement.dataset.shiftViewer !== 'launchpad') return;
+    // Ahead of buildControls, which bails out if any stock control is missing.
+    // The rail must survive that case, since the toggle stays usable.
+    var outer = element('outerContainer');
+    if (outer) relocateRail(outer);
     buildControls();
     bindParentActions();
   }
