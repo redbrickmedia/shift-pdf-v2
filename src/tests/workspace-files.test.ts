@@ -2325,6 +2325,33 @@ describe('workspace files sidebar', () => {
       expect(pane).toMatch(/padding-left:\s*2px/);
     });
 
+    /**
+     * The grid controls are laid-out action items now, so they must rest
+     * visible; hover-revealing them would leave an empty strip under the card
+     * and the tile has to read as one box across the seam.
+     */
+    it('rests the grid action row visible and seams it to the card', () => {
+      const actions = body(/\n\.shift-my-pdfs-thumb-actions \{([^}]*)\}/);
+      expect(actions).toMatch(/border-block-start:\s*0/);
+      expect(actions).toMatch(
+        /border-end-start-radius:\s*var\(--radius-8\)[\s\S]*border-end-end-radius:\s*var\(--radius-8\)/
+      );
+
+      const card = body(
+        /\n\.shift-my-pdfs-thumb-item > \.shift-open-file-thumb \{([^}]*)\}/
+      );
+      expect(card).toMatch(/border-end-start-radius:\s*0/);
+      expect(card).toMatch(/border-end-end-radius:\s*0/);
+
+      expect(
+        body(
+          /\n\.shift-my-pdfs-thumb-actions \.shift-my-pdfs-view,\n\.shift-my-pdfs-thumb-actions \.shift-my-pdfs-delete \{([^}]*)\}/
+        )
+      ).toMatch(/opacity:\s*1/);
+      // Nothing may hover-reveal them back into the tile.
+      expect(css).not.toMatch(/\.shift-my-pdfs-thumb-item:hover/);
+    });
+
     it('leaves list rows plain on hover but keeps the focus ring', () => {
       // Hover may still reveal the row's delete control; what it must not do
       // is restyle the row itself, so nothing may target the row on hover.
@@ -2534,6 +2561,31 @@ describe('workspace files sidebar', () => {
     expect(
       document.querySelector('.shift-open-file-thumb .shift-my-pdfs-view')
     ).toBeNull();
+  });
+
+  it('lays the grid controls out in an action row below the card', () => {
+    mountLibrary();
+    setHomeLibraryFiles([
+      { id: 'a', name: 'keep.pdf', size: 10, source: 'upload' },
+    ]);
+
+    const item = document.querySelector('.shift-my-pdfs-thumb-item');
+    const card = item?.firstElementChild;
+    const actions = item?.lastElementChild;
+
+    expect(card?.classList.contains('shift-open-file-thumb')).toBe(true);
+    // The row follows the card, so the controls sit under the details block.
+    expect(actions?.className).toBe(
+      'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions'
+    );
+    expect(actions?.querySelector('.shift-my-pdfs-view')?.textContent).toBe(
+      'View'
+    );
+    expect(
+      actions
+        ?.querySelector('.shift-my-pdfs-delete')
+        ?.getAttribute('aria-label')
+    ).toBe('Delete keep.pdf');
   });
 
   it('opens a library PDF without changing a multi-file selection', async () => {

@@ -3644,21 +3644,35 @@ button.shift-open-file-thumb:focus-visible {
   white-space: nowrap;
 }
 
+/* A tile is the card plus the action row under it. The card keeps the top
+   corners and its own bottom border, which doubles as the seam divider, and
+   the action row keeps the bottom corners. */
 .shift-my-pdfs-thumb-item {
-  position: relative;
   display: flex;
+  flex-direction: column;
   width: 160px;
 }
 
 .shift-my-pdfs-thumb-item > .shift-open-file-thumb {
   flex: 1;
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+  /* The tile rises in as one block, so the card must not rise again inside it. */
+  animation: none;
 }
 
-.shift-my-pdfs-thumb-item .shift-my-pdfs-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+/* One ring around the whole tile: a ring that stopped at the card would read
+   as two stacked boxes rather than one item. */
+.shift-my-pdfs-thumb-item > .shift-open-file-thumb.is-selected,
+.shift-my-pdfs-thumb-item > button.shift-open-file-thumb:focus-visible {
+  outline: none;
+}
+
+.shift-my-pdfs-thumb-item:has(> .shift-open-file-thumb.is-selected),
+.shift-my-pdfs-thumb-item:has(> button.shift-open-file-thumb:focus-visible) {
+  border-radius: var(--radius-8);
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 0;
 }
 
 .shift-my-pdfs-action-layout {
@@ -3666,6 +3680,36 @@ button.shift-open-file-thumb:focus-visible {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* Same gap and centring as the list cell, laid out as a full-width row: View
+   takes the free space and Delete stays an icon target on the end. */
+.shift-my-pdfs-thumb-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  border: 1px solid var(--border-divider-secondary);
+  border-block-start: 0;
+  border-end-start-radius: var(--radius-8);
+  border-end-end-radius: var(--radius-8);
+  background: var(--background-secondary);
+}
+
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-view {
+  flex: 1;
+  width: auto;
+}
+
+/* In the grid both controls are laid-out action items, so they rest visible.
+   Hover-revealing them would leave an empty strip under every card. */
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-view,
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-delete {
+  opacity: 1;
+}
+
+.shift-my-pdfs-thumb-item:has(> .shift-open-file-thumb.is-selected)
+  .shift-my-pdfs-thumb-actions {
+  background: var(--background-bar-primary);
 }
 
 .shift-my-pdfs-view {
@@ -3694,8 +3738,6 @@ button.shift-open-file-thumb:focus-visible {
 
 .shift-my-pdfs-row:hover .shift-my-pdfs-view,
 .shift-my-pdfs-row:focus-within .shift-my-pdfs-view,
-.shift-my-pdfs-thumb-item:hover .shift-my-pdfs-view,
-.shift-my-pdfs-thumb-item:focus-within .shift-my-pdfs-view,
 .shift-my-pdfs-view:focus-visible {
   opacity: 1;
 }
@@ -3707,28 +3749,17 @@ button.shift-open-file-thumb:focus-visible {
   outline: none;
 }
 
-.shift-my-pdfs-thumb-item > .shift-my-pdfs-view {
-  position: absolute;
-  z-index: 2;
-  top: 112px;
-  left: 40px;
-}
-
 @media (max-width: 640px) {
   .shift-my-pdfs-view {
     width: auto;
     min-width: 64px;
     padding-inline: 10px;
   }
-
-  .shift-my-pdfs-thumb-item > .shift-my-pdfs-view {
-    left: 50%;
-    translate: -50% 0;
-  }
 }
 
-/* The delete control stays out of the way until the file is hovered or the
-   button itself is focused, so the grid does not read as a row of trash cans. */
+/* On a list row the delete control stays out of the way until the row is
+   hovered or the button itself is focused, so the table does not read as a
+   column of trash cans. The grid tile keeps it visible in its action row. */
 .shift-my-pdfs-delete {
   display: inline-flex;
   align-items: center;
@@ -3755,8 +3786,6 @@ button.shift-open-file-thumb:focus-visible {
 
 .shift-my-pdfs-row:hover .shift-my-pdfs-delete,
 .shift-my-pdfs-row:focus-within .shift-my-pdfs-delete,
-.shift-my-pdfs-thumb-item:hover .shift-my-pdfs-delete,
-.shift-my-pdfs-thumb-item:focus-within .shift-my-pdfs-delete,
 .shift-my-pdfs-delete:focus-visible {
   opacity: 1;
 }

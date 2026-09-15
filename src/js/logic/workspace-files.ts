@@ -2153,8 +2153,9 @@ function createHomeFileRow(
   return row;
 }
 
-/* The card is a button, so the delete control cannot nest inside it. Both sit
-   in a wrapper instead, which becomes the grid item the thumbs list lays out. */
+/* The card is a button, so View and Delete cannot nest inside it. They sit in
+   an action row below the card instead, and the wrapper holding both becomes
+   the grid item the thumbs list lays out. */
 function createHomeFileThumb(
   file: WorkspaceFileInfo,
   root: Document
@@ -2212,11 +2213,13 @@ function createHomeFileThumb(
 
   const item = root.createElement('div');
   item.className = 'shift-my-pdfs-thumb-item';
-  item.append(
-    card,
+  const actions = root.createElement('div');
+  actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
+  actions.append(
     createHomeFileViewButton(file, root),
     createHomeFileDeleteButton(file, root)
   );
+  item.append(card, actions);
   return item;
 }
 
