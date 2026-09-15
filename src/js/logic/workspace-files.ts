@@ -303,6 +303,20 @@ export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
 }
 
+export async function openLibraryFileInViewer(
+  file: WorkspaceFileInfo,
+  root: Document = document,
+  assignLocation: (href: string) => void = (href) =>
+    window.location.assign(href)
+): Promise<boolean> {
+  if (!(file.blob instanceof File)) return false;
+  fileOrigins.set(file.blob, file.source);
+  setWorkspaceFiles([file.blob], root);
+  await persistCurrentOpenFile();
+  assignLocation(`${import.meta.env.BASE_URL}view-pdf.html`);
+  return true;
+}
+
 export async function clearWorkspaceOpenFile(
   root: Document = document
 ): Promise<void> {
@@ -2121,7 +2135,13 @@ function createHomeFileRow(
 
   const actionCell = root.createElement('td');
   actionCell.className = 'shift-my-pdfs-action-cell';
-  actionCell.appendChild(createHomeFileDeleteButton(file, root));
+  const actionLayout = root.createElement('div');
+  actionLayout.className = 'shift-my-pdfs-action-layout';
+  actionLayout.append(
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
+  actionCell.appendChild(actionLayout);
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
@@ -2193,8 +2213,30 @@ function createHomeFileThumb(
 
   const item = root.createElement('div');
   item.className = 'shift-my-pdfs-thumb-item';
-  item.append(card, createHomeFileDeleteButton(file, root));
+  item.append(
+    card,
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
   return item;
+}
+
+function createHomeFileViewButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-view';
+  button.dataset.fileName = file.name;
+  button.textContent = 'View';
+  button.setAttribute('aria-label', `View ${file.name}`);
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    void openLibraryFileInViewer(file, root);
+  });
+  return button;
 }
 
 function createHomeFileDeleteButton(

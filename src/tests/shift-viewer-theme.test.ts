@@ -32,13 +32,16 @@ describe('Shift theme for the PDF.js viewer', () => {
     const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
     const selectors = [
       ...theme.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g),
-    ].map(([, selector]) => selector.trim());
+    ]
+      .map(([, selector]) => selector.trim())
+      .filter((selector) => !selector.startsWith('@'));
 
     expect(selectors.length).toBeGreaterThan(5);
     for (const selector of selectors) {
-      expect(selector).toContain('[data-shift-viewer]');
-      // A bare `html` would lose the tokens back to `:root` in viewer.css.
-      expect(selector).toMatch(/^html\[data-shift-viewer\]/);
+      // Attribute equals (`[data-shift-viewer='launchpad']`) still scopes the
+      // rule to a Shift embed; only bare `html` or unscoped selectors fail.
+      expect(selector).toMatch(/\[data-shift-viewer(?:[^\]]*)\]/);
+      expect(selector).toMatch(/^html\[data-shift-viewer/);
     }
   });
 
@@ -59,6 +62,18 @@ describe('Shift theme for the PDF.js viewer', () => {
     await runThemeScript();
 
     expect(document.documentElement.dataset.shiftViewer).toBe('sign');
+  });
+
+  it('themes the launchpad viewer when shiftLaunchpad is set', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/pdfjs-viewer/viewer.html?shiftLaunchpad=1'
+    );
+
+    await runThemeScript();
+
+    expect(document.documentElement.dataset.shiftViewer).toBe('launchpad');
   });
 
   it('themes every other embed the same way', async () => {

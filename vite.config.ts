@@ -648,6 +648,7 @@ export default defineConfig(({ mode }) => {
           'compress-pdf': resolve(__dirname, 'src/pages/compress-pdf.html'),
           'edit-pdf': resolve(__dirname, 'src/pages/edit-pdf.html'),
           'jpg-to-pdf': resolve(__dirname, 'src/pages/jpg-to-pdf.html'),
+          'view-pdf': resolve(__dirname, 'src/pages/view-pdf.html'),
           'sign-pdf': resolve(__dirname, 'src/pages/sign-pdf.html'),
           'crop-pdf': resolve(__dirname, 'src/pages/crop-pdf.html'),
           'extract-pages': resolve(__dirname, 'src/pages/extract-pages.html'),

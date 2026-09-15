@@ -345,3 +345,418 @@ html[data-shift-viewer] .colorPicker {
   --selected-outline-color: var(--action-button-surface-primary-default);
   --swatch-border-color: var(--border-outer-primary);
 }
+
+/* ---- Shift PDF launchpad -------------------------------------------------
+ * The launchpad keeps PDF.js as the document engine while replacing its stock
+ * browser toolbar with the compact preview controls from the Shift design.
+ * Everything is URL-gated so the signing and form-filling embeds stay intact.
+ *
+ * Geometry is driven by CSS variables so the thumbnail rail and floating pill
+ * stay in proportion as the iframe width changes. Narrow viewports collapse the
+ * rail and shrink the pill rather than overflowing the document stage.
+ */
+html[data-shift-viewer='launchpad'] {
+  --toolbar-height: 0px;
+  --launchpad-rail-width: clamp(96px, 18vw, 156px);
+  --launchpad-rail-gap: clamp(12px, 2.5vw, 24px);
+  --launchpad-controls-max: min(408px, calc(100% - 24px));
+  --launchpad-controls-inset: clamp(12px, 3vw, 40px);
+}
+
+html[data-shift-viewer='launchpad'],
+html[data-shift-viewer='launchpad'] body,
+html[data-shift-viewer='launchpad'] #outerContainer {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+html[data-shift-viewer='launchpad'] #toolbarContainer {
+  height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+html[data-shift-viewer='launchpad'] #toolbarViewer,
+html[data-shift-viewer='launchpad'] #loadingBar {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad'] #viewerContainer {
+  inset: 0;
+  overflow: auto;
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
+  transition: inset-inline-start 160ms ease;
+}
+
+html[data-shift-viewer='launchpad']
+  #outerContainer.viewsManagerOpen
+  #viewerContainer {
+  inset-inline-start: calc(
+    var(--launchpad-rail-width) + var(--launchpad-rail-gap)
+  ) !important;
+}
+
+html[data-shift-viewer='launchpad'] #viewerContainer .pdfViewer {
+  padding-block: 19px 34px;
+}
+
+html[data-shift-viewer='launchpad'] #viewerContainer .page {
+  border: 0;
+  box-shadow: 0 1px 2px rgb(var(--shift-chrome-shadow-rgb) / 0.1);
+}
+
+html[data-shift-viewer='launchpad'] #viewsManager {
+  --sidebar-width: var(--launchpad-rail-width);
+  --sidebar-min-width: var(--launchpad-rail-width);
+  --sidebar-max-width: var(--launchpad-rail-width);
+  --sidebar-bg-color: transparent;
+  --sidebar-backdrop-filter: none;
+  --image-border-width: 2px;
+  --image-border-color: var(--border-outer-primary);
+  --image-current-border-color: var(--action-button-surface-primary-default);
+  --image-shadow: 0 0 0 1px var(--image-border-color);
+  --image-hover-shadow: 0 0 0 2px var(--image-hover-border-color);
+  --image-current-shadow: 0 0 0 2px var(--image-current-border-color);
+
+  box-sizing: border-box;
+  inset-block: 0;
+  inset-inline-start: calc(-1 * var(--launchpad-rail-width) - 1px) !important;
+  width: var(--launchpad-rail-width) !important;
+  min-width: var(--launchpad-rail-width) !important;
+  max-width: var(--launchpad-rail-width) !important;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}
+
+html[data-shift-viewer='launchpad']
+  #outerContainer.viewsManagerOpen
+  #viewsManager {
+  inset-inline-start: 0 !important;
+}
+
+html[data-shift-viewer='launchpad']
+  :is(#viewsManagerHeader, #viewsManagerStatus, #viewsManagerResizer) {
+  display: none !important;
+}
+
+html[data-shift-viewer='launchpad'] #viewsManagerContent {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+html[data-shift-viewer='launchpad'] #viewsManagerContent::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad'] #viewsManagerContent #thumbnailsView {
+  --thumbnail-width: 100%;
+
+  box-sizing: border-box;
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0 2px 2px;
+  gap: clamp(12px, 2.5vw, 24px);
+}
+
+html[data-shift-viewer='launchpad'] #thumbnailsView > .thumbnail {
+  width: 100%;
+  scroll-margin-top: 0;
+}
+
+html[data-shift-viewer='launchpad'] #thumbnailsView > .thumbnail > input {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad']
+  #thumbnailsView
+  > .thumbnail
+  > .thumbnailImageContainer {
+  width: 100%;
+  border-radius: var(--radius-8);
+}
+
+html[data-shift-viewer='launchpad']
+  #thumbnailsView
+  > .thumbnail
+  > .thumbnailImageContainer
+  img {
+  border-radius: calc(var(--radius-8) - 2px);
+}
+
+html[data-shift-viewer='launchpad']
+  #thumbnailsView
+  > .thumbnail:not(.isDragging)
+  > .thumbnailImageContainer::after {
+  inset-block: 0 auto;
+  inset-inline: 0 auto;
+  box-sizing: border-box;
+  min-width: 24px;
+  height: 24px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: var(--radius-8) 0 var(--radius-8) 0;
+  font-family: var(--shift-font);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  translate: none;
+}
+
+html[data-shift-viewer='launchpad'] #viewsManagerToggleButton {
+  position: absolute;
+  z-index: 5;
+  inset-block-start: clamp(12px, 2.5vw, 24px);
+  inset-inline-start: clamp(12px, 2.5vw, 24px);
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  transition: inset-inline-start 160ms ease;
+}
+
+html[data-shift-viewer='launchpad']
+  #outerContainer.viewsManagerOpen
+  #viewsManagerToggleButton {
+  inset-inline-start: calc(
+    var(--launchpad-rail-width) + var(--launchpad-rail-gap) +
+      clamp(12px, 2.5vw, 24px)
+  );
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadControls {
+  position: absolute;
+  z-index: 5;
+  inset-block-end: var(--launchpad-controls-inset);
+  inset-inline-start: 50%;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 12px);
+  width: max-content;
+  max-width: var(--launchpad-controls-max);
+  min-height: 48px;
+  padding: 8px clamp(8px, 2vw, 16px) 8px 8px;
+  border: 1px solid var(--border-outer-primary);
+  border-radius: 16px;
+  background: var(--background-bar-primary);
+  box-shadow:
+    0 10px 15px rgb(var(--shift-chrome-shadow-rgb) / 0.1),
+    0 4px 6px rgb(var(--shift-chrome-shadow-rgb) / 0.05);
+  translate: -50% 0;
+  transition: inset-inline-start 160ms ease;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadControls::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad']
+  #outerContainer.viewsManagerOpen
+  #shiftLaunchpadControls {
+  inset-inline-start: calc(
+    50% + (var(--launchpad-rail-width) + var(--launchpad-rail-gap)) / 2
+  );
+}
+
+html[data-shift-viewer='launchpad'] .shiftLaunchpadControlGroup {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+html[data-shift-viewer='launchpad'] .shiftLaunchpadDivider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--border-outer-primary);
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadControls .toolbarButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+}
+
+html[data-shift-viewer='launchpad']
+  #shiftLaunchpadControls
+  .toolbarButton:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+html[data-shift-viewer='launchpad']
+  #shiftLaunchpadControls
+  .toolbarButton:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadControls #pageNumber {
+  box-sizing: border-box;
+  width: 40px;
+  height: 32px;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--background-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadPageTotal {
+  box-sizing: border-box;
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+html[data-shift-viewer='launchpad'] #scaleSelectContainer {
+  width: 64px;
+  height: 32px;
+  margin: 0;
+  border: 1px solid var(--background-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+}
+
+html[data-shift-viewer='launchpad'] #scaleSelectContainer::after {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad'] #scaleSelect {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  text-align-last: center;
+  appearance: none;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadFit {
+  width: auto !important;
+  min-width: 32px;
+  gap: 4px;
+  padding-inline: 8px !important;
+  color: var(--text-primary);
+  font-family: var(--shift-font);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadFit::before {
+  display: none;
+}
+
+html[data-shift-viewer='launchpad'] #shiftLaunchpadFit svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Below ~560px the document stage is too tight for a persistent rail. Keep the
+   toggle reachable and leave the document full-bleed unless the user opens it. */
+@media (max-width: 560px) {
+  html[data-shift-viewer='launchpad'] {
+    --launchpad-rail-width: 88px;
+    --launchpad-rail-gap: 8px;
+    --launchpad-controls-max: calc(100% - 16px);
+    --launchpad-controls-inset: 12px;
+  }
+
+  html[data-shift-viewer='launchpad'] #shiftLaunchpadControls {
+    min-height: 44px;
+    padding: 6px 8px;
+  }
+
+  html[data-shift-viewer='launchpad'] #scaleSelectContainer {
+    width: 52px;
+  }
+
+  html[data-shift-viewer='launchpad'] #shiftLaunchpadFit span {
+    display: none;
+  }
+
+  html[data-shift-viewer='launchpad']
+    #outerContainer.viewsManagerOpen
+    #viewerContainer {
+    inset-inline-start: 0 !important;
+  }
+
+  html[data-shift-viewer='launchpad']
+    #outerContainer.viewsManagerOpen
+    #viewsManager {
+    z-index: 6;
+    background: color-mix(
+      in srgb,
+      var(--background-bar-primary) 94%,
+      transparent
+    );
+    box-shadow: 0 0 0 1px var(--border-outer-primary);
+  }
+
+  html[data-shift-viewer='launchpad']
+    #outerContainer.viewsManagerOpen
+    #viewsManagerToggleButton,
+  html[data-shift-viewer='launchpad']
+    #outerContainer.viewsManagerOpen
+    #shiftLaunchpadControls {
+    inset-inline-start: calc(
+      var(--launchpad-rail-width) + var(--launchpad-rail-gap) + 12px
+    );
+  }
+
+  html[data-shift-viewer='launchpad']
+    #outerContainer.viewsManagerOpen
+    #shiftLaunchpadControls {
+    translate: 0 0;
+    max-width: calc(100% - var(--launchpad-rail-width) - 24px);
+  }
+}

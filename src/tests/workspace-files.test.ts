@@ -29,6 +29,7 @@ import {
   initWorkspaceFileIndicator,
   markFileFromHandoff,
   markFileLibraryId,
+  openLibraryFileInViewer,
   renderWorkspaceFiles,
   resetWorkspaceFileIndicator,
   setHomeLibraryFiles,
@@ -2415,6 +2416,52 @@ describe('workspace files sidebar', () => {
     expect(
       document.querySelector('.shift-open-file-thumb .shift-my-pdfs-delete')
     ).toBeNull();
+  });
+
+  it('offers a View button on every library row and thumbnail', () => {
+    mountLibrary();
+    const first = new File(['first'], 'first.pdf', {
+      type: 'application/pdf',
+    });
+    const second = new File(['second'], 'second.pdf', {
+      type: 'application/pdf',
+    });
+    setHomeLibraryFiles([first, second]);
+
+    const rowButtons = document.querySelectorAll(
+      '#shift-my-pdfs-body .shift-my-pdfs-view'
+    );
+    const thumbButtons = document.querySelectorAll(
+      '#shift-my-pdfs-thumbs .shift-my-pdfs-view'
+    );
+
+    expect(rowButtons).toHaveLength(2);
+    expect(thumbButtons).toHaveLength(2);
+    expect(rowButtons[0]?.textContent).toBe('View');
+    expect(rowButtons[0]?.getAttribute('aria-label')).toBe('View first.pdf');
+    expect(
+      document.querySelector('.shift-open-file-thumb .shift-my-pdfs-view')
+    ).toBeNull();
+  });
+
+  it('persists one library PDF before opening its viewer', async () => {
+    mountLibrary();
+    const file = new File(['pdf'], 'viewer.pdf', {
+      type: 'application/pdf',
+    });
+    const assignLocation = vi.fn();
+
+    await expect(
+      openLibraryFileInViewer(
+        { name: file.name, size: file.size, source: 'upload', blob: file },
+        document,
+        assignLocation
+      )
+    ).resolves.toBe(true);
+
+    expect(assignLocation).toHaveBeenCalledWith('/view-pdf.html');
+    expect(getWorkspaceFiles()).toHaveLength(1);
+    expect((await readPersistedOpenFile())?.name).toBe('viewer.pdf');
   });
 
   it('paints thumbnails when the library first renders in list view', async () => {
