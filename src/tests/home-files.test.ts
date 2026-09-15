@@ -11,6 +11,7 @@ import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
   addPdfToLibrary,
   clearPdfLibrary,
+  readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import {
   clearWorkspaceOpenFile,
@@ -68,6 +69,7 @@ afterEach(async () => {
   document.body.className = '';
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -122,6 +124,39 @@ describe('home files', () => {
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('briefing.pdf');
+  });
+
+  it('uses file handles when the host picker is available', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    const file = new File(['%PDF'], 'handled.pdf', {
+      type: 'application/pdf',
+    });
+    const handle = {
+      getFile: vi.fn().mockResolvedValue(file),
+      isSameEntry: vi.fn(),
+      kind: 'file',
+      name: file.name,
+    } as unknown as FileSystemFileHandle;
+    const showOpenFilePicker = vi.fn().mockResolvedValue([handle]);
+    vi.stubGlobal('showOpenFilePicker', showOpenFilePicker);
+    mountHome();
+    initHomeFiles();
+
+    document.getElementById('drop-zone')?.click();
+
+    await vi.waitFor(() => {
+      expect(showOpenFilePicker).toHaveBeenCalledOnce();
+      expect(getWorkspaceFiles()[0]).toMatchObject({
+        name: 'handled.pdf',
+        handle,
+      });
+    });
+    await expect(readPdfLibrary()).resolves.toEqual([
+      expect.objectContaining({
+        name: 'handled.pdf',
+        handle,
+      }),
+    ]);
   });
 
   it('shows a dropped PDF in the all-tools sidebar file list', async () => {

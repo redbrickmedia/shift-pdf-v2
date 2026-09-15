@@ -1590,6 +1590,63 @@ describe('workspace files sidebar', () => {
     ).toBeNull();
   });
 
+  it('renames a handled PDF on disk and in the library', async () => {
+    mountLibrary();
+    const handle = {
+      queryPermission: vi.fn().mockResolvedValue('granted'),
+      move: vi.fn().mockResolvedValue(undefined),
+      kind: 'file',
+      getFile: vi.fn(),
+    } as unknown as FileSystemFileHandle;
+    const saved = await addPdfToLibrary(
+      new File(['pdf'], 'report.pdf', { type: 'application/pdf' }),
+      'handoff',
+      { handle }
+    );
+    setHomeLibraryFiles([
+      {
+        id: saved.id,
+        name: saved.name,
+        size: saved.size,
+        source: saved.source,
+        blob: saved.file,
+        handle,
+      },
+    ]);
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '#shift-my-pdfs-body .shift-my-pdfs-rename'
+      )
+      ?.click();
+    const input = document.querySelector<HTMLInputElement>(
+      '.shift-confirm-input'
+    );
+    expect(input?.value).toBe('report.pdf');
+    if (input) input.value = 'Q1 report';
+    document.querySelector<HTMLButtonElement>('.shift-confirm-accept')?.click();
+
+    await vi.waitFor(async () => {
+      const [entry] = await readPdfLibrary();
+      expect(entry?.name).toBe('Q1 report.pdf');
+    });
+    expect(
+      (handle as FileSystemFileHandle & { move: ReturnType<typeof vi.fn> }).move
+    ).toHaveBeenCalledWith('Q1 report.pdf');
+    expect(document.querySelector('.shift-my-pdfs-row')?.textContent).toContain(
+      'Q1 report.pdf'
+    );
+  });
+
+  it('hides rename when the library entry has no file handle', () => {
+    mountLibrary();
+    setHomeLibraryFiles([
+      { id: 'a', name: 'keep.pdf', size: 10, source: 'upload' },
+    ]);
+
+    expect(document.querySelector('.shift-my-pdfs-rename')).toBeNull();
+  });
+
   it('paints thumbnails when the library first renders in list view', async () => {
     document.body.innerHTML = `
       <section id="shift-my-pdfs" data-view="thumbnail">

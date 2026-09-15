@@ -97,3 +97,103 @@ export function confirmAction({
     (destructive ? cancel : confirm).focus();
   });
 }
+
+export function promptFilename({
+  root = document,
+  title,
+  message,
+  initialValue,
+  confirmLabel = 'Rename',
+  cancelLabel = 'Cancel',
+}: {
+  root?: Document;
+  title: string;
+  message: string;
+  initialValue: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+}): Promise<string | null> {
+  closeConfirmDialog(root);
+
+  return new Promise((resolve) => {
+    const previouslyFocused = root.activeElement as HTMLElement | null;
+    let settled = false;
+
+    const overlay = root.createElement('div');
+    overlay.id = DIALOG_ID;
+    overlay.className = 'shift-confirm-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'shift-confirm-title');
+    overlay.setAttribute('aria-describedby', 'shift-confirm-message');
+
+    const panel = root.createElement('div');
+    panel.className = 'shift-confirm-panel';
+
+    const heading = root.createElement('h2');
+    heading.id = 'shift-confirm-title';
+    heading.className = 'shift-confirm-title';
+    heading.textContent = title;
+
+    const body = root.createElement('p');
+    body.id = 'shift-confirm-message';
+    body.className = 'shift-confirm-message';
+    body.textContent = message;
+
+    const input = root.createElement('input');
+    input.className = 'shift-confirm-input';
+    input.type = 'text';
+    input.value = initialValue;
+    input.setAttribute('aria-label', title);
+
+    const actions = root.createElement('div');
+    actions.className = 'shift-confirm-actions';
+
+    const cancel = root.createElement('button');
+    cancel.type = 'button';
+    cancel.className =
+      'shift-button shift-button-secondary shift-confirm-cancel';
+    cancel.textContent = cancelLabel;
+
+    const confirm = root.createElement('button');
+    confirm.type = 'button';
+    confirm.className = 'shift-button shift-confirm-accept';
+    confirm.textContent = confirmLabel;
+
+    const settle = (result: string | null) => {
+      if (settled) return;
+      settled = true;
+      root.removeEventListener('keydown', onKeydown, true);
+      overlay.remove();
+      previouslyFocused?.focus?.();
+      resolve(result);
+    };
+
+    function onKeydown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        settle(null);
+      }
+    }
+
+    cancel.addEventListener('click', () => settle(null));
+    confirm.addEventListener('click', () => settle(input.value));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        settle(input.value);
+      }
+    });
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) settle(null);
+    });
+    root.addEventListener('keydown', onKeydown, true);
+
+    actions.append(cancel, confirm);
+    panel.append(heading, body, input, actions);
+    overlay.append(panel);
+    root.body.appendChild(overlay);
+    input.focus();
+    input.select();
+  });
+}

@@ -545,6 +545,7 @@ describe('openConvertSourcePicker', () => {
         size: 3,
         addedAt: Date.now(),
         source: 'upload',
+        availability: 'ready',
         file: pdf('saved.pdf', 'one'),
       },
     ]);

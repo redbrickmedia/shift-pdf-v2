@@ -73,26 +73,52 @@ export const formatBytes = (bytes: number, decimals = 1) => {
 
 export const PDF_OUTPUT_DOWNLOADED_EVENT = 'shift:pdf-output-downloaded';
 
+export type PdfOutputInterceptor = (
+  blob: Blob,
+  filename: string
+) => Promise<boolean>;
+
+let pdfOutputInterceptor: PdfOutputInterceptor | undefined;
+
+export function registerPdfOutputInterceptor(
+  interceptor: PdfOutputInterceptor
+): void {
+  pdfOutputInterceptor = interceptor;
+}
+
+function isPdfOutput(blob: Blob, filename: string): boolean {
+  return (
+    blob.type === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')
+  );
+}
+
 export const downloadFile = (blob: Blob, filename: string): void => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  if (
-    blob.type === 'application/pdf' ||
-    filename.toLowerCase().endsWith('.pdf')
-  ) {
-    document.dispatchEvent(
-      new CustomEvent(PDF_OUTPUT_DOWNLOADED_EVENT, {
-        detail: { blob, filename },
-      })
-    );
-  }
   endToolUse('success');
+  void (async () => {
+    if (
+      isPdfOutput(blob, filename) &&
+      pdfOutputInterceptor &&
+      (await pdfOutputInterceptor(blob, filename))
+    ) {
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (isPdfOutput(blob, filename)) {
+      document.dispatchEvent(
+        new CustomEvent(PDF_OUTPUT_DOWNLOADED_EVENT, {
+          detail: { blob, filename },
+        })
+      );
+    }
+  })();
 };
 
 export const readFileAsArrayBuffer = (

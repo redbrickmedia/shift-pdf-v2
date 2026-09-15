@@ -132,6 +132,7 @@ describe('tool empty state', () => {
             type: 'application/pdf',
             size: selected.size,
             source: 'upload',
+            availability: 'ready',
             addedAt: Date.now(),
             file: selected,
           },

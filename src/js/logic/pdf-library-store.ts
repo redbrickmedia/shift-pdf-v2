@@ -1,4 +1,16 @@
+import { ensureHandlePermission } from './pdf-file-handle.js';
+
 export type PdfLibrarySource = 'upload' | 'handoff' | 'download';
+
+/**
+ * `needs-permission` means the file is still on disk but this session has no
+ * grant for it yet; a user gesture can restore access. `unavailable` means the
+ * handle no longer resolves, so the bytes cannot be recovered without relinking.
+ */
+export type PdfLibraryAvailability =
+  | 'ready'
+  | 'needs-permission'
+  | 'unavailable';
 
 export type PdfLibraryEntry = {
   id: string;
@@ -7,7 +19,9 @@ export type PdfLibraryEntry = {
   size: number;
   addedAt: number;
   source: PdfLibrarySource;
+  availability: PdfLibraryAvailability;
   file: File;
+  handle?: FileSystemFileHandle;
 };
 
 type StoredPdfLibraryRecord = Omit<PdfLibraryEntry, 'file'> & {
@@ -17,12 +31,13 @@ type StoredPdfLibraryRecord = Omit<PdfLibraryEntry, 'file'> & {
 type OriginalSavedPdfRecord = {
   id: string;
   filename: string;
-  base64: string;
+  base64?: string;
   dateAddedTimestamp: number;
   folderId: string;
   pageCount: number;
   sizeInBytes: number;
   source?: PdfLibrarySource;
+  handle?: FileSystemFileHandle;
 };
 
 const DB_NAME = 'SavedPdfDatabase';
@@ -34,15 +49,36 @@ let libraryGeneration = 0;
 
 export async function addPdfToLibrary(
   file: File,
-  source: PdfLibrarySource
+  source: PdfLibrarySource,
+  options: { handle?: FileSystemFileHandle } = {}
 ): Promise<PdfLibraryEntry> {
   const generation = libraryGeneration;
   const buffer = await file.arrayBuffer();
   const type = file.type || 'application/pdf';
-  const base64 = bufferToDataUri(buffer, type);
-  const duplicate = await findStoredDuplicate(file.name, file.size, base64);
+  const base64 = options.handle ? undefined : bufferToDataUri(buffer, type);
+  const duplicate = await findStoredDuplicate({
+    base64,
+    handle: options.handle,
+    name: file.name,
+    size: file.size,
+  });
   if (duplicate && generation === libraryGeneration) {
-    if (!memoryRecords.some((existing) => existing.id === duplicate.id)) {
+    if (options.handle) {
+      duplicate.handle = options.handle;
+      duplicate.availability = 'ready';
+      try {
+        await withStore('readwrite', (store) =>
+          store.put(toOriginalSavedPdfRecord(duplicate), duplicate.id)
+        );
+      } catch {
+        // Keep the handle available in memory when IndexedDB is unavailable.
+      }
+    }
+    if (memoryRecords.some((existing) => existing.id === duplicate.id)) {
+      memoryRecords = memoryRecords.map((existing) =>
+        existing.id === duplicate.id ? duplicate : existing
+      );
+    } else {
       memoryRecords = [...memoryRecords, duplicate];
     }
     return toLibraryEntry(duplicate);
@@ -56,7 +92,9 @@ export async function addPdfToLibrary(
     size: file.size,
     addedAt: Math.max(Date.now(), lastAddedAt + 1),
     source,
+    availability: 'ready',
     buffer,
+    handle: options.handle,
   };
 
   if (generation !== libraryGeneration) {
@@ -79,14 +117,14 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
   try {
     const stored = await withStore('readonly', (store) => store.getAll());
     if (Array.isArray(stored)) {
-      records = stored.flatMap((value) => {
-        if (!isOriginalSavedPdfRecord(value)) return [];
-        try {
-          return [fromOriginalSavedPdfRecord(value)];
-        } catch {
-          return [];
-        }
-      });
+      records = (
+        await Promise.all(
+          stored.map(async (value) => {
+            if (!isOriginalSavedPdfRecord(value)) return null;
+            return await fromOriginalSavedPdfRecord(value);
+          })
+        )
+      ).filter((record): record is StoredPdfLibraryRecord => record !== null);
       memoryRecords = records;
     }
   } catch {
@@ -97,6 +135,94 @@ export async function readPdfLibrary(): Promise<PdfLibraryEntry[]> {
     .slice()
     .sort((left, right) => right.addedAt - left.addedAt)
     .map(toLibraryEntry);
+}
+
+export async function updatePdfInLibrary(
+  id: string,
+  values: { file?: File; name?: string; handle?: FileSystemFileHandle }
+): Promise<PdfLibraryEntry | undefined> {
+  const records = await readStoredRecords();
+  const current = records.find((record) => record.id === id);
+  if (!current) return undefined;
+
+  if (values.file) {
+    current.buffer = await values.file.arrayBuffer();
+    current.type = values.file.type || current.type;
+    current.size = values.file.size;
+  }
+  if (values.name) {
+    current.name = values.name;
+  }
+  if (values.handle) {
+    current.handle = values.handle;
+    current.availability = 'ready';
+  }
+
+  memoryRecords = records.map((record) =>
+    record.id === id ? current : record
+  );
+  try {
+    await withStore('readwrite', (store) =>
+      store.put(toOriginalSavedPdfRecord(current), current.id)
+    );
+  } catch {
+    // Keep the in-memory library available when IndexedDB is unavailable.
+  }
+  return toLibraryEntry(current);
+}
+
+export async function findWritableLibraryEntry(file: {
+  id?: string;
+  name: string;
+  size?: number;
+  handle?: FileSystemFileHandle;
+}): Promise<PdfLibraryEntry | undefined> {
+  const entries = await readPdfLibrary();
+  const entry = entries.find((candidate) => {
+    if (!candidate.handle && !file.handle) return false;
+    if (file.id) return candidate.id === file.id;
+    return candidate.name === file.name && candidate.size === file.size;
+  });
+  const handle = entry?.handle ?? file.handle;
+  if (!entry || !handle) return undefined;
+  return { ...entry, handle };
+}
+
+/**
+ * Must be called from a user gesture so the permission prompt is allowed.
+ */
+export async function restoreLibraryEntryAccess(
+  id: string
+): Promise<PdfLibraryEntry | undefined> {
+  const records = await readStoredRecords();
+  const current = records.find((record) => record.id === id);
+  if (!current?.handle) return undefined;
+  if (current.availability === 'ready') return toLibraryEntry(current);
+  if (!(await ensureHandlePermission(current.handle, 'read'))) {
+    return toLibraryEntry(current);
+  }
+
+  try {
+    const file = await current.handle.getFile();
+    current.buffer = await file.arrayBuffer();
+    current.name = file.name;
+    current.size = file.size;
+    current.type = file.type || current.type;
+    current.availability = 'ready';
+  } catch (error) {
+    current.availability = classifyHandleFailure(error);
+    return toLibraryEntry(current);
+  }
+
+  memoryRecords = records.map((record) =>
+    record.id === id ? current : record
+  );
+  return toLibraryEntry(current);
+}
+
+async function readStoredRecords(): Promise<StoredPdfLibraryRecord[]> {
+  await readPdfLibrary();
+  return memoryRecords;
 }
 
 export async function removePdfFromLibrary(id: string): Promise<void> {
@@ -118,21 +244,36 @@ export async function clearPdfLibrary(): Promise<void> {
   }
 }
 
-async function findStoredDuplicate(
-  name: string,
-  size: number,
-  base64: string
-): Promise<StoredPdfLibraryRecord | null> {
-  const matches = (value: unknown): value is OriginalSavedPdfRecord =>
-    isOriginalSavedPdfRecord(value) &&
-    value.filename === name &&
-    value.sizeInBytes === size &&
-    value.base64 === base64;
-
+async function findStoredDuplicate({
+  base64,
+  handle,
+  name,
+  size,
+}: {
+  base64?: string;
+  handle?: FileSystemFileHandle;
+  name: string;
+  size: number;
+}): Promise<StoredPdfLibraryRecord | null> {
   try {
     const stored = await withStore('readonly', (store) => store.getAll());
-    const match = Array.isArray(stored) ? stored.find(matches) : undefined;
-    if (match) return fromOriginalSavedPdfRecord(match);
+    if (Array.isArray(stored)) {
+      for (const value of stored) {
+        if (!isOriginalSavedPdfRecord(value)) continue;
+        const sameHandle =
+          handle &&
+          value.handle &&
+          (await handlesReferToSameFile(handle, value.handle));
+        const sameCopy =
+          base64 !== undefined &&
+          value.filename === name &&
+          value.sizeInBytes === size &&
+          value.base64 === base64;
+        if (sameHandle || sameCopy) {
+          return await fromOriginalSavedPdfRecord(value);
+        }
+      }
+    }
   } catch {
     // Fall back to the in-memory library when IndexedDB is unavailable.
   }
@@ -140,11 +281,25 @@ async function findStoredDuplicate(
   return (
     memoryRecords.find(
       (record) =>
-        record.name === name &&
-        record.size === size &&
-        bufferToDataUri(record.buffer, record.type) === base64
+        (handle && record.handle && record.handle === handle) ||
+        (base64 !== undefined &&
+          record.name === name &&
+          record.size === size &&
+          bufferToDataUri(record.buffer, record.type) === base64)
     ) ?? null
   );
+}
+
+async function handlesReferToSameFile(
+  left: FileSystemFileHandle,
+  right: FileSystemFileHandle
+): Promise<boolean> {
+  if (left === right) return true;
+  try {
+    return await left.isSameEntry(right);
+  } catch {
+    return false;
+  }
 }
 
 function createId(): string {
@@ -162,7 +317,7 @@ function isOriginalSavedPdfRecord(
   return (
     typeof record.id === 'string' &&
     typeof record.filename === 'string' &&
-    typeof record.base64 === 'string' &&
+    (typeof record.base64 === 'string' || isStoredFileHandle(record.handle)) &&
     typeof record.dateAddedTimestamp === 'number' &&
     typeof record.sizeInBytes === 'number'
   );
@@ -170,7 +325,9 @@ function isOriginalSavedPdfRecord(
 
 function toOriginalSavedPdfRecord(
   record: StoredPdfLibraryRecord,
-  base64 = bufferToDataUri(record.buffer, record.type)
+  base64 = record.handle
+    ? undefined
+    : bufferToDataUri(record.buffer, record.type)
 ): OriginalSavedPdfRecord {
   return {
     id: record.id,
@@ -181,24 +338,61 @@ function toOriginalSavedPdfRecord(
     pageCount: 0,
     sizeInBytes: record.size,
     source: record.source,
+    handle: record.handle,
   };
 }
 
-function fromOriginalSavedPdfRecord(
+async function fromOriginalSavedPdfRecord(
   record: OriginalSavedPdfRecord
-): StoredPdfLibraryRecord {
+): Promise<StoredPdfLibraryRecord> {
+  let handledFile: File | undefined;
+  let availability: PdfLibraryAvailability = 'ready';
+  if (record.handle) {
+    try {
+      handledFile = await record.handle.getFile();
+    } catch (error) {
+      availability = classifyHandleFailure(error);
+    }
+  }
+  const buffer = handledFile
+    ? await handledFile.arrayBuffer()
+    : dataUriToBuffer(record.base64 ?? '');
   return {
     id: record.id,
-    name: record.filename,
-    type: 'application/pdf',
-    size: record.sizeInBytes,
+    name: handledFile?.name ?? record.filename,
+    type: handledFile?.type || 'application/pdf',
+    size: handledFile?.size ?? record.sizeInBytes,
     addedAt: record.dateAddedTimestamp,
     source:
       record.source === 'handoff' || record.source === 'download'
         ? record.source
         : 'upload',
-    buffer: dataUriToBuffer(record.base64),
+    availability,
+    buffer,
+    handle: record.handle,
   };
+}
+
+/**
+ * A revoked grant is recoverable from a user gesture; anything else means the
+ * handle no longer points at a readable file.
+ */
+export function classifyHandleFailure(error: unknown): PdfLibraryAvailability {
+  const name = error instanceof DOMException ? error.name : '';
+  return name === 'NotAllowedError' || name === 'SecurityError'
+    ? 'needs-permission'
+    : 'unavailable';
+}
+
+function isStoredFileHandle(value: unknown): value is FileSystemFileHandle {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'kind' in value &&
+    value.kind === 'file' &&
+    'getFile' in value &&
+    typeof value.getFile === 'function'
+  );
 }
 
 function bufferToDataUri(buffer: ArrayBuffer, type: string): string {
@@ -226,7 +420,9 @@ function toLibraryEntry(record: StoredPdfLibraryRecord): PdfLibraryEntry {
     size: record.size,
     addedAt: record.addedAt,
     source: record.source,
+    availability: record.availability,
     file: new File([record.buffer], record.name, { type: record.type }),
+    handle: record.handle,
   };
 }
 
