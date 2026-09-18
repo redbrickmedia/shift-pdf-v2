@@ -57,11 +57,11 @@
 
 .md-editor-btn-primary {
   color: white;
-  background: rgb(79, 70, 229);
+  background: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .md-editor-btn-primary:hover {
-  background: rgb(99, 102, 241);
+  background: var(--action-button-surface-primary-hover, #1d4ed8);
 }
 
 .md-editor-btn:disabled {
@@ -105,7 +105,7 @@
 }
 
 .theme-toggle-slider.active {
-  background: rgb(79, 70, 229);
+  background: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .theme-toggle-slider.active::before {
@@ -291,7 +291,7 @@
   margin: 1em 0;
   padding: 0 1em;
   color: rgb(156, 163, 175);
-  border-left: 4px solid rgb(79, 70, 229);
+  border-left: 4px solid var(--action-button-surface-primary-default, #2563eb);
 }
 
 .md-editor-preview ul,
@@ -374,7 +374,7 @@
 
 .md-editor.light-mode .md-editor-preview blockquote {
   color: rgb(75, 85, 99);
-  border-left-color: rgb(99, 102, 241);
+  border-left-color: var(--action-button-surface-primary-default, #2563eb);
 }
 
 .md-editor.light-mode .md-editor-preview th,
@@ -570,7 +570,7 @@
 
 .md-editor-settings-group select:focus {
   outline: none;
-  border-color: rgb(79, 70, 229);
+  border-color: var(--form-input-border-focus, #3b82f6);
 }
 
 /* Print Styles */

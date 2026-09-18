@@ -6,6 +6,10 @@ import {
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { createIcons, icons } from 'lucide';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import {
+  applyPdfViewerDownloadFilename,
+  encodePdfjsViewerFileParam,
+} from '../utils/pdfjs-viewer-filename.js';
 import { syncSeededToolFiles } from './tool-file-seed.js';
 
 let selectedFile: File | null = null;
@@ -101,10 +105,11 @@ function updateFileList() {
   infoDiv.append(nameSpan, sizeSpan);
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.className =
-    'text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2';
-  deleteBtn.title = 'Remove file';
-  deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'p-2 flex-shrink-0 ml-2 shift-tool-file-remove';
+  deleteBtn.setAttribute('aria-label', `Remove ${selectedFile.name}`);
+  deleteBtn.title = `Remove ${selectedFile.name}`;
+  deleteBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   deleteBtn.onclick = (e) => {
     e.stopPropagation();
     resetState();
@@ -185,26 +190,33 @@ async function loadPdfInViewer(file: File) {
   );
   const stampUserName = usernameInput?.value?.trim() || '';
   // ae_username is the hash parameter used by pdfjs-annotation-extension to set the username
+  // (page URL hash). The source filename lives inside the encoded `file` blob URL hash.
   const hashParams = stampUserName
     ? `#ae_username=${encodeURIComponent(stampUserName)}`
     : '';
-  iframe.src = `${viewerUrl.toString()}?file=${encodeURIComponent(currentBlobUrl)}${hashParams}`;
+  iframe.src = `${viewerUrl.toString()}?file=${encodePdfjsViewerFileParam(currentBlobUrl, file.name)}${hashParams}`;
 
   iframe.addEventListener('load', () => {
-    setupAnnotationViewer(iframe);
+    setupAnnotationViewer(iframe, file.name);
   });
 
   viewerContainer.appendChild(iframe);
   viewerIframe = iframe;
 }
 
-function setupAnnotationViewer(iframe: HTMLIFrameElement) {
+function setupAnnotationViewer(
+  iframe: HTMLIFrameElement,
+  sourceFilename?: string
+) {
   try {
     const win = iframe.contentWindow as
       | (Window & {
           PDFViewerApplication?: {
             initializedPromise?: Promise<void>;
             eventBus?: { _on?: (event: string, callback: () => void) => void };
+            _contentDispositionFilename?: string | null;
+            _title?: string;
+            setTitle?: (title: string) => void;
           };
         })
       | null;
@@ -217,6 +229,7 @@ function setupAnnotationViewer(iframe: HTMLIFrameElement) {
         if (app?.initializedPromise) {
           await app.initializedPromise;
         }
+        applyPdfViewerDownloadFilename(app, sourceFilename);
 
         const eventBus = app?.eventBus;
         if (eventBus && typeof eventBus._on === 'function') {

@@ -1,7 +1,11 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import { confirmAction } from './confirm-dialog.js';
-import { removePdfFromLibrary } from './pdf-library-store.js';
+import {
+  addPdfToLibrary,
+  readPdfLibrary,
+  removePdfFromLibrary,
+} from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
   hasOpenFileFlag,
@@ -21,6 +25,9 @@ import {
   resetMyPdfsSearch,
 } from './my-pdfs-search.js';
 import { findToolFileInput } from './tool-file-seed.js';
+import { loadFavoriteRailSnapshot } from './tool-favorites.js';
+import { categories } from '../config/tools.js';
+import { isPdfFile } from '../utils/pdf-file.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
@@ -46,8 +53,13 @@ const EMPTY_LIBRARY_ACTION = 'Choose files';
 const DELETE_ICON_PATH =
   'M5.75 7.25h12.5M9.75 7.25V5.75a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1v1.5M7.25 7.25l.7 11a1 1 0 0 0 1 .95h6.1a1 1 0 0 0 1-.95l.7-11M10.5 10.75v5M13.5 10.75v5';
 const MY_PDFS_SELECT_ALL_ID = 'shift-my-pdfs-select-all';
+const MY_PDFS_TABLE_SELECT_ALL_ID = 'shift-my-pdfs-table-select-all';
 const MY_PDFS_SELECTION_COUNT_ID = 'shift-my-pdfs-selection-count';
 const MY_PDFS_DELETE_SELECTED_ID = 'shift-my-pdfs-delete-selected';
+const MY_PDFS_MORE_TOOLS_ID = 'shift-my-pdfs-more-tools';
+const MY_PDFS_MORE_TOOLS_MENU_ID = 'shift-my-pdfs-more-tools-menu';
+const MORE_TOOLS_CARET_PATH = 'm6 9.5 6 6 6-6';
+const MAX_OPEN_WITH_FAVORITES = 3;
 
 export type WorkspaceFileSource = 'upload' | 'handoff' | 'download';
 
@@ -63,6 +75,8 @@ export type WorkspaceFileInfo = {
 export type HomeOpenFileView = 'list' | 'thumbnail';
 
 const fileOrigins = new WeakMap<File, WorkspaceFileSource>();
+/** Stable My PDFs ids attached to File blobs so selection can round-trip. */
+const fileLibraryIds = new WeakMap<File, string>();
 
 /* A rebuilt sidebar must never show the placeholder icon again for a PDF it has
    already drawn: re-rendering takes ~100ms, which reads as a flash. Painted
@@ -72,6 +86,10 @@ const fileOrigins = new WeakMap<File, WorkspaceFileSource>();
 const sidebarThumbnailCanvases = new Map<string, HTMLCanvasElement>();
 let sidebarThumbnailDataUrls: Map<string, string> | null = null;
 let sidebarThumbnailsSerializable = true;
+
+/* Blobs already offered to the library, so repeat renders of the same
+   selection do not re-hash them. */
+const adoptedIntoLibrary = new WeakSet<File>();
 
 let currentFiles: WorkspaceFileInfo[] = [];
 let homeLibraryFiles: WorkspaceFileInfo[] = [];
@@ -86,6 +104,15 @@ let thumbnailRenderToken = 0;
 let sidebarThumbnailToken = 0;
 let viewToggleBoundRoot: Document | null = null;
 let myPdfsChromeBoundRoot: Document | null = null;
+const myPdfsSelectionDelegated = new WeakSet<Document>();
+
+/* Pinned-favorite overflow. Kept at module scope because a resize has to
+   re-measure a row nobody is rebuilding. */
+let favoriteOverflowObserver: ResizeObserver | null = null;
+let observedControlsRow: HTMLElement | null = null;
+let lastControlsRowWidth = -1;
+let collapsedFavoriteKey = '';
+let measuringFavoriteOverflow = false;
 
 export function markFileFromHandoff(file: File): File {
   fileOrigins.set(file, 'handoff');
@@ -97,9 +124,20 @@ export function markFileFromDownload(file: File): File {
   return file;
 }
 
+export function markFileLibraryId(file: File, id: string): File {
+  if (id) fileLibraryIds.set(file, id);
+  return file;
+}
+
+export function getLibraryIdForFile(file: File): string | undefined {
+  return fileLibraryIds.get(file);
+}
+
 export function copyFileOrigin(from: File, to: File): File {
   const origin = fileOrigins.get(from);
   if (origin) fileOrigins.set(to, origin);
+  const libraryId = fileLibraryIds.get(from);
+  if (libraryId) fileLibraryIds.set(to, libraryId);
   return to;
 }
 
@@ -141,7 +179,90 @@ export function setWorkspaceFiles(
     .map((file) => toFileInfo(file, currentFiles))
     .filter((file): file is WorkspaceFileInfo => file !== null);
   void persistCurrentOpenFile();
+  adoptSelectionIntoLibrary(root);
   renderWorkspaceFiles(root);
+}
+
+export async function syncHomeLibraryFromStore(
+  root: Document = document,
+  epoch: number = homeLibraryEpoch
+): Promise<void> {
+  const entries = await readPdfLibrary();
+  setHomeLibraryFiles(
+    entries.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      size: entry.size,
+      source: entry.source,
+      addedAt: entry.addedAt,
+      blob: entry.file,
+    })),
+    root,
+    epoch
+  );
+  if (epoch === homeLibraryEpoch) {
+    reconcileWorkspaceLibraryIds();
+  }
+}
+
+/**
+ * Keep the sidebar and My PDFs in agreement: anything shown as selected must
+ * have a library record behind it.
+ *
+ * Home uploads save themselves in addOpenFiles, but tool pages set the
+ * workspace straight from their own pickers and drop zones, so a file opened
+ * inside a tool used to reach the sidebar and nothing else. Saving the tool's
+ * output then added a library row for the result only, which read as the
+ * original being replaced. Every path that fills the sidebar ends up here, so
+ * this is the one place the invariant can hold for all of them.
+ */
+function adoptSelectionIntoLibrary(root: Document): void {
+  const pending = currentFiles.filter(
+    (file): file is WorkspaceFileInfo & { blob: File } =>
+      file.blob instanceof File &&
+      isPdfBlob(file.blob) &&
+      !adoptedIntoLibrary.has(file.blob) &&
+      !homeLibraryFiles.some(
+        (entry) => entry.name === file.name && entry.size === file.size
+      )
+  );
+  if (pending.length === 0) return;
+
+  // Claim them before the first await: setWorkspaceFiles fires several times
+  // in a tick, and each pass would otherwise re-hash the same blobs.
+  for (const file of pending) adoptedIntoLibrary.add(file.blob);
+
+  // Adds run in series so each one sees the previous write and can dedupe
+  // against it. The epoch is captured now so a reset or delete mid-flight
+  // discards the refresh — and rolls back any write that finished after the
+  // user already removed the PDF, which is how a ghost used to reappear.
+  const epoch = homeLibraryEpoch;
+  void (async () => {
+    for (const file of pending) {
+      const saved = await addPdfToLibrary(file.blob, file.source);
+      // Delete bumps the epoch. Only roll back this write when the PDF is
+      // gone from both the grid and the selection — a sibling that is still
+      // selected must stay, or deleting one in-flight file would abandon the
+      // other (and `adoptedIntoLibrary` would never retry it).
+      if (epoch !== homeLibraryEpoch && !isLibraryFileCurrent(file)) {
+        await removePdfFromLibrary(saved.id);
+        continue;
+      }
+      markFileLibraryId(file.blob, saved.id);
+      const selected = currentFiles.find((entry) =>
+        isSameLibraryFile(entry, file)
+      );
+      if (selected) selected.id = saved.id;
+    }
+    // Always refresh against the live epoch so remaining files paint after a
+    // sibling was deleted; a captured epoch would no-op and leave them only
+    // in IndexedDB until the next reload.
+    await syncHomeLibraryFromStore(root, homeLibraryEpoch);
+  })();
+}
+
+function isPdfBlob(file: File): boolean {
+  return isPdfFile(file);
 }
 
 export function setWorkspaceFilesFromTool(
@@ -173,6 +294,7 @@ function persistCurrentOpenFile(): Promise<void> {
     files.map((file) => ({
       file: file.blob,
       source: file.source,
+      ...(file.id ? { libraryId: file.id } : {}),
     }))
   );
 }
@@ -217,6 +339,11 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
   observedRoot = null;
   viewToggleBoundRoot = null;
   myPdfsChromeBoundRoot = null;
+  favoriteOverflowObserver?.disconnect();
+  favoriteOverflowObserver = null;
+  observedControlsRow = null;
+  lastControlsRowWidth = -1;
+  collapsedFavoriteKey = '';
   currentFiles = [];
   homeLibraryFiles = [];
   homeLibraryEpoch += 1;
@@ -269,6 +396,11 @@ function syncHomeHeaderToolActions(root: Document): void {
   const tools = root.getElementById('shift-open-file-tools');
   if (!tools) return;
 
+  renderOpenWithFavorites(root, tools);
+  // Forced: different pins and a longer selection count both change the fit
+  // without changing the width the observer watches.
+  syncOpenWithFavoriteOverflow(root, true);
+
   const hasSelection = currentFiles.length > 0;
   tools.hidden = false;
   tools.setAttribute('aria-disabled', String(!hasSelection));
@@ -288,6 +420,15 @@ function syncHomeHeaderToolActions(root: Document): void {
   ) as HTMLButtonElement | null;
   if (deleteSelected) deleteSelected.disabled = !hasSelection;
 
+  // Its items open the selected PDF, so it follows the row it belongs to.
+  const moreTools = root.getElementById(
+    MY_PDFS_MORE_TOOLS_ID
+  ) as HTMLButtonElement | null;
+  if (moreTools) {
+    moreTools.disabled = !hasSelection;
+    if (!hasSelection) setMoreToolsExpanded(root, false);
+  }
+
   if (!hasSelection) {
     tools.classList.remove(HEADER_TOOLS_ENTER_CLASS);
     return;
@@ -297,6 +438,350 @@ function syncHomeHeaderToolActions(root: Document): void {
   tools.classList.remove(HEADER_TOOLS_ENTER_CLASS);
   void tools.offsetWidth;
   tools.classList.add(HEADER_TOOLS_ENTER_CLASS);
+}
+
+/**
+ * The Open-with row is the user's favorites, so it follows whatever the star
+ * buttons saved. The page markup ships the seeded four as a no-JS fallback;
+ * this replaces them once the rail cache is readable, and leaves the row alone
+ * when nothing is cached yet so the fallback never blanks out. Only the first
+ * few fit beside Delete, so the rest stay in the sidebar rail.
+ */
+function renderOpenWithFavorites(root: Document, tools: HTMLElement): void {
+  const toggle = tools.querySelector<HTMLElement>(
+    '.shift-open-file-tools-toggle'
+  );
+  if (!toggle) return;
+
+  const favorites = loadFavoriteRailSnapshot().slice(
+    0,
+    MAX_OPEN_WITH_FAVORITES
+  );
+  if (favorites.length === 0) return;
+
+  const existing = Array.from(
+    toggle.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
+  );
+  const unchanged =
+    existing.length === favorites.length &&
+    favorites.every(
+      (favorite, index) =>
+        existing[index]?.getAttribute('href') === favorite.href &&
+        existing[index]?.textContent === favorite.name
+    );
+  if (unchanged) return;
+
+  const links = favorites.map((favorite) => {
+    const link = root.createElement('a');
+    link.className = 'shift-open-file-tool-btn';
+    link.href = favorite.href;
+    link.dataset.tool = openWithToolId(favorite.href);
+    link.textContent = favorite.name;
+    return link;
+  });
+
+  existing.forEach((link) => link.remove());
+  // Delete is appended to the same toggle, so favorites go in front of it.
+  toggle.prepend(...links);
+  // The menu lists what the row left out, so it has to follow the row.
+  refreshMoreToolsMenu(root);
+}
+
+/**
+ * Priority+ overflow for the pinned favorites: drop them from the end, but
+ * only once there is genuinely no room for them, so narrowing costs the
+ * fewest shortcuts it can. Nothing is lost by dropping one — the More tools
+ * menu lists whatever the row is not showing.
+ */
+function syncOpenWithFavoriteOverflow(root: Document, force = false): void {
+  // Hiding a pin resizes the row, which calls straight back in here.
+  if (measuringFavoriteOverflow) return;
+
+  const toggle = root.querySelector<HTMLElement>(
+    '.shift-open-file-tools-toggle'
+  );
+  const row =
+    toggle?.closest<HTMLElement>('.shift-my-pdfs-controls-row') ?? null;
+  if (!toggle || !row) return;
+
+  const links = Array.from(
+    toggle.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
+  );
+  if (links.length === 0) return;
+
+  const width = row.clientWidth;
+  // Zero means the row has no layout yet (jsdom, or chrome built before the
+  // first paint). Measuring against that would read as "nothing fits" and
+  // collapse every pin on a screen with room to spare.
+  if (width === 0) return;
+  // Height also changes as pins drop, so the observer fires again on a row
+  // whose width — the only input here — is the same as last time.
+  if (!force && width === lastControlsRowWidth) return;
+  lastControlsRowWidth = width;
+
+  measuringFavoriteOverflow = true;
+  try {
+    // Measure up from every pin shown, so widening restores them.
+    for (const link of links) link.hidden = false;
+    for (let index = links.length - 1; index >= 0; index -= 1) {
+      if (favoritePinsFit(row, toggle)) break;
+      links[index].hidden = true;
+    }
+  } finally {
+    measuringFavoriteOverflow = false;
+  }
+
+  const collapsed = links
+    .filter((link) => link.hidden)
+    .map((link) => link.dataset.tool ?? link.getAttribute('href') ?? '')
+    .join('|');
+  // Rebuilding the menu on every resize tick would fight an open menu.
+  if (collapsed === collapsedFavoriteKey) return;
+  collapsedFavoriteKey = collapsed;
+  refreshMoreToolsMenu(root);
+}
+
+/**
+ * The row never wraps, so it rarely overflows either: the selection count is
+ * the flexible half and gives up its own width first. That makes the count
+ * being cut short the honest signal that a pin has taken space there is not
+ * — and it only goes short once every other part of the row is at its
+ * natural size, so nothing collapses while there is still room.
+ */
+function favoritePinsFit(row: HTMLElement, toggle: HTMLElement): boolean {
+  if (row.scrollWidth > row.clientWidth + 1) return false;
+
+  const count = row.querySelector<HTMLElement>(
+    '.shift-my-pdfs-selection-count'
+  );
+  if (count && count.scrollWidth > count.clientWidth + 1) return false;
+
+  return isSingleLine(toggle);
+}
+
+/**
+ * Tolerant by necessity: `align-items: center` leaves controls of unequal
+ * height a few pixels apart on the same line, so exact offsets would read a
+ * centered row as wrapped and collapse a pin that fits. A real second line
+ * is a whole control further down, hence the half-height threshold.
+ */
+function isSingleLine(host: HTMLElement): boolean {
+  const visible = (Array.from(host.children) as HTMLElement[]).filter(
+    (child) => !child.hidden
+  );
+  if (visible.length < 2) return true;
+
+  const tolerance =
+    Math.max(...visible.map((child) => child.offsetHeight), 0) / 2;
+  const top = visible[0].offsetTop;
+  return visible.every((child) => Math.abs(child.offsetTop - top) <= tolerance);
+}
+
+/**
+ * The row is as wide as the panel regardless of what it holds, so a resize is
+ * the only signal that the fit changed. Re-observed when the chrome is
+ * rebuilt, because that replaces the node this is watching.
+ */
+function observeFavoriteOverflow(root: Document): void {
+  const row = root.querySelector<HTMLElement>('.shift-my-pdfs-controls-row');
+  if (!row || row === observedControlsRow) return;
+  if (typeof ResizeObserver === 'undefined') return;
+
+  favoriteOverflowObserver?.disconnect();
+  observedControlsRow = row;
+  lastControlsRowWidth = -1;
+  favoriteOverflowObserver = new ResizeObserver(() =>
+    syncOpenWithFavoriteOverflow(root)
+  );
+  favoriteOverflowObserver.observe(row);
+}
+
+/**
+ * Only MAX_OPEN_WITH_FAVORITES pins fit beside Delete, so the overflow needs a
+ * way in from here rather than only from the sidebar rail. Sits between the
+ * last tool and Delete because it belongs to the tools, not to the
+ * destructive action.
+ */
+function ensureMyPdfsMoreTools(root: Document): void {
+  if (root.getElementById(MY_PDFS_MORE_TOOLS_ID)) return;
+
+  const deleteSelected = root.getElementById(MY_PDFS_DELETE_SELECTED_ID);
+  const toggle = deleteSelected?.parentElement;
+  if (!deleteSelected || !toggle) return;
+
+  // Wrapper so the menu can anchor to the button instead of the whole row.
+  const wrap = root.createElement('div');
+  wrap.className = 'shift-my-pdfs-more-tools-wrap';
+
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.id = MY_PDFS_MORE_TOOLS_ID;
+  // Secondary, like Delete: it opens a menu rather than acting on the file,
+  // so it should not compete with the blue tool shortcuts beside it.
+  button.className = 'shift-button shift-my-pdfs-more-tools';
+  button.setAttribute('aria-haspopup', 'true');
+  button.setAttribute('aria-expanded', 'false');
+  button.setAttribute('aria-controls', MY_PDFS_MORE_TOOLS_MENU_ID);
+  button.setAttribute('aria-label', 'More tools');
+  button.disabled = currentFiles.length === 0;
+  button.append(root.createTextNode('More'), createMoreToolsCaret(root));
+
+  const menu = root.createElement('div');
+  menu.id = MY_PDFS_MORE_TOOLS_MENU_ID;
+  menu.className = 'shift-my-pdfs-more-tools-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-labelledby', MY_PDFS_MORE_TOOLS_ID);
+  menu.hidden = true;
+
+  wrap.append(button, menu);
+  toggle.insertBefore(wrap, deleteSelected);
+  renderMoreToolsMenu(root, menu);
+
+  // Bound here rather than alongside the other controls because those bind
+  // once per document, and this pair is created with the button it drives.
+  button.addEventListener('click', (event) => {
+    // The dismiss listener would otherwise close it in this same click.
+    event.stopPropagation();
+    // The menu drops into the space the tooltip occupies, so one has to go.
+    hideShiftTooltip(root);
+    setMoreToolsExpanded(root, menu.hidden);
+  });
+  menu.addEventListener('click', () => setMoreToolsExpanded(root, false));
+}
+
+function createMoreToolsCaret(root: Document): SVGSVGElement {
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const svg = root.createElementNS(svgNs, 'svg');
+  svg.setAttribute('class', 'shift-my-pdfs-more-tools-caret');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const path = root.createElementNS(svgNs, 'path');
+  path.setAttribute('d', MORE_TOOLS_CARET_PATH);
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  return svg;
+}
+
+/**
+ * Overflow favorites first, since those are the tools the user chose, then
+ * the popular tools. Whatever the row already shows is skipped so the same
+ * tool never appears twice. Deliberately not the whole catalog: this is a
+ * shortlist, and Browse all tools below it is the way to everything else.
+ */
+function moreToolsEntries(root: Document): { name: string; href: string }[] {
+  // Only what the row is actually showing counts as listed: a pin collapsed
+  // for width is exactly the thing this menu exists to hand back.
+  const listed = new Set(
+    Array.from(
+      root.querySelectorAll<HTMLAnchorElement>(
+        '.shift-open-file-tools-toggle a.shift-open-file-tool-btn:not([hidden])'
+      )
+    ).map((link) => openWithToolId(link.getAttribute('href') ?? ''))
+  );
+
+  const entries: { name: string; href: string }[] = [];
+  const add = (name: string, href: string): void => {
+    const id = openWithToolId(href);
+    if (listed.has(id)) return;
+    listed.add(id);
+    entries.push({ name, href });
+  };
+
+  for (const pin of loadFavoriteRailSnapshot()) add(pin.name, pin.href);
+  // By name rather than by index: the menu is meant to hold the popular
+  // tools specifically, not whichever category happens to be listed first.
+  const popular =
+    categories.find((category) => category.name === 'Popular Tools') ??
+    categories[0];
+  for (const tool of popular?.tools ?? []) add(tool.name, tool.href);
+
+  return entries;
+}
+
+function renderMoreToolsMenu(root: Document, menu: HTMLElement): void {
+  menu.replaceChildren();
+
+  // The tools scroll inside this while Browse all tools stays pinned below
+  // it. `role="none"` keeps the items direct children of the menu as far as
+  // assistive tech is concerned, so the wrapper costs nothing semantically.
+  const list = root.createElement('div');
+  list.className = 'shift-my-pdfs-more-tools-list';
+  list.setAttribute('role', 'none');
+
+  for (const entry of moreToolsEntries(root)) {
+    const link = root.createElement('a');
+    link.className = 'shift-my-pdfs-more-tools-item';
+    link.href = entry.href;
+    link.dataset.tool = openWithToolId(entry.href);
+    link.setAttribute('role', 'menuitem');
+    link.textContent = entry.name;
+    list.appendChild(link);
+  }
+  menu.appendChild(list);
+
+  const browse = root.createElement('a');
+  browse.className =
+    'shift-my-pdfs-more-tools-item shift-my-pdfs-more-tools-browse';
+  browse.href = `${import.meta.env.BASE_URL}all-tools.html`;
+  browse.setAttribute('role', 'menuitem');
+  browse.textContent = 'Browse all tools';
+  menu.appendChild(browse);
+}
+
+function refreshMoreToolsMenu(root: Document): void {
+  const menu = root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID);
+  if (menu) renderMoreToolsMenu(root, menu);
+}
+
+function setMoreToolsExpanded(root: Document, expanded: boolean): void {
+  const button = root.getElementById(
+    MY_PDFS_MORE_TOOLS_ID
+  ) as HTMLButtonElement | null;
+  const menu = root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID);
+  if (!button || !menu) return;
+
+  const open = expanded && !button.disabled;
+  menu.hidden = !open;
+  button.setAttribute('aria-expanded', String(open));
+}
+
+/**
+ * Dismissal only: the button's own handlers are bound where it is built.
+ * These look the menu up per event rather than closing over it, because they
+ * bind once per document while the chrome can be rebuilt underneath them.
+ */
+function bindMyPdfsMoreTools(root: Document): void {
+  root.addEventListener('click', (event) => {
+    if (root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID)?.hidden !== false)
+      return;
+    const inside = (event.target as HTMLElement | null)?.closest(
+      '.shift-my-pdfs-more-tools-wrap'
+    );
+    if (inside) return;
+    setMoreToolsExpanded(root, false);
+  });
+
+  root.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID)?.hidden !== false)
+      return;
+    setMoreToolsExpanded(root, false);
+    root.getElementById(MY_PDFS_MORE_TOOLS_ID)?.focus();
+  });
+}
+
+function openWithToolId(href: string): string {
+  return (
+    href
+      .split('/')
+      .pop()
+      ?.replace(/\.html$/, '') ?? href
+  );
 }
 
 /**
@@ -314,7 +799,9 @@ function ensureMyPdfsPageChrome(root: Document): void {
   const controls = ensureMyPdfsControlsShell(root, section);
   ensureMyPdfsSelectionControls(root, controls);
   ensureMyPdfsDeleteSelected(root);
+  ensureMyPdfsMoreTools(root);
   ensureMyPdfsViewToggle(root);
+  observeFavoriteOverflow(root);
 
   const heading = root.getElementById('shift-my-pdfs-heading');
   const dropZone = root.getElementById('drop-zone');
@@ -336,9 +823,50 @@ function ensureMyPdfsPageChrome(root: Document): void {
     controls.insertAdjacentElement('beforebegin', search);
   }
 
+  // List and grid share one scrollport so the chrome above stays put.
+  ensureMyPdfsScrollPane(root, section);
+
   if (myPdfsChromeBoundRoot === root) return;
   myPdfsChromeBoundRoot = root;
   bindMyPdfsSelectionControls(root);
+}
+
+/**
+ * Wrap the table and thumbnail grid in a flex child that owns overflow-y.
+ * Leaving them as siblings made the table itself the scrollport, which forced
+ * `display: block` and collapsed the auto-sized Date/Size columns.
+ */
+function ensureMyPdfsScrollPane(root: Document, section: HTMLElement): void {
+  const table = section.querySelector(
+    '.shift-my-pdfs-table'
+  ) as HTMLElement | null;
+  const thumbs = root.getElementById('shift-my-pdfs-thumbs');
+  if (!table && !thumbs) return;
+
+  let pane = section.querySelector(
+    '.shift-my-pdfs-scroll'
+  ) as HTMLElement | null;
+  if (!pane) {
+    pane = root.createElement('div');
+    pane.className = 'shift-my-pdfs-scroll';
+  }
+
+  const alreadyWrapped =
+    (!table || pane.contains(table)) && (!thumbs || pane.contains(thumbs));
+  if (alreadyWrapped && pane.parentElement === section) return;
+
+  const anchor =
+    table && table.parentElement !== pane
+      ? table
+      : thumbs && thumbs.parentElement !== pane
+        ? thumbs
+        : (table ?? thumbs);
+  if (pane.parentElement !== section && anchor) {
+    anchor.insertAdjacentElement('beforebegin', pane);
+  }
+
+  if (table && table.parentElement !== pane) pane.appendChild(table);
+  if (thumbs && thumbs.parentElement !== pane) pane.appendChild(thumbs);
 }
 
 function ensureMyPdfsControlsShell(
@@ -364,9 +892,10 @@ function ensureMyPdfsControlsShell(
     row.className = 'shift-my-pdfs-controls-row';
     const selection = root.createElement('div');
     selection.className = 'shift-my-pdfs-selection';
+    const cluster = root.createElement('div');
+    cluster.className = 'shift-my-pdfs-controls-cluster';
     const actions = root.createElement('div');
     actions.className = 'shift-my-pdfs-actions';
-    row.append(selection, actions);
 
     if (tools) {
       tools.querySelector(':scope > span')?.remove();
@@ -381,12 +910,18 @@ function ensureMyPdfsControlsShell(
       );
     }
 
-    controls.appendChild(row);
-    if (viewBy) controls.appendChild(viewBy);
+    // Right cluster: tools then View by (wrap together, never View by alone).
+    cluster.appendChild(actions);
+    if (viewBy) cluster.appendChild(viewBy);
+    row.append(selection, cluster);
 
+    controls.appendChild(row);
+
+    const scroll = section.querySelector('.shift-my-pdfs-scroll');
     const table = section.querySelector('.shift-my-pdfs-table');
     const thumbs = root.getElementById('shift-my-pdfs-thumbs');
-    if (table) table.insertAdjacentElement('beforebegin', controls);
+    if (scroll) scroll.insertAdjacentElement('beforebegin', controls);
+    else if (table) table.insertAdjacentElement('beforebegin', controls);
     else if (thumbs) thumbs.insertAdjacentElement('beforebegin', controls);
     else section.appendChild(controls);
 
@@ -398,7 +933,55 @@ function ensureMyPdfsControlsShell(
     }
   }
 
+  groupMyPdfsActionsAndViewBy(root, controls);
   return controls;
+}
+
+/**
+ * Keep library tools + View by in one flex item so neither can be separated
+ * from the other as the row narrows (`margin-left: auto` used to strand View
+ * by on its own line).
+ */
+function groupMyPdfsActionsAndViewBy(
+  root: Document,
+  controls: HTMLElement
+): void {
+  const row =
+    (controls.querySelector(
+      '.shift-my-pdfs-controls-row'
+    ) as HTMLElement | null) ?? controls;
+
+  let cluster = row.querySelector(
+    '.shift-my-pdfs-controls-cluster'
+  ) as HTMLElement | null;
+  if (!cluster) {
+    cluster = root.createElement('div');
+    cluster.className = 'shift-my-pdfs-controls-cluster';
+  }
+
+  const actions = row.querySelector(
+    '.shift-my-pdfs-actions'
+  ) as HTMLElement | null;
+  const viewBy =
+    (row.querySelector(
+      ':scope > .shift-open-file-view-by'
+    ) as HTMLElement | null) ??
+    (controls.querySelector('.shift-open-file-view-by') as HTMLElement | null);
+
+  if (actions && !cluster.contains(actions)) {
+    if (!cluster.parentElement) {
+      actions.replaceWith(cluster);
+    }
+    cluster.appendChild(actions);
+  } else if (!cluster.parentElement) {
+    const selection = row.querySelector('.shift-my-pdfs-selection');
+    if (selection) selection.insertAdjacentElement('afterend', cluster);
+    else row.appendChild(cluster);
+  }
+
+  if (viewBy && !cluster.contains(viewBy)) {
+    cluster.appendChild(viewBy);
+  }
 }
 
 function ensureMyPdfsSelectionControls(
@@ -478,22 +1061,31 @@ function ensureMyPdfsViewToggle(root: Document): void {
 }
 
 function bindMyPdfsSelectionControls(root: Document): void {
-  root
-    .getElementById(MY_PDFS_SELECT_ALL_ID)
-    ?.addEventListener('click', () => toggleSelectAllVisible(root));
-  root
-    .getElementById(MY_PDFS_DELETE_SELECTED_ID)
-    ?.addEventListener('click', () => {
-      void deleteSelectedHomeLibraryFiles(root);
-    });
+  bindMyPdfsMoreTools(root);
 
-  const tools = root.getElementById('shift-open-file-tools');
-  tools?.addEventListener('click', (event) => {
-    const link = (event.target as HTMLElement | null)?.closest(
-      'a[aria-disabled="true"]'
-    );
-    if (!link) return;
-    event.preventDefault();
+  // Once per document: reset remounts the buttons but keeps this Document.
+  // A second delegated listener would toggle select-all twice (select then
+  // deselect) and look like the library had no selection.
+  if (myPdfsSelectionDelegated.has(root)) return;
+  myPdfsSelectionDelegated.add(root);
+
+  root.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('#shift-open-file-tools a[aria-disabled="true"]')) {
+      event.preventDefault();
+      return;
+    }
+    if (target?.closest(`#${MY_PDFS_SELECT_ALL_ID}`)) {
+      toggleSelectAllVisible(root);
+      return;
+    }
+    if (target?.closest(`#${MY_PDFS_TABLE_SELECT_ALL_ID}`)) {
+      toggleSelectAllVisible(root);
+      return;
+    }
+    if (target?.closest(`#${MY_PDFS_DELETE_SELECTED_ID}`)) {
+      void deleteSelectedHomeLibraryFiles(root);
+    }
   });
 }
 
@@ -513,11 +1105,33 @@ function syncMyPdfsSelectionChrome(root: Document): void {
   const visible = visibleHomeLibraryFiles().filter(
     (file) => file.blob instanceof File
   );
-  const allVisibleSelected =
-    visible.length > 0 &&
-    visible.every((file) => isHomeLibraryFileSelected(file));
-  selectAll.textContent = allVisibleSelected ? 'Deselect all' : 'Select all';
+  const selectedVisible = visible.filter((file) =>
+    isHomeLibraryFileSelected(file)
+  ).length;
+  // The label follows the click: a partial selection clears, so it reads
+  // Deselect all from the first selected file onwards, not only when full.
+  selectAll.textContent = selectedVisible > 0 ? 'Deselect all' : 'Select all';
   selectAll.disabled = visible.length === 0;
+
+  const tableSelectAll = root.getElementById(
+    MY_PDFS_TABLE_SELECT_ALL_ID
+  ) as HTMLInputElement | null;
+  if (tableSelectAll) {
+    // Empty list rows have their own checkboxes; this one is only useful once
+    // something is already selected, and its only job then is to clear it.
+    tableSelectAll.hidden = selectedVisible === 0;
+    /* So it shows the dash for any non-empty selection, full included. A tick
+       there would say "all selected" — a state, when this control is an
+       action, and the one it offers is the same Deselect all the button above
+       names. */
+    tableSelectAll.checked = false;
+    tableSelectAll.indeterminate = selectedVisible > 0;
+    tableSelectAll.disabled = visible.length === 0;
+    tableSelectAll.setAttribute(
+      'aria-label',
+      selectedVisible > 0 ? 'Deselect all PDFs' : 'Select all PDFs'
+    );
+  }
 }
 
 function toggleSelectAllVisible(root: Document): void {
@@ -526,11 +1140,14 @@ function toggleSelectAllVisible(root: Document): void {
   );
   if (visible.length === 0) return;
 
-  const allVisibleSelected = visible.every((file) =>
+  /* A partial selection clears rather than filling in the rest: from a half
+     state the useful move is starting over, and selecting the remainder would
+     leave no way back to empty in one click. */
+  const anyVisibleSelected = visible.some((file) =>
     isHomeLibraryFileSelected(file)
   );
 
-  if (allVisibleSelected) {
+  if (anyVisibleSelected) {
     currentFiles = currentFiles.filter(
       (current) => !visible.some((file) => isSameLibraryFile(current, file))
     );
@@ -545,16 +1162,29 @@ function toggleSelectAllVisible(root: Document): void {
       !visible.some((file) => isSameLibraryFile(current, file))
   );
   for (const file of visible) {
-    if (file.blob) fileOrigins.set(file.blob, file.source);
+    if (file.blob) {
+      fileOrigins.set(file.blob, file.source);
+      if (file.id) markFileLibraryId(file.blob, file.id);
+    }
   }
   setWorkspaceFiles(
     [
-      ...kept
-        .map((file) => file.blob)
-        .filter((blob): blob is File => blob instanceof File),
-      ...visible
-        .map((file) => file.blob)
-        .filter((blob): blob is File => blob instanceof File),
+      ...kept.map((file) => ({
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        source: file.source,
+        addedAt: file.addedAt,
+        blob: file.blob,
+      })),
+      ...visible.map((file) => ({
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        source: file.source,
+        addedAt: file.addedAt,
+        blob: file.blob,
+      })),
     ],
     root
   );
@@ -578,10 +1208,14 @@ async function deleteSelectedHomeLibraryFiles(root: Document): Promise<void> {
   });
   if (!confirmed) return;
 
+  // Invalidate in-flight adopts/syncs before touching the store so a write
+  // that started with these files selected cannot paint them back.
+  homeLibraryEpoch += 1;
+
   for (const file of selected) {
-    if (file.id) await removePdfFromLibrary(file.id);
-    homeLibraryFiles = homeLibraryFiles.filter((entry) =>
-      file.id ? entry.id !== file.id : !isSameLibraryFile(entry, file)
+    await removeLibraryFileFromStore(file);
+    homeLibraryFiles = homeLibraryFiles.filter(
+      (entry) => !isSameLibraryFile(entry, file)
     );
   }
 
@@ -604,10 +1238,7 @@ export function pickerAcceptsFile(
   return tokens.some((token) => {
     if (token === '*' || token === '*/*') return true;
     if (token === 'application/pdf' || token === '.pdf') {
-      return (
-        file.type === 'application/pdf' ||
-        file.name.toLowerCase().endsWith('.pdf')
-      );
+      return isPdfFile(file);
     }
     if (token.startsWith('.')) {
       return file.name.toLowerCase().endsWith(token);
@@ -998,13 +1629,10 @@ function updateHomeLibrarySelection(
     if (row) {
       row.classList.toggle('is-selected', isSelected);
       row.setAttribute('aria-pressed', String(isSelected));
-      const nameCell = row.querySelector('.shift-my-pdfs-name');
-      const existingReplace = row.querySelector('.shift-my-pdfs-row-replace');
-      if (isSelected) {
-        existingReplace?.remove();
-      } else if (!existingReplace && nameCell) {
-        nameCell.appendChild(createHomeFileRowReplaceHint(root));
-      }
+      const checkbox = row.querySelector<HTMLInputElement>(
+        '.shift-my-pdfs-checkbox'
+      );
+      if (checkbox) checkbox.checked = isSelected;
     }
 
     const card = cards?.[index];
@@ -1027,7 +1655,11 @@ function toFileInfo(
 
   if (file instanceof File) {
     const origin = fileOrigins.get(file);
+    const libraryId =
+      fileLibraryIds.get(file) ?? existing?.id ?? resolveLibraryIdForBlob(file);
+    if (libraryId) markFileLibraryId(file, libraryId);
     return {
+      id: libraryId,
       name,
       size: file.size,
       source: origin ?? 'upload',
@@ -1036,14 +1668,91 @@ function toFileInfo(
     };
   }
 
+  if (file.blob instanceof File && file.id) {
+    markFileLibraryId(file.blob, file.id);
+  }
+
   return {
-    id: file.id,
+    id: file.id ?? (file.blob ? fileLibraryIds.get(file.blob) : undefined),
     name,
     size: typeof file.size === 'number' ? file.size : 0,
     source: file.source ?? 'upload',
     addedAt: file.addedAt ?? existing?.addedAt ?? Date.now(),
     blob: file.blob ?? existing?.blob,
   };
+}
+
+function resolveLibraryIdForBlob(file: File): string | undefined {
+  const matches = homeLibraryFiles.filter(
+    (entry) => entry.name === file.name && entry.size === file.size
+  );
+  return matches.length === 1 ? matches[0]?.id : undefined;
+}
+
+/**
+ * Attach known My PDFs ids onto the current selection after library sync.
+ */
+export function reconcileWorkspaceLibraryIds(): void {
+  currentFiles = currentFiles.map((file) => {
+    if (file.id) {
+      if (file.blob) markFileLibraryId(file.blob, file.id);
+      return file;
+    }
+    const fromBlob = file.blob ? fileLibraryIds.get(file.blob) : undefined;
+    if (fromBlob) return { ...file, id: fromBlob };
+    const matches = homeLibraryFiles.filter(
+      (entry) =>
+        entry.name === file.name &&
+        entry.size === file.size &&
+        entry.source === file.source
+    );
+    const id = matches.length === 1 ? matches[0]?.id : undefined;
+    if (id && file.blob) markFileLibraryId(file.blob, id);
+    return id ? { ...file, id } : file;
+  });
+}
+
+export type LibrarySaveTarget = {
+  id: string;
+  name: string;
+};
+
+/**
+ * Single selected PDF with a resolvable library id. Multi-select is ambiguous
+ * for in-place save; zero selection means Save should add a new record.
+ */
+export function getPrimaryLibrarySaveTarget(): LibrarySaveTarget | null {
+  const pdfs = currentFiles.filter(
+    (file) =>
+      Boolean(file.name.toLowerCase().endsWith('.pdf')) ||
+      file.blob?.type === 'application/pdf' ||
+      file.blob?.name.toLowerCase().endsWith('.pdf')
+  );
+  if (pdfs.length !== 1) return null;
+
+  const file = pdfs[0];
+  if (!file) return null;
+  if (file.id) return { id: file.id, name: file.name };
+
+  if (file.blob) {
+    const fromBlob = fileLibraryIds.get(file.blob);
+    if (fromBlob) return { id: fromBlob, name: file.name };
+  }
+
+  const matches = homeLibraryFiles.filter(
+    (entry) => entry.name === file.name && entry.size === file.size
+  );
+  if (matches.length === 1 && matches[0]?.id) {
+    return { id: matches[0].id, name: matches[0].name };
+  }
+  return null;
+}
+
+export function getWorkspacePdfSelectionCount(): number {
+  return currentFiles.filter((file) => {
+    if (file.blob) return isPdfBlob(file.blob);
+    return file.name.toLowerCase().endsWith('.pdf');
+  }).length;
 }
 
 function observeFileDisplay(root: Document): void {
@@ -1378,34 +2087,43 @@ function createHomeFileRow(
   row.setAttribute('aria-label', `Use ${file.name}`);
   row.setAttribute('aria-pressed', String(isSelected));
 
+  const selectCell = root.createElement('td');
+  selectCell.className = 'shift-my-pdfs-select-cell';
+  const checkbox = root.createElement('input');
+  checkbox.className = 'shift-my-pdfs-checkbox';
+  checkbox.type = 'checkbox';
+  checkbox.checked = isSelected;
+  checkbox.tabIndex = -1;
+  checkbox.setAttribute('aria-hidden', 'true');
+  selectCell.appendChild(checkbox);
+
   const nameCell = root.createElement('td');
   nameCell.className = 'shift-my-pdfs-name-cell';
   const nameLayout = root.createElement('div');
   nameLayout.className = 'shift-my-pdfs-name';
   const name = root.createElement('span');
   name.textContent = file.name;
-  nameLayout.append(createFileIcon(file.source, root), name);
+  nameLayout.append(name);
   if (file.source === 'download') {
     nameLayout.appendChild(createDownloadedCopyBadge(root));
-  }
-  if (!isSelected) {
-    nameLayout.appendChild(createHomeFileRowReplaceHint(root));
   }
   nameCell.appendChild(nameLayout);
 
   const dateCell = root.createElement('td');
+  dateCell.className = 'shift-my-pdfs-date-cell';
   dateCell.textContent = file.addedAt
     ? new Date(file.addedAt).toDateString()
     : '';
 
   const sizeCell = root.createElement('td');
+  sizeCell.className = 'shift-my-pdfs-size-cell';
   sizeCell.textContent = formatFileSize(file.size);
 
   const actionCell = root.createElement('td');
   actionCell.className = 'shift-my-pdfs-action-cell';
   actionCell.appendChild(createHomeFileDeleteButton(file, root));
 
-  row.append(nameCell, dateCell, sizeCell, actionCell);
+  row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
   row.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -1414,15 +2132,6 @@ function createHomeFileRow(
   });
 
   return row;
-}
-
-function createHomeFileRowReplaceHint(root: Document): HTMLSpanElement {
-  const replaceHint = root.createElement('span');
-  replaceHint.className =
-    'shift-open-file-thumb-replace shift-my-pdfs-row-replace';
-  replaceHint.textContent = 'Use this PDF';
-  replaceHint.setAttribute('aria-hidden', 'true');
-  return replaceHint;
 }
 
 /* The card is a button, so the delete control cannot nest inside it. Both sit
@@ -1538,10 +2247,15 @@ async function deleteHomeLibraryFile(
   });
   if (!confirmed) return;
 
-  if (file.id) await removePdfFromLibrary(file.id);
+  // Bump before the store write so an adopt or sync already in flight sees a
+  // new epoch and either rolls back its write or skips its paint. Without
+  // this, a slow IndexedDB put that started on select finishes after delete
+  // and the PDF comes back as a ghost.
+  homeLibraryEpoch += 1;
+  await removeLibraryFileFromStore(file);
 
-  homeLibraryFiles = homeLibraryFiles.filter((entry) =>
-    file.id ? entry.id !== file.id : !isSameLibraryFile(entry, file)
+  homeLibraryFiles = homeLibraryFiles.filter(
+    (entry) => !isSameLibraryFile(entry, file)
   );
 
   // A deleted PDF cannot stay selected, or tools would keep working from a file
@@ -1557,6 +2271,27 @@ async function deleteHomeLibraryFile(
   renderWorkspaceFiles(root);
 }
 
+/**
+ * Drop the persistent copy even when the painted row never received a store
+ * id — the grid can render from a selection before adopt has copied the id
+ * onto the entry. Matching by name and size is enough to find that record;
+ * two different PDFs that share both are rare, and leaving either behind is
+ * how a deleted file used to reappear on the next sync.
+ */
+async function removeLibraryFileFromStore(
+  file: WorkspaceFileInfo
+): Promise<void> {
+  if (file.id) {
+    await removePdfFromLibrary(file.id);
+    return;
+  }
+
+  const matches = (await readPdfLibrary()).filter(
+    (entry) => entry.name === file.name && entry.size === file.size
+  );
+  for (const match of matches) await removePdfFromLibrary(match.id);
+}
+
 function isSameLibraryFile(
   left: WorkspaceFileInfo,
   right: WorkspaceFileInfo
@@ -1565,6 +2300,13 @@ function isSameLibraryFile(
     left.name === right.name &&
     left.size === right.size &&
     left.source === right.source
+  );
+}
+
+function isLibraryFileCurrent(file: WorkspaceFileInfo): boolean {
+  return (
+    homeLibraryFiles.some((entry) => isSameLibraryFile(entry, file)) ||
+    currentFiles.some((entry) => isSameLibraryFile(entry, file))
   );
 }
 
@@ -1600,12 +2342,25 @@ function activateHomeLibraryFile(
   }
 
   fileOrigins.set(file.blob, file.source);
+  if (file.id) markFileLibraryId(file.blob, file.id);
   setWorkspaceFiles(
     [
-      ...currentFiles
-        .map((current) => current.blob)
-        .filter((blob): blob is File => blob instanceof File),
-      file.blob,
+      ...currentFiles.map((current) => ({
+        id: current.id,
+        name: current.name,
+        size: current.size,
+        source: current.source,
+        addedAt: current.addedAt,
+        blob: current.blob,
+      })),
+      {
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        source: file.source,
+        addedAt: file.addedAt,
+        blob: file.blob,
+      },
     ],
     root
   );

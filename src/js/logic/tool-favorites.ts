@@ -184,6 +184,52 @@ export function saveFavoriteRailSnapshot(
   }
 }
 
+/**
+ * Read the rail snapshot written by the sidebar. The Open-with row needs a
+ * favorite's name and link, and only the deferred catalog knows those, so it
+ * reads the same cache `public/sidebar-boot.js` uses for its first paint.
+ */
+export function parseFavoriteRailSnapshot(
+  storedValue: string | null
+): FavoriteRailPin[] {
+  if (!storedValue || storedValue.length > MAX_STORED_LENGTH * 4) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(storedValue);
+    if (!Array.isArray(parsed)) return [];
+
+    const pins: FavoriteRailPin[] = [];
+
+    for (const value of parsed) {
+      if (!value || typeof value !== 'object') continue;
+      const { name, href, icon } = value as Partial<FavoriteRailPin>;
+      if (typeof name !== 'string' || typeof href !== 'string') continue;
+      if (!name.trim() || !href.trim()) continue;
+
+      pins.push({ name, href, icon: typeof icon === 'string' ? icon : '' });
+      if (pins.length === MAX_FAVORITES) break;
+    }
+
+    return pins;
+  } catch (error) {
+    console.warn('Ignored an invalid PDF favorites rail cache.', error);
+    return [];
+  }
+}
+
+export function loadFavoriteRailSnapshot(
+  storage: StorageReader | undefined = getLocalStorage()
+): FavoriteRailPin[] {
+  if (!storage) return [];
+
+  try {
+    return parseFavoriteRailSnapshot(storage.getItem(TOOL_FAVORITES_RAIL_KEY));
+  } catch (error) {
+    console.warn('PDF favorites rail cache is unavailable.', error);
+    return [];
+  }
+}
+
 export function toggleFavoriteToolId(
   favoriteIds: readonly string[],
   toolId: string

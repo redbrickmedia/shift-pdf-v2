@@ -4,6 +4,7 @@ import {
   clearPdfLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
+  replacePdfInLibrary,
 } from '../js/logic/pdf-library-store';
 
 afterEach(async () => {
@@ -107,5 +108,42 @@ describe('PDF library store', () => {
     expect(saved?.file).not.toBe(original);
     expect(saved?.file.name).toBe('saved.pdf');
     await expect(saved?.file.text()).resolves.toBe('pdf');
+  });
+
+  it('replaces bytes in place while preserving the stable library id', async () => {
+    const original = await addPdfToLibrary(
+      new File(['original-bytes'], 'contract.pdf', {
+        type: 'application/pdf',
+      }),
+      'upload'
+    );
+
+    const replaced = await replacePdfInLibrary(
+      original.id,
+      new File(['edited-bytes'], 'contract-signed.pdf', {
+        type: 'application/pdf',
+      })
+    );
+
+    expect(replaced).toMatchObject({
+      id: original.id,
+      name: 'contract.pdf',
+      size: 'edited-bytes'.length,
+    });
+    await expect(replaced?.file.text()).resolves.toBe('edited-bytes');
+
+    const entries = await readPdfLibrary();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBe(original.id);
+    await expect(entries[0]?.file.text()).resolves.toBe('edited-bytes');
+  });
+
+  it('returns null when replacing a missing library id', async () => {
+    await expect(
+      replacePdfInLibrary(
+        'missing-id',
+        new File(['x'], 'x.pdf', { type: 'application/pdf' })
+      )
+    ).resolves.toBeNull();
   });
 });

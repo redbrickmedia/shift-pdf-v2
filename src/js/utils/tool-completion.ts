@@ -1,3 +1,5 @@
+import { setLatestPdfOutput } from '../logic/shift-pdf-save.js';
+
 export interface ToolCompletionTiming {
   startedAt: number;
   completedAt: number;
@@ -117,6 +119,7 @@ export function createToolCompletionPanel(
       options.timing.textContent = `${(result.timing.durationMs / 1000).toFixed(1)}s`;
       options.downloadButton.href = snapshot.objectUrl;
       options.downloadButton.download = result.filename;
+      setLatestPdfOutput({ blob: result.blob, filename: result.filename });
       options.panel.classList.remove('hidden');
       return snapshot;
     },

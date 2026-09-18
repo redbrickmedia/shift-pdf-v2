@@ -301,7 +301,8 @@
       "completedIn": "Completed in",
       "downloadAgain": "Download again",
       "startOver": "Start over"
-    }
+    },
+    "saveToShiftPdf": "Save to Shift PDF"
   },
   "about": {
     "hero": {

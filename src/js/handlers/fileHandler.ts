@@ -27,10 +27,13 @@ import {
   simpleTools,
   singlePdfLoadTools,
 } from '../config/pdf-tools.js';
-import { getActiveFileInput } from '../logic/workspace-files.js';
-
+import {
+  clearWorkspaceOpenFile,
+  getActiveFileInput,
+  pickerAcceptsPdf,
+} from '../logic/workspace-files.js';
+import { openAddMoreLibraryPicker } from '../logic/add-more-files.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
-import { clearWorkspaceOpenFile } from '../logic/workspace-files.js';
 
 export {
   getRotationState,
@@ -510,7 +513,9 @@ async function handleSinglePdfUpload(toolId: string, file: File) {
         removeBtn.type = 'button';
         removeBtn.className =
           'btn p-2 text-red-500 hover:bg-gray-700 rounded-full self-center sm:self-auto';
-        removeBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+        removeBtn.setAttribute('aria-label', 'Remove field');
+        removeBtn.title = 'Remove field';
+        removeBtn.innerHTML = '<i data-lucide="x"></i>';
         removeBtn.addEventListener('click', () => fieldWrapper.remove());
 
         fieldWrapper.append(keyInput, valueInput, removeBtn);
@@ -932,7 +937,13 @@ export function setupFileInputHandler(toolId: string) {
   const setupAddMoreButton = () => {
     const addMoreBtn = document.getElementById('add-more-btn');
     if (addMoreBtn) {
-      addMoreBtn.addEventListener('click', () => fileInput.click());
+      addMoreBtn.addEventListener('click', () => {
+        if (pickerAcceptsPdf()) {
+          void openAddMoreLibraryPicker();
+          return;
+        }
+        fileInput.click();
+      });
     }
   };
 

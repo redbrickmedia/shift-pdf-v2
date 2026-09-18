@@ -25,6 +25,10 @@ import {
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
 import {
+  applyPdfViewerDownloadFilename,
+  withPdfViewerFilename,
+} from '../utils/pdfjs-viewer-filename.js';
+import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
   setWorkspaceFilesFromTool,
@@ -162,8 +166,11 @@ async function updateFileDisplay(
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${signState.file.name}`);
+  removeBtn.title = `Remove ${signState.file.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     fileLoadVersion++;
     cleanup();
@@ -249,7 +256,7 @@ async function setupSignTool(loadVersion: number) {
     window.location.origin
   );
   const query = new URLSearchParams({
-    file: signState.blobUrl,
+    file: withPdfViewerFilename(signState.blobUrl, signState.file?.name),
     bentoSign: '1',
   });
   iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
@@ -260,6 +267,7 @@ async function setupSignTool(loadVersion: number) {
     }
     try {
       const app = await waitForPdfJsSignViewer(iframe);
+      applyPdfViewerDownloadFilename(app, signState.file?.name);
       configureSessionOnlySignatureUi(iframe, app);
       signState.viewerReady = true;
 

@@ -43,6 +43,7 @@ export type PersistedOpenFileMeta = {
   name: string;
   type: string;
   source: 'upload' | 'handoff' | 'download';
+  libraryId?: string;
 };
 
 export type PersistedOpenFile = PersistedOpenFileMeta & {
@@ -67,6 +68,26 @@ const RECORD_KEY = 'current';
 let memoryRecord: StoredOpenFileRecord | null = null;
 let persistGeneration = 0;
 
+/**
+ * Every write and clear goes through here in turn.
+ *
+ * withStore opens its own connection per call, so two operations started close
+ * together commit in whichever order their `open` happens to resolve. A clear
+ * issued just before a new selection could therefore land after that
+ * selection's put and delete it, leaving sessionStorage naming a file the
+ * store no longer holds — a selection visible in the sidebar and backed by
+ * nothing. Checking persistGeneration inside the queued task rather than
+ * before it means the last intent the caller expressed is the one that runs.
+ */
+let storeQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueStoreWrite(task: () => Promise<void>): Promise<void> {
+  const run: Promise<void> = storeQueue.then(task, task);
+  // A failed task must not stall everything queued behind it.
+  storeQueue = run.catch((): void => undefined);
+  return run;
+}
+
 export function markOpenFilePresent(present: boolean): void {
   try {
     if (present) {
@@ -74,6 +95,10 @@ export function markOpenFilePresent(present: boolean): void {
       return;
     }
     sessionStorage.removeItem(OPEN_FILE_FLAG_KEY);
+    // The snapshot only ever exists to paint rows for the flag. Leaving it
+    // behind lets sidebar-boot.js repaint a withdrawn selection on the next
+    // load, so the two are always cleared together.
+    writeOpenFileSnapshot([]);
   } catch {
     // Private mode can block storage.
   }
@@ -298,7 +323,11 @@ export function applyOpenFileFlagClasses(
 }
 
 export async function writePersistedOpenFiles(
-  files: Array<{ file: File; source: PersistedOpenFileMeta['source'] }>
+  files: Array<{
+    file: File;
+    source: PersistedOpenFileMeta['source'];
+    libraryId?: string;
+  }>
 ): Promise<void> {
   const last = files[files.length - 1];
   if (!last) {
@@ -310,35 +339,40 @@ export async function writePersistedOpenFiles(
   writeOpenFileSnapshot(files.map((entry) => entry.file));
 
   const storedFiles = await Promise.all(
-    files.map(async ({ file, source }): Promise<StoredOpenFileEntry> => {
-      const buffer = await file.arrayBuffer();
-      return {
-        name: file.name,
-        type: file.type || 'application/pdf',
-        source,
-        buffer,
-      };
-    })
+    files.map(
+      async ({ file, source, libraryId }): Promise<StoredOpenFileEntry> => {
+        const buffer = await file.arrayBuffer();
+        return {
+          name: file.name,
+          type: file.type || 'application/pdf',
+          source,
+          ...(libraryId ? { libraryId } : {}),
+          buffer,
+        };
+      }
+    )
   );
-  if (generation !== persistGeneration) return;
-
   const lastStored = storedFiles[storedFiles.length - 1];
   if (!lastStored) return;
   const record: StoredOpenFileRecord = {
     ...lastStored,
     files: storedFiles,
   };
-  memoryRecord = record;
-  try {
-    await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
-  } catch {
-    // IndexedDB can be unavailable in tests and private mode.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    memoryRecord = record;
+    try {
+      await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
+    } catch {
+      // IndexedDB can be unavailable in tests and private mode.
+    }
+  });
 }
 
 export async function writePersistedOpenFile(
   file: File,
-  meta: Pick<PersistedOpenFileMeta, 'source'> & {
+  meta: Pick<PersistedOpenFileMeta, 'source' | 'libraryId'> & {
     snapshot?: Array<{ name: string; size: number }>;
   }
 ): Promise<void> {
@@ -350,15 +384,19 @@ export async function writePersistedOpenFile(
     name: file.name,
     type: file.type || 'application/pdf',
     source: meta.source,
+    ...(meta.libraryId ? { libraryId: meta.libraryId } : {}),
     buffer: await file.arrayBuffer(),
   };
-  if (generation !== persistGeneration) return;
-  memoryRecord = record;
-  try {
-    await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
-  } catch {
-    // IndexedDB can be unavailable in tests and private mode.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    memoryRecord = record;
+    try {
+      await withStore('readwrite', (store) => store.put(record, RECORD_KEY));
+    } catch {
+      // IndexedDB can be unavailable in tests and private mode.
+    }
+  });
 }
 
 export async function readPersistedOpenFiles(): Promise<PersistedOpenFile[]> {
@@ -393,20 +431,24 @@ function storedEntryToPersistedFile(
     name: record.name,
     type: record.type,
     source: record.source,
+    ...(record.libraryId ? { libraryId: record.libraryId } : {}),
     file: new File([record.buffer], record.name, { type: record.type }),
   };
 }
 
 export async function clearPersistedOpenFile(): Promise<void> {
-  persistGeneration += 1;
+  const generation = ++persistGeneration;
   memoryRecord = null;
   markOpenFilePresent(false);
-  writeOpenFileSnapshot([]);
-  try {
-    await withStore('readwrite', (store) => store.delete(RECORD_KEY));
-  } catch {
-    // Ignore storage failures.
-  }
+
+  await enqueueStoreWrite(async () => {
+    if (generation !== persistGeneration) return;
+    try {
+      await withStore('readwrite', (store) => store.delete(RECORD_KEY));
+    } catch {
+      // Ignore storage failures.
+    }
+  });
 }
 
 function withStore<T>(

@@ -44,6 +44,23 @@ function mountMyPdfs(view: 'list' | 'thumbnail' = 'thumbnail') {
         </div>
       </div>
       <table class="shift-my-pdfs-table">
+        <thead>
+          <tr>
+            <th class="shift-my-pdfs-select-cell" scope="col">
+              <input
+                id="shift-my-pdfs-table-select-all"
+                class="shift-my-pdfs-checkbox"
+                type="checkbox"
+                aria-label="Select all PDFs"
+                hidden
+              />
+            </th>
+            <th scope="col">Name</th>
+            <th scope="col">Date added</th>
+            <th scope="col">Size</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
         <tbody id="shift-my-pdfs-body"></tbody>
       </table>
       <div id="shift-my-pdfs-thumbs" class="shift-open-file-thumbs"></div>
@@ -335,10 +352,16 @@ describe('My PDFs library search', () => {
 
     // Grid comes first, matching My Images.
     expect(toggle?.firstElementChild).toBe(grid);
-    // The toggle moves into the new control row, replacing the old header.
+    // Tools + View by share one cluster (wrap together, View by at the end).
+    const controlsRow = document.querySelector('.shift-my-pdfs-controls-row');
+    const cluster = controlsRow?.querySelector(
+      '.shift-my-pdfs-controls-cluster'
+    );
+    expect(cluster?.querySelector('.shift-my-pdfs-actions')).not.toBeNull();
+    expect(cluster?.querySelector('.shift-open-file-view-by')).not.toBeNull();
     expect(
-      document.querySelector('.shift-my-pdfs-controls .shift-open-file-view-by')
-    ).not.toBeNull();
+      cluster?.lastElementChild?.classList.contains('shift-open-file-view-by')
+    ).toBe(true);
     expect(document.querySelector('.shift-open-file-header')).toBeNull();
   });
 
@@ -357,6 +380,16 @@ describe('My PDFs library search', () => {
       document.getElementById('shift-my-pdfs-selection-count')?.textContent
     ).toBe('1 of 2 selected');
 
+    // Half selected, so the control clears instead of filling in the rest.
+    expect(
+      document.getElementById('shift-my-pdfs-select-all')?.textContent
+    ).toBe('Deselect all');
+    document.getElementById('shift-my-pdfs-select-all')?.click();
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(
+      document.getElementById('shift-my-pdfs-selection-count')?.textContent
+    ).toBe('0 of 2 selected');
+
     document.getElementById('shift-my-pdfs-select-all')?.click();
     expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
       'one.pdf',
@@ -368,5 +401,52 @@ describe('My PDFs library search', () => {
     expect(
       document.getElementById('shift-my-pdfs-select-all')?.textContent
     ).toBe('Deselect all');
+  });
+
+  it('clears a partial selection from the table header checkbox', () => {
+    mountMyPdfs();
+    const first = new File(['a'], 'one.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'two.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([first, second]);
+
+    const header = document.getElementById(
+      'shift-my-pdfs-table-select-all'
+    ) as HTMLInputElement | null;
+    // Nothing selected yet, so the header control stays out of the way.
+    expect(header?.hidden).toBe(true);
+
+    setWorkspaceFiles([first]);
+    expect(header?.hidden).toBe(false);
+    expect(header?.checked).toBe(false);
+    expect(header?.indeterminate).toBe(true);
+
+    header?.click();
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(header?.hidden).toBe(true);
+    expect(header?.checked).toBe(false);
+    expect(header?.indeterminate).toBe(false);
+  });
+
+  it('shows the dash rather than a tick when everything is selected', () => {
+    mountMyPdfs();
+    const first = new File(['a'], 'one.pdf', { type: 'application/pdf' });
+    const second = new File(['b'], 'two.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([first, second]);
+
+    const header = document.getElementById(
+      'shift-my-pdfs-table-select-all'
+    ) as HTMLInputElement | null;
+
+    setWorkspaceFiles([first, second]);
+
+    // Clicking it clears, so a tick would promise the opposite of what it does.
+    expect(header?.hidden).toBe(false);
+    expect(header?.checked).toBe(false);
+    expect(header?.indeterminate).toBe(true);
+    expect(header?.getAttribute('aria-label')).toBe('Deselect all PDFs');
+
+    header?.click();
+    expect(getWorkspaceFiles()).toEqual([]);
+    expect(header?.getAttribute('aria-label')).toBe('Select all PDFs');
   });
 });

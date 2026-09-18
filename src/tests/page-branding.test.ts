@@ -1,6 +1,6 @@
 import { globSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const BRAND = 'Shift PDF';
@@ -25,6 +25,17 @@ const pageSources = [
 const localeSources = globSync('public/locales/*/*.json');
 
 /**
+ * These two credit the project this one is forked from, so they are the one
+ * place the upstream brand belongs. Holding them to the rename is what turned
+ * their copy into "Shift PDF is a branded fork of Shift PDF".
+ */
+const ATTRIBUTION_PAGES = new Set(['licensing.html', 'about.html']);
+
+const brandedPageSources = pageSources.filter(
+  (page) => !ATTRIBUTION_PAGES.has(basename(page))
+);
+
+/**
  * The social handle and the upstream repository/domain are external
  * identifiers rather than display branding, so they are excluded here.
  */
@@ -40,12 +51,40 @@ describe('page branding', () => {
     expect(localeSources.length).toBeGreaterThan(20);
   });
 
-  it.each(pageSources)('%s uses the Shift brand in metadata', async (page) => {
-    const content = stripExternalIdentifiers(await readText(page));
+  it.each(brandedPageSources)(
+    '%s uses the Shift brand in metadata',
+    async (page) => {
+      const content = stripExternalIdentifiers(await readText(page));
 
-    expect(content).not.toContain(UPSTREAM_BRAND);
-    expect(content).not.toContain(UPSTREAM_BRAND_SPACED);
-  });
+      expect(content).not.toContain(UPSTREAM_BRAND);
+      expect(content).not.toContain(UPSTREAM_BRAND_SPACED);
+    }
+  );
+
+  it.each([...ATTRIBUTION_PAGES])(
+    '%s credits the upstream project',
+    async (page) => {
+      // The inverse of the rule above: attribution has to survive a future
+      // sweep of the brand name, so assert the credit is actually present.
+      const content = stripExternalIdentifiers(await readText(page));
+
+      expect(content).toContain(UPSTREAM_BRAND);
+
+      // A blanket rename turns every credit into Shift crediting itself. Match
+      // on the phrases that introduce the upstream project rather than on the
+      // sentences seen so far, which is how "Shift PDF / Shift PDF fork"
+      // outlived the first pass at this.
+      for (const lead of ['builds on', 'fork of', 'Built from', 'upstream']) {
+        expect(content, lead).not.toMatch(
+          new RegExp(`${lead}\\s+(the\\s+)?${BRAND}\\b`, 'i')
+        );
+      }
+
+      expect(content).not.toMatch(
+        new RegExp(`${BRAND}\\s*/\\s*${BRAND}\\b`, 'i')
+      );
+    }
+  );
 
   it.each(localeSources)('%s uses the Shift brand', async (locale) => {
     const content = stripExternalIdentifiers(await readText(locale));

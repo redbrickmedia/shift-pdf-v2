@@ -15,6 +15,7 @@ import {
   hasOpenFileSkeleton,
   markOpenFilePresent,
   readOpenFileSnapshot,
+  readPersistedOpenFile,
   removeOpenFileSkeleton,
   retireOpenFileSkeleton,
   writeOpenFileSnapshot,
@@ -454,5 +455,47 @@ describe('open file snapshot', () => {
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
     await clearPersistedOpenFile();
     expect(readOpenFileSnapshot()).toEqual([]);
+  });
+
+  it('goes away with the flag, so a withdrawn selection cannot repaint', () => {
+    markOpenFilePresent(true);
+    writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
+
+    // What abandonSeed and restorePdfLibrary do when the store turns up empty.
+    markOpenFilePresent(false);
+
+    expect(hasOpenFileFlag()).toBe(false);
+    expect(readOpenFileSnapshot()).toEqual([]);
+  });
+});
+
+describe('open file store ordering', () => {
+  it('a clear started before a new selection cannot delete it', async () => {
+    const clearing = clearPersistedOpenFile();
+    const writing = writePersistedOpenFile(
+      new File(['%PDF'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+    await Promise.all([clearing, writing]);
+
+    // The selection was expressed last, so it is the one that survives in both
+    // places. A stale delete landing here is what stranded the sidebar with a
+    // file the store no longer had.
+    expect(await readPersistedOpenFile()).not.toBeNull();
+    expect(readOpenFileSnapshot()).toEqual([{ name: 'briefing.pdf', size: 4 }]);
+    expect(hasOpenFileFlag()).toBe(true);
+  });
+
+  it('a clear issued last still wins over an in-flight selection', async () => {
+    const writing = writePersistedOpenFile(
+      new File(['%PDF'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+    const clearing = clearPersistedOpenFile();
+    await Promise.all([writing, clearing]);
+
+    expect(await readPersistedOpenFile()).toBeNull();
+    expect(readOpenFileSnapshot()).toEqual([]);
+    expect(hasOpenFileFlag()).toBe(false);
   });
 });

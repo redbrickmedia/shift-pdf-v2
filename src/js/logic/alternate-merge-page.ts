@@ -53,8 +53,11 @@ async function updateUI() {
     infoSpan.textContent = `${pageState.files.length} PDF files selected`;
 
     const clearBtn = document.createElement('button');
-    clearBtn.className = 'text-red-400 hover:text-red-300';
-    clearBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+    clearBtn.className = 'shift-tool-file-remove';
+    clearBtn.type = 'button';
+    clearBtn.setAttribute('aria-label', 'Remove all files');
+    clearBtn.title = 'Remove all files';
+    clearBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
     clearBtn.onclick = function () {
       resetState();
     };

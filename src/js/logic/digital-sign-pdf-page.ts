@@ -14,6 +14,10 @@ import {
   getCertificateInfo,
 } from './digital-sign-pdf.js';
 import {
+  NetworkDisclosureBlockedError,
+  requireNetworkDisclosure,
+} from './network-disclosure-guard.js';
+import {
   SignatureInfo,
   VisibleSignatureOptions,
   DigitalSignState,
@@ -280,8 +284,11 @@ async function updatePdfDisplay(): Promise<void> {
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.pdfFile.name}`);
+  removeBtn.title = `Remove ${state.pdfFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     state.pdfFile = null;
     state.pdfBytes = null;
@@ -441,8 +448,11 @@ function updateCertDisplay(): void {
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.certFile.name}`);
+  removeBtn.title = `Remove ${state.certFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     state.certFile = null;
     state.certData = null;
@@ -729,6 +739,13 @@ async function processSignature(): Promise<void> {
     };
   }
 
+  try {
+    await requireNetworkDisclosure('digital-sign-chain-fetch');
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    throw error;
+  }
+
   showLoader(t('tools:digitalSignPdf.applyingSignature'));
 
   try {
@@ -753,6 +770,9 @@ async function processSignature(): Promise<void> {
     );
   } catch (error) {
     hideLoader();
+    if (error instanceof NetworkDisclosureBlockedError) {
+      return;
+    }
     console.error('Signing error:', error);
     const errorMessage =
       error instanceof Error ? error.message : t('common.unknownError');

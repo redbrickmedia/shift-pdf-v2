@@ -335,7 +335,11 @@ footer a {
   right: 0;
   bottom: 0;
   height: 6px;
-  background: linear-gradient(120deg, #6366f1, #8b5cf6);
+  background: linear-gradient(
+    120deg,
+    var(--action-button-surface-primary-default, #2563eb),
+    var(--brand-500, #3b82f6)
+  );
   z-index: -1;
 }
 
@@ -418,8 +422,7 @@ footer a {
 }
 
 .faq-item.open .faq-question {
-  color: #818cf8;
-  /* indigo-400 */
+  color: var(--action-text-neutral-selected, #111827);
 }
 
 .faq-item.open .faq-icon {

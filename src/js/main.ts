@@ -35,12 +35,20 @@ import {
 } from './logic/tool-favorites.js';
 import { initHomeFiles } from './logic/home-files.js';
 import { initDownloadedPdfLibrary } from './logic/downloaded-pdf-library.js';
+import { initShiftPdfSave } from './logic/shift-pdf-save.js';
+import { initGlobalFileDrop } from './logic/global-file-drop.js';
+import {
+  listAcceptedNetworkDisclosures,
+  revokeAllNetworkDisclosures,
+} from './logic/network-disclosure-guard.js';
 import {
   initInPageToolOpenFileSeeding,
   isHomeDocument,
   seedToolOpenFile,
 } from './logic/seed-tool-open-file.js';
 import { initToolEmptyState } from './logic/tool-empty-state.js';
+import { initAddMoreLibraryPicker } from './logic/add-more-files.js';
+import { initToolViewerLayout } from './logic/tool-viewer-layout.js';
 import { applyOpenFileFlagClasses } from './logic/open-file-store.js';
 import {
   ALL_TOOLS_CATEGORY_ID,
@@ -226,6 +234,9 @@ function markActiveNavLinks() {
   document
     .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
     .forEach((link) => {
+      // Add tool also points at the catalog, but it is an action rather than
+      // the current-page tab — All tools already owns that highlight.
+      if (link.classList.contains('shift-add-tool-link')) return;
       const target = navPageId(
         new URL(link.href, window.location.href).pathname
       );
@@ -261,6 +272,8 @@ const init = async () => {
   initShiftShell();
   initHomeFiles();
   initDownloadedPdfLibrary();
+  initShiftPdfSave();
+  initGlobalFileDrop();
   initInPageToolOpenFileSeeding();
   if (!hasShiftFileHandoffRequest()) {
     await seedToolOpenFile();
@@ -272,6 +285,8 @@ const init = async () => {
   applyTranslations();
 
   initToolEmptyState();
+  initAddMoreLibraryPicker();
+  initToolViewerLayout();
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';
@@ -1100,6 +1115,8 @@ const init = async () => {
         syncCategoryChips();
         applyToolSearch(searchBar?.value ?? '');
         revealSelectedCategory();
+        // Category swaps the visible set; jump to the top of the tools pane.
+        if (gridView) gridView.scrollTop = 0;
       };
 
       const appendCategoryChip = (categoryName: string) => {
@@ -1129,6 +1146,8 @@ const init = async () => {
     if (searchBar) {
       searchBar.addEventListener('input', () => {
         applyToolSearch(searchBar.value);
+        // Fresh filter results should start at the top of the tools pane.
+        if (gridView) gridView.scrollTop = 0;
       });
 
       searchBar.addEventListener('focus', () => {
@@ -1253,6 +1272,7 @@ const init = async () => {
       preferencesTabFooter?.classList.remove('hidden');
       shortcutsTabFooter?.classList.add('hidden');
       resetShortcutsBtn?.classList.add('hidden');
+      refreshNetworkDisclosuresStatus();
     });
   }
 
@@ -1330,6 +1350,31 @@ const init = async () => {
       const enabled = (e.target as HTMLInputElement).checked;
       localStorage.setItem('compactMode', enabled.toString());
       applyCompactMode(enabled);
+    });
+  }
+
+  const networkDisclosuresStatus = document.getElementById(
+    'network-disclosures-status'
+  );
+  const resetNetworkDisclosuresBtn = document.getElementById(
+    'reset-network-disclosures-btn'
+  );
+
+  function refreshNetworkDisclosuresStatus(): void {
+    if (!networkDisclosuresStatus) return;
+    const accepted = listAcceptedNetworkDisclosures();
+    networkDisclosuresStatus.textContent =
+      accepted.length === 0
+        ? 'No remembered remote-service choices.'
+        : `Remembered for: ${accepted.join(', ')}.`;
+  }
+
+  refreshNetworkDisclosuresStatus();
+
+  if (resetNetworkDisclosuresBtn) {
+    resetNetworkDisclosuresBtn.addEventListener('click', () => {
+      revokeAllNetworkDisclosures();
+      refreshNetworkDisclosuresStatus();
     });
   }
 
@@ -1611,6 +1656,9 @@ const init = async () => {
         const clearBtn = document.createElement('button');
         clearBtn.className =
           'absolute -right-2 -top-2 bg-gray-700 hover:bg-red-600 text-white rounded-full p-0.5 hidden group-hover:block shadow-sm';
+        clearBtn.type = 'button';
+        clearBtn.setAttribute('aria-label', 'Clear shortcut');
+        clearBtn.title = 'Clear shortcut';
         clearBtn.innerHTML = '<i data-lucide="x" class="w-3 h-3"></i>';
         if (currentShortcut) {
           right.classList.add('group');

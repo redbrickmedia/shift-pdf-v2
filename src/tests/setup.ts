@@ -61,11 +61,15 @@ afterEach(() => {
   document.head.innerHTML = '';
 });
 
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// A plain function, not an arrow: production code constructs this with `new`,
+// and an arrow implementation is not a constructor.
+global.ResizeObserver = vi.fn().mockImplementation(function () {
+  return {
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  };
+});
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

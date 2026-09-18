@@ -80,8 +80,11 @@ function updateFileDisplay(): void {
     info.append(fileIcon, nameSpan, sizeSpan);
 
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-file text-gray-400 hover:text-red-400';
+    removeBtn.type = 'button';
+    removeBtn.className = 'remove-file shift-tool-file-remove';
     removeBtn.dataset.index = String(index);
+    removeBtn.setAttribute('aria-label', `Remove ${file.name}`);
+    removeBtn.title = `Remove ${file.name}`;
 
     const removeIcon = document.createElement('i');
     removeIcon.setAttribute('data-lucide', 'x');

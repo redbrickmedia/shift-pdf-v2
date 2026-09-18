@@ -228,6 +228,22 @@ describe('home files', () => {
     });
   });
 
+  it('opens the library file picker from the onboarding upload CTA', () => {
+    mountHome();
+    const cta = document.createElement('button');
+    cta.id = 'shift-promise-upload';
+    cta.type = 'button';
+    document.body.prepend(cta);
+    initHomeFiles();
+
+    const input = document.getElementById('file-input') as HTMLInputElement;
+    const click = vi.spyOn(input, 'click').mockImplementation(() => undefined);
+
+    cta.click();
+
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps every PDF from one multi-select in the file input', async () => {
     mountHome();
     initHomeFiles();

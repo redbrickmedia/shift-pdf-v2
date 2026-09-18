@@ -9,6 +9,10 @@ import {
 } from '../utils/helpers.js';
 import { TIMESTAMP_TSA_PRESETS } from '../config/timestamp-tsa.js';
 import { timestampPdf } from './digital-sign-pdf.js';
+import {
+  NetworkDisclosureBlockedError,
+  requireNetworkDisclosure,
+} from './network-disclosure-guard.js';
 
 interface TimestampState {
   pdfFile: File | null;
@@ -146,8 +150,11 @@ async function updatePdfDisplay(): Promise<void> {
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
-  removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-  removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.pdfFile.name}`);
+  removeBtn.title = `Remove ${state.pdfFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
     state.pdfFile = null;
     state.pdfBytes = null;
@@ -210,6 +217,13 @@ async function processTimestamp(): Promise<void> {
   const tsaUrl = getTsaUrl();
   if (!tsaUrl) return;
 
+  try {
+    await requireNetworkDisclosure('timestamp-tsa');
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    throw error;
+  }
+
   showLoader('Applying timestamp...');
 
   try {
@@ -228,6 +242,9 @@ async function processTimestamp(): Promise<void> {
 
     resetState();
   } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) {
+      return;
+    }
     console.error('Timestamp error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     showAlert(

@@ -2,6 +2,7 @@ import { PdfSigner, type SignOption } from 'zgapdfsigner';
 import forge from 'node-forge';
 import { CertificateData, SignPdfOptions } from '@/types';
 import { isValidTsaRequestUrl } from '../config/timestamp-tsa.js';
+import { requireNetworkDisclosure } from './network-disclosure-guard.js';
 
 export function parsePfxFile(
   pfxBytes: ArrayBuffer,
@@ -278,6 +279,9 @@ export async function signPdf(
   certificateData: CertificateData,
   options: SignPdfOptions = {}
 ): Promise<Uint8Array> {
+  // Pre-use disclosure before any issuer/AIA/OCSP/CRL network activity.
+  await requireNetworkDisclosure('digital-sign-chain-fetch');
+
   const signatureInfo = options.signatureInfo ?? {};
 
   const signOptions: SignOption = {
@@ -309,11 +313,9 @@ export async function signPdf(
       },
       pageidx: vs.page,
       imgInfo: undefined as
-        | { imgData: ArrayBuffer; imgType: string }
-        | undefined,
+        { imgData: ArrayBuffer; imgType: string } | undefined,
       textInfo: undefined as
-        | { text: string; size: number; color: string }
-        | undefined,
+        { text: string; size: number; color: string } | undefined,
     };
 
     if (vs.imageData && vs.imageType) {
@@ -350,6 +352,9 @@ export async function timestampPdf(
   pdfBytes: Uint8Array,
   tsaUrl: string
 ): Promise<Uint8Array> {
+  // Pre-use disclosure before contacting the TSA (or CORS proxy).
+  await requireNetworkDisclosure('timestamp-tsa');
+
   if (!isValidTsaRequestUrl(tsaUrl)) {
     throw new Error(
       `Invalid TSA URL. The timestamp authority must be a valid http:// or https:// URL.`

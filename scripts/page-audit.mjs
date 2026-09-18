@@ -23,8 +23,13 @@ const BRAND = 'Shift PDF';
 const UPSTREAM_BRAND = ['Bento', 'PDF'].join('');
 const UPSTREAM_HOST = 'bentopdf.com';
 
-/** The attribution page must be free to name the upstream project. */
-const ATTRIBUTION_PAGES = new Set(['licensing.html']);
+/**
+ * Attribution pages must be free to name the upstream project — crediting the
+ * fork source is the whole point of them. The exemption below used to cover
+ * only the host, so the brand rule still applied here and the copy was renamed
+ * into "Shift PDF is a branded fork of Shift PDF".
+ */
+const ATTRIBUTION_PAGES = new Set(['licensing.html', 'about.html']);
 
 const failures = [];
 
@@ -68,11 +73,11 @@ function auditHtml(file) {
     }
   }
 
-  if (html.includes(UPSTREAM_BRAND)) {
-    fail('branding', `${file.rel}: contains upstream brand name`);
-  }
-
   if (!ATTRIBUTION_PAGES.has(path.basename(file.rel))) {
+    if (html.includes(UPSTREAM_BRAND)) {
+      fail('branding', `${file.rel}: contains upstream brand name`);
+    }
+
     // The npm scope is a real dependency name and stays; the host must not.
     if (html.replace(/@bentopdf\//g, '').includes(UPSTREAM_HOST)) {
       fail('branding', `${file.rel}: references ${UPSTREAM_HOST}`);

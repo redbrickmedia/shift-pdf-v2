@@ -3,6 +3,11 @@ import { createIcons, icons } from 'lucide';
 import { getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { hideLoader, showLoader } from '../ui.js';
+import {
+  applyPdfViewerDownloadFilename,
+  encodePdfjsViewerFileParam,
+  type PdfViewerFilenameTarget,
+} from '../utils/pdfjs-viewer-filename.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
@@ -66,12 +71,13 @@ function updateFileDisplay() {
 
   const removeBtn = document.createElement('button');
   removeBtn.id = 'remove-file';
-  removeBtn.className =
-    'text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2';
-  removeBtn.title = 'Remove file';
+  removeBtn.type = 'button';
+  removeBtn.className = 'p-2 flex-shrink-0 ml-2 shift-tool-file-remove';
+  removeBtn.setAttribute('aria-label', `Remove ${currentFile.name}`);
+  removeBtn.title = `Remove ${currentFile.name}`;
 
   const removeIcon = document.createElement('i');
-  removeIcon.setAttribute('data-lucide', 'trash-2');
+  removeIcon.setAttribute('data-lucide', 'x');
   removeIcon.className = 'w-4 h-4';
   removeBtn.appendChild(removeIcon);
 
@@ -186,12 +192,17 @@ async function setupFormViewer() {
     const blobUrl = URL.createObjectURL(blob);
 
     viewerIframe = document.createElement('iframe');
-    viewerIframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}`;
+    viewerIframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodePdfjsViewerFileParam(blobUrl, currentFile.name)}`;
     viewerIframe.style.width = '100%';
     viewerIframe.style.height = '100%';
     viewerIframe.style.border = 'none';
 
     viewerIframe.onload = () => {
+      const app = (
+        viewerIframe?.contentWindow as
+          (Window & { PDFViewerApplication?: PdfViewerFilenameTarget }) | null
+      )?.PDFViewerApplication;
+      applyPdfViewerDownloadFilename(app, currentFile?.name);
       viewerReady = true;
       hideLoader();
     };

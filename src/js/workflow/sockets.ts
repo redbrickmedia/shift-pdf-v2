@@ -23,7 +23,7 @@ export const imageSocket = new ImageSocket();
 export const multiPdfSocket = new MultiPDFSocket();
 
 export const socketColors: Record<string, string> = {
-  PDF: '#6366f1',
+  PDF: '#2563eb',
   Image: '#10b981',
   MultiPDF: '#f59e0b',
 };

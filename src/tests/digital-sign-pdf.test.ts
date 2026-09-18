@@ -13,6 +13,11 @@ vi.mock('zgapdfsigner', () => {
 
 import { PdfSigner } from 'zgapdfsigner';
 import { timestampPdf } from '@/js/logic/digital-sign-pdf';
+import {
+  acceptNetworkDisclosure,
+  resetNetworkDisclosureSessionForTests,
+  revokeAllNetworkDisclosures,
+} from '@/js/logic/network-disclosure-guard';
 
 const SAMPLE_PDF_PATH = path.resolve(__dirname, './fixtures/sample.pdf');
 const SAMPLE_PDF_SHA256 =
@@ -28,6 +33,13 @@ async function sha256(data: Uint8Array): Promise<string> {
     .join('');
 }
 
+function acceptRemoteDisclosures(): void {
+  resetNetworkDisclosureSessionForTests();
+  revokeAllNetworkDisclosures();
+  acceptNetworkDisclosure('timestamp-tsa');
+  acceptNetworkDisclosure('digital-sign-chain-fetch');
+}
+
 describe('timestampPdf', () => {
   let samplePdfBytes: Uint8Array;
 
@@ -35,6 +47,7 @@ describe('timestampPdf', () => {
     vi.clearAllMocks();
     vi.stubEnv('VITE_CORS_PROXY_URL', '');
     vi.stubEnv('VITE_CORS_PROXY_SECRET', '');
+    acceptRemoteDisclosures();
     samplePdfBytes = new Uint8Array(fs.readFileSync(SAMPLE_PDF_PATH));
   });
 
@@ -124,6 +137,9 @@ describe('timestampPdf', () => {
     vi.resetModules();
     const { timestampPdf: freshTimestamp } =
       await import('@/js/logic/digital-sign-pdf');
+    const { acceptNetworkDisclosure: accept } =
+      await import('@/js/logic/network-disclosure-guard');
+    accept('timestamp-tsa');
 
     mockSign.mockResolvedValueOnce(new Uint8Array([1]));
     await freshTimestamp(samplePdfBytes, 'http://timestamp.digicert.com');
@@ -148,6 +164,9 @@ describe('timestampPdf', () => {
     vi.resetModules();
     const { timestampPdf: freshTimestamp } =
       await import('@/js/logic/digital-sign-pdf');
+    const { acceptNetworkDisclosure: accept } =
+      await import('@/js/logic/network-disclosure-guard');
+    accept('timestamp-tsa');
 
     await expect(
       freshTimestamp(samplePdfBytes, 'http://timestamp.digicert.com')

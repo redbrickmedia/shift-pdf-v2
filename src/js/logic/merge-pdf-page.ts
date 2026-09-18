@@ -28,7 +28,7 @@ import {
   isDuplicateMergeFile,
   mergeFileIdentityKey,
 } from './merge-file-identity.js';
-import { openPdfLibraryPicker } from './pdf-library-picker.js';
+import { openAddMoreLibraryPicker } from './add-more-files.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
 import {
   clearWorkspaceOpenFile,
@@ -352,11 +352,10 @@ function renderFileList(): void {
 
     const remove = document.createElement('button');
     remove.type = 'button';
-    remove.className =
-      'text-red-400 hover:text-red-300 p-2 flex-shrink-0 self-end';
+    remove.className = 'p-2 flex-shrink-0 self-end shift-tool-file-remove';
     remove.title = `Remove ${source.file.name}`;
     remove.setAttribute('aria-label', `Remove ${source.file.name}`);
-    remove.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+    remove.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
     remove.addEventListener('click', () => {
       snapshot();
       mergeModel.files = mergeModel.files.filter(({ id }) => id !== source.id);
@@ -707,16 +706,8 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.value = '';
   });
   document.getElementById('add-more-btn')?.addEventListener('click', () => {
-    void openPdfLibraryPicker({
-      title: 'Add PDFs from library',
+    void openAddMoreLibraryPicker({
       exclude: currentMergeIdentities(),
-      onSelect: (entries) => {
-        void addFiles(entries.map((entry) => entry.file));
-      },
-      onUpload: () => {
-        fileInput.value = '';
-        fileInput.click();
-      },
     });
   });
   onToolFilesSeeded(() => {

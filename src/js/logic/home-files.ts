@@ -1,24 +1,19 @@
+import { isPdfFile } from '../utils/pdf-file.js';
 import {
   markOpenFilePresent,
   readPersistedOpenFiles,
 } from './open-file-store.js';
-import { addPdfToLibrary, readPdfLibrary } from './pdf-library-store.js';
 import {
   getHomeLibraryEpoch,
   getWorkspaceFiles,
   markFileFromDownload,
   markFileFromHandoff,
+  markFileLibraryId,
   renderWorkspaceFiles,
-  setHomeLibraryFiles,
   setWorkspaceFiles,
+  syncHomeLibraryFromStore,
 } from './workspace-files.js';
 import { initMyPdfsSearch } from './my-pdfs-search.js';
-
-function isPdfFile(file: File): boolean {
-  return (
-    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  );
-}
 
 async function addOpenFiles(
   incoming: File[],
@@ -27,8 +22,9 @@ async function addOpenFiles(
 ): Promise<void> {
   const pdfs = incoming.filter(isPdfFile);
   if (pdfs.length === 0) return;
+  // setWorkspaceFiles saves the selection to the library itself; adding here
+  // too would race its store read and land a second copy of each file.
   setWorkspaceFiles(pdfs, root);
-  await Promise.all(pdfs.map((file) => addPdfToLibrary(file, 'upload')));
   await restorePdfLibrary(root, epoch);
 }
 
@@ -46,30 +42,13 @@ async function restoreOpenFiles(root: Document): Promise<void> {
   }
   setWorkspaceFiles(
     persisted.map((entry) => {
-      if (entry.source === 'handoff') return markFileFromHandoff(entry.file);
-      if (entry.source === 'download') return markFileFromDownload(entry.file);
-      return entry.file;
+      let file = entry.file;
+      if (entry.libraryId) file = markFileLibraryId(file, entry.libraryId);
+      if (entry.source === 'handoff') return markFileFromHandoff(file);
+      if (entry.source === 'download') return markFileFromDownload(file);
+      return file;
     }),
     root
-  );
-}
-
-export async function syncHomeLibraryFromStore(
-  root: Document = document,
-  epoch: number = getHomeLibraryEpoch()
-): Promise<void> {
-  const entries = await readPdfLibrary();
-  setHomeLibraryFiles(
-    entries.map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      size: entry.size,
-      source: entry.source,
-      addedAt: entry.addedAt,
-      blob: entry.file,
-    })),
-    root,
-    epoch
   );
 }
 
@@ -112,6 +91,11 @@ export function initHomeFiles(root: Document = document): void {
       input.value = '';
     });
   }
+
+  // Onboarding CTA opens the same library picker as the drop zone / Choose files.
+  root.getElementById('shift-promise-upload')?.addEventListener('click', () => {
+    input?.click();
+  });
 
   void restoreOpenFiles(root);
   if (hasLibrary) {
