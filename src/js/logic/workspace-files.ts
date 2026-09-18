@@ -303,6 +303,18 @@ export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
 }
 
+export async function openLibraryFileInViewer(
+  file: WorkspaceFileInfo,
+  root: Document = document,
+  assignLocation: (href: string) => void = (href) =>
+    window.location.assign(href)
+): Promise<boolean> {
+  const href = viewPdfHref(root, file);
+  if (!href) return false;
+  assignLocation(href);
+  return true;
+}
+
 export async function clearWorkspaceOpenFile(
   root: Document = document
 ): Promise<void> {
@@ -1850,47 +1862,104 @@ function myPdfsHref(root: Document): string {
   return nav?.getAttribute('href')?.trim() || 'my-pdfs.html';
 }
 
-function focusSelectedLibraryFile(root: Document): void {
-  const selected =
-    root.querySelector<HTMLElement>('.shift-open-file-thumb.is-selected') ??
-    root.querySelector<HTMLElement>('.shift-my-pdfs-row.is-selected');
-  selected?.scrollIntoView({ block: 'nearest' });
-  selected?.focus();
+/* The viewer ships beside My PDFs, so that nav link is also the only reliable
+   base path on a subdirectory deploy — there is no nav anchor of its own. */
+function viewPdfHref(
+  root: Document,
+  file: Pick<WorkspaceFileInfo, 'id' | 'name'>
+): string {
+  const href = myPdfsHref(root).replace(/my-pdfs\.html/, 'view-pdf.html');
+  const params = new URLSearchParams();
+  if (file.id) {
+    params.set('file', file.id);
+  } else if (file.name) {
+    // Snapshot-painted pending rows have a name but no library id yet.
+    params.set('name', file.name);
+  } else {
+    return '';
+  }
+  return `${href}?${params.toString()}`;
+}
+
+/**
+ * The viewer is the only page with a document of its own, and it names it in
+ * the URL. Everywhere else each listed row is simply a selected file, so there
+ * is no viewed row to mark.
+ */
+function viewedSidebarTarget(root: Document): URLSearchParams | null {
+  const location = root.defaultView?.location;
+  if (!location || !/(^|\/)view-pdf\.html$/.test(location.pathname)) {
+    return null;
+  }
+  return new URLSearchParams(location.search);
+}
+
+function isViewedSidebarFile(file: WorkspaceFileInfo, root: Document): boolean {
+  const target = viewedSidebarTarget(root);
+  if (!target) return false;
+  const id = target.get('file')?.trim();
+  if (id) return file.id === id;
+  // Pending rows reach the viewer by name, before they have a library id.
+  const name = target.get('name')?.trim();
+  return Boolean(name) && file.name === name;
+}
+
+function isSidebarCollapsed(root: Document): boolean {
+  return (
+    root.body.classList.contains('shift-sidebar-collapsed') ||
+    root.documentElement.classList.contains('shift-sidebar-collapsed-pending')
+  );
+}
+
+/**
+ * The expanded rail already spells the filename out in the row, so the tooltip
+ * would only repeat it. The collapsed rail is a 40px thumbnail with no label,
+ * which is the one case that needs it. The text is kept on the row either way
+ * so collapsing can restore the tooltip without a repaint.
+ */
+function applySidebarFileTooltip(link: HTMLElement, root: Document): void {
+  const text = link.dataset.shiftFileTooltip?.trim();
+  if (!text) return;
+  if (isSidebarCollapsed(root)) {
+    attachShiftTooltip(link, { placement: 'right', text });
+    return;
+  }
+  link.removeAttribute('data-shift-tooltip');
+}
+
+/** Called by the collapse control, which flips the state after the rows paint. */
+export function syncSidebarFileTooltips(root: Document = document): void {
+  hideShiftTooltip(root);
+  root
+    .querySelectorAll<HTMLElement>('.shift-open-file-item')
+    .forEach((link) => applySidebarFileTooltip(link, root));
 }
 
 function createFileButton(
   file: WorkspaceFileInfo,
   root: Document
 ): HTMLAnchorElement {
+  const viewed = isViewedSidebarFile(file, root);
   const link = root.createElement('a');
   link.className = 'shift-nav-link shift-open-file-item is-selected';
-  link.href = myPdfsHref(root);
+  /* Several selected PDFs can be listed at once, so the row whose viewer is
+     open is the one that reads as current. The others stay plain rows. */
+  link.classList.toggle('is-viewing', viewed);
+  link.href = viewPdfHref(root, file);
   link.dataset.fileName = file.name;
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
-  link.setAttribute('aria-current', 'true');
-  if (file.source === 'handoff') {
-    attachShiftTooltip(link, {
-      placement: 'right',
-      text: sidebarFileTooltip(file),
-    });
-    link.setAttribute('data-i18n-tooltip', 'home.fromShiftHandoffTooltip');
-  } else if (file.source === 'download') {
-    attachShiftTooltip(link, {
-      placement: 'right',
-      text: sidebarFileTooltip(file),
-    });
-  }
+  link.setAttribute('aria-current', viewed ? 'page' : 'true');
+  /* Filename first: the collapsed rail is an icon, and the expanded label
+     truncates. Skip data-i18n-tooltip — that path overwrites the whole string
+     and would drop the name. aria-label already names the row for AT. */
+  link.dataset.shiftFileTooltip = sidebarFileTooltip(file);
+  applySidebarFileTooltip(link, root);
   link.append(
     createOpenFilePreview(file, root),
     createLabel(file.name, root),
     createSelectedFileChip(root, 'shift-open-file-selected-label')
   );
-  link.addEventListener('click', (event) => {
-    if (!root.getElementById('shift-my-pdfs')) return;
-    event.preventDefault();
-    focusSelectedLibraryFile(root);
-  });
   return link;
 }
 
@@ -2054,20 +2123,20 @@ function findSidebarFileButton(
 
 function sidebarFileTooltip(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
-    return 'Received from Shift. Click to open in My PDFs.';
+    return `${file.name} · Received from Shift`;
   }
   if (file.source === 'download') {
-    return 'Downloaded copy. Click to open in My PDFs.';
+    return `${file.name} · Downloaded copy`;
   }
   return file.name;
 }
 
 function sidebarFileAriaLabel(file: WorkspaceFileInfo): string {
   if (file.source === 'handoff') {
-    return `Selected: ${file.name}. Received from Shift. Click to open in My PDFs.`;
+    return `Selected: ${file.name}. Received from Shift. Click to open in the viewer.`;
   }
   if (file.source === 'download') {
-    return `Selected: ${file.name}. Downloaded copy. Click to open in My PDFs.`;
+    return `Selected: ${file.name}. Downloaded copy. Click to open in the viewer.`;
   }
   return `Selected: ${file.name}`;
 }
@@ -2121,7 +2190,13 @@ function createHomeFileRow(
 
   const actionCell = root.createElement('td');
   actionCell.className = 'shift-my-pdfs-action-cell';
-  actionCell.appendChild(createHomeFileDeleteButton(file, root));
+  const actionLayout = root.createElement('div');
+  actionLayout.className = 'shift-my-pdfs-action-layout';
+  actionLayout.append(
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
+  actionCell.appendChild(actionLayout);
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
@@ -2134,8 +2209,9 @@ function createHomeFileRow(
   return row;
 }
 
-/* The card is a button, so the delete control cannot nest inside it. Both sit
-   in a wrapper instead, which becomes the grid item the thumbs list lays out. */
+/* The card is a button, so View and Delete cannot nest inside it. They sit in
+   an action row below the card instead, and the wrapper holding both becomes
+   the grid item the thumbs list lays out. */
 function createHomeFileThumb(
   file: WorkspaceFileInfo,
   root: Document
@@ -2193,8 +2269,32 @@ function createHomeFileThumb(
 
   const item = root.createElement('div');
   item.className = 'shift-my-pdfs-thumb-item';
-  item.append(card, createHomeFileDeleteButton(file, root));
+  const actions = root.createElement('div');
+  actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
+  actions.append(
+    createHomeFileViewButton(file, root),
+    createHomeFileDeleteButton(file, root)
+  );
+  item.append(card, actions);
   return item;
+}
+
+function createHomeFileViewButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-view';
+  button.dataset.fileName = file.name;
+  button.textContent = 'View';
+  button.setAttribute('aria-label', `View ${file.name}`);
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    void openLibraryFileInViewer(file, root);
+  });
+  return button;
 }
 
 function createHomeFileDeleteButton(

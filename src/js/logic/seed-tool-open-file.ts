@@ -44,6 +44,14 @@ export function isHomeDocument(root: Document = document): boolean {
   );
 }
 
+/**
+ * The viewer reads whichever document its URL points at, so it is not a tool
+ * page: it has no output to produce and nothing to seed.
+ */
+export function isViewerDocument(root: Document = document): boolean {
+  return Boolean(root.getElementById('shift-pdf-viewer'));
+}
+
 export function inputAcceptsFile(input: HTMLInputElement, file: File): boolean {
   return pickerAcceptsFile(input, file);
 }
@@ -172,6 +180,17 @@ export async function seedToolOpenFile(
   }
 
   if (!files || files.length === 0) return abandonSeed(root);
+
+  // Viewing is read-only for the selection. The viewer's own picker takes a
+  // single file, so seeding it narrowed the selection to the last persisted
+  // file (filesApplicableToToolInput slices anything not `multiple`) and wrote
+  // that back — which is what cleared the My PDFs checkboxes on every open.
+  // The sidebar still needs the selection in memory, so restore it verbatim.
+  if (isViewerDocument(root)) {
+    setWorkspaceFiles(files, root);
+    removeOpenFileSkeleton(root);
+    return true;
+  }
 
   const applicable = filesApplicableToToolInput(files, root);
   const applied = applyFilesToToolInput(files, root);

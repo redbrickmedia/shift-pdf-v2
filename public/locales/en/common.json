@@ -75,7 +75,7 @@
     "viewList": "List view",
     "viewThumbnail": "Thumbnail view",
     "clickToUpload": "Click to upload",
-    "fromShiftHandoffTooltip": "Received from Shift. Click to open in My PDFs.",
+    "fromShiftHandoffTooltip": "Received from Shift. Click to open in the viewer.",
     "activeFileTooltip": "A selected file is a file that will be used when you click on tools.",
     "columnName": "Name",
     "columnDateAdded": "Date added",

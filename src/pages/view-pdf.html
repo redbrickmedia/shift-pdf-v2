@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="title" content="View PDF | Shift PDF" />
+    <meta
+      name="description"
+      content="Read a PDF and launch Shift PDF tools from the open document."
+    />
+    <meta name="author" content="Shift" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>View PDF | Shift PDF</title>
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/images/shift-pdf-logo.svg" />
+    <link href="/src/css/styles.css" rel="stylesheet" />
+  </head>
+
+  <body class="antialiased shift-pdf-viewer-page">
+    {{> navbar }}
+
+    <main id="shift-pdf-viewer" class="shift-pdf-viewer-shell">
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <a
+            id="shift-pdf-viewer-back"
+            class="shift-pdf-viewer-back"
+            href="{{baseUrl}}my-pdfs.html"
+          >
+            <span aria-hidden="true">←</span>
+            <span>Go Back</span>
+          </a>
+          <h1 id="shift-pdf-viewer-title">PDF</h1>
+        </div>
+
+        <div
+          class="shift-pdf-viewer-actions"
+          role="toolbar"
+          aria-label="PDF actions"
+        >
+          <button
+            class="shift-pdf-viewer-action"
+            type="button"
+            data-viewer-tool="encrypt-pdf.html"
+            aria-label="Lock"
+          >
+            <i class="ph ph-lock" aria-hidden="true"></i>
+            <span>Lock</span>
+          </button>
+          <button
+            class="shift-pdf-viewer-action"
+            type="button"
+            data-viewer-tool="pdf-converter.html"
+            aria-label="Convert"
+          >
+            <i class="ph ph-arrows-left-right" aria-hidden="true"></i>
+            <span>Convert</span>
+          </button>
+          <button
+            class="shift-pdf-viewer-action"
+            type="button"
+            data-viewer-tool="sign-pdf.html"
+            aria-label="eSign"
+          >
+            <i class="ph ph-pen-nib" aria-hidden="true"></i>
+            <span>eSign</span>
+          </button>
+          <button
+            class="shift-pdf-viewer-action"
+            type="button"
+            data-viewer-tool="compress-pdf.html"
+            aria-label="Compress"
+          >
+            <i class="ph ph-lightning" aria-hidden="true"></i>
+            <span>Compress</span>
+          </button>
+          <button
+            id="shift-pdf-viewer-print"
+            class="shift-pdf-viewer-action"
+            type="button"
+            aria-label="Print"
+          >
+            <i class="ph ph-printer" aria-hidden="true"></i>
+            <span>Print</span>
+          </button>
+          <button
+            id="shift-pdf-viewer-download"
+            class="shift-pdf-viewer-action"
+            type="button"
+            aria-label="Download"
+          >
+            <span class="shift-pdf-viewer-download-icon" aria-hidden="true">
+              <i class="ph ph-download-simple"></i>
+              <span class="shift-pdf-viewer-download-spinner"></span>
+            </span>
+            <span>Download</span>
+          </button>
+        </div>
+      </header>
+
+      <section
+        id="shift-pdf-viewer-stage"
+        class="shift-pdf-viewer-stage"
+        aria-label="PDF viewer"
+      >
+        <iframe
+          id="shift-pdf-viewer-frame"
+          class="shift-pdf-viewer-frame"
+          title="PDF viewer"
+        ></iframe>
+        <div id="shift-pdf-viewer-empty" class="shift-pdf-viewer-empty" hidden>
+          <p>No PDF is open.</p>
+          <a class="shift-button" href="{{baseUrl}}my-pdfs.html"
+            >Go to My PDFs</a
+          >
+        </div>
+      </section>
+
+      <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+    </main>
+
+    <script type="module" src="/src/js/logic/pdf-viewer-page.ts"></script>
+    <script type="module" src="/src/js/main.ts"></script>
+  </body>
+</html>

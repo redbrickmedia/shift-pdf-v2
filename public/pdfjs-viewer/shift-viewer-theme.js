@@ -19,10 +19,15 @@
   'use strict';
 
   var root = document.documentElement;
-  var signing =
-    new URLSearchParams(document.location.search).get('bentoSign') === '1';
+  var params = new URLSearchParams(document.location.search);
+  var signing = params.get('bentoSign') === '1';
+  var launchpad = params.get('shiftLaunchpad') === '1';
 
-  root.dataset.shiftViewer = signing ? 'sign' : 'embed';
+  root.dataset.shiftViewer = launchpad
+    ? 'launchpad'
+    : signing
+      ? 'sign'
+      : 'embed';
 
   function hostRoot() {
     try {
