@@ -4,6 +4,7 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
   renderPdfFirstPage: vi.fn().mockResolvedValue(undefined),
 }));
 
+import * as helpers from '../js/utils/helpers';
 import { SHIFT_TOOLTIP_SHOW_DELAY_MS } from '../js/logic/shift-tooltip';
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import { initHomeFiles } from '../js/logic/home-files';
@@ -202,6 +203,35 @@ describe('home files', () => {
       );
     });
     expect(document.querySelectorAll('.shift-open-file-thumb')).toHaveLength(2);
+  });
+
+  it('downloads a library card PDF without opening the viewer', async () => {
+    const download = vi.spyOn(helpers, 'downloadBlob').mockImplementation(() => {});
+    mountHome();
+    initHomeFiles();
+    const file = new File(['pdf-bytes'], 'briefing.pdf', {
+      type: 'application/pdf',
+    });
+    dispatchDrop([file]);
+
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector('.shift-my-pdfs-download[data-file-name="briefing.pdf"]')
+      ).not.toBeNull();
+    });
+
+    document
+      .querySelector<HTMLButtonElement>(
+        '.shift-my-pdfs-thumb-actions .shift-my-pdfs-download'
+      )
+      ?.click();
+
+    expect(download).toHaveBeenCalledWith(file, 'briefing.pdf');
+    expect(
+      document
+        .querySelector('.shift-open-file-thumb-name')
+        ?.getAttribute('data-shift-tooltip')
+    ).toBe('briefing.pdf');
   });
 
   it('accepts PDFs selected through the hidden file input', async () => {

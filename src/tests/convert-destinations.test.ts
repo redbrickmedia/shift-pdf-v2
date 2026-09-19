@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  filterConvertDestinations,
   getPdfDestinations,
   getSharedDestinations,
   getToPdfDestination,
@@ -99,6 +100,20 @@ describe('destination batch capability', () => {
       expect(byId.get(id)?.acceptsMultiple ?? false).toBe(false);
     }
     expect(byId.get('pdf-to-docx')?.acceptsMultiple).toBe(true);
+  });
+
+  it('filters destinations by name, subtitle, or extension', () => {
+    const { primary, secondary } = getPdfDestinations();
+    const all = [...primary, ...secondary];
+
+    expect(filterConvertDestinations(all, 'word').map((entry) => entry.id)).toEqual(
+      ['pdf-to-docx']
+    );
+    expect(
+      filterConvertDestinations(all, 'jpg').some((entry) => entry.id === 'pdf-to-jpg')
+    ).toBe(true);
+    expect(filterConvertDestinations(all, '   ')).toHaveLength(all.length);
+    expect(filterConvertDestinations(all, 'zzzz-nope')).toEqual([]);
   });
 
   it('carries the capability onto to-PDF destinations', () => {
