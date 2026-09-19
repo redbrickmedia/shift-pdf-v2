@@ -205,7 +205,7 @@ async function handleFiles(files: FileList) {
         downloadBtn = document.createElement('button');
         downloadBtn.id = 'download-edited-pdf';
         downloadBtn.className = 'btn-gradient w-full mt-6';
-        downloadBtn.textContent = 'Download Edited PDF';
+        downloadBtn.textContent = 'Apply changes';
         pdfWrapper.appendChild(downloadBtn);
       }
       downloadBtn.classList.remove('hidden');

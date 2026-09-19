@@ -35,6 +35,10 @@ import {
   markFileFromHandoff,
   setWorkspaceFiles,
 } from './workspace-files.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 type MergeMode = 'file' | 'page';
 
@@ -116,6 +120,7 @@ function updateHistoryButtons(): void {
   const status = history.status;
   if (undo) undo.disabled = !status.canUndo;
   if (redo) redo.disabled = !status.canRedo;
+  syncToolOutputToolbar();
 }
 
 function snapshot(): void {
@@ -699,6 +704,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   completionPanel = createDefaultToolCompletionPanel(resetState);
+  const unregisterOutputSession = registerToolOutputSession({
+    reset: resetState,
+    undo,
+    redo,
+    canUndo: () => history.status.canUndo,
+    canRedo: () => history.status.canRedo,
+  });
+  window.addEventListener('pagehide', unregisterOutputSession, { once: true });
   fileInput?.addEventListener('change', () => {
     void addFiles(Array.from(fileInput.files ?? []));
   });

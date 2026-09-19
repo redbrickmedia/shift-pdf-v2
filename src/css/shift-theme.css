@@ -1151,6 +1151,142 @@ body.shift-has-open-file #file-display-area {
   display: none;
 }
 
+.shift-tool-viewer-actions:has(#shift-tool-output-toolbar) {
+  display: flex;
+  width: 100%;
+}
+
+.shift-tool-output-toolbar {
+  position: relative;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 var(--spacing-16);
+  padding: var(--spacing-8);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
+}
+
+.shift-tool-output-history,
+.shift-tool-output-actions,
+.shift-tool-output-split {
+  display: flex;
+  align-items: center;
+}
+
+.shift-tool-output-history,
+.shift-tool-output-actions {
+  gap: var(--spacing-8);
+}
+
+.shift-tool-output-split {
+  border-radius: var(--radius-8);
+  box-shadow: 0 0 0 1px var(--action-button-border-primary-default);
+}
+
+.shift-tool-output-button,
+.shift-tool-output-disclosure {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  padding: 0 var(--spacing-12);
+  border: 0;
+  background: transparent;
+  color: var(--action-text-neutral-default);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.shift-tool-output-button svg,
+.shift-tool-output-disclosure svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.shift-tool-output-button:hover:not(:disabled),
+.shift-tool-output-disclosure:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-tool-output-button:disabled {
+  color: var(--action-text-neutral-disabled);
+  cursor: default;
+}
+
+.shift-tool-output-save {
+  min-width: 96px;
+  border-radius: var(--radius-8) 0 0 var(--radius-8);
+  background: var(--action-button-surface-primary-default);
+  color: var(--action-text-primary-default);
+}
+
+.shift-tool-output-save:hover:not(:disabled) {
+  background: var(--action-button-surface-primary-hover);
+}
+
+.shift-tool-output-save:disabled {
+  background: var(--action-button-surface-primary-disabled);
+}
+
+.shift-tool-output-menu {
+  position: relative;
+}
+
+.shift-tool-output-disclosure {
+  width: 36px;
+  padding: 0;
+  border-left: 1px solid var(--action-button-border-primary-default);
+  border-radius: 0 var(--radius-8) var(--radius-8) 0;
+  background: var(--action-button-surface-primary-default);
+  color: var(--action-text-primary-default);
+  list-style: none;
+}
+
+.shift-tool-output-disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.shift-tool-output-menu[open] .shift-tool-output-disclosure svg {
+  transform: rotate(180deg);
+}
+
+.shift-tool-output-menu-surface {
+  position: absolute;
+  top: calc(100% + var(--spacing-8));
+  right: 0;
+  min-width: 180px;
+  padding: var(--spacing-4);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.shift-tool-output-menu-surface .shift-tool-output-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+body.shift-tool-viewer .shift-tool-output-toolbar {
+  width: auto;
+  min-width: 390px;
+  margin: 0;
+}
+
 body.shift-tool-viewer .shift-tool-viewer-bar {
   display: flex;
   flex-shrink: 0;

@@ -9,6 +9,11 @@ import {
   persistWorkspaceOpenFile,
   setWorkspaceFiles,
 } from './workspace-files.js';
+import { clearLatestPdfOutput, setLatestPdfOutput } from './shift-pdf-save.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 export const VIEWER_TOOL_TARGETS = {
   lock: 'encrypt-pdf.html',
@@ -67,6 +72,7 @@ export async function showPdfInViewer(
   if (!frame) return false;
 
   currentFile = file;
+  setLatestPdfOutput({ blob: file, filename: file.name }, root);
 
   const createObjectUrl =
     dependencies.createObjectUrl ??
@@ -248,6 +254,13 @@ export function initPdfViewerPage(root: Document = document): void {
   if (!root.getElementById('shift-pdf-viewer')) return;
 
   bindViewerActions(root);
+  const unregisterOutputSession = registerToolOutputSession(
+    {
+      reset: () => resetViewer(root),
+    },
+    root
+  );
+  window.addEventListener('pagehide', unregisterOutputSession, { once: true });
   void loadViewerDocumentFromUrl(root);
 
   const input = root.getElementById('file-input') as HTMLInputElement | null;
@@ -264,6 +277,24 @@ export function initPdfViewerPage(root: Document = document): void {
   });
 
   window.setTimeout(() => showEmptyState(root), 800);
+}
+
+function resetViewer(root: Document): void {
+  clearDownloadTimer();
+  if (currentObjectUrl) currentRevokeObjectUrl?.(currentObjectUrl);
+  currentFile = null;
+  currentObjectUrl = null;
+  currentRevokeObjectUrl = null;
+  clearLatestPdfOutput(root);
+  const frame = root.getElementById(
+    'shift-pdf-viewer-frame'
+  ) as HTMLIFrameElement | null;
+  if (frame) {
+    frame.removeAttribute('src');
+    frame.hidden = true;
+  }
+  root.getElementById('shift-pdf-viewer-empty')?.removeAttribute('hidden');
+  syncToolOutputToolbar(root);
 }
 
 export function resetPdfViewerPageForTests(): void {

@@ -33,6 +33,10 @@ import {
   markFileFromHandoff,
   setWorkspaceFilesFromTool,
 } from './workspace-files.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 const signState: SignState = {
   file: null,
@@ -53,6 +57,10 @@ if (document.readyState === 'loading') {
 function initializePage() {
   createIcons({ icons });
   completionPanel = createDefaultToolCompletionPanel(resetState);
+  const unregisterOutputSession = registerToolOutputSession({
+    reset: resetState,
+  });
+  window.addEventListener('pagehide', unregisterOutputSession, { once: true });
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
@@ -278,6 +286,7 @@ async function setupSignTool(loadVersion: number) {
         saveBtn.style.display = '';
       }
       document.getElementById('print-signed-pdf')?.classList.remove('hidden');
+      syncToolOutputToolbar();
     } catch (error) {
       console.error('Could not initialize PDF.js viewer for signing:', error);
       showAlert(
@@ -317,8 +326,8 @@ function updateDownloadButtonLabel() {
   const processButton = document.getElementById('process-btn');
   if (processButton) {
     processButton.textContent = flatten
-      ? t('tools:signPdf.downloadFlattened')
-      : t('tools:signPdf.download');
+      ? 'Apply and flatten signatures'
+      : 'Apply signatures';
   }
 }
 
@@ -406,7 +415,7 @@ function resetState() {
   ) as HTMLButtonElement | null;
   if (processBtn) {
     processBtn.style.display = 'none';
-    processBtn.textContent = t('tools:signPdf.download');
+    processBtn.textContent = 'Apply signatures';
   }
   document.getElementById('print-signed-pdf')?.classList.add('hidden');
 
@@ -416,6 +425,7 @@ function resetState() {
   if (flattenCheckbox) {
     flattenCheckbox.checked = false;
   }
+  syncToolOutputToolbar();
 }
 
 function cleanup() {
