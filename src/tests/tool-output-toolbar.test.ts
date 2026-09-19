@@ -59,8 +59,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(true);
+    expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
       HTMLDetailsElement
     );
@@ -89,30 +88,53 @@ describe('tool output toolbar', () => {
     );
   });
 
-  it('keeps Download and Print together behind the disclosure', () => {
+  it('keeps Download behind the Save disclosure on tools without a viewer', () => {
     const menu = document.getElementById(
       TOOL_OUTPUT_MENU_ID
     ) as HTMLDetailsElement;
 
     expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
-    expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
   });
 
-  it('does not show Print in the output bar below a tool', () => {
-    setLatestPdfOutput({
-      blob: new Blob(['pdf'], { type: 'application/pdf' }),
-      filename: 'signed.pdf',
-    });
-    syncToolOutputToolbar();
-    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(true);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+  it('puts Undo, Redo, Print, and Download in the viewer header', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div class="shift-tool-viewer-bar">
+            <div class="shift-tool-viewer-title"><h1>Sign PDF</h1></div>
+            <div data-shift-viewer-actions></div>
+          </div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const actions = document.querySelector('[data-shift-viewer-actions]');
+    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
+    expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).toBeNull();
+    expect(document.getElementById(TOOL_OUTPUT_RESET_ID)).toBeNull();
+    expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
+    expect(button(TOOL_OUTPUT_UNDO_ID).className).toBe('shift-pdf-viewer-action');
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).className).toBe(
+      'shift-pdf-viewer-action'
+    );
   });
 
-  it('prints through the active tool and closes the disclosure', async () => {
-    const toolbarHost = document.createElement('div');
-    toolbarHost.setAttribute('data-shift-viewer-actions', '');
-    document.querySelector('main')?.prepend(toolbarHost);
+  it('prints from the viewer header through the active tool', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
     initToolOutputToolbar();
 
     let viewerReady = false;
@@ -127,15 +149,9 @@ describe('tool output toolbar', () => {
     viewerReady = true;
     syncToolOutputToolbar();
     expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
-
-    const menu = document.getElementById(
-      TOOL_OUTPUT_MENU_ID
-    ) as HTMLDetailsElement;
-    menu.open = true;
     button(TOOL_OUTPUT_PRINT_ID).click();
 
     await vi.waitFor(() => expect(print).toHaveBeenCalledOnce());
-    expect(menu.open).toBe(false);
     unregister();
   });
 

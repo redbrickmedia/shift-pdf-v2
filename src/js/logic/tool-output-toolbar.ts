@@ -11,6 +11,7 @@ import {
   saveToShiftPdf,
   TOOL_OUTPUT_STATE_EVENT,
 } from './shift-pdf-save.js';
+import { isViewerToolDocument } from './tool-viewer-layout.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
 export const TOOL_OUTPUT_UNDO_ID = 'shift-tool-output-undo';
@@ -115,11 +116,9 @@ export function syncToolOutputToolbar(root: Document = document): void {
   }
   if (download) setButtonDisabled(download, !output);
   if (print) {
-    const inViewerToolbar = Boolean(
-      print.closest('[data-shift-viewer-actions]')
-    );
-    if (print.hidden === inViewerToolbar) print.hidden = !inViewerToolbar;
-    setButtonDisabled(print, !inViewerToolbar || !canPrintOutput(root));
+    const viewerActions = isViewerToolDocument(root);
+    if (print.hidden === !viewerActions) print.hidden = !viewerActions;
+    setButtonDisabled(print, !viewerActions || !canPrintOutput(root));
   }
   hideEmbeddedViewerPrintControls(root);
 }
@@ -140,19 +139,15 @@ function isNonToolPage(root: Document): boolean {
 }
 
 function ensureToolbar(root: Document): HTMLElement | null {
-  const existing = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
-  const viewerActions = root.querySelector<HTMLElement>(
-    '[data-shift-viewer-actions]'
-  );
-  if (existing) {
-    if (viewerActions && existing.parentElement !== viewerActions) {
-      viewerActions.append(existing);
-    }
-    return existing;
+  if (isViewerToolDocument(root)) {
+    root.getElementById(TOOL_OUTPUT_TOOLBAR_ID)?.remove();
+    return ensureViewerHeaderActions(root);
   }
 
+  const existing = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
+  if (existing) return existing;
+
   const host =
-    viewerActions ??
     root.getElementById('workflow-toolbar') ??
     root.querySelector<HTMLElement>('.toolbar-container') ??
     root.getElementById('tool-uploader') ??
@@ -203,8 +198,7 @@ function ensureToolbar(root: Document): HTMLElement | null {
     'Download',
     'download'
   );
-  const print = createActionButton(root, TOOL_OUTPUT_PRINT_ID, 'Print', 'print');
-  menuSurface.append(download, print);
+  menuSurface.append(download);
   menu.append(summary, menuSurface);
   split.append(save, menu);
   outputActions.append(split);
@@ -218,11 +212,57 @@ function ensureToolbar(root: Document): HTMLElement | null {
   (subtitle ?? heading)?.insertAdjacentElement('afterend', toolbar);
   if (!heading) host.append(toolbar);
 
+  bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
-  download.addEventListener('click', () => downloadOutput(root));
-  print.addEventListener('click', () => void printOutput(root));
   getButton(root, TOOL_OUTPUT_RESET_ID)?.addEventListener('click', () => {
     void resetOutput(root);
+  });
+
+  hideLegacyOutputActions(root);
+  return toolbar;
+}
+
+function ensureViewerHeaderActions(root: Document): HTMLElement | null {
+  const host = root.querySelector<HTMLElement>('[data-shift-viewer-actions]');
+  if (!host) return null;
+  if (root.getElementById(TOOL_OUTPUT_UNDO_ID)) return host;
+
+  const undo = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_UNDO_ID,
+    'Undo',
+    'ph-arrow-u-up-left'
+  );
+  const redo = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_REDO_ID,
+    'Redo',
+    'ph-arrow-u-up-right'
+  );
+  const print = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_PRINT_ID,
+    'Print',
+    'ph-printer'
+  );
+  const download = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_DOWNLOAD_ID,
+    'Download',
+    'ph-download-simple'
+  );
+  host.prepend(undo, redo, print, download);
+  bindSharedActionHandlers(root);
+  hideLegacyOutputActions(root);
+  return host;
+}
+
+function bindSharedActionHandlers(root: Document): void {
+  getButton(root, TOOL_OUTPUT_DOWNLOAD_ID)?.addEventListener('click', () =>
+    downloadOutput(root)
+  );
+  getButton(root, TOOL_OUTPUT_PRINT_ID)?.addEventListener('click', () => {
+    void printOutput(root);
   });
   getButton(root, TOOL_OUTPUT_UNDO_ID)?.addEventListener('click', () => {
     void runHistoryAction(
@@ -236,9 +276,26 @@ function ensureToolbar(root: Document): HTMLElement | null {
       root
     );
   });
+}
 
-  hideLegacyOutputActions(root);
-  return toolbar;
+function createViewerActionButton(
+  root: Document,
+  id: string,
+  label: string,
+  phosphorIcon: string
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.id = id;
+  button.type = 'button';
+  button.className = 'shift-pdf-viewer-action';
+  button.setAttribute('aria-label', label);
+  const icon = root.createElement('i');
+  icon.className = `ph ${phosphorIcon}`;
+  icon.setAttribute('aria-hidden', 'true');
+  const text = root.createElement('span');
+  text.textContent = label;
+  button.append(icon, text);
+  return button;
 }
 
 function createActionButton(
@@ -424,8 +481,6 @@ function actionIcon(name: string): string {
     save: '<path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
     download:
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
-    print:
-      '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/>',
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;
 }

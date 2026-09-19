@@ -1151,11 +1151,6 @@ body.shift-has-open-file #file-display-area {
   display: none;
 }
 
-.shift-tool-viewer-actions:has(#shift-tool-output-toolbar) {
-  display: flex;
-  width: 100%;
-}
-
 .shift-tool-output-toolbar {
   position: relative;
   z-index: 12;
@@ -1282,9 +1277,7 @@ body.shift-has-open-file #file-display-area {
 }
 
 body.shift-tool-viewer .shift-tool-output-toolbar {
-  width: auto;
-  min-width: 390px;
-  margin: 0;
+  display: none;
 }
 
 body.shift-tool-viewer .shift-tool-viewer-bar {
@@ -1320,11 +1313,12 @@ body.shift-tool-viewer .shift-tool-viewer-title > p {
 
 body.shift-tool-viewer .shift-tool-viewer-actions {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
-  gap: var(--spacing-8);
+  gap: clamp(4px, 1vw, 12px);
+  max-width: 100%;
 }
 
 /* Download was authored full-width under the viewer; in the header it is an
