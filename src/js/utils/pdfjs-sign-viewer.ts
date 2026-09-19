@@ -13,6 +13,8 @@ const HIDDEN_EDITOR_IDS = [
   'editorStamp',
   'downloadButton',
   'secondaryDownload',
+  'printButton',
+  'secondaryPrint',
 ] as const;
 
 function getViewerApplication(
