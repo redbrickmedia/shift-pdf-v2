@@ -240,6 +240,30 @@ describe('tool viewer layout', () => {
     );
   });
 
+  it('drops the Tailwind card on #tool-uploader while viewing', () => {
+    const css = readTheme();
+    const card = css.slice(
+      css.indexOf(
+        'body.shift-tool-viewer #tool-uploader,\nbody.shift-tool-viewer-pending #tool-uploader'
+      ),
+      css.indexOf(
+        '/* The viewer lives inside #tool-uploader on every viewer tool'
+      )
+    );
+
+    expect(card).not.toBe('');
+    expect(card).toContain('background: transparent');
+    expect(card).toContain('box-shadow: none');
+    expect(card).toContain('border-radius: 0');
+    expect(card).toMatch(/border:\s*0/);
+    expect(card).toMatch(/padding:\s*0/);
+    // Empty-state tools keep the authored card; this must not unstyle
+    // #tool-uploader globally.
+    expect(css).not.toMatch(
+      /(?:^|\n)#tool-uploader\s*\{[^}]*background:\s*transparent/s
+    );
+  });
+
   it('marks scroll hosts and kills nested Sign/Form scrollports while viewing', () => {
     mountSignLikeShell();
     initToolViewerLayout();

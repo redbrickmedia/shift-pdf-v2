@@ -1137,8 +1137,8 @@ body.shift-has-open-file #file-display-area {
  * mount an in-page viewer. Once that viewer is revealed,
  * `tool-viewer-layout.ts` toggles `body.shift-tool-viewer` and marks upload
  * chrome with `.shift-tool-viewer-suppressed`. The drop zone and file chips
- * stay available while empty; when viewing, the panel is a header + viewer
- * column so upload UI never stacks above the document.
+ * stay available while empty; when viewing, the host is a header + viewer
+ * column (no card) so upload UI never stacks above the document.
  * Scoped away from My PDFs and the catalog (those never get the body class).
  * Thumbnail-grid tools (rotate / organize / split) stay out on purpose.
  */
@@ -1292,7 +1292,9 @@ body.shift-tool-viewer .shift-tool-viewer-bar {
   justify-content: space-between;
   gap: var(--spacing-12);
   width: 100%;
-  margin-bottom: var(--spacing-8);
+  /* Gap on the host (same as .shift-pdf-viewer-shell) separates this row
+     from the document; do not add card-style margin here. */
+  margin-bottom: 0;
   /* Beat the global #tool-uploader > #file-display-area { order: 1 } rule so
      the title/Download row stays above chips if chips are briefly visible. */
   order: 0;
@@ -1379,18 +1381,32 @@ body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  padding-block: var(--spacing-12);
+  /* Same chrome as .shift-pdf-viewer-shell: the document fills this pane,
+     not a nested card. Beats Tailwind `p-4` / `py-12` on #uploader. */
+  padding: clamp(16px, 3vw, 40px);
+  background: var(--background-secondary);
 }
 
-body.shift-tool-viewer #tool-uploader {
+/* Neutralize the Tailwind card on #tool-uploader while viewing (and while
+   the reserved pane is standing in). Pages author
+   `bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 border border-gray-700`;
+   those stay for empty-state tools. No gray panel, radius, shadow, border,
+   or extra card padding — heading + document sit on the same surface as
+   view-pdf.html. */
+body.shift-tool-viewer #tool-uploader,
+body.shift-tool-viewer-pending #tool-uploader {
   max-width: none !important;
   width: 100%;
   flex: 0 0 auto;
-  padding-block: var(--spacing-12);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-/* The viewer lives inside the card on every viewer tool, so the card is what
-   grows to fill the panel. */
+/* The viewer lives inside #tool-uploader on every viewer tool, so that host
+   is what grows to fill the panel. */
 body.shift-tool-viewer
   #tool-uploader:has(
     #embed-pdf-wrapper:not(.hidden),
@@ -1405,6 +1421,7 @@ body.shift-tool-viewer
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: clamp(16px, 2.5vw, 32px);
 }
 
 body.shift-tool-viewer #embed-pdf-wrapper:not(.hidden),
@@ -1418,11 +1435,18 @@ body.shift-tool-viewer #viewer-card:not(.hidden) {
   max-width: none;
   width: 100%;
   margin-top: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
   order: 2;
+  /* Nested leftovers such as add-stamps `#viewer-card` (`border rounded-lg`)
+     must not reintroduce a boxed panel around the document. */
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 body.shift-tool-viewer #embed-pdf-container,
@@ -1442,12 +1466,12 @@ body.shift-tool-viewer .shift-viewer-scroll-host {
      Filler do not nest an app scrollport around the PDF.js iframe. */
   overflow: hidden !important;
   overscroll-behavior: none;
-}
-
-body.shift-tool-viewer #embed-pdf-container,
-body.shift-tool-viewer #pdf-viewer-container,
-body.shift-tool-viewer #canvas-container-sign {
-  border-radius: var(--radius-8);
+  /* Same flush stage as .shift-pdf-viewer-frame: no leftover host border
+     (`border-gray-600 rounded-lg`) boxing the iframe. */
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Iframe fills the flex host so #viewerContainer (inside) is the only
@@ -1580,7 +1604,7 @@ body.shift-tool-viewer-pending
   animation: shift-skeleton-pulse 1.2s ease-in-out infinite;
 }
 
-/* The card grows for the reservation exactly as it does for the viewer, so it
+/* The host grows for the reservation exactly as it does for the viewer, so it
    already has the viewer's shape while the root is still hidden. */
 body.shift-tool-viewer-pending
   #tool-uploader:has(
@@ -1595,6 +1619,7 @@ body.shift-tool-viewer-pending
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: clamp(16px, 2.5vw, 32px);
 }
 
 /* Placeholder file rows have nothing to sit above once the pane is reserved,
