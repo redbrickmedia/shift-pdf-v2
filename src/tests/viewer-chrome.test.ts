@@ -234,14 +234,15 @@ describe('viewer chrome', () => {
     expect(signPdf).not.toMatch(
       /id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/
     );
-    expect(signPdf).not.toContain('shiftLaunchpad');
+    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="sign"`);
     expect(signPdf).not.toContain('id="shift-pdf-viewer"');
+    expect(signPdf).not.toContain('{{> footer }}');
 
     const signPage = readFileSync(
       resolve(process.cwd(), 'src/js/logic/sign-pdf-page.ts'),
       'utf8'
     );
     expect(signPage).toContain("bentoSign: '1'");
-    expect(signPage).not.toContain('shiftLaunchpad');
+    expect(signPage).toContain("shiftLaunchpad: '1'");
   });
 });

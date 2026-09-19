@@ -20,6 +20,7 @@ export const VIEWER_CHROME_FEATURES = [
   'reset',
   'save',
   'flatten',
+  'sign',
 ] as const;
 
 export type ViewerChromeFeature = (typeof VIEWER_CHROME_FEATURES)[number];
@@ -53,6 +54,7 @@ export const VIEWER_CHROME_PRESETS: Record<
     reset: false,
     save: false,
     flatten: false,
+    sign: false,
   },
   tool: {
     back: false,
@@ -65,6 +67,7 @@ export const VIEWER_CHROME_PRESETS: Record<
     reset: true,
     save: true,
     flatten: false,
+    sign: false,
   },
 };
 
@@ -83,15 +86,21 @@ export function resolveViewerChromeFeatures(
     ...VIEWER_CHROME_PRESETS[preset],
     ...options.features,
   };
-  if (options.features?.flatten === undefined && hasAuthoredFlatten(root)) {
+  if (options.features?.flatten === undefined && hasAuthoredFeature(root, 'flatten')) {
     features.flatten = isToolViewerShowing(root);
+  }
+  if (options.features?.sign === undefined && hasAuthoredFeature(root, 'sign')) {
+    features.sign = isToolViewerShowing(root);
   }
   return features;
 }
 
-function hasAuthoredFlatten(root: Document): boolean {
+function hasAuthoredFeature(
+  root: Document,
+  feature: ViewerChromeFeature
+): boolean {
   return Boolean(
-    root.querySelector(`[${VIEWER_CHROME_FEATURE_ATTR}="flatten"]`)
+    root.querySelector(`[${VIEWER_CHROME_FEATURE_ATTR}="${feature}"]`)
   );
 }
 

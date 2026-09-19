@@ -24,6 +24,7 @@ import {
   bindPdfJsEditorHistory,
   configureSessionOnlySignatureUi,
   EMPTY_PDFJS_EDITOR_HISTORY,
+  PDFJS_SIGNATURE_MODE,
   redoPdfJsEditor,
   undoPdfJsEditor,
   waitForPdfJsSignViewer,
@@ -34,6 +35,7 @@ import {
   applyPdfViewerDownloadFilename,
   withPdfViewerFilename,
 } from '../utils/pdfjs-viewer-filename.js';
+import { viewerDisplayName } from './pdf-viewer-page.js';
 import {
   clearWorkspaceOpenFile,
   markFileFromHandoff,
@@ -120,6 +122,9 @@ function initializePage() {
   document
     .getElementById('flatten-signature-toggle')
     ?.addEventListener('change', updateDownloadButtonLabel);
+  document
+    .getElementById('shift-sign-add')
+    ?.addEventListener('click', openSignatureDialog);
   window.addEventListener('pagehide', cleanup, { once: true });
   listenForShiftFileHandoff({
     onFile: (file) => {
@@ -255,6 +260,7 @@ async function setupSignTool(loadVersion: number) {
   signState.viewerReady = false;
   const iframe = document.createElement('iframe');
   iframe.title = 'Visual signature editor';
+  iframe.className = 'shift-pdf-viewer-frame';
   iframe.style.width = '100%';
   iframe.style.height = '100%';
   iframe.style.border = 'none';
@@ -278,7 +284,9 @@ async function setupSignTool(loadVersion: number) {
   const query = new URLSearchParams({
     file: withPdfViewerFilename(signState.blobUrl, signState.file?.name),
     bentoSign: '1',
+    shiftLaunchpad: '1',
   });
+  setSignViewerTitle(signState.file?.name ?? 'Sign PDF');
   iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
 
   iframe.onload = async () => {
@@ -316,6 +324,32 @@ async function setupSignTool(loadVersion: number) {
 function getSignViewerApplication(): PDFViewerWindow['PDFViewerApplication'] {
   return (signState.viewerIframe?.contentWindow as PDFViewerWindow | null)
     ?.PDFViewerApplication;
+}
+
+function setSignViewerTitle(filename: string): void {
+  const title = viewerDisplayName(filename);
+  const heading = document.querySelector<HTMLElement>(
+    '.shift-pdf-viewer-heading h1'
+  );
+  if (heading) heading.textContent = title;
+  document.title = `${title} | Shift PDF`;
+}
+
+function openSignatureDialog(): void {
+  const addButton = signState.viewerIframe?.contentDocument?.getElementById(
+    'editorSignatureAddSignature'
+  );
+  if (addButton instanceof HTMLElement) {
+    addButton.click();
+    return;
+  }
+  getSignViewerApplication()?.eventBus?.dispatch(
+    'switchannotationeditormode',
+    {
+      source: window,
+      mode: PDFJS_SIGNATURE_MODE,
+    }
+  );
 }
 
 function bindSignEditorHistory(
@@ -464,6 +498,7 @@ function resetState() {
   if (flattenCheckbox) {
     flattenCheckbox.checked = false;
   }
+  setSignViewerTitle('Sign PDF');
   syncToolOutputToolbar();
 }
 

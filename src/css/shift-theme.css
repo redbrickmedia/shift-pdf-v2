@@ -1172,8 +1172,9 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
   overflow: hidden;
 }
 
-body:has(#uploader.shift-pdf-viewer-shell) > .shift-footer {
-  display: none;
+body:has(#uploader.shift-pdf-viewer-shell) > .shift-footer,
+body.shift-pdf-viewer-page .shift-footer {
+  display: none !important;
 }
 
 #uploader.shift-pdf-viewer-shell > .shift-pdf-viewer-stage {

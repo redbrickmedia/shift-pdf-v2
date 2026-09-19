@@ -86,6 +86,18 @@ describe('Shift theme for the PDF.js viewer', () => {
     expect(document.documentElement.dataset.shiftViewer).toBe('launchpad');
   });
 
+  it('uses launchpad chrome when Sign sets both launchpad and bentoSign', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/pdfjs-viewer/viewer.html?bentoSign=1&shiftLaunchpad=1'
+    );
+
+    await runThemeScript();
+
+    expect(document.documentElement.dataset.shiftViewer).toBe('launchpad');
+  });
+
   it('themes every other embed the same way', async () => {
     window.history.replaceState({}, '', '/pdfjs-viewer/viewer.html?file=x.pdf');
 
