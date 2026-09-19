@@ -15,14 +15,20 @@ export const TOOL_OUTPUT_RESET_ID = 'shift-tool-output-reset';
 export const TOOL_OUTPUT_SAVE_ID = 'shift-tool-output-save';
 export const TOOL_OUTPUT_MENU_ID = 'shift-tool-output-menu';
 export const TOOL_OUTPUT_DOWNLOAD_ID = 'shift-tool-output-download';
+export const TOOL_OUTPUT_PRINT_ID = 'shift-tool-output-print';
 
 export interface ToolOutputSession {
   reset?: () => void | Promise<void>;
   undo?: () => void | Promise<void>;
   redo?: () => void | Promise<void>;
+  print?: () => void | Promise<void>;
   canUndo?: () => boolean;
   canRedo?: () => boolean;
+  canPrint?: () => boolean;
 }
+
+/** Keeps the print frame alive long enough for the browser print dialog. */
+const PRINT_FRAME_CLEANUP_MS = 60000;
 
 let boundRoot: Document | null = null;
 let session: ToolOutputSession | null = null;
@@ -81,6 +87,7 @@ export function syncToolOutputToolbar(root: Document = document): void {
   const reset = getButton(root, TOOL_OUTPUT_RESET_ID);
   const save = getButton(root, TOOL_OUTPUT_SAVE_ID);
   const download = getButton(root, TOOL_OUTPUT_DOWNLOAD_ID);
+  const print = getButton(root, TOOL_OUTPUT_PRINT_ID);
 
   const legacyUndo = getLegacyHistoryButton(root, 'undo');
   const legacyRedo = getLegacyHistoryButton(root, 'redo');
@@ -106,6 +113,12 @@ export function syncToolOutputToolbar(root: Document = document): void {
     setButtonDisabled(save, saveInFlight || !canSaveToShiftPdf(output));
   }
   if (download) setButtonDisabled(download, !output);
+  if (print) setButtonDisabled(print, !canPrintOutput(output));
+}
+
+function canPrintOutput(output: { isPdf: boolean } | null): boolean {
+  if (session?.print) return session.canPrint?.() ?? true;
+  return Boolean(output?.isPdf);
 }
 
 function isNonToolPage(root: Document): boolean {
@@ -181,7 +194,8 @@ function ensureToolbar(root: Document): HTMLElement | null {
     'Download',
     'download'
   );
-  menuSurface.append(download);
+  const print = createActionButton(root, TOOL_OUTPUT_PRINT_ID, 'Print', 'print');
+  menuSurface.append(download, print);
   menu.append(summary, menuSurface);
   split.append(save, menu);
   outputActions.append(split);
@@ -197,6 +211,7 @@ function ensureToolbar(root: Document): HTMLElement | null {
 
   save.addEventListener('click', () => void saveOutput(root));
   download.addEventListener('click', () => downloadOutput(root));
+  print.addEventListener('click', () => void printOutput(root));
   getButton(root, TOOL_OUTPUT_RESET_ID)?.addEventListener('click', () => {
     void resetOutput(root);
   });
@@ -255,6 +270,50 @@ function downloadOutput(root: Document): void {
   const output = getLatestPdfOutput();
   if (!output) return;
   downloadBlob(output.blob, output.filename);
+  closeOutputMenu(root);
+}
+
+async function printOutput(root: Document): Promise<void> {
+  const output = getLatestPdfOutput();
+  if (!canPrintOutput(output)) return;
+  closeOutputMenu(root);
+  try {
+    if (session?.print) {
+      await session.print();
+      return;
+    }
+    if (output) printBlob(root, output.blob);
+  } catch (error) {
+    showAlert(
+      'Print failed',
+      error instanceof Error ? error.message : 'Could not print this PDF.'
+    );
+  }
+}
+
+function printBlob(root: Document, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  const frame = root.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.title = 'Print preview';
+  frame.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  frame.addEventListener('load', () => {
+    const frameWindow = frame.contentWindow;
+    if (typeof frameWindow?.print === 'function') {
+      frameWindow.focus();
+      frameWindow.print();
+    }
+    globalThis.setTimeout(() => {
+      frame.remove();
+      URL.revokeObjectURL(url);
+    }, PRINT_FRAME_CLEANUP_MS);
+  });
+  frame.src = url;
+  root.body.append(frame);
+}
+
+function closeOutputMenu(root: Document): void {
   const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
   if (menu instanceof HTMLDetailsElement) menu.open = false;
 }
@@ -310,6 +369,7 @@ function hideLegacyOutputActions(root: Document): void {
     'shift-pdf-save-output',
     'shift-pdf-save-viewer',
     'shift-pdf-viewer-download',
+    'shift-pdf-viewer-print',
     'clear-files-btn',
     'undo-merge-btn',
     'redo-merge-btn',
@@ -359,6 +419,8 @@ function actionIcon(name: string): string {
     save: '<path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
     download:
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    print:
+      '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/>',
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;
 }

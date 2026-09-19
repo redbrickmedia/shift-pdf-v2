@@ -176,6 +176,14 @@ function postViewerAction(
   );
 }
 
+function printViewerDocument(root: Document): void {
+  const frame = root.getElementById(
+    'shift-pdf-viewer-frame'
+  ) as HTMLIFrameElement | null;
+  if (!frame || !currentFile) return;
+  postViewerAction(frame, 'print');
+}
+
 function setDownloadBusy(root: Document, busy: boolean): void {
   const button = root.getElementById(
     'shift-pdf-viewer-download'
@@ -257,6 +265,8 @@ export function initPdfViewerPage(root: Document = document): void {
   const unregisterOutputSession = registerToolOutputSession(
     {
       reset: () => resetViewer(root),
+      print: () => printViewerDocument(root),
+      canPrint: () => Boolean(currentFile),
     },
     root
   );

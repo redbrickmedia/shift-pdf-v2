@@ -5,6 +5,7 @@ import {
   syncToolOutputToolbar,
   TOOL_OUTPUT_DOWNLOAD_ID,
   TOOL_OUTPUT_MENU_ID,
+  TOOL_OUTPUT_PRINT_ID,
   TOOL_OUTPUT_REDO_ID,
   TOOL_OUTPUT_RESET_ID,
   TOOL_OUTPUT_SAVE_ID,
@@ -58,10 +59,62 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
       HTMLDetailsElement
     );
     expect(document.getElementById('clear-files-btn')?.hidden).toBe(true);
+  });
+
+  it('keeps Download and Print together behind the disclosure', () => {
+    const menu = document.getElementById(
+      TOOL_OUTPUT_MENU_ID
+    ) as HTMLDetailsElement;
+
+    expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
+    expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
+  });
+
+  it('enables Print once a PDF output exists', () => {
+    setLatestPdfOutput({
+      blob: new Blob(['zip'], { type: 'application/zip' }),
+      filename: 'batch.zip',
+    });
+    syncToolOutputToolbar();
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+
+    setLatestPdfOutput({
+      blob: new Blob(['pdf'], { type: 'application/pdf' }),
+      filename: 'signed.pdf',
+    });
+    syncToolOutputToolbar();
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+  });
+
+  it('prints through the active tool and closes the disclosure', async () => {
+    let viewerReady = false;
+    const print = vi.fn();
+    const unregister = registerToolOutputSession({
+      print,
+      canPrint: () => viewerReady,
+    });
+
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+
+    viewerReady = true;
+    syncToolOutputToolbar();
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+
+    const menu = document.getElementById(
+      TOOL_OUTPUT_MENU_ID
+    ) as HTMLDetailsElement;
+    menu.open = true;
+    button(TOOL_OUTPUT_PRINT_ID).click();
+
+    await vi.waitFor(() => expect(print).toHaveBeenCalledOnce());
+    expect(menu.open).toBe(false);
+    unregister();
   });
 
   it('enables Save for PDF and Download for every output', () => {

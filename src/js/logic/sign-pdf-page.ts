@@ -60,6 +60,8 @@ function initializePage() {
   completionPanel = createDefaultToolCompletionPanel(resetState);
   const unregisterOutputSession = registerToolOutputSession({
     reset: resetState,
+    print: printSignedPdf,
+    canPrint: () => signState.viewerReady,
   });
   window.addEventListener('pagehide', unregisterOutputSession, { once: true });
 
@@ -101,10 +103,6 @@ function initializePage() {
   if (processBtn) {
     processBtn.addEventListener('click', applyAndSaveSignatures);
   }
-
-  document
-    .getElementById('print-signed-pdf')
-    ?.addEventListener('click', printSignedPdf);
 
   document
     .getElementById('flatten-signature-toggle')
@@ -286,7 +284,6 @@ async function setupSignTool(loadVersion: number) {
       if (saveBtn) {
         saveBtn.style.display = '';
       }
-      document.getElementById('print-signed-pdf')?.classList.remove('hidden');
       syncToolOutputToolbar();
     } catch (error) {
       console.error('Could not initialize PDF.js viewer for signing:', error);
@@ -304,20 +301,13 @@ async function setupSignTool(loadVersion: number) {
 
 async function printSignedPdf() {
   if (!signState.viewerIframe) return;
-  try {
-    const application = await waitForPdfJsSignViewer(signState.viewerIframe);
-    if (!application.triggerPrinting) {
-      throw new Error('Printing is unavailable in this browser.');
-    }
-    await waitForPdfJsPagesReady(application);
-    signState.viewerIframe.contentWindow?.focus();
-    await application.triggerPrinting();
-  } catch (error) {
-    showAlert(
-      'Print failed',
-      error instanceof Error ? error.message : 'Could not print this PDF.'
-    );
+  const application = await waitForPdfJsSignViewer(signState.viewerIframe);
+  if (!application.triggerPrinting) {
+    throw new Error('Printing is unavailable in this browser.');
   }
+  await waitForPdfJsPagesReady(application);
+  signState.viewerIframe.contentWindow?.focus();
+  await application.triggerPrinting();
 }
 
 function updateDownloadButtonLabel() {
@@ -420,7 +410,6 @@ function resetState() {
     processBtn.style.display = 'none';
     processBtn.textContent = 'Apply signatures';
   }
-  document.getElementById('print-signed-pdf')?.classList.add('hidden');
 
   const flattenCheckbox = document.getElementById(
     'flatten-signature-toggle'
