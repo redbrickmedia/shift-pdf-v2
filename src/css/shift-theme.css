@@ -1150,21 +1150,19 @@ body.shift-has-open-file #file-display-area {
   order: 0;
 }
 
-/* Sign authors the View PDF shell on #uploader. Keep the container queries
-   that collapse header actions, but do not pin 100dvh — the sidebar column
-   already owns that height. */
-#uploader.shift-pdf-viewer-shell {
-  height: auto;
-  min-height: 0;
-}
-
+/* Sign authors the View PDF shell on #uploader. Keep 100dvh from
+   .shift-pdf-viewer-shell — height:auto collapses the stage because the
+   empty state and #signature-editor are absolutely positioned, and Sign
+   no longer ships a footer for the leftover-column flex growth. */
 body:not(.simple-mode):has(#shift-sidebar):has(
     #uploader.shift-pdf-viewer-shell
   ) {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
+body:not(.simple-mode):has(#shift-sidebar)
   > #uploader.shift-pdf-viewer-shell {
   flex: 1 1 auto;
   flex-shrink: 1;
@@ -1243,6 +1241,25 @@ body.shift-pdf-viewer-page .shift-footer {
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+/* Beat `body.shift-tool-viewer #canvas-container-sign { height: auto
+   !important }` so the PDF.js iframe's height:100% has a specified parent. */
+body.shift-tool-viewer
+  #uploader.shift-pdf-viewer-shell
+  #canvas-container-sign {
+  height: 100% !important;
+}
+
+body.shift-tool-viewer
+  #uploader.shift-pdf-viewer-shell
+  #canvas-container-sign
+  > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
 }
 
 /* Hide the empty stage once a PDF is in the viewer. */

@@ -245,4 +245,23 @@ describe('viewer chrome', () => {
     expect(signPage).toContain("bentoSign: '1'");
     expect(signPage).toContain("shiftLaunchpad: '1'");
   });
+
+  it('gives the Sign shell a real pane height so the PDF.js iframe can paint', () => {
+    const css = readFileSync(
+      resolve(process.cwd(), 'src/css/shift-theme.css'),
+      'utf8'
+    );
+    const shell = css.slice(
+      css.indexOf('\n.shift-pdf-viewer-shell {'),
+      css.indexOf('\n.shift-pdf-viewer-header {')
+    );
+
+    expect(shell).toMatch(/height:\s*100dvh/);
+    expect(css).not.toMatch(
+      /#uploader\.shift-pdf-viewer-shell\s*\{\s*height:\s*auto/
+    );
+    expect(css).toMatch(
+      /body\.shift-tool-viewer\s+#uploader\.shift-pdf-viewer-shell\s+#canvas-container-sign\s*\{[^}]*height:\s*100%\s*!important/s
+    );
+  });
 });
