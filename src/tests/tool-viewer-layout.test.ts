@@ -246,6 +246,28 @@ describe('tool viewer layout', () => {
     expect(css).toMatch(
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*gap:\s*clamp\(16px, 2\.5vw, 32px\)/s
     );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*42rem\)/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*justify-items:\s*stretch/s
+    );
+    expect(css).toMatch(
+      /#tool-uploader\.max-w-4xl\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*56rem\)/s
+    );
+    expect(css).toMatch(
+      /#tool-uploader\.max-w-6xl\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*72rem\)/s
+    );
+    // Header fills that column so title/actions sit on the card edges.
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*>\s*\.shift-tool-viewer-bar\s*\{[^}]*max-width:\s*none/s
+    );
+    // Header and card must share one column. Centering them separately
+    // (align-items: center on a flex #uploader) put the title off the card.
+    expect(css).not.toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(css).toContain(':not(.shift-tool-viewer):not(');
   });
 
   it('drops the Tailwind card on #tool-uploader while viewing', () => {
