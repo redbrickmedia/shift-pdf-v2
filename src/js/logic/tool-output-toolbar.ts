@@ -13,10 +13,14 @@ import {
   saveToShiftPdf,
   TOOL_OUTPUT_STATE_EVENT,
 } from './shift-pdf-save.js';
+import { isViewerToolDocument } from './tool-viewer-layout.js';
 import {
-  ensureToolCardHeader,
-  isViewerToolDocument,
-} from './tool-viewer-layout.js';
+  VIEWER_CHROME_FEATURE_ATTR,
+  applyViewerChromeFeatures,
+  mountViewerChrome,
+  resolveViewerChromeFeatures,
+  type ViewerChromeFeature,
+} from './viewer-chrome.js';
 import { getPrimaryLibrarySaveTarget } from './workspace-files.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
@@ -206,41 +210,57 @@ function isNonToolPage(root: Document): boolean {
 
 function ensureToolbar(root: Document): HTMLElement | null {
   root.getElementById(TOOL_OUTPUT_TOOLBAR_ID)?.remove();
-  ensureToolCardHeader(root);
-  return ensureViewerHeaderActions(root);
+  const chrome = mountViewerChrome(root, { preset: 'tool' });
+  return ensureViewerHeaderActions(root, chrome?.header ?? null);
 }
 
-function ensureViewerHeaderActions(root: Document): HTMLElement | null {
+function ensureViewerHeaderActions(
+  root: Document,
+  header: HTMLElement | null
+): HTMLElement | null {
   const host = root.querySelector<HTMLElement>('[data-shift-viewer-actions]');
   if (!host) return null;
-  if (root.getElementById(TOOL_OUTPUT_UNDO_ID)) return host;
+  if (root.getElementById(TOOL_OUTPUT_UNDO_ID)) {
+    if (header) {
+      applyViewerChromeFeatures(
+        header,
+        resolveViewerChromeFeatures({ preset: 'tool' }, root)
+      );
+    }
+    return host;
+  }
 
   const undo = createViewerActionButton(
     root,
     TOOL_OUTPUT_UNDO_ID,
     'Undo',
-    'ph-arrow-u-up-left'
+    'ph-arrow-u-up-left',
+    'undo'
   );
   const redo = createViewerActionButton(
     root,
     TOOL_OUTPUT_REDO_ID,
     'Redo',
-    'ph-arrow-u-up-right'
+    'ph-arrow-u-up-right',
+    'redo'
   );
   const reset = createViewerActionButton(
     root,
     TOOL_OUTPUT_RESET_ID,
     'Reset',
-    'ph-arrow-counter-clockwise'
+    'ph-arrow-counter-clockwise',
+    'reset'
   );
   const saveGroup = root.createElement('div');
   saveGroup.id = TOOL_OUTPUT_MENU_ID;
   saveGroup.className = 'shift-tool-viewer-save';
+  saveGroup.setAttribute(VIEWER_CHROME_FEATURE_ATTR, 'save');
   const save = createViewerActionButton(
     root,
     TOOL_OUTPUT_SAVE_ID,
     'Save',
-    'ph-floppy-disk'
+    'ph-floppy-disk',
+    'save'
   );
   const menu = root.createElement('div');
   menu.className = 'shift-tool-viewer-save-menu';
@@ -278,6 +298,12 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
   save.addEventListener('click', () => void saveOutput(root));
   overwrite.addEventListener('click', () => void overwriteOutput(root));
   hideLegacyOutputActions(root);
+  if (header) {
+    applyViewerChromeFeatures(
+      header,
+      resolveViewerChromeFeatures({ preset: 'tool' }, root)
+    );
+  }
   return host;
 }
 
@@ -309,13 +335,15 @@ function createViewerActionButton(
   root: Document,
   id: string,
   label: string,
-  phosphorIcon: string
+  phosphorIcon: string,
+  feature?: ViewerChromeFeature
 ): HTMLButtonElement {
   const button = root.createElement('button');
   button.id = id;
   button.type = 'button';
   button.className = 'shift-pdf-viewer-action';
   button.setAttribute('aria-label', label);
+  if (feature) button.setAttribute(VIEWER_CHROME_FEATURE_ATTR, feature);
   const icon = root.createElement('i');
   icon.className = `ph ${phosphorIcon}`;
   icon.setAttribute('aria-hidden', 'true');

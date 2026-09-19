@@ -64,7 +64,7 @@ afterEach(async () => {
 
 describe('tool output toolbar', () => {
   it('does not resync in a loop when unrelated page classes change', () => {
-    const bar = document.querySelector('.shift-tool-viewer-bar');
+    const bar = document.querySelector('.shift-pdf-viewer-header');
     const host = document.getElementById('tool-uploader');
     expect(bar).toBeTruthy();
 
@@ -73,14 +73,14 @@ describe('tool output toolbar', () => {
       host?.classList.toggle('max-w-6xl');
     }
 
-    expect(document.querySelectorAll('.shift-tool-viewer-bar')).toHaveLength(1);
-    expect(document.querySelector('.shift-tool-viewer-bar')).toBe(bar);
+    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(1);
+    expect(document.querySelector('.shift-pdf-viewer-header')).toBe(bar);
   });
 
   it('puts the title on the left and Reset/Save on the right outside the card', () => {
     const card = document.getElementById('tool-uploader');
-    const bar = document.querySelector('.shift-tool-viewer-bar');
-    const title = bar?.querySelector('.shift-tool-viewer-title');
+    const bar = document.querySelector('.shift-pdf-viewer-header');
+    const title = bar?.querySelector('.shift-pdf-viewer-heading');
     const actions = bar?.querySelector('[data-shift-viewer-actions]');
 
     expect(bar?.parentElement).toBe(card?.parentElement);
@@ -145,8 +145,8 @@ describe('tool output toolbar', () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
-          <div class="shift-tool-viewer-bar">
-            <div class="shift-tool-viewer-title"><h1>Sign PDF</h1></div>
+          <div class="shift-pdf-viewer-header">
+            <div class="shift-pdf-viewer-heading"><h1>Sign PDF</h1></div>
             <div data-shift-viewer-actions></div>
           </div>
           <div id="signature-editor"></div>
@@ -158,7 +158,7 @@ describe('tool output toolbar', () => {
     initToolOutputToolbar();
 
     const card = document.getElementById('tool-uploader');
-    const bar = document.querySelector('.shift-tool-viewer-bar');
+    const bar = document.querySelector('.shift-pdf-viewer-header');
     const actions = document.querySelector('[data-shift-viewer-actions]');
     const menu = document.getElementById(
       TOOL_OUTPUT_MENU_ID
@@ -495,9 +495,9 @@ describe('tool output toolbar', () => {
     document.body.innerHTML = `
       <main>
         <div id="uploader">
-          <div class="shift-tool-viewer-bar">
-            <div class="shift-tool-viewer-title"><h1>Compress PDF</h1></div>
-            <div class="shift-tool-viewer-actions" data-shift-viewer-actions></div>
+          <div class="shift-pdf-viewer-header">
+            <div class="shift-pdf-viewer-heading"><h1>Compress PDF</h1></div>
+            <div class="shift-pdf-viewer-actions" data-shift-viewer-actions></div>
           </div>
           <div id="tool-uploader">
             <button id="process-btn" type="button">Process</button>
@@ -505,11 +505,11 @@ describe('tool output toolbar', () => {
         </div>
       </main>
     `;
-    const existing = document.querySelector('.shift-tool-viewer-bar');
+    const existing = document.querySelector('.shift-pdf-viewer-header');
     initToolOutputToolbar();
 
-    expect(document.querySelectorAll('.shift-tool-viewer-bar')).toHaveLength(1);
-    expect(document.querySelector('.shift-tool-viewer-bar')).toBe(existing);
+    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(1);
+    expect(document.querySelector('.shift-pdf-viewer-header')).toBe(existing);
     expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
   });
 
@@ -524,7 +524,7 @@ describe('tool output toolbar', () => {
     `;
     initToolOutputToolbar();
 
-    expect(document.querySelector('.shift-tool-viewer-bar')).toBeNull();
+    expect(document.querySelector('.shift-pdf-viewer-header')).toBeNull();
     expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).toBeNull();
   });
 

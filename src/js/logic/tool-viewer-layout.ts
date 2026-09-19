@@ -1,4 +1,10 @@
 import { isHomeDocument } from './seed-tool-open-file.js';
+import {
+  VIEWER_CHROME_ACTIONS_ATTR,
+  VIEWER_CHROME_HEADER_CLASS,
+  VIEWER_CHROME_HEADING_CLASS,
+  mountViewerChrome,
+} from './viewer-chrome.js';
 import { WORKSPACE_FILES_RENDERED_EVENT } from './workspace-files.js';
 
 /**
@@ -68,11 +74,12 @@ export const PENDING_VIEWER_ROOT_IDS = VIEWER_ROOT_IDS.filter(
 export const TOOL_VIEWER_BODY_CLASS = 'shift-tool-viewer';
 export const TOOL_VIEWER_PENDING_CLASS = 'shift-tool-viewer-pending';
 export const TOOL_VIEWER_CAPABLE_CLASS = 'shift-tool-viewer-capable';
-export const TOOL_VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
-export const TOOL_VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
+/** Same header node as View PDF. Do not invent a second bar. */
+export const TOOL_VIEWER_BAR_CLASS = VIEWER_CHROME_HEADER_CLASS;
+export const TOOL_VIEWER_TITLE_CLASS = VIEWER_CHROME_HEADING_CLASS;
 export const TOOL_VIEWER_SUPPRESS_CLASS = 'shift-tool-viewer-suppressed';
 export const TOOL_VIEWER_SCROLL_HOST_CLASS = 'shift-viewer-scroll-host';
-export const TOOL_VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
+export const TOOL_VIEWER_ACTIONS_ATTR = VIEWER_CHROME_ACTIONS_ATTR;
 /** Marks where a relocated action button came from, so it can go back. */
 export const TOOL_VIEWER_SLOT_ATTR = 'data-shift-viewer-slot';
 /** Body class sidebar-boot.js sets alongside the open-file classes. */
@@ -311,55 +318,9 @@ function markViewerScrollHosts(root: Document, active: boolean): void {
 }
 
 function ensureViewerChrome(root: Document): HTMLElement | null {
-  const toolUploader = root.getElementById('tool-uploader');
-  if (!toolUploader) return null;
-
-  const existing =
-    toolUploader.parentElement?.querySelector<HTMLElement>(
-      `:scope > .${TOOL_VIEWER_BAR_CLASS}`
-    ) ?? toolUploader.querySelector<HTMLElement>(`.${TOOL_VIEWER_BAR_CLASS}`);
-  if (existing) {
-    placeToolCardHeader(existing, toolUploader);
-    return existing.querySelector<HTMLElement>(`[${TOOL_VIEWER_ACTIONS_ATTR}]`);
-  }
-
-  const heading = toolUploader.querySelector('h1');
-  if (!heading) return null;
-
-  const bar = root.createElement('div');
-  bar.className = TOOL_VIEWER_BAR_CLASS;
-
-  const title = root.createElement('div');
-  title.className = TOOL_VIEWER_TITLE_CLASS;
-
-  const subtitle =
-    heading.nextElementSibling instanceof HTMLParagraphElement
-      ? heading.nextElementSibling
-      : null;
-
-  title.append(heading);
-  if (subtitle) title.append(subtitle);
-
-  const actions = root.createElement('div');
-  actions.className = 'shift-tool-viewer-actions';
-  actions.setAttribute(TOOL_VIEWER_ACTIONS_ATTR, '');
-
-  bar.append(title, actions);
-  placeToolCardHeader(bar, toolUploader);
-  return actions;
-}
-
-/** Title + Reset/Save sit on the page, not inside the gray tool card. */
-function placeToolCardHeader(bar: HTMLElement, card: HTMLElement): void {
-  const host = card.parentElement;
-  if (host && bar.parentElement !== host) {
-    host.insertBefore(bar, card);
-  }
-  for (const cls of card.classList) {
-    if (cls === 'w-full' || cls.startsWith('max-w-')) {
-      bar.classList.add(cls);
-    }
-  }
+  return (
+    mountViewerChrome(root, { preset: 'tool' })?.actions ?? null
+  );
 }
 
 function relocateDownloadButtons(root: Document): void {
@@ -379,7 +340,7 @@ function relocateDownloadButtons(root: Document): void {
 
 /**
  * Leave a marker where the page authored the button. The header is the right
- * place for it while a viewer fills the panel, but `.shift-tool-viewer-actions`
+ * place for it while a viewer fills the panel, but `.shift-pdf-viewer-actions`
  * is `display: none` outside that layout, so a button left there after a
  * fallback would simply vanish from the card.
  */

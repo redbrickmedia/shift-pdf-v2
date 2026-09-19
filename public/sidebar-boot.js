@@ -60,10 +60,11 @@
      asserts the literals match. */
   var TOOL_VIEWER_CLASS = 'shift-tool-viewer';
   var TOOL_VIEWER_PENDING_CLASS = 'shift-tool-viewer-pending';
-  var VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
-  var VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
-  var VIEWER_ACTIONS_CLASS = 'shift-tool-viewer-actions';
+  var VIEWER_BAR_CLASS = 'shift-pdf-viewer-header';
+  var VIEWER_TITLE_CLASS = 'shift-pdf-viewer-heading';
+  var VIEWER_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
   var VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
+  var VIEWER_FEATURE_ATTR = 'data-viewer-chrome';
   var VIEWER_SLOT_ATTR = 'data-shift-viewer-slot';
   var VIEWER_ROOT_IDS = [
     'embed-pdf-wrapper',
@@ -543,13 +544,6 @@
     if (host && bar.parentNode !== host) {
       host.insertBefore(bar, card);
     }
-    if (card.classList) {
-      card.classList.forEach(function (cls) {
-        if (cls === 'w-full' || cls.indexOf('max-w-') === 0) {
-          bar.classList.add(cls);
-        }
-      });
-    }
   }
 
   /* Title + Reset/Save have to be outside the gray card on the first painted
@@ -570,7 +564,7 @@
         return false;
       }
 
-      bar = document.createElement('div');
+      bar = document.createElement('header');
       bar.className = VIEWER_BAR_CLASS;
 
       var title = document.createElement('div');
@@ -583,11 +577,16 @@
           : null;
 
       title.appendChild(heading);
-      if (subtitle) title.appendChild(subtitle);
+      if (subtitle) {
+        subtitle.setAttribute(VIEWER_FEATURE_ATTR, 'subtitle');
+        title.appendChild(subtitle);
+      }
 
       var actions = document.createElement('div');
       actions.className = VIEWER_ACTIONS_CLASS;
       actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
+      actions.setAttribute('role', 'toolbar');
+      actions.setAttribute('aria-label', 'PDF actions');
 
       bar.appendChild(title);
       bar.appendChild(actions);

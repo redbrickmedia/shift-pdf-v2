@@ -1,5 +1,6 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { runOnDomReady } from './tool-file-seed.js';
+import { mountViewerChrome } from './viewer-chrome.js';
 import { readPdfLibrary, readPdfLibraryEntry } from './pdf-library-store.js';
 import { readPersistedOpenFiles } from './open-file-store.js';
 import {
@@ -247,6 +248,7 @@ function showEmptyState(root: Document): void {
 export function initPdfViewerPage(root: Document = document): void {
   if (!root.getElementById('shift-pdf-viewer')) return;
 
+  mountViewerChrome(root, { preset: 'launchpad' });
   bindViewerActions(root);
   void loadViewerDocumentFromUrl(root);
 

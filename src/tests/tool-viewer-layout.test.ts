@@ -231,7 +231,7 @@ describe('tool viewer layout', () => {
     expect(css).toContain('body.shift-tool-viewer #drop-zone');
     expect(css).toContain('body.shift-tool-viewer #file-display-area');
     expect(css).toContain('.shift-tool-viewer-suppressed');
-    expect(css).toContain('.shift-tool-viewer-actions');
+    expect(css).toContain('.shift-pdf-viewer-actions');
     expect(css).toContain(
       'body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar)'
     );
@@ -270,7 +270,7 @@ describe('tool viewer layout', () => {
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*var\(--shift-panel-max\)/s
     );
     expect(css).toMatch(
-      /:is\(\.shift-tool-viewer-bar,\s*#tool-uploader\)\s*\{[^}]*max-width:\s*none\s*!important/s
+      /:is\(\.shift-pdf-viewer-header,\s*#tool-uploader\)\s*\{[^}]*max-width:\s*none\s*!important/s
     );
     expect(css).not.toMatch(
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*center/s
