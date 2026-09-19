@@ -553,7 +553,7 @@ describe('viewer layout before the file lands', () => {
   it('reserves the pane in CSS for every root the shell claims', () => {
     const css = readTheme();
     const block = css.slice(
-      css.indexOf('body.shift-tool-viewer-pending'),
+      css.indexOf('/* ---- Viewer layout before the blob lands ----'),
       css.indexOf('/* Compare panels are intentional inner scrollports')
     );
 
