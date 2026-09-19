@@ -1,21 +1,54 @@
 import {
+  downloadFile,
   formatBytes,
   readFileAsArrayBuffer,
   getPDFDocument,
 } from '../utils/helpers';
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { createIcons, icons } from 'lucide';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { getDerivedPdfFilename } from '../utils/derived-pdf-filename.js';
+import { captureIframeFileSave } from '../utils/iframe-file-save.js';
+import { exportPdfJsAnnotations } from '../utils/sign-pdf-export.js';
 import {
   applyPdfViewerDownloadFilename,
   encodePdfjsViewerFileParam,
 } from '../utils/pdfjs-viewer-filename.js';
-import { hidePdfJsPrintControls } from '../utils/pdfjs-viewer-print.js';
+import {
+  hidePdfJsPrintControls,
+  printPdfJsViewerFrame,
+} from '../utils/pdfjs-viewer-print.js';
+import {
+  bindPdfJsEditorHistory,
+  EMPTY_PDFJS_EDITOR_HISTORY,
+  redoPdfJsEditor,
+  undoPdfJsEditor,
+  waitForPdfJsSignViewer,
+  type PdfJsEditorHistoryState,
+} from '../utils/pdfjs-sign-viewer.js';
+import type { PDFViewerWindow } from '@/types';
 import { syncSeededToolFiles } from './tool-file-seed.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
+
+type StampExtensionInstance = {
+  exportPdf?: () => Promise<void>;
+  hasUnsavedChanges?: () => boolean;
+};
+
+type StampViewerWindow = PDFViewerWindow & {
+  pdfjsAnnotationExtensionInstance?: StampExtensionInstance;
+};
 
 let selectedFile: File | null = null;
 let viewerIframe: HTMLIFrameElement | null = null;
 let currentBlobUrl: string | null = null;
+let viewerReady = false;
+let editorHistory: PdfJsEditorHistoryState = EMPTY_PDFJS_EDITOR_HISTORY;
+let unbindEditorHistory: (() => void) | null = null;
 
 const pdfInput = document.getElementById('pdfFile') as HTMLInputElement;
 const fileListDiv = document.getElementById('fileList') as HTMLDivElement;
@@ -35,7 +68,32 @@ const usernameInput = document.getElementById(
   'stamp-username'
 ) as HTMLInputElement | null;
 
+function getStampExtension(
+  iframe: HTMLIFrameElement | null
+): StampExtensionInstance | null {
+  return (
+    (iframe?.contentWindow as StampViewerWindow | null)
+      ?.pdfjsAnnotationExtensionInstance ?? null
+  );
+}
+
+function getStampViewerApplication() {
+  return (viewerIframe?.contentWindow as StampViewerWindow | null)
+    ?.PDFViewerApplication;
+}
+
+function stampsHaveChanges(): boolean {
+  return (
+    editorHistory.hasEdits ||
+    Boolean(getStampExtension(viewerIframe)?.hasUnsavedChanges?.())
+  );
+}
+
 function resetState() {
+  unbindEditorHistory?.();
+  unbindEditorHistory = null;
+  editorHistory = EMPTY_PDFJS_EDITOR_HISTORY;
+  viewerReady = false;
   selectedFile = null;
   if (currentBlobUrl) {
     URL.revokeObjectURL(currentBlobUrl);
@@ -66,6 +124,7 @@ function resetState() {
 
   updateFileList();
   if (pdfInput) pdfInput.value = '';
+  syncToolOutputToolbar();
 }
 
 function updateFileList() {
@@ -210,30 +269,23 @@ function setupAnnotationViewer(
   sourceFilename?: string
 ) {
   try {
-    const win = iframe.contentWindow as
-      | (Window & {
-          PDFViewerApplication?: {
-            initializedPromise?: Promise<void>;
-            eventBus?: { _on?: (event: string, callback: () => void) => void };
-            _contentDispositionFilename?: string | null;
-            _title?: string;
-            setTitle?: (title: string) => void;
-          };
-        })
-      | null;
+    const win = iframe.contentWindow as StampViewerWindow | null;
     const doc = win?.document as Document | null;
     if (!win || !doc) return;
     hidePdfJsPrintControls(doc);
 
     const initialize = async () => {
       try {
-        const app = win.PDFViewerApplication;
-        if (app?.initializedPromise) {
-          await app.initializedPromise;
-        }
+        const app = await waitForPdfJsSignViewer(iframe);
         applyPdfViewerDownloadFilename(app, sourceFilename);
+        unbindEditorHistory?.();
+        editorHistory = EMPTY_PDFJS_EDITOR_HISTORY;
+        unbindEditorHistory = bindPdfJsEditorHistory(app, (next) => {
+          editorHistory = next;
+          syncToolOutputToolbar();
+        });
 
-        const eventBus = app?.eventBus;
+        const eventBus = app.eventBus;
         if (eventBus && typeof eventBus._on === 'function') {
           eventBus._on('annotationeditoruimanager', () => {
             try {
@@ -256,6 +308,8 @@ function setupAnnotationViewer(
         if (root) {
           root.classList.add('PdfjsAnnotationExtension_Comment_hidden');
         }
+        viewerReady = true;
+        syncToolOutputToolbar();
       } catch (e) {
         console.error(
           'Failed to initialize annotation viewer for Add Stamps:',
@@ -270,6 +324,49 @@ function setupAnnotationViewer(
   }
 }
 
+async function applyStampedPdf() {
+  if (!viewerIframe || !viewerReady) {
+    showAlert(
+      'Viewer not ready',
+      'Please upload a PDF and wait for it to finish loading.'
+    );
+    return;
+  }
+
+  try {
+    showLoader('Saving stamped PDF...');
+    const extension = getStampExtension(viewerIframe);
+    if (extension?.hasUnsavedChanges?.() && extension.exportPdf) {
+      const saved = await captureIframeFileSave(viewerIframe, () =>
+        extension.exportPdf!()
+      );
+      downloadFile(
+        saved.blob,
+        saved.filename || getDerivedPdfFilename(selectedFile?.name, '_stamped')
+      );
+      return;
+    }
+
+    const app = await waitForPdfJsSignViewer(viewerIframe);
+    if (!app.pdfDocument) {
+      throw new Error('The PDF.js document is unavailable.');
+    }
+    const outputBytes = await exportPdfJsAnnotations(app.pdfDocument);
+    downloadFile(
+      new Blob([Uint8Array.from(outputBytes)], { type: 'application/pdf' }),
+      getDerivedPdfFilename(selectedFile?.name, '_stamped')
+    );
+  } catch (error) {
+    console.error('Failed to export the stamped PDF:', error);
+    showAlert(
+      'Export failed',
+      'Could not export the stamped PDF. Please try again.'
+    );
+  } finally {
+    hideLoader();
+  }
+}
+
 async function onPdfSelected(file: File) {
   if (selectedFile) return;
   selectedFile = file;
@@ -281,7 +378,6 @@ async function onPdfSelected(file: File) {
   result.pdf.destroy();
   selectedFile = result.file;
   updateFileList();
-  if (saveStampedBtn) saveStampedBtn.classList.remove('hidden');
   await loadPdfInViewer(result.file);
 }
 
@@ -325,54 +421,20 @@ syncSeededToolFiles(
 
 if (saveStampedBtn) {
   saveStampedBtn.addEventListener('click', () => {
-    if (!viewerIframe) {
-      alert(
-        'Viewer not ready. Please upload a PDF and wait for it to finish loading.'
-      );
-      return;
-    }
-
-    try {
-      const win = viewerIframe.contentWindow as
-        | (Window & {
-            pdfjsAnnotationExtensionInstance?: {
-              exportPdf?: () => Promise<void>;
-            };
-          })
-        | null;
-      const extensionInstance = win?.pdfjsAnnotationExtensionInstance;
-
-      if (
-        extensionInstance &&
-        typeof extensionInstance.exportPdf === 'function'
-      ) {
-        const result = extensionInstance.exportPdf();
-        if (result && typeof result.then === 'function') {
-          result
-            .then(() => {
-              // Reset state after successful export
-              setTimeout(() => resetState(), 500);
-            })
-            .catch((err: unknown) => {
-              console.error(
-                'Error while exporting stamped PDF via annotation extension:',
-                err
-              );
-            });
-        }
-        return;
-      }
-
-      alert(
-        'Could not access the stamped-PDF exporter. Please use the Export → PDF button in the viewer toolbar as a fallback.'
-      );
-    } catch (e) {
-      console.error('Failed to trigger stamped PDF export:', e);
-      alert(
-        'Could not export the stamped PDF. Please use the Export → PDF button in the viewer toolbar as a fallback.'
-      );
-    }
+    void applyStampedPdf();
   });
 }
+
+registerToolOutputSession({
+  reset: resetState,
+  apply: applyStampedPdf,
+  print: () => printPdfJsViewerFrame(viewerIframe),
+  undo: () => undoPdfJsEditor(getStampViewerApplication()),
+  redo: () => redoPdfJsEditor(getStampViewerApplication()),
+  canUndo: () => editorHistory.canUndo,
+  canRedo: () => editorHistory.canRedo,
+  canSave: () => stampsHaveChanges(),
+  canPrint: () => viewerReady,
+});
 
 initializeGlobalShortcuts();
