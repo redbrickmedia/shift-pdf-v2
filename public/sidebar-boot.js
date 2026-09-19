@@ -616,9 +616,10 @@
       var viewer = document.getElementById(VIEWER_ROOT_IDS[i]);
       if (!viewer || card.contains(viewer)) continue;
       if (
-        viewer.parentNode &&
-        viewer.parentNode.classList &&
-        viewer.parentNode.classList.contains('shift-pdf-viewer-shell')
+        (viewer.parentNode &&
+          viewer.parentNode.classList &&
+          viewer.parentNode.classList.contains('shift-pdf-viewer-shell')) ||
+        (viewer.closest && viewer.closest('.shift-pdf-viewer-stage'))
       ) {
         continue;
       }

@@ -93,18 +93,20 @@ function mountSignViewerShell() {
           </label>
         </div>
       </header>
-      <div id="tool-uploader">
-        <div id="drop-zone">
-          <input id="file-input" type="file" accept="application/pdf" />
+      <section class="shift-pdf-viewer-stage">
+        <div id="signature-editor" class="hidden">
+          <div id="canvas-container-sign"></div>
+          <button id="process-btn" type="button" class="btn-gradient w-full mt-4">
+            Download Signed PDF
+          </button>
         </div>
-        <div id="file-display-area"></div>
-      </div>
-      <div id="signature-editor" class="shift-pdf-viewer-stage hidden">
-        <div id="canvas-container-sign"></div>
-        <button id="process-btn" type="button" class="btn-gradient w-full mt-4">
-          Download Signed PDF
-        </button>
-      </div>
+        <div id="tool-uploader" class="shift-pdf-viewer-empty">
+          <div id="drop-zone">
+            <input id="file-input" type="file" accept="application/pdf" />
+          </div>
+          <div id="file-display-area"></div>
+        </div>
+      </section>
     </div>
   `;
 }
@@ -419,19 +421,23 @@ describe('viewer inside the tool card', () => {
     );
   });
 
-  it('leaves a Sign PDF shell stage beside the empty-state card', () => {
+  it('leaves the Sign PDF stage in the shared viewer shell', () => {
     mountSignViewerShell();
     const viewer = document.getElementById('signature-editor');
     const header = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
+    const empty = document.getElementById('tool-uploader');
 
     initToolViewerLayout();
 
-    expect(viewer?.parentElement?.id).toBe('uploader');
-    expect(viewer?.parentElement?.classList.contains('shift-pdf-viewer-shell')).toBe(
+    expect(viewer?.parentElement?.classList.contains('shift-pdf-viewer-stage')).toBe(
       true
     );
+    expect(empty?.classList.contains('shift-pdf-viewer-empty')).toBe(true);
+    expect(empty?.closest('#signature-editor')).toBeNull();
     expect(header?.parentElement?.id).toBe('uploader');
-    expect(header?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')).toBe(
+      true
+    );
     expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
       1
     );
@@ -751,9 +757,11 @@ describe('sidebar-boot.js viewer layout', () => {
     runBootScript();
 
     expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(true);
-    expect(document.getElementById('signature-editor')?.parentElement?.id).toBe(
-      'uploader'
-    );
+    expect(
+      document
+        .getElementById('signature-editor')
+        ?.parentElement?.classList.contains('shift-pdf-viewer-stage')
+    ).toBe(true);
     expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
       1
     );

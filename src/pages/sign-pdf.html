@@ -75,7 +75,7 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
   </head>
 
-  <body class="antialiased bg-gray-900">
+  <body class="antialiased shift-pdf-viewer-page">
     {{> navbar }}
 
     <div id="uploader" class="shift-pdf-viewer-shell">
@@ -112,92 +112,49 @@
         </div>
       </header>
 
-      <div
-        id="tool-uploader"
-        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
+      <section
+        class="shift-pdf-viewer-stage"
+        aria-label="Signature editor"
       >
-        <div
-          class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-6 flex items-start gap-3"
-        >
-          <i
-            data-lucide="pen-line"
-            class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"
-          ></i>
-          <div class="text-sm">
-            <p
-              class="text-blue-300 font-medium"
-              data-i18n="tools:signPdf.visualSignatureNotice"
-            >
-              Sign PDF adds a visual signature to the page. It is not a
-              certificate-backed Digital Signature. Use the Digital Signature
-              tool when certificate validation is required.
-            </p>
-            <p
-              class="text-blue-400/80 mt-1"
-              data-i18n="tools:signPdf.sessionOnlyNotice"
-            >
-              Signatures and PDFs stay in this browser session and are not saved
-              for later use.
-            </p>
+        <div id="signature-editor" class="hidden">
+          <div id="canvas-container-sign" class="shift-pdf-viewer-frame">
+            <!-- PDF.js viewer iframe will be loaded here -->
           </div>
+          <button
+            id="process-btn"
+            class="btn-gradient w-full mt-4"
+            style="display: none"
+          >
+            <span>Apply signatures</span>
+          </button>
         </div>
 
-        <!-- Drop Zone -->
-        <div
-          id="drop-zone"
-          class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
-        >
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
-            <i
-              data-lucide="circle-arrow-up"
-              class="w-10 h-10 mb-3 text-gray-400"
-            ></i>
-            <p class="mb-2 text-sm text-gray-400">
+        <div id="tool-uploader" class="shift-pdf-viewer-empty">
+          <div id="drop-zone">
+            <p>
               <span class="font-semibold" data-i18n="upload.clickToSelect"
                 >Click to select a file</span
               >
               <span data-i18n="upload.orDragAndDrop">or drag and drop</span>
             </p>
-            <p
-              class="text-xs text-gray-500"
-              data-i18n="upload.hints.pdfDocuments"
-            >
-              PDF Documents
+            <p data-i18n="tools:signPdf.visualSignatureNotice">
+              Sign PDF adds a visual signature to the page. It is not a
+              certificate-backed Digital Signature. Use the Digital Signature
+              tool when certificate validation is required.
             </p>
-            <p class="text-xs text-gray-500" data-i18n="upload.filesNeverLeave">
-              Your files never leave your device.
+            <p data-i18n="tools:signPdf.sessionOnlyNotice">
+              Signatures and PDFs stay in this browser session and are not saved
+              for later use.
             </p>
+            <input
+              id="file-input"
+              type="file"
+              accept="application/pdf"
+            />
           </div>
-          <input
-            id="file-input"
-            type="file"
-            class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-            accept="application/pdf"
-          />
+          <div id="file-display-area"></div>
         </div>
-
-        <!-- File Display -->
-        <div id="file-display-area" class="mt-4 space-y-2"></div>
-      </div>
-
-      <!-- Signature Editor (shown after file upload) -->
-      <div
-        id="signature-editor"
-        class="shift-pdf-viewer-stage hidden"
-        aria-label="Signature editor"
-      >
-        <div id="canvas-container-sign">
-          <!-- PDF.js viewer iframe will be loaded here -->
-        </div>
-
-        <button
-          id="process-btn"
-          class="btn-gradient w-full mt-4"
-          style="display: none"
-        >
-          <span>Apply signatures</span>
-        </button>
-      </div>
+      </section>
 
       <section
         id="completion-panel"

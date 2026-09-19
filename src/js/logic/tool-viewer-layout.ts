@@ -149,7 +149,10 @@ export function adoptViewerIntoCard(root: Document = document): void {
     const viewer = root.getElementById(id);
     if (!(viewer instanceof HTMLElement)) continue;
     if (card.contains(viewer)) continue;
-    if (viewer.parentElement?.classList.contains('shift-pdf-viewer-shell')) {
+    if (
+      viewer.parentElement?.classList.contains('shift-pdf-viewer-shell') ||
+      viewer.closest('.shift-pdf-viewer-stage')
+    ) {
       continue;
     }
     // Revealed, or already holding a frame, means the tool has mounted: leave

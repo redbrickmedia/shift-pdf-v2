@@ -227,7 +227,10 @@ describe('viewer chrome', () => {
     expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="flatten"`);
     expect(signPdf).toContain('id="flatten-signature-toggle"');
     expect(signPdf).toContain('id="signature-editor"');
-    expect(signPdf).toContain('class="shift-pdf-viewer-stage hidden"');
+    expect(signPdf).toContain('class="shift-pdf-viewer-stage"');
+    expect(signPdf).toContain('id="tool-uploader" class="shift-pdf-viewer-empty"');
+    expect(signPdf).toContain('shift-pdf-viewer-page');
+    expect(signPdf).not.toContain('bg-gray-800 rounded-xl');
     expect(signPdf).not.toMatch(
       /id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/
     );

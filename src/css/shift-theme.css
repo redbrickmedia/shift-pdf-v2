@@ -1151,20 +1151,104 @@ body.shift-has-open-file #file-display-area {
 }
 
 /* Sign authors the View PDF shell on #uploader. Keep the container queries
-   that collapse header actions, but do not pin 100dvh — navbar + footer
-   already own that height. */
+   that collapse header actions, but do not pin 100dvh — the sidebar column
+   already owns that height. */
 #uploader.shift-pdf-viewer-shell {
   height: auto;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
-/* Sibling stage pages (Sign): hide the empty-state card once the viewer
-   fills the shell. Crop still lives inside the card and uses the rules
-   below. */
-body.shift-tool-viewer #uploader.shift-pdf-viewer-shell > #tool-uploader,
+body:not(.simple-mode):has(#shift-sidebar):has(
+    #uploader.shift-pdf-viewer-shell
+  ) {
+  overflow: hidden;
+}
+
+body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
+  > #uploader.shift-pdf-viewer-shell {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body:has(#uploader.shift-pdf-viewer-shell) > .shift-footer {
+  display: none;
+}
+
+#uploader.shift-pdf-viewer-shell > .shift-pdf-viewer-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+#uploader.shift-pdf-viewer-shell #tool-uploader.shift-pdf-viewer-empty {
+  max-width: none;
+  padding: 24px;
+  background: var(--background-bar-primary);
+  border: 0;
+  box-shadow: none;
+}
+
+#uploader.shift-pdf-viewer-shell #drop-zone,
+#uploader.shift-pdf-viewer-shell
+  #drop-zone:has(.tool-library-btn-wrap:not([hidden])) {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+#uploader.shift-pdf-viewer-shell #drop-zone p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+#uploader.shift-pdf-viewer-shell #file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+#uploader.shift-pdf-viewer-shell #signature-editor:not(.hidden) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#uploader.shift-pdf-viewer-shell #canvas-container-sign {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Hide the empty stage once a PDF is in the viewer. */
+body.shift-tool-viewer #uploader.shift-pdf-viewer-shell #tool-uploader,
 body.shift-tool-viewer-pending
   #uploader.shift-pdf-viewer-shell
-  > #tool-uploader {
+  #tool-uploader {
   display: none !important;
 }
 
