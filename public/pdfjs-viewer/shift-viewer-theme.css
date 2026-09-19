@@ -1,3 +1,12 @@
+/* Tool embeds print from the parent toolbar disclosure; the launchpad viewer
+   keeps its own stock chrome. */
+html[data-shift-viewer='sign'] #printButton,
+html[data-shift-viewer='sign'] #secondaryPrint,
+html[data-shift-viewer='embed'] #printButton,
+html[data-shift-viewer='embed'] #secondaryPrint {
+  display: none !important;
+}
+
 /* Shift theme for the embedded PDF.js viewer.
  *
  * The viewer runs in an iframe, so it is a separate document: it inherits no
@@ -377,6 +386,24 @@ html[data-shift-viewer='launchpad'] #outerContainer {
   height: 100%;
   overflow: hidden;
   background: transparent;
+}
+
+/* PDF.js builds one .printedPage per document page inside #printContainer.
+   The screen shell above pins html/body to a single viewport with overflow
+   clipped. Without a print override Chrome collapses every printed page into
+   one preview page (Sign embed is unaffected — it never sets this rule). */
+@media print {
+  html[data-shift-viewer='launchpad'],
+  html[data-shift-viewer='launchpad'] body {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html[data-shift-viewer='launchpad'] #printContainer {
+    height: auto !important;
+    overflow: visible !important;
+  }
 }
 
 html[data-shift-viewer='launchpad'] #toolbarContainer {

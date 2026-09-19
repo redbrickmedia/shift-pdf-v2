@@ -26,6 +26,7 @@
             id="shift-pdf-viewer-back"
             class="shift-pdf-viewer-back"
             href="{{baseUrl}}my-pdfs.html"
+            data-viewer-chrome="back"
           >
             <span aria-hidden="true">←</span>
             <span>Go Back</span>
@@ -35,50 +36,54 @@
 
         <div
           class="shift-pdf-viewer-actions"
+          data-shift-viewer-actions
           role="toolbar"
           aria-label="PDF actions"
         >
-          <button
-            class="shift-pdf-viewer-action"
-            type="button"
-            data-viewer-tool="encrypt-pdf.html"
-            aria-label="Lock"
-          >
-            <i class="ph ph-lock" aria-hidden="true"></i>
-            <span>Lock</span>
-          </button>
-          <button
-            class="shift-pdf-viewer-action"
-            type="button"
-            data-viewer-tool="pdf-converter.html"
-            aria-label="Convert"
-          >
-            <i class="ph ph-arrows-left-right" aria-hidden="true"></i>
-            <span>Convert</span>
-          </button>
-          <button
-            class="shift-pdf-viewer-action"
-            type="button"
-            data-viewer-tool="sign-pdf.html"
-            aria-label="eSign"
-          >
-            <i class="ph ph-pen-nib" aria-hidden="true"></i>
-            <span>eSign</span>
-          </button>
-          <button
-            class="shift-pdf-viewer-action"
-            type="button"
-            data-viewer-tool="compress-pdf.html"
-            aria-label="Compress"
-          >
-            <i class="ph ph-lightning" aria-hidden="true"></i>
-            <span>Compress</span>
-          </button>
+          <span data-viewer-chrome="launchers">
+            <button
+              class="shift-pdf-viewer-action"
+              type="button"
+              data-viewer-tool="encrypt-pdf.html"
+              aria-label="Lock"
+            >
+              <i class="ph ph-lock" aria-hidden="true"></i>
+              <span>Lock</span>
+            </button>
+            <button
+              class="shift-pdf-viewer-action"
+              type="button"
+              data-viewer-tool="pdf-converter.html"
+              aria-label="Convert"
+            >
+              <i class="ph ph-arrows-left-right" aria-hidden="true"></i>
+              <span>Convert</span>
+            </button>
+            <button
+              class="shift-pdf-viewer-action"
+              type="button"
+              data-viewer-tool="sign-pdf.html"
+              aria-label="eSign"
+            >
+              <i class="ph ph-pen-nib" aria-hidden="true"></i>
+              <span>eSign</span>
+            </button>
+            <button
+              class="shift-pdf-viewer-action"
+              type="button"
+              data-viewer-tool="compress-pdf.html"
+              aria-label="Compress"
+            >
+              <i class="ph ph-lightning" aria-hidden="true"></i>
+              <span>Compress</span>
+            </button>
+          </span>
           <button
             id="shift-pdf-viewer-print"
             class="shift-pdf-viewer-action"
             type="button"
             aria-label="Print"
+            data-viewer-chrome="print"
           >
             <i class="ph ph-printer" aria-hidden="true"></i>
             <span>Print</span>
@@ -88,6 +93,7 @@
             class="shift-pdf-viewer-action"
             type="button"
             aria-label="Download"
+            data-viewer-chrome="download"
           >
             <span class="shift-pdf-viewer-download-icon" aria-hidden="true">
               <i class="ph ph-download-simple"></i>

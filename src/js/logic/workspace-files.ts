@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
+import { runAsyncRenderQueue } from '../utils/async-render-queue.js';
 import { confirmAction } from './confirm-dialog.js';
 import {
   addPdfToLibrary,
@@ -2480,29 +2481,36 @@ async function fillHomeThumbnails(
 
   const cards = homeLibraryThumbCards(thumbs);
 
-  for (const [index, file] of files.entries()) {
-    if (token !== thumbnailRenderToken) return;
-    const card = cards[index];
-    const preview = card?.querySelector<HTMLElement>(
-      '.shift-open-file-thumb-preview'
-    );
-    const canvas = preview?.querySelector('canvas');
-    if (!preview || !canvas || !file.blob) continue;
-    // Already painted — skip so selection/reuse re-renders do not redraw.
-    if (!preview.classList.contains('is-empty')) continue;
+  await runAsyncRenderQueue(
+    files,
+    async (file, index) => {
+      if (token !== thumbnailRenderToken) return;
+      const card = cards[index];
+      const preview = card?.querySelector<HTMLElement>(
+        '.shift-open-file-thumb-preview'
+      );
+      const canvas = preview?.querySelector('canvas');
+      if (!preview || !canvas || !file.blob) return;
+      // Already painted — skip so selection/reuse re-renders do not redraw.
+      if (!preview.classList.contains('is-empty')) return;
 
-    try {
-      await renderPdfFirstPage(file.blob, canvas);
-      // Clear is-empty before the cancellation check. A newer fill may bump the
-      // token after pixels land; leaving is-empty would hide those pixels via CSS
-      // (`.is-empty canvas { display: none }`) even though the canvas painted.
-      preview.classList.remove('is-empty');
-      if (token !== thumbnailRenderToken) return;
-    } catch {
-      if (token !== thumbnailRenderToken) return;
-      preview.classList.add('is-empty');
+      try {
+        await renderPdfFirstPage(file.blob, canvas);
+        // Clear is-empty before the cancellation check. A newer fill may bump the
+        // token after pixels land; leaving is-empty would hide those pixels via CSS
+        // (`.is-empty canvas { display: none }`) even though the canvas painted.
+        preview.classList.remove('is-empty');
+        if (token !== thumbnailRenderToken) return;
+      } catch {
+        if (token !== thumbnailRenderToken) return;
+        preview.classList.add('is-empty');
+      }
+    },
+    {
+      concurrency: 2,
+      shouldCancel: () => token !== thumbnailRenderToken,
     }
-  }
+  );
 }
 
 function bindHomeFileViewToggle(root: Document): void {

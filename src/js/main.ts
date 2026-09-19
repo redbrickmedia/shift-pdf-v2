@@ -49,6 +49,7 @@ import {
 import { initToolEmptyState } from './logic/tool-empty-state.js';
 import { initAddMoreLibraryPicker } from './logic/add-more-files.js';
 import { initToolViewerLayout } from './logic/tool-viewer-layout.js';
+import { initToolOutputToolbar } from './logic/tool-output-toolbar.js';
 import { applyOpenFileFlagClasses } from './logic/open-file-store.js';
 import {
   ALL_TOOLS_CATEGORY_ID,
@@ -294,6 +295,7 @@ const init = async () => {
   initToolEmptyState();
   initAddMoreLibraryPicker();
   initToolViewerLayout();
+  initToolOutputToolbar();
 
   if (isCurrentPageDisabled()) {
     document.title = t('disabledTool.title') || 'Tool Unavailable';

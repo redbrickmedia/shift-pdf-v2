@@ -74,6 +74,43 @@ function mountSignLikeShell() {
   `;
 }
 
+function mountSignViewerShell() {
+  document.body.innerHTML = `
+    <div id="uploader" class="shift-pdf-viewer-shell">
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1>Sign PDF</h1>
+          <p data-viewer-chrome="subtitle">Add a signature to your PDF.</p>
+        </div>
+        <div
+          class="shift-pdf-viewer-actions"
+          data-shift-viewer-actions
+          role="toolbar"
+        >
+          <label data-viewer-chrome="flatten" hidden>
+            <input id="flatten-signature-toggle" type="checkbox" />
+            <span>Flatten signatures into page content</span>
+          </label>
+        </div>
+      </header>
+      <section class="shift-pdf-viewer-stage">
+        <div id="signature-editor" class="hidden">
+          <div id="canvas-container-sign"></div>
+          <button id="process-btn" type="button" class="btn-gradient w-full mt-4">
+            Download Signed PDF
+          </button>
+        </div>
+        <div id="tool-uploader" class="shift-pdf-viewer-empty">
+          <div id="drop-zone">
+            <input id="file-input" type="file" accept="application/pdf" />
+          </div>
+          <div id="file-display-area"></div>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function mountMergeLikeShell() {
   document.body.innerHTML = `
     <div id="uploader">
@@ -146,6 +183,8 @@ describe('tool viewer layout', () => {
     const download = document.getElementById('process-btn');
 
     expect(bar).not.toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
     expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(actions?.contains(download)).toBe(true);
     expect(download?.closest('#signature-editor')).toBeNull();
@@ -229,14 +268,73 @@ describe('tool viewer layout', () => {
     expect(css).toContain('body.shift-tool-viewer #drop-zone');
     expect(css).toContain('body.shift-tool-viewer #file-display-area');
     expect(css).toContain('.shift-tool-viewer-suppressed');
-    expect(css).toContain('.shift-tool-viewer-actions');
+    expect(css).toContain('.shift-pdf-viewer-actions');
     expect(css).toContain(
       'body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar)'
     );
     expect(css).toContain('> #uploader');
     expect(css).toMatch(/body\.shift-tool-viewer[\s\S]*flex:\s*1 1 auto/);
+    // Viewer #uploader only adds pane growth. Padding lives on the shared
+    // `#uploader:has(#tool-uploader)` rule so boxed tools cannot drift.
+    const viewerUploader = css.slice(
+      css.indexOf(
+        'body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(\n    > .shift-footer\n  )\n  > #uploader {'
+      ),
+      css.indexOf(
+        '/* Neutralize the Tailwind card on #tool-uploader while viewing'
+      )
+    );
+    expect(viewerUploader).toContain('flex: 1 1 auto');
+    expect(viewerUploader).not.toMatch(/padding:/);
     expect(css).not.toMatch(
       /body\.shift-home:has\(#shift-my-pdfs\).*shift-tool-viewer/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*padding:\s*clamp\(16px, 3vw, 40px\)/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*gap:\s*clamp\(16px, 2\.5vw, 32px\)/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*none/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*stretch/s
+    );
+    // Boxed and viewer share that #uploader rule. A second cap (panel max
+    // or max-w-2xl) is what made Merge sit inside a tighter margin than Sign.
+    expect(css).not.toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*var\(--shift-panel-max\)/s
+    );
+    expect(css).toMatch(
+      /:is\(\.shift-pdf-viewer-header,\s*#tool-uploader\)\s*\{[^}]*max-width:\s*none\s*!important/s
+    );
+    expect(css).not.toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*center/s
+    );
+  });
+
+  it('drops the Tailwind card on #tool-uploader while viewing', () => {
+    const css = readTheme();
+    const card = css.slice(
+      css.indexOf(
+        'body.shift-tool-viewer #tool-uploader,\nbody.shift-tool-viewer-pending #tool-uploader'
+      ),
+      css.indexOf(
+        '/* The viewer lives inside #tool-uploader on every viewer tool'
+      )
+    );
+
+    expect(card).not.toBe('');
+    expect(card).toContain('background: transparent');
+    expect(card).toContain('box-shadow: none');
+    expect(card).toContain('border-radius: 0');
+    expect(card).toMatch(/border:\s*0/);
+    expect(card).toMatch(/padding:\s*0/);
+    // Empty-state tools keep the authored card; this must not unstyle
+    // #tool-uploader globally.
+    expect(css).not.toMatch(
+      /(?:^|\n)#tool-uploader\s*\{[^}]*background:\s*transparent/s
     );
   });
 
@@ -255,7 +353,7 @@ describe('tool viewer layout', () => {
       document
         .querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)
         ?.closest('#tool-uploader')
-    ).not.toBeNull();
+    ).toBeNull();
     expect(host?.closest('#signature-editor')).not.toBeNull();
 
     document.getElementById('signature-editor')?.classList.add('hidden');
@@ -304,12 +402,12 @@ describe('tool viewer layout', () => {
 });
 
 /**
- * sign-pdf and crop-pdf author their viewer as a sibling of the card, which
- * left them looking unlike edit-pdf, form-filler, compare and stamps: heading
- * in a card, document loose on the page below it.
+ * Crop and leftover pages still author their viewer as a sibling of the card.
+ * Sign PDF authors the View PDF shell and keeps the stage beside the
+ * empty-state card — that structure must stay put.
  */
 describe('viewer inside the tool card', () => {
-  it('moves a viewer the page authored outside the card into it', () => {
+  it('moves a leftover sibling viewer into the card', () => {
     mountSignLikeShell();
     const viewer = document.getElementById('signature-editor');
     expect(viewer?.parentElement?.id).toBe('uploader');
@@ -321,6 +419,48 @@ describe('viewer inside the tool card', () => {
     expect(document.getElementById('tool-uploader')?.lastElementChild).toBe(
       viewer
     );
+  });
+
+  it('leaves the Sign PDF stage in the shared viewer shell', () => {
+    mountSignViewerShell();
+    const viewer = document.getElementById('signature-editor');
+    const header = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
+    const empty = document.getElementById('tool-uploader');
+
+    initToolViewerLayout();
+
+    expect(viewer?.parentElement?.classList.contains('shift-pdf-viewer-stage')).toBe(
+      true
+    );
+    expect(empty?.classList.contains('shift-pdf-viewer-empty')).toBe(true);
+    expect(empty?.closest('#signature-editor')).toBeNull();
+    expect(header?.parentElement?.id).toBe('uploader');
+    expect(header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')).toBe(
+      true
+    );
+    expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
+      1
+    );
+    expect(document.getElementById('flatten-signature-toggle')?.closest('header')).toBe(
+      header
+    );
+  });
+
+  it('shows flatten in the shared header while Sign is viewing', () => {
+    mountSignViewerShell();
+    initToolViewerLayout();
+
+    const flatten = document.querySelector<HTMLElement>(
+      '[data-viewer-chrome="flatten"]'
+    );
+    expect(flatten?.hidden).toBe(true);
+
+    document.getElementById('signature-editor')?.classList.remove('hidden');
+    syncToolViewerLayout();
+
+    expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(true);
+    expect(flatten?.hidden).toBe(false);
+    expect(flatten?.closest(`.${TOOL_VIEWER_BAR_CLASS}`)).not.toBeNull();
   });
 
   it('leaves a viewer the page already authored in the card alone', () => {
@@ -529,7 +669,7 @@ describe('viewer layout before the file lands', () => {
   it('reserves the pane in CSS for every root the shell claims', () => {
     const css = readTheme();
     const block = css.slice(
-      css.indexOf('body.shift-tool-viewer-pending'),
+      css.indexOf('/* ---- Viewer layout before the blob lands ----'),
       css.indexOf('/* Compare panels are intentional inner scrollports')
     );
 
@@ -570,7 +710,9 @@ describe('sidebar-boot.js viewer layout', () => {
 
     const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
     const actions = document.querySelector(`[${TOOL_VIEWER_ACTIONS_ATTR}]`);
-    expect(bar?.closest('#tool-uploader')).not.toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.parentElement?.id).toBe('uploader');
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
     expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(
       bar?.querySelector(`.${TOOL_VIEWER_TITLE_CLASS} p`)?.textContent
@@ -593,15 +735,55 @@ describe('sidebar-boot.js viewer layout', () => {
     );
   });
 
-  it('leaves the card alone when nothing is selected', () => {
+  it('lifts the title out of the card before first paint even with no file', () => {
     mountSignLikeShell();
 
     runBootScript();
 
+    const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
     expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(
       false
     );
-    expect(document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)).toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.parentElement?.id).toBe('uploader');
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
+  });
+
+  it('keeps an authored Sign PDF shell header and stage on the first painted frame', () => {
+    mountSignViewerShell();
+    sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+
+    runBootScript();
+
+    expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(true);
+    expect(
+      document
+        .getElementById('signature-editor')
+        ?.parentElement?.classList.contains('shift-pdf-viewer-stage')
+    ).toBe(true);
+    expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
+      1
+    );
+    expect(
+      document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)?.parentElement?.id
+    ).toBe('uploader');
+    expect(
+      document.getElementById('flatten-signature-toggle')?.closest(
+        `.${TOOL_VIEWER_BAR_CLASS}`
+      )
+    ).not.toBeNull();
+  });
+
+  it('lifts boxed tool titles out of the card before first paint', () => {
+    mountMergeLikeShell();
+
+    runBootScript();
+
+    const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(bar?.querySelector('h1')?.textContent).toBe('Merge PDF');
   });
 
   it('shares its literals with tool-viewer-layout.ts', () => {

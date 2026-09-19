@@ -52,6 +52,16 @@ describe('Shift theme for the PDF.js viewer', () => {
     );
   });
 
+  it('lifts launchpad overflow clipping while printing so every page paginates', async () => {
+    const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
+    expect(theme).toMatch(
+      /@media print\s*\{[\s\S]*html\[data-shift-viewer='launchpad'\][\s\S]*overflow:\s*visible\s*!important/s
+    );
+    expect(theme).toMatch(
+      /@media print\s*\{[\s\S]*#printContainer[\s\S]*overflow:\s*visible\s*!important/s
+    );
+  });
+
   it('themes the signing embed', async () => {
     window.history.replaceState(
       {},
@@ -69,6 +79,18 @@ describe('Shift theme for the PDF.js viewer', () => {
       {},
       '',
       '/pdfjs-viewer/viewer.html?shiftLaunchpad=1'
+    );
+
+    await runThemeScript();
+
+    expect(document.documentElement.dataset.shiftViewer).toBe('launchpad');
+  });
+
+  it('uses launchpad chrome when Sign sets both launchpad and bentoSign', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/pdfjs-viewer/viewer.html?bentoSign=1&shiftLaunchpad=1'
     );
 
     await runThemeScript();

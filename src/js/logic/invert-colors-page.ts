@@ -159,9 +159,6 @@ async function invertColors() {
       new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       pageState.file?.name || 'document.pdf'
     );
-    showAlert('Success', 'Colors inverted successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Could not invert PDF colors.');

@@ -11,6 +11,10 @@ const HIDDEN_EDITOR_IDS = [
   'editorHighlight',
   'editorInk',
   'editorStamp',
+  'downloadButton',
+  'secondaryDownload',
+  'printButton',
+  'secondaryPrint',
 ] as const;
 
 function getViewerApplication(
@@ -41,6 +45,132 @@ export async function waitForPdfJsSignViewer(
   }
 
   throw new Error('Timed out while waiting for the PDF.js signing viewer.');
+}
+
+export async function waitForPdfJsPagesReady(
+  application: PDFViewerApplication,
+  timeoutMs = 15_000
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (application.pdfViewer?.pageViewsReady !== false) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  throw new Error('Timed out while preparing all PDF pages for printing.');
+}
+
+export type PdfJsEditorHistoryState = {
+  hasEdits: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+};
+
+export const EMPTY_PDFJS_EDITOR_HISTORY: PdfJsEditorHistoryState = {
+  hasEdits: false,
+  canUndo: false,
+  canRedo: false,
+};
+
+type EditorStatesChangedEvent = {
+  details?: {
+    isEmpty?: boolean;
+    hasSomethingToUndo?: boolean;
+    hasSomethingToRedo?: boolean;
+  };
+};
+
+export function editorHistoryFromStates(
+  details: EditorStatesChangedEvent['details']
+): PdfJsEditorHistoryState {
+  return {
+    hasEdits: details?.isEmpty === false,
+    canUndo: Boolean(details?.hasSomethingToUndo),
+    canRedo: Boolean(details?.hasSomethingToRedo),
+  };
+}
+
+export function isEditorHistoryDetails(
+  details: EditorStatesChangedEvent['details'] | unknown
+): details is NonNullable<EditorStatesChangedEvent['details']> {
+  if (!details || typeof details !== 'object') return false;
+  return (
+    'isEmpty' in details ||
+    'hasSomethingToUndo' in details ||
+    'hasSomethingToRedo' in details
+  );
+}
+
+export function getPdfJsAnnotationEditorUIManager(
+  application: PDFViewerApplication | null | undefined
+): { undo?: () => void; redo?: () => void } | null {
+  return (
+    application?.pdfViewer?._layerProperties?.annotationEditorUIManager ?? null
+  );
+}
+
+export function bindPdfJsEditorHistory(
+  application: PDFViewerApplication,
+  onChange: (state: PdfJsEditorHistoryState) => void
+): () => void {
+  const eventBus = application.eventBus;
+  if (!eventBus) return () => {};
+
+  const listener = (event?: unknown) => {
+    const details = (event as EditorStatesChangedEvent | undefined)?.details;
+    // PDF.js also emits this event for thumbnail page selection. Ignore those.
+    if (!isEditorHistoryDetails(details)) return;
+    onChange(editorHistoryFromStates(details));
+  };
+
+  if (typeof eventBus.on === 'function') {
+    eventBus.on('editingstateschanged', listener);
+    return () => eventBus.off?.('editingstateschanged', listener);
+  }
+  eventBus._on('editingstateschanged', listener);
+  return () => {};
+}
+
+export function undoPdfJsEditor(
+  application: PDFViewerApplication | null | undefined
+): void {
+  if (application?.eventBus) {
+    application.eventBus.dispatch('editingaction', { name: 'undo' });
+    return;
+  }
+  getPdfJsAnnotationEditorUIManager(application)?.undo?.();
+}
+
+export function redoPdfJsEditor(
+  application: PDFViewerApplication | null | undefined
+): void {
+  if (application?.eventBus) {
+    application.eventBus.dispatch('editingaction', { name: 'redo' });
+    return;
+  }
+  getPdfJsAnnotationEditorUIManager(application)?.redo?.();
+}
+
+/**
+ * Open PDF.js's "Add a signature" dialog from the host page.
+ *
+ * The button belongs to the iframe's realm, so `instanceof HTMLElement`
+ * against this window's constructor is always false.
+ */
+export function openPdfJsSignatureDialog(
+  iframe: HTMLIFrameElement | null | undefined,
+  application: PDFViewerApplication | null | undefined
+): void {
+  const addButton = iframe?.contentDocument?.getElementById(
+    'editorSignatureAddSignature'
+  ) as HTMLElement | null;
+  if (typeof addButton?.click === 'function') {
+    addButton.click();
+    return;
+  }
+  application?.eventBus?.dispatch('switchannotationeditormode', {
+    source: window,
+    mode: PDFJS_SIGNATURE_MODE,
+  });
 }
 
 export function configureSessionOnlySignatureUi(

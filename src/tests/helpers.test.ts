@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   getStandardPageName,
   convertPoints,
   hexToRgb,
   formatBytes,
   parsePageRanges,
+  downloadFile,
+  PDF_OUTPUT_READY_EVENT,
 } from '../js/utils/helpers';
 
 describe('helpers', () => {
@@ -140,6 +142,26 @@ describe('helpers', () => {
 
     it('should handle decimal values', () => {
       expect(formatBytes(1536)).toBe('1.5 KB');
+    });
+  });
+
+  describe('tool output publishing', () => {
+    it('publishes output without starting a browser download', () => {
+      const output = new Blob(['pdf'], { type: 'application/pdf' });
+      const ready = vi.fn();
+      const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+      document.addEventListener(PDF_OUTPUT_READY_EVENT, ready);
+
+      downloadFile(output, 'result.pdf');
+
+      expect(ready).toHaveBeenCalledOnce();
+      expect((ready.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
+        blob: output,
+        filename: 'result.pdf',
+      });
+      expect(anchorClick).not.toHaveBeenCalled();
+      document.removeEventListener(PDF_OUTPUT_READY_EVENT, ready);
+      anchorClick.mockRestore();
     });
   });
 

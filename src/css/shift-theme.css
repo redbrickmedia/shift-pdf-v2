@@ -1137,69 +1137,399 @@ body.shift-has-open-file #file-display-area {
  * mount an in-page viewer. Once that viewer is revealed,
  * `tool-viewer-layout.ts` toggles `body.shift-tool-viewer` and marks upload
  * chrome with `.shift-tool-viewer-suppressed`. The drop zone and file chips
- * stay available while empty; when viewing, the panel is a header + viewer
- * column so upload UI never stacks above the document.
+ * stay available while empty; when viewing, the host is a header + viewer
+ * column (no card) so upload UI never stacks above the document.
  * Scoped away from My PDFs and the catalog (those never get the body class).
  * Thumbnail-grid tools (rotate / organize / split) stay out on purpose.
  */
-.shift-tool-viewer-bar,
-.shift-tool-viewer-title {
-  display: contents;
+/* Tool pages use the same header component as View PDF
+   (`.shift-pdf-viewer-header`). No second bar. */
+#uploader > .shift-pdf-viewer-header {
+  position: relative;
+  z-index: 2;
+  order: 0;
 }
 
-.shift-tool-viewer-actions {
-  display: none;
-}
-
-body.shift-tool-viewer .shift-tool-viewer-bar {
+/* Sign authors the View PDF shell on #uploader. Keep 100dvh from
+   .shift-pdf-viewer-shell — height:auto collapses the stage because the
+   empty state and #signature-editor are absolutely positioned, and Sign
+   no longer ships a footer for the leftover-column flex growth. */
+body:not(.simple-mode):has(#shift-sidebar):has(
+    #uploader.shift-pdf-viewer-shell
+  ) {
   display: flex;
-  flex-shrink: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body:not(.simple-mode):has(#shift-sidebar)
+  > #uploader.shift-pdf-viewer-shell {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body:has(#uploader.shift-pdf-viewer-shell) > .shift-footer,
+body.shift-pdf-viewer-page .shift-footer {
+  display: none !important;
+}
+
+#uploader.shift-pdf-viewer-shell > .shift-pdf-viewer-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+#uploader.shift-pdf-viewer-shell #tool-uploader.shift-pdf-viewer-empty {
+  max-width: none;
+  padding: 24px;
+  background: var(--background-bar-primary);
+  border: 0;
+  box-shadow: none;
+}
+
+#uploader.shift-pdf-viewer-shell #drop-zone,
+#uploader.shift-pdf-viewer-shell
+  #drop-zone:has(.tool-library-btn-wrap:not([hidden])) {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+#uploader.shift-pdf-viewer-shell #drop-zone p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+#uploader.shift-pdf-viewer-shell #file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+#uploader.shift-pdf-viewer-shell #signature-editor:not(.hidden) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#uploader.shift-pdf-viewer-shell #canvas-container-sign {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Beat `body.shift-tool-viewer #canvas-container-sign { height: auto
+   !important }` so the PDF.js iframe's height:100% has a specified parent. */
+body.shift-tool-viewer
+  #uploader.shift-pdf-viewer-shell
+  #canvas-container-sign {
+  height: 100% !important;
+}
+
+body.shift-tool-viewer
+  #uploader.shift-pdf-viewer-shell
+  #canvas-container-sign
+  > iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+}
+
+/* Hide the empty stage once a PDF is in the viewer. */
+body.shift-tool-viewer #uploader.shift-pdf-viewer-shell #tool-uploader,
+body.shift-tool-viewer-pending
+  #uploader.shift-pdf-viewer-shell
+  #tool-uploader {
+  display: none !important;
+}
+
+/* One inset for boxed tools and viewer tools. Same tokens as
+   .shift-pdf-viewer-shell. Do not add a second max-width here — that is
+   what made boxed pages sit inside a narrower column than Sign / View.
+   Convert hub has no #tool-uploader. */
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
+  > #uploader:has(#tool-uploader) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  gap: clamp(16px, 2.5vw, 32px);
+  padding: clamp(16px, 3vw, 40px);
+  background: var(--background-secondary);
+}
+
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
+  > #uploader:has(#tool-uploader)
+  > :is(.shift-pdf-viewer-header, #tool-uploader) {
+  width: 100%;
+  max-width: none !important;
+}
+
+/* Process success is published to the toolbar; do not celebrate it inline. */
+#completion-panel {
+  display: none !important;
+}
+
+.shift-tool-output-toolbar {
+  position: relative;
+  z-index: 12;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-12);
   width: 100%;
-  margin-bottom: var(--spacing-8);
-  /* Beat the global #tool-uploader > #file-display-area { order: 1 } rule so
-     the title/Download row stays above chips if chips are briefly visible. */
-  order: 0;
+  min-height: 44px;
+  margin: 0 0 var(--spacing-16);
+  padding: var(--spacing-8);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-bar-primary);
 }
 
-body.shift-tool-viewer .shift-tool-viewer-title {
+.shift-tool-output-history,
+.shift-tool-output-actions,
+.shift-tool-output-split {
   display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
+  align-items: center;
 }
 
-body.shift-tool-viewer .shift-tool-viewer-title > h1 {
-  margin-bottom: 0;
+.shift-tool-output-history,
+.shift-tool-output-actions {
+  gap: var(--spacing-8);
+}
+
+.shift-tool-output-split {
+  border-radius: var(--radius-8);
+  box-shadow: 0 0 0 1px var(--action-button-border-primary-default);
+}
+
+.shift-tool-output-button,
+.shift-tool-output-disclosure {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  padding: 0 var(--spacing-12);
+  border: 0;
+  background: transparent;
+  color: var(--action-text-neutral-default);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.shift-tool-output-button svg,
+.shift-tool-output-disclosure svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.shift-tool-output-button:hover:not(:disabled),
+.shift-tool-output-disclosure:hover {
+  background: var(--action-controls-surface-primary-hover);
+}
+
+.shift-tool-output-button:disabled {
+  color: var(--action-text-neutral-disabled);
+  cursor: default;
+}
+
+.shift-tool-output-save {
+  min-width: 96px;
+  border-radius: var(--radius-8) 0 0 var(--radius-8);
+  background: var(--action-button-surface-primary-default);
+  color: var(--action-text-primary-default);
+}
+
+.shift-tool-output-save:hover:not(:disabled) {
+  background: var(--action-button-surface-primary-hover);
+}
+
+.shift-tool-output-save:disabled {
+  background: var(--action-button-surface-primary-disabled);
+}
+
+.shift-tool-output-menu {
+  position: relative;
+}
+
+.shift-tool-output-disclosure {
+  width: 36px;
+  padding: 0;
+  border-left: 1px solid var(--action-button-border-primary-default);
+  border-radius: 0 var(--radius-8) var(--radius-8) 0;
+  background: var(--action-button-surface-primary-default);
+  color: var(--action-text-primary-default);
+  list-style: none;
+}
+
+.shift-tool-output-disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.shift-tool-output-menu[open] .shift-tool-output-disclosure svg {
+  transform: rotate(180deg);
+}
+
+.shift-tool-output-menu-surface {
+  position: absolute;
+  top: calc(100% + var(--spacing-8));
+  right: 0;
+  min-width: 180px;
+  padding: var(--spacing-4);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.shift-tool-output-menu-surface .shift-tool-output-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+body.shift-tool-viewer .shift-tool-output-toolbar {
+  display: none;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-header,
+body.shift-tool-viewer-pending .shift-pdf-viewer-header {
+  max-width: none !important;
+}
+
+.shift-pdf-viewer-heading > p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--shift-font);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--text-sm--line-height);
 }
 
 /* Subtitle / empty-state copy compete with the viewer; the heading alone is
    enough once a file is open. */
-body.shift-tool-viewer .shift-tool-viewer-title > p {
+body.shift-tool-viewer .shift-pdf-viewer-heading > p,
+body.shift-tool-viewer-pending .shift-pdf-viewer-heading > p {
   display: none;
 }
 
-body.shift-tool-viewer .shift-tool-viewer-actions {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
+.shift-pdf-viewer-flatten:not([hidden]) {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--spacing-8);
+  align-self: center;
+  gap: 8px;
+  width: auto;
+  min-height: 52px;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--shift-font);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--text-xs--line-height);
+  white-space: nowrap;
 }
 
-/* Download was authored full-width under the viewer; in the header it is an
-   inline primary action. */
+.shift-pdf-viewer-flatten-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--action-button-surface-primary-default);
+}
+
+body:not(.shift-tool-viewer):not(.shift-tool-viewer-pending)
+  .shift-pdf-viewer-flatten {
+  display: none;
+}
+
 body.shift-tool-viewer
-  .shift-tool-viewer-actions
+  .shift-pdf-viewer-actions
   :is(#process-btn, #crop-button, #download-edited-pdf, .btn-gradient) {
-  width: auto;
-  min-width: 10rem;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+  display: none !important;
+}
+
+.shift-tool-viewer-save {
+  position: relative;
+}
+
+.shift-tool-viewer-save-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  /* Transparent pad so the pointer can travel from Save onto the items. */
+  padding-top: calc(var(--spacing-8) + 4px);
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.shift-tool-viewer-save-menu-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--spacing-4);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.shift-tool-viewer-save.is-ready:hover .shift-tool-viewer-save-menu,
+.shift-tool-viewer-save.is-ready:focus-within .shift-tool-viewer-save-menu,
+.shift-tool-viewer-save.is-ready.is-open .shift-tool-viewer-save-menu {
+  display: flex;
+}
+
+.shift-tool-output-menu:not(.is-ready) .shift-tool-output-disclosure {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.shift-tool-viewer-save-menu-surface .shift-pdf-viewer-action {
+  flex-direction: row;
+  width: 100%;
+  height: 40px;
+  justify-content: flex-start;
+  gap: var(--spacing-8);
 }
 
 /* Drop zone + file chips + empty-state chrome stay out of the way while
@@ -1208,7 +1538,7 @@ body.shift-tool-viewer
    sibling (see adoptViewerIntoCard in tool-viewer-layout.ts). */
 body.shift-tool-viewer
   #tool-uploader
-  > :not(.shift-tool-viewer-bar):not(#embed-pdf-wrapper):not(
+  > :not(.shift-pdf-viewer-header):not(#embed-pdf-wrapper):not(
     #form-filler-options
   ):not(#signature-editor):not(#cropper-editor):not(#compare-viewer):not(
     #viewer-card
@@ -1240,22 +1570,30 @@ body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
   flex: 1 1 auto;
   flex-shrink: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  padding-block: var(--spacing-12);
 }
 
-body.shift-tool-viewer #tool-uploader {
+/* Neutralize the Tailwind card on #tool-uploader while viewing (and while
+   the reserved pane is standing in). Pages author
+   `bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 border border-gray-700`;
+   those stay for empty-state tools. No gray panel, radius, shadow, border,
+   or extra card padding — heading + document sit on the same surface as
+   view-pdf.html. */
+body.shift-tool-viewer #tool-uploader,
+body.shift-tool-viewer-pending #tool-uploader {
   max-width: none !important;
   width: 100%;
   flex: 0 0 auto;
-  padding-block: var(--spacing-12);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-/* The viewer lives inside the card on every viewer tool, so the card is what
-   grows to fill the panel. */
+/* The viewer lives inside #tool-uploader on every viewer tool, so that host
+   is what grows to fill the panel. */
 body.shift-tool-viewer
   #tool-uploader:has(
     #embed-pdf-wrapper:not(.hidden),
@@ -1270,6 +1608,7 @@ body.shift-tool-viewer
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: clamp(16px, 2.5vw, 32px);
 }
 
 body.shift-tool-viewer #embed-pdf-wrapper:not(.hidden),
@@ -1283,11 +1622,18 @@ body.shift-tool-viewer #viewer-card:not(.hidden) {
   max-width: none;
   width: 100%;
   margin-top: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
   order: 2;
+  /* Nested leftovers such as add-stamps `#viewer-card` (`border rounded-lg`)
+     must not reintroduce a boxed panel around the document. */
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 body.shift-tool-viewer #embed-pdf-container,
@@ -1307,12 +1653,12 @@ body.shift-tool-viewer .shift-viewer-scroll-host {
      Filler do not nest an app scrollport around the PDF.js iframe. */
   overflow: hidden !important;
   overscroll-behavior: none;
-}
-
-body.shift-tool-viewer #embed-pdf-container,
-body.shift-tool-viewer #pdf-viewer-container,
-body.shift-tool-viewer #canvas-container-sign {
-  border-radius: var(--radius-8);
+  /* Same flush stage as .shift-pdf-viewer-frame: no leftover host border
+     (`border-gray-600 rounded-lg`) boxing the iframe. */
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Iframe fills the flex host so #viewerContainer (inside) is the only
@@ -1445,7 +1791,7 @@ body.shift-tool-viewer-pending
   animation: shift-skeleton-pulse 1.2s ease-in-out infinite;
 }
 
-/* The card grows for the reservation exactly as it does for the viewer, so it
+/* The host grows for the reservation exactly as it does for the viewer, so it
    already has the viewer's shape while the root is still hidden. */
 body.shift-tool-viewer-pending
   #tool-uploader:has(
@@ -1460,6 +1806,7 @@ body.shift-tool-viewer-pending
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: clamp(16px, 2.5vw, 32px);
 }
 
 /* Placeholder file rows have nothing to sit above once the pane is reserved,
@@ -3039,6 +3386,12 @@ body.shift-home:has(#shift-my-pdfs) #app {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+
+body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
@@ -3054,7 +3407,7 @@ body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
    table keeps auto layout (Date/Size stay narrow) while overflow lives here. */
 body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: clamp(12rem, 40vh, 28rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   /* Room for the scrollbar so cards do not sit under it. */
@@ -3909,6 +4262,13 @@ body.shift-pdf-viewer-page:not(.simple-mode):has(#shift-sidebar) {
   max-width: 100%;
 }
 
+.shift-pdf-viewer-actions [data-viewer-chrome='launchers']:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: inherit;
+}
+
 .shift-pdf-viewer-action {
   display: flex;
   flex: none;
@@ -3957,7 +4317,8 @@ body.shift-pdf-viewer-page:not(.simple-mode):has(#shift-sidebar) {
 }
 
 .shift-pdf-viewer-action:disabled {
-  cursor: wait;
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .shift-pdf-viewer-download-spinner {
@@ -4024,6 +4385,10 @@ body.shift-pdf-viewer-page:not(.simple-mode):has(#shift-sidebar) {
   }
 
   .shift-pdf-viewer-action > span:last-child {
+    display: none;
+  }
+
+  .shift-pdf-viewer-flatten span {
     display: none;
   }
 }

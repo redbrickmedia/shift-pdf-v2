@@ -147,9 +147,6 @@ async function convert() {
       new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
       'from_tiff.pdf'
     );
-    showAlert('Success', 'PDF created successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert(

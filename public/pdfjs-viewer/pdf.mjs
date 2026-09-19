@@ -27212,7 +27212,7 @@ class WidgetAnnotationElement extends AnnotationElement {
       );
       const numberOfLines =
         Math.round(
-          height / (/* inlined export .LINE_FACTOR */ 1.35 * fontSize)
+          height / /* inlined export .LINE_FACTOR */ (1.35 * fontSize)
         ) || 1;
       const lineHeight = height / numberOfLines;
       computedFontSize = Math.min(

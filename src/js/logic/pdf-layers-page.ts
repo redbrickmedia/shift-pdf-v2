@@ -422,7 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
           downloadFile(blob, currentFile!.name);
           hideLoader();
           resetState();
-          showAlert('Success', 'PDF with layer changes saved!', 'success');
         } catch (err: unknown) {
           hideLoader();
           showAlert(

@@ -101,11 +101,6 @@ function handleFiles(newFiles: FileList) {
   }
 }
 
-const resetState = () => {
-  files = [];
-  updateUI();
-};
-
 function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
   const fileControls = document.getElementById('file-controls');
@@ -247,9 +242,6 @@ async function convertToPdf() {
       new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
       'from_webps.pdf'
     );
-    showAlert('Success', 'PDF created successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e: unknown) {
     console.error(e);
     showAlert('Conversion Error', e instanceof Error ? e.message : String(e));

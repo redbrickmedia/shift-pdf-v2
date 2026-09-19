@@ -1,17 +1,28 @@
 // Self-contained Form Filler logic for standalone page
 import { createIcons, icons } from 'lucide';
-import { getPDFDocument } from '../utils/helpers.js';
+import { downloadFile, getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { hideLoader, showLoader } from '../ui.js';
+import { getDerivedPdfFilename } from '../utils/derived-pdf-filename.js';
+import { exportPdfJsAnnotations } from '../utils/sign-pdf-export.js';
 import {
   applyPdfViewerDownloadFilename,
   encodePdfjsViewerFileParam,
-  type PdfViewerFilenameTarget,
 } from '../utils/pdfjs-viewer-filename.js';
+import {
+  hidePdfJsPrintControls,
+  printPdfJsViewerFrame,
+} from '../utils/pdfjs-viewer-print.js';
+import { waitForPdfJsSignViewer } from '../utils/pdfjs-sign-viewer.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
 let currentFile: File | null = null;
+let formDirty = false;
 
 function showAlert(
   title: string,
@@ -96,6 +107,8 @@ function resetState() {
   viewerIframe = null;
   viewerReady = false;
   currentFile = null;
+  formDirty = false;
+  syncToolOutputToolbar();
   const displayArea = document.getElementById('file-display-area');
   if (displayArea) displayArea.innerHTML = '';
   document.getElementById('form-filler-options')?.classList.add('hidden');
@@ -198,13 +211,36 @@ async function setupFormViewer() {
     viewerIframe.style.border = 'none';
 
     viewerIframe.onload = () => {
-      const app = (
-        viewerIframe?.contentWindow as
-          (Window & { PDFViewerApplication?: PdfViewerFilenameTarget }) | null
-      )?.PDFViewerApplication;
-      applyPdfViewerDownloadFilename(app, currentFile?.name);
-      viewerReady = true;
-      hideLoader();
+      hidePdfJsPrintControls(viewerIframe?.contentDocument);
+      void (async () => {
+        if (!viewerIframe) return;
+        try {
+          const app = await waitForPdfJsSignViewer(viewerIframe);
+          applyPdfViewerDownloadFilename(app, currentFile?.name);
+          const storage = app.pdfDocument?.annotationStorage as
+            | {
+                onSetModified?: (() => void) | null;
+                onResetModified?: (() => void) | null;
+              }
+            | undefined;
+          if (storage) {
+            storage.onSetModified = () => {
+              formDirty = true;
+              syncToolOutputToolbar();
+            };
+            storage.onResetModified = () => {
+              formDirty = false;
+              syncToolOutputToolbar();
+            };
+          }
+          viewerReady = true;
+          syncToolOutputToolbar();
+        } catch (error) {
+          console.error('Could not initialize the form viewer:', error);
+        } finally {
+          hideLoader();
+        }
+      })();
     };
 
     pdfViewerContainer.appendChild(viewerIframe);
@@ -228,54 +264,24 @@ async function processAndDownloadForm() {
   }
 
   try {
-    const viewerWindow = viewerIframe.contentWindow;
-    if (!viewerWindow) {
-      console.error('Cannot access iframe window');
-      showAlert(
-        'Download',
-        'Please use the Download button in the PDF viewer toolbar above.'
-      );
-      return;
+    showLoader('Saving filled form...');
+    const app = await waitForPdfJsSignViewer(viewerIframe);
+    if (!app.pdfDocument) {
+      throw new Error('The PDF.js document is unavailable.');
     }
-
-    const viewerDoc = viewerWindow.document;
-    if (!viewerDoc) {
-      console.error('Cannot access iframe document');
-      showAlert(
-        'Download',
-        'Please use the Download button in the PDF viewer toolbar above.'
-      );
-      return;
-    }
-
-    const downloadBtn = viewerDoc.getElementById(
-      'downloadButton'
-    ) as HTMLButtonElement | null;
-
-    if (downloadBtn) {
-      console.log('Clicking download button...');
-      downloadBtn.click();
-    } else {
-      console.error('Download button not found in viewer');
-      const secondaryDownload = viewerDoc.getElementById(
-        'secondaryDownload'
-      ) as HTMLButtonElement | null;
-      if (secondaryDownload) {
-        console.log('Clicking secondary download button...');
-        secondaryDownload.click();
-      } else {
-        showAlert(
-          'Download',
-          'Please use the Download button in the PDF viewer toolbar above.'
-        );
-      }
-    }
+    const outputBytes = await exportPdfJsAnnotations(app.pdfDocument);
+    const blob = new Blob([Uint8Array.from(outputBytes)], {
+      type: 'application/pdf',
+    });
+    downloadFile(blob, getDerivedPdfFilename(currentFile?.name, '_filled'));
   } catch (e) {
-    console.error('Failed to trigger download:', e);
+    console.error('Failed to export the filled form:', e);
     showAlert(
-      'Download',
-      'Cannot access viewer controls. Please use the Download button in the PDF viewer toolbar above.'
+      'Export failed',
+      'Could not export the filled form. Please try again.'
     );
+  } finally {
+    hideLoader();
   }
 }
 
@@ -306,4 +312,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   processBtn?.addEventListener('click', processAndDownloadForm);
+  registerToolOutputSession({
+    reset: resetState,
+    apply: processAndDownloadForm,
+    print: () => printPdfJsViewerFrame(viewerIframe),
+    canSave: () => formDirty,
+    canPrint: () => viewerReady,
+  });
 });
