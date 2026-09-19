@@ -11,6 +11,7 @@ import {
   removeConvertSource,
   renderConvertHub,
   resolveInitialConvertSources,
+  setConvertDestinationSearchQuery,
 } from '../js/logic/convert-hub-page';
 import { clearPersistedOpenFile } from '../js/logic/open-file-store';
 import {
@@ -84,6 +85,7 @@ afterEach(async () => {
   await clearWorkspaceOpenFile();
   await clearPersistedOpenFile();
   await clearPdfLibrary();
+  setConvertDestinationSearchQuery('');
   document.body.innerHTML = '';
   vi.restoreAllMocks();
 });
@@ -301,6 +303,25 @@ describe('convert hub page', () => {
       docxTarget?.querySelector('.shift-convert-destination-output')
         ?.textContent
     ).toBe('2 files → .docx');
+  });
+
+  it('filters destination formats when the user searches', () => {
+    mountHub();
+    render(createInitialConvertHubState([pdf('one.pdf')]), { showMore: true });
+
+    const before = document.querySelectorAll(
+      '.shift-convert-destination'
+    ).length;
+    expect(before).toBeGreaterThan(1);
+
+    setConvertDestinationSearchQuery('word');
+    render(createInitialConvertHubState([pdf('one.pdf')]), { showMore: true });
+
+    const visible = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.shift-convert-destination')
+    ).map((button) => button.dataset.destinationId);
+    expect(visible).toEqual(['pdf-to-docx']);
+    expect(document.getElementById('convert-destination-search')).not.toBeNull();
   });
 
   it('explains a selection with no format in common', () => {

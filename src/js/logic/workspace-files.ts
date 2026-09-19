@@ -17,6 +17,7 @@ import {
   writePersistedOpenFiles,
 } from './open-file-store.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
+import { downloadBlob } from '../utils/helpers.js';
 import {
   createMyPdfsSearchEmptyCopy,
   createMyPdfsSearchEmptyRow,
@@ -2173,6 +2174,7 @@ function createHomeFileRow(
   nameLayout.className = 'shift-my-pdfs-name';
   const name = root.createElement('span');
   name.textContent = file.name;
+  attachShiftTooltip(name, { placement: 'bottom', text: file.name });
   nameLayout.append(name);
   if (file.source === 'download') {
     nameLayout.appendChild(createDownloadedCopyBadge(root));
@@ -2195,6 +2197,7 @@ function createHomeFileRow(
   actionLayout.className = 'shift-my-pdfs-action-layout';
   actionLayout.append(
     createHomeFileViewButton(file, root),
+    createHomeFileDownloadButton(file, root),
     createHomeFileDeleteButton(file, root)
   );
   actionCell.appendChild(actionLayout);
@@ -2240,6 +2243,7 @@ function createHomeFileThumb(
   const name = root.createElement('span');
   name.className = 'shift-open-file-thumb-name';
   name.textContent = file.name;
+  attachShiftTooltip(name, { placement: 'bottom', text: file.name });
   meta.appendChild(name);
   const details = formatFileSize(file.size);
   if (details) {
@@ -2274,6 +2278,7 @@ function createHomeFileThumb(
   actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
   actions.append(
     createHomeFileViewButton(file, root),
+    createHomeFileDownloadButton(file, root),
     createHomeFileDeleteButton(file, root)
   );
   item.append(card, actions);
@@ -2294,6 +2299,27 @@ function createHomeFileViewButton(
     event.stopPropagation();
     hideShiftTooltip();
     void openLibraryFileInViewer(file, root);
+  });
+  return button;
+}
+
+function createHomeFileDownloadButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-download';
+  button.dataset.fileName = file.name;
+  button.textContent = 'Download';
+  button.setAttribute('aria-label', `Download ${file.name}`);
+  button.disabled = !file.blob;
+  attachShiftTooltip(button, { placement: 'bottom', text: 'Download PDF' });
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    if (!file.blob) return;
+    downloadBlob(file.blob, file.name);
   });
   return button;
 }

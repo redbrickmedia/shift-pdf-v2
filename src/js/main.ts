@@ -2,6 +2,7 @@ import { categories } from './config/tools.js';
 import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
+import Sortable from 'sortablejs';
 import '@phosphor-icons/web/regular';
 
 import '../css/styles.css';
@@ -28,11 +29,13 @@ import {
   FAVORITE_CATALOG_COPY_ATTR,
   loadFavoriteToolIds,
   placeFavoriteToolCards,
+  reorderFavoriteToolIds,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
   type FavoriteRailPin,
 } from './logic/tool-favorites.js';
+import { attachShiftTooltip } from './logic/shift-tooltip.js';
 import { initHomeFiles } from './logic/home-files.js';
 import { initDownloadedPdfLibrary } from './logic/downloaded-pdf-library.js';
 import { initShiftPdfSave } from './logic/shift-pdf-save.js';
@@ -609,6 +612,10 @@ const init = async () => {
       label.className = 'shift-nav-label';
       label.textContent = getToolName(tool);
       link.append(icon, label);
+      attachShiftTooltip(link, {
+        placement: 'right',
+        text: getToolName(tool),
+      });
 
       const removeButton = document.createElement('button');
       removeButton.type = 'button';
@@ -889,6 +896,10 @@ const init = async () => {
         toolName.className = 'font-semibold shift-tool-name';
         const toolKey = toolTranslationKeys[tool.name];
         toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
+        attachShiftTooltip(toolContent, {
+          placement: 'bottom',
+          text: toolName.textContent,
+        });
 
         toolContent.append(icon, toolName);
 
@@ -962,6 +973,22 @@ const init = async () => {
         favoritesToolsContainer.style.overflow = 'visible';
       }
     };
+
+    Sortable.create(favoritesToolsContainer, {
+      animation: 150,
+      draggable: '.tool-card',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      onEnd: (event) => {
+        const from = event.oldDraggableIndex;
+        const to = event.newDraggableIndex;
+        if (from == null || to == null) return;
+        favoriteToolIds = reorderFavoriteToolIds(favoriteToolIds, from, to);
+        saveFavoriteToolIds(favoriteToolIds);
+        renderSidebarFavorites();
+        renderGridFavorites();
+      },
+    });
 
     const searchBar = document.getElementById(
       'search-bar'
