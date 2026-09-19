@@ -35,6 +35,6 @@ export function yieldToMainThread(): Promise<void> {
       window.requestIdleCallback(() => resolve(), { timeout: 50 });
       return;
     }
-    window.setTimeout(resolve, 0);
+    globalThis.setTimeout(resolve, 0);
   });
 }

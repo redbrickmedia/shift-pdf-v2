@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileControls = document.getElementById('file-controls');
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
-  const processBtn = document.getElementById('process-btn');
+  const processBtn = document.getElementById(
+    'process-btn'
+  ) as HTMLButtonElement | null;
 
   const updateUI = async () => {
     if (!convertOptions) return;
