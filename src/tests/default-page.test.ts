@@ -94,7 +94,10 @@ describe('default starting page', () => {
 
     expect(start).toBeGreaterThan(-1);
     expect(rule).toContain('overflow-y: auto');
-    expect(rule).toContain('min-height: 0');
+    expect(rule).toContain('min-height: clamp(12rem, 40vh, 28rem)');
+    expect(css).toContain(
+      'body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar)'
+    );
     // Table display must stay table; a block scrollport collapsed Date/Size.
     expect(css).not.toMatch(
       /#shift-my-pdfs\[data-view='list'\] \.shift-my-pdfs-table \{\s*display:\s*block/

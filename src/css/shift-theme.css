@@ -3175,6 +3175,12 @@ body.shift-home:has(#shift-my-pdfs) #app {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+
+body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar) {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
@@ -3190,7 +3196,7 @@ body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
    table keeps auto layout (Date/Size stay narrow) while overflow lives here. */
 body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: clamp(12rem, 40vh, 28rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   /* Room for the scrollbar so cards do not sit under it. */

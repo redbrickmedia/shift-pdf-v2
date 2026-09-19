@@ -15,6 +15,7 @@ import {
   cleanupLazyRendering,
   renderPageToCanvas,
 } from '../utils/render-utils.js';
+import { runAsyncRenderQueue } from '../utils/async-render-queue.js';
 import {
   completionTiming,
   createDefaultToolCompletionPanel,
@@ -406,36 +407,61 @@ async function renderPageThumbnails(): Promise<void> {
   container.replaceChildren();
   if (mergeModel.activeMode !== 'page') return;
 
-  showLoader('Rendering page previews...');
+  const pages = [...mergeModel.pageOrder];
+  const slots = pages.map((page) => {
+    const source = mergeModel.files.find(({ id }) => id === page.fileId);
+    const slot = document.createElement('div');
+    slot.className =
+      'page-thumbnail flex h-44 items-center justify-center rounded-lg border-2 border-gray-600 bg-gray-700';
+    slot.dataset.fileId = page.fileId;
+    slot.dataset.pageIndex = String(page.pageIndex);
+    slot.setAttribute(
+      'aria-label',
+      `Loading ${source?.file.name ?? 'PDF'}, page ${page.pageIndex + 1}`
+    );
+    slot.innerHTML =
+      '<span class="text-xs text-gray-400 animate-pulse">Loading...</span>';
+    container.append(slot);
+    return slot;
+  });
+
   try {
-    for (const page of mergeModel.pageOrder) {
-      if (renderVersion !== runtime.renderVersion) return;
-      const document = runtime.pdfDocs.get(page.fileId);
-      if (
-        !document ||
-        page.pageIndex < 0 ||
-        page.pageIndex >= document.numPages
-      )
-        continue;
-      const key = thumbnailKey(page);
-      let dataUrl = runtime.thumbnails.get(key);
-      if (!dataUrl) {
-        const canvas = await renderPageToCanvas(
-          document,
-          page.pageIndex + 1,
-          0.25
-        );
-        dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        runtime.thumbnails.set(key, dataUrl);
+    await runAsyncRenderQueue(
+      pages,
+      async (page, index) => {
+        if (renderVersion !== runtime.renderVersion) return;
+        const document = runtime.pdfDocs.get(page.fileId);
+        if (
+          !document ||
+          page.pageIndex < 0 ||
+          page.pageIndex >= document.numPages
+        ) {
+          slots[index]?.remove();
+          return;
+        }
+        const key = thumbnailKey(page);
+        let dataUrl = runtime.thumbnails.get(key);
+        if (!dataUrl) {
+          const canvas = await renderPageToCanvas(
+            document,
+            page.pageIndex + 1,
+            0.25
+          );
+          dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          runtime.thumbnails.set(key, dataUrl);
+        }
+        slots[index]?.replaceWith(createThumbnail(page, dataUrl));
+      },
+      {
+        concurrency: 2,
+        shouldCancel: () => renderVersion !== runtime.renderVersion,
       }
-      container.append(createThumbnail(page, dataUrl));
-    }
+    );
     if (renderVersion === runtime.renderVersion) createPageSortable();
   } catch (error) {
     console.error('Error rendering page thumbnails:', error);
     showAlert('Error', 'Failed to render page thumbnails.');
   } finally {
-    if (renderVersion === runtime.renderVersion) hideLoader();
     createIcons({ icons });
   }
 }
