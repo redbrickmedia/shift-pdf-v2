@@ -10,6 +10,7 @@ import {
   TOOL_OUTPUT_REDO_ID,
   TOOL_OUTPUT_RESET_ID,
   TOOL_OUTPUT_SAVE_ID,
+  TOOL_OUTPUT_SAVE_MENU_HIDE_MS,
   TOOL_OUTPUT_TOOLBAR_ID,
   TOOL_OUTPUT_UNDO_ID,
 } from '../js/logic/tool-output-toolbar';
@@ -192,6 +193,47 @@ describe('tool output toolbar', () => {
       document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
     ).toBe(true);
     unregister();
+  });
+
+  it('keeps the Save menu open while the pointer travels onto it', () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+    const unregister = registerToolOutputSession({
+      canSave: () => true,
+    });
+    syncToolOutputToolbar();
+
+    const group = document.getElementById(TOOL_OUTPUT_MENU_ID) as HTMLElement;
+    const dropdown = group.querySelector('.shift-tool-viewer-save-menu');
+    expect(dropdown?.querySelector('.shift-tool-viewer-save-menu-surface')).toBeTruthy();
+
+    group.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    expect(group.classList.contains('is-open')).toBe(true);
+
+    group.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    expect(group.classList.contains('is-open')).toBe(true);
+
+    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS - 20);
+    expect(group.classList.contains('is-open')).toBe(true);
+
+    group.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS + 20);
+    expect(group.classList.contains('is-open')).toBe(true);
+
+    group.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS + 20);
+    expect(group.classList.contains('is-open')).toBe(false);
+
+    unregister();
+    vi.useRealTimers();
   });
 
   it('prints from the viewer header through the active tool', async () => {

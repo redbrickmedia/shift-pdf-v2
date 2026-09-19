@@ -24,6 +24,7 @@ export const TOOL_OUTPUT_OVERWRITE_ID = 'shift-tool-output-overwrite';
 export const TOOL_OUTPUT_MENU_ID = 'shift-tool-output-menu';
 export const TOOL_OUTPUT_DOWNLOAD_ID = 'shift-tool-output-download';
 export const TOOL_OUTPUT_PRINT_ID = 'shift-tool-output-print';
+export const TOOL_OUTPUT_SAVE_MENU_HIDE_MS = 280;
 
 export interface ToolOutputSession {
   reset?: () => void | Promise<void>;
@@ -41,6 +42,7 @@ let boundRoot: Document | null = null;
 let session: ToolOutputSession | null = null;
 let saveInFlight = false;
 let observer: MutationObserver | null = null;
+let saveMenuHideTimer: number | null = null;
 
 export function initToolOutputToolbar(root: Document = document): void {
   if (isNonToolPage(root)) return;
@@ -142,8 +144,9 @@ function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
   const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
   if (!menu) return;
   menu.classList.toggle('is-ready', canDisclose);
-  if (menu instanceof HTMLDetailsElement && !canDisclose) {
-    menu.open = false;
+  if (!canDisclose) {
+    closeViewerSaveMenu(menu);
+    if (menu instanceof HTMLDetailsElement) menu.open = false;
   }
 }
 
@@ -285,8 +288,10 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
   );
   const menu = root.createElement('div');
   menu.className = 'shift-tool-viewer-save-menu';
-  menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', 'More save options');
+  const surface = root.createElement('div');
+  surface.className = 'shift-tool-viewer-save-menu-surface';
+  surface.setAttribute('role', 'menu');
+  surface.setAttribute('aria-label', 'More save options');
   const overwrite = createViewerActionButton(
     root,
     TOOL_OUTPUT_OVERWRITE_ID,
@@ -308,8 +313,10 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
   overwrite.setAttribute('role', 'menuitem');
   download.setAttribute('role', 'menuitem');
   print.setAttribute('role', 'menuitem');
-  menu.append(overwrite, download, print);
+  surface.append(overwrite, download, print);
+  menu.append(surface);
   saveGroup.append(save, menu);
+  bindViewerSaveHover(saveGroup);
   host.prepend(undo, redo, saveGroup);
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
@@ -480,9 +487,44 @@ function hideEmbeddedViewerPrintControls(root: Document): void {
   }
 }
 
+function bindViewerSaveHover(saveGroup: HTMLElement): void {
+  saveGroup.addEventListener('pointerenter', () => {
+    if (!saveGroup.classList.contains('is-ready')) return;
+    openViewerSaveMenu(saveGroup);
+  });
+  saveGroup.addEventListener('pointerleave', () => {
+    scheduleViewerSaveMenuHide(saveGroup);
+  });
+}
+
+function openViewerSaveMenu(saveGroup: HTMLElement): void {
+  if (saveMenuHideTimer !== null) {
+    window.clearTimeout(saveMenuHideTimer);
+    saveMenuHideTimer = null;
+  }
+  saveGroup.classList.add('is-open');
+}
+
+function scheduleViewerSaveMenuHide(saveGroup: HTMLElement): void {
+  if (saveMenuHideTimer !== null) window.clearTimeout(saveMenuHideTimer);
+  saveMenuHideTimer = window.setTimeout(() => {
+    saveMenuHideTimer = null;
+    closeViewerSaveMenu(saveGroup);
+  }, TOOL_OUTPUT_SAVE_MENU_HIDE_MS);
+}
+
+function closeViewerSaveMenu(saveGroup: HTMLElement): void {
+  if (saveMenuHideTimer !== null) {
+    window.clearTimeout(saveMenuHideTimer);
+    saveMenuHideTimer = null;
+  }
+  saveGroup.classList.remove('is-open');
+}
+
 function closeOutputMenu(root: Document): void {
   const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
   if (menu instanceof HTMLDetailsElement) menu.open = false;
+  if (menu) closeViewerSaveMenu(menu);
 }
 
 async function resetOutput(root: Document): Promise<void> {
