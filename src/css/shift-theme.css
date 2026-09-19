@@ -1163,20 +1163,22 @@ body.shift-has-open-file #file-display-area {
    authored Tailwind `p-4 py-12` so boxed tools and viewers share one inset
    and one gap under the header. Convert hub has no #tool-uploader.
 
-   One grid column, not a flex column with `align-items: center`. Centering
-   the header and card separately made the bar full-bleed (or shrink-wrap)
-   while the card stayed `max-w-2xl` — the title no longer sat on the card
-   edges. The column is the card's max-width; both children stretch to it.
-   Viewer tools keep their own flex pane below and are excluded here. */
+   Fill the pane out to that padding, then cap at `--shift-panel-max` (the
+   same 1400px the catalog and footer use). Pages author `max-w-2xl` on the
+   card (~672px); that is too narrow, especially on a phone or a short
+   laptop, so the header and the card both drop it and stretch together.
+   Viewer tools keep their own full-pane flex layout below. */
 body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
     .shift-tool-viewer-pending
   ):has(#shift-sidebar):has(> .shift-footer)
   > #uploader:has(#tool-uploader) {
-  display: grid;
-  grid-template-columns: minmax(0, 42rem);
-  justify-content: center;
-  justify-items: stretch;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--shift-panel-max);
+  margin-inline: auto;
   gap: clamp(16px, 2.5vw, 32px);
   padding: clamp(16px, 3vw, 40px);
   background: var(--background-secondary);
@@ -1185,25 +1187,10 @@ body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
 body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
     .shift-tool-viewer-pending
   ):has(#shift-sidebar):has(> .shift-footer)
-  > #uploader:has(> #tool-uploader.max-w-4xl) {
-  grid-template-columns: minmax(0, 56rem);
-}
-
-body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
-    .shift-tool-viewer-pending
-  ):has(#shift-sidebar):has(> .shift-footer)
-  > #uploader:has(> #tool-uploader.max-w-6xl) {
-  grid-template-columns: minmax(0, 72rem);
-}
-
-body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
-    .shift-tool-viewer-pending
-  ):has(#shift-sidebar):has(> .shift-footer)
   > #uploader:has(#tool-uploader)
-  > .shift-tool-viewer-bar {
-  /* Fill the shared column. Copied `max-w-*` must not re-size this row. */
+  > :is(.shift-tool-viewer-bar, #tool-uploader) {
   width: 100%;
-  max-width: none;
+  max-width: none !important;
 }
 
 .shift-tool-viewer-title {
