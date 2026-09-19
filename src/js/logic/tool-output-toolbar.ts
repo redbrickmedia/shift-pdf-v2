@@ -26,9 +26,11 @@ export interface ToolOutputSession {
   reset?: () => void | Promise<void>;
   undo?: () => void | Promise<void>;
   redo?: () => void | Promise<void>;
+  apply?: () => void | Promise<void>;
   print?: () => void | Promise<void>;
   canUndo?: () => boolean;
   canRedo?: () => boolean;
+  canSave?: () => boolean;
   canPrint?: () => boolean;
 }
 
@@ -112,15 +114,19 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (reset)
     setButtonDisabled(reset, !hasResettableState(root, output !== null));
   if (save) {
-    setButtonDisabled(save, saveInFlight || !canSaveToShiftPdf(output));
+    setButtonDisabled(save, saveInFlight || !canSaveOutput(root));
   }
   if (download) setButtonDisabled(download, !output);
   if (print) {
-    const viewerActions = isViewerToolDocument(root);
-    if (print.hidden === !viewerActions) print.hidden = !viewerActions;
-    setButtonDisabled(print, !viewerActions || !canPrintOutput(root));
+    setButtonDisabled(print, !canPrintOutput(root));
   }
   hideEmbeddedViewerPrintControls(root);
+}
+
+function canSaveOutput(root: Document): boolean {
+  if (session?.canSave) return session.canSave();
+  if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
+  return Boolean(session?.apply || findProcessButton(root));
 }
 
 function canPrintOutput(root: Document): boolean {
@@ -239,20 +245,38 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
     'Redo',
     'ph-arrow-u-up-right'
   );
-  const print = createViewerActionButton(
+  const saveGroup = root.createElement('div');
+  saveGroup.id = TOOL_OUTPUT_MENU_ID;
+  saveGroup.className = 'shift-tool-viewer-save';
+  const save = createViewerActionButton(
     root,
-    TOOL_OUTPUT_PRINT_ID,
-    'Print',
-    'ph-printer'
+    TOOL_OUTPUT_SAVE_ID,
+    'Save',
+    'ph-floppy-disk'
   );
+  const menu = root.createElement('div');
+  menu.className = 'shift-tool-viewer-save-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('aria-label', 'More save options');
   const download = createViewerActionButton(
     root,
     TOOL_OUTPUT_DOWNLOAD_ID,
     'Download',
     'ph-download-simple'
   );
-  host.prepend(undo, redo, print, download);
+  const print = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_PRINT_ID,
+    'Print',
+    'ph-printer'
+  );
+  download.setAttribute('role', 'menuitem');
+  print.setAttribute('role', 'menuitem');
+  menu.append(download, print);
+  saveGroup.append(save, menu);
+  host.prepend(undo, redo, saveGroup);
   bindSharedActionHandlers(root);
+  save.addEventListener('click', () => void saveOutput(root));
   hideLegacyOutputActions(root);
   return host;
 }
@@ -317,11 +341,13 @@ function createActionButton(
 }
 
 async function saveOutput(root: Document): Promise<void> {
-  const output = getLatestPdfOutput();
-  if (!output || saveInFlight || !canSaveToShiftPdf(output)) return;
+  if (saveInFlight || !canSaveOutput(root)) return;
   saveInFlight = true;
   syncToolOutputToolbar(root);
   try {
+    await applyToolOutput(root);
+    const output = getLatestPdfOutput();
+    if (!output || !canSaveToShiftPdf(output)) return;
     const result = await saveToShiftPdf(output.blob, output.filename, root);
     if (result === 'added') {
       showAlert('Saved', 'A copy was saved to My PDFs.', 'success');
@@ -330,6 +356,22 @@ async function saveOutput(root: Document): Promise<void> {
     saveInFlight = false;
     syncToolOutputToolbar(root);
   }
+}
+
+async function applyToolOutput(root: Document): Promise<void> {
+  if (session?.apply) {
+    await session.apply();
+    return;
+  }
+  findProcessButton(root)?.click();
+}
+
+function findProcessButton(root: Document): HTMLButtonElement | null {
+  for (const id of ['process-btn', 'download-edited-pdf', 'crop-button']) {
+    const button = getButton(root, id);
+    if (button && !button.disabled) return button;
+  }
+  return null;
 }
 
 function downloadOutput(root: Document): void {
@@ -432,6 +474,9 @@ function hideLegacyOutputActions(root: Document): void {
     'completion-save-shift',
     'shift-pdf-save-output',
     'shift-pdf-save-viewer',
+    'process-btn',
+    'download-edited-pdf',
+    'crop-button',
     'clear-files-btn',
     'undo-merge-btn',
     'redo-merge-btn',

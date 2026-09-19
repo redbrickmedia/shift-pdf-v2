@@ -60,7 +60,9 @@ function initializePage() {
   completionPanel = createDefaultToolCompletionPanel(resetState);
   const unregisterOutputSession = registerToolOutputSession({
     reset: resetState,
+    apply: applyAndSaveSignatures,
     print: printSignedPdf,
+    canSave: () => signState.viewerReady,
     canPrint: () => signState.viewerReady,
   });
   window.addEventListener('pagehide', unregisterOutputSession, { once: true });

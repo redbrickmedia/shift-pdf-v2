@@ -98,7 +98,7 @@ describe('tool output toolbar', () => {
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
   });
 
-  it('puts Undo, Redo, Print, and Download in the viewer header', () => {
+  it('puts inline Save in the viewer header and discloses Download and Print', () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -107,23 +107,27 @@ describe('tool output toolbar', () => {
             <div data-shift-viewer-actions></div>
           </div>
           <div id="signature-editor"></div>
+          <button id="process-btn" type="button">Apply signatures</button>
         </div>
       </main>
     `;
     initToolOutputToolbar();
 
     const actions = document.querySelector('[data-shift-viewer-actions]');
+    const menu = document.getElementById(
+      TOOL_OUTPUT_MENU_ID
+    ) as HTMLElement | null;
     expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
-    expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).toBeNull();
     expect(document.getElementById(TOOL_OUTPUT_RESET_ID)).toBeNull();
     expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
-    expect(button(TOOL_OUTPUT_UNDO_ID).className).toBe('shift-pdf-viewer-action');
-    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).className).toBe(
-      'shift-pdf-viewer-action'
-    );
+    expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+    expect(button(TOOL_OUTPUT_SAVE_ID).className).toBe('shift-pdf-viewer-action');
+    expect(menu?.className).toBe('shift-tool-viewer-save');
+    expect(menu?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+    expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
+    expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(document.getElementById('process-btn')?.hidden).toBe(true);
   });
 
   it('prints from the viewer header through the active tool', async () => {
@@ -152,6 +156,40 @@ describe('tool output toolbar', () => {
     button(TOOL_OUTPUT_PRINT_ID).click();
 
     await vi.waitFor(() => expect(print).toHaveBeenCalledOnce());
+    unregister();
+  });
+
+  it('applies then saves from the viewer Save button', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const apply = vi.fn(() => {
+      setLatestPdfOutput({
+        blob: new Blob(['signed'], { type: 'application/pdf' }),
+        filename: 'signed.pdf',
+      });
+    });
+    const unregister = registerToolOutputSession({
+      apply,
+      canSave: () => true,
+    });
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    button(TOOL_OUTPUT_SAVE_ID).click();
+
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('signed.pdf');
+    });
     unregister();
   });
 
