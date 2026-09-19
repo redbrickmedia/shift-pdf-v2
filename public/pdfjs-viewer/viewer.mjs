@@ -24234,10 +24234,6 @@ class SignatureManager {
         data = this.#extractedSignatureData;
         break;
     }
-    const signatureColor = this.#dialog.getAttribute('data-signature-color');
-    if (signatureColor && data && typeof data === 'object') {
-      data.signatureColor = signatureColor;
-    }
     let uuid = null;
     const description = this.#description.value;
     if (this.#saveCheckbox.checked) {

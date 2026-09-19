@@ -34779,21 +34779,6 @@ class SignatureOptions extends DrawingOptions {
     return clone;
   }
 }
-function parseHexColorToRgbArray(color) {
-  if (typeof color !== 'string') {
-    return [0, 0, 0];
-  }
-  const match = /^#?([0-9a-fA-F]{6})$/.exec(color.trim());
-  if (!match) {
-    return [0, 0, 0];
-  }
-  const hex = match[1];
-  return [
-    parseInt(hex.slice(0, 2), 16) / 255,
-    parseInt(hex.slice(2, 4), 16) / 255,
-    parseInt(hex.slice(4, 6), 16) / 255,
-  ];
-}
 class DrawnSignatureOptions extends InkDrawingOptions {
   constructor(viewerParameters) {
     super(viewerParameters);
@@ -34988,19 +34973,16 @@ class SignatureEditor extends DrawingEditor {
   }
   addSignature(data, heightInPage, description, uuid) {
     const { x: savedX, y: savedY } = this;
-    const { outline, signatureColor } = (this.#signatureData = data);
+    const { outline } = (this.#signatureData = data);
     this.#isExtracted = outline instanceof ContourDrawOutline;
     this.description = description;
     let drawingOptions;
     if (this.#isExtracted) {
-      drawingOptions = SignatureEditor.getDefaultDrawingOptions(
-        signatureColor ? { fill: signatureColor } : {}
-      );
+      drawingOptions = SignatureEditor.getDefaultDrawingOptions();
     } else {
       drawingOptions = SignatureEditor._defaultDrawnSignatureOptions.clone();
       drawingOptions.updateProperties({
         'stroke-width': outline.thickness,
-        ...(signatureColor ? { stroke: signatureColor } : null),
       });
     }
     this._addOutlines({
@@ -35095,13 +35077,10 @@ class SignatureEditor extends DrawingEditor {
     const {
       _drawingOptions: { 'stroke-width': thickness },
     } = this;
-    const signatureColor = this.#signatureData?.signatureColor;
-    const fallbackColor =
-      this._drawingOptions?.stroke || this._drawingOptions?.fill || '#000000';
     const serialized = Object.assign(super.serialize(isForCopying), {
       isSignature: true,
       areContours: this.#isExtracted,
-      color: parseHexColorToRgbArray(signatureColor || fallbackColor),
+      color: [0, 0, 0],
       thickness: this.#isExtracted ? 0 : thickness,
     });
     this.addComment(serialized);

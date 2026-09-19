@@ -138,23 +138,4 @@ describe('PDF.js visual signature mode', () => {
       undefined
     );
   });
-
-  it('passes the selected signature color into placed and saved signatures', async () => {
-    const viewerBundle = await readFile(
-      resolve(process.cwd(), 'public/pdfjs-viewer/viewer.mjs'),
-      'utf8'
-    );
-    const pdfBundle = await readFile(
-      resolve(process.cwd(), 'public/pdfjs-viewer/pdf.mjs'),
-      'utf8'
-    );
-
-    expect(viewerBundle).toContain('data.signatureColor = signatureColor');
-    expect(pdfBundle).toContain(
-      'color: parseHexColorToRgbArray(signatureColor || fallbackColor)'
-    );
-    expect(pdfBundle).toContain(
-      'signatureColor ? { stroke: signatureColor } : null'
-    );
-  });
 });
