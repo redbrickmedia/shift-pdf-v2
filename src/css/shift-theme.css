@@ -1151,6 +1151,11 @@ body.shift-has-open-file #file-display-area {
   display: none;
 }
 
+/* Process success is published to the toolbar; do not celebrate it inline. */
+#completion-panel {
+  display: none !important;
+}
+
 .shift-tool-output-toolbar {
   position: relative;
   z-index: 12;

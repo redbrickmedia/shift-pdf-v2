@@ -120,7 +120,7 @@ export function createToolCompletionPanel(
       options.downloadButton.href = snapshot.objectUrl;
       options.downloadButton.download = result.filename;
       setLatestPdfOutput({ blob: result.blob, filename: result.filename });
-      options.panel.classList.remove('hidden');
+      options.panel.classList.add('hidden');
       return snapshot;
     },
     clear() {

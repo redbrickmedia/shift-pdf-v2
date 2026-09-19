@@ -265,5 +265,8 @@ describe('host analytics', () => {
     document.getElementById('process-btn')?.click();
     showAlert('Success', 'Metadata removed successfully!', 'success');
     expect(trackFn).not.toHaveBeenCalled();
+    expect(document.getElementById('alert-modal')?.classList.contains('hidden')).toBe(
+      true
+    );
   });
 });
