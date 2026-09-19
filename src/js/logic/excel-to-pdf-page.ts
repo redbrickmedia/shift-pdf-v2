@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -6,6 +6,17 @@ import {
   getLibreOfficeConverter,
   type LoadProgress,
 } from '../utils/libreoffice-loader.js';
+import { deduplicateFileName } from '../utils/deduplicate-filename.js';
+import {
+  assertLibreOfficeAssetsAvailable,
+  assertSharedArrayBufferAvailable,
+  createConversionSession,
+  DEFAULT_CONVERSION_LIMITS,
+  isConversionCancelled,
+  runWithTimeout,
+  validateInputFile,
+  validateOutputBlob,
+} from '../utils/conversion-guard.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   state.files = [];
@@ -79,26 +90,44 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const convertToPdf = async () => {
+    const session = createConversionSession();
+    if (processBtn) processBtn.disabled = true;
     try {
       if (state.files.length === 0) {
         showAlert('No Files', 'Please select at least one Excel file.');
-        hideLoader();
         return;
       }
 
+      for (const file of state.files) validateInputFile(file);
+      showCancellableLoader('Checking conversion engine...', session.cancel);
+      assertSharedArrayBufferAvailable();
       const converter = getLibreOfficeConverter();
-
-      // Initialize LibreOffice if not already done
-      await converter.initialize((progress: LoadProgress) => {
-        showLoader(progress.message, progress.percent);
-      });
+      await assertLibreOfficeAssetsAvailable(
+        `${import.meta.env.BASE_URL}libreoffice-wasm/`
+      );
+      await runWithTimeout(
+        converter.initialize((progress: LoadProgress) => {
+          showCancellableLoader(
+            progress.message,
+            session.cancel,
+            progress.percent
+          );
+        }),
+        DEFAULT_CONVERSION_LIMITS.initTimeoutMs,
+        'Excel to PDF engine load',
+        session.signal
+      );
 
       if (state.files.length === 1) {
         const originalFile = state.files[0];
-
-        showLoader('Processing...');
-
-        const pdfBlob = await converter.convertToPdf(originalFile);
+        showCancellableLoader('Converting to PDF...', session.cancel);
+        const pdfBlob = await runWithTimeout(
+          converter.convertToPdf(originalFile),
+          DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+          'Excel to PDF conversion',
+          session.signal
+        );
+        validateOutputBlob(pdfBlob, originalFile.size);
 
         const fileName =
           originalFile.name.replace(/\.(xls|xlsx|ods|csv)$/i, '') + '.pdf';
@@ -114,21 +143,30 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Processing...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
+        const usedNames = new Set<string>();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
+          showCancellableLoader(
+            `Converting ${i + 1}/${state.files.length}: ${file.name}...`,
+            session.cancel
           );
-
-          const pdfBlob = await converter.convertToPdf(file);
+          const pdfBlob = await runWithTimeout(
+            converter.convertToPdf(file),
+            DEFAULT_CONVERSION_LIMITS.conversionTimeoutMs,
+            'Excel to PDF conversion',
+            session.signal
+          );
+          validateOutputBlob(pdfBlob, file.size);
 
           const baseName = file.name.replace(/\.(xls|xlsx|ods|csv)$/i, '');
           const pdfBuffer = await pdfBlob.arrayBuffer();
-          zip.file(`${baseName}.pdf`, pdfBuffer);
+          zip.file(
+            deduplicateFileName(`${baseName}.pdf`, usedNames),
+            pdfBuffer
+          );
         }
 
         const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -146,10 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: unknown) {
       hideLoader();
+      if (isConversionCancelled(e)) {
+        showAlert('Cancelled', 'Excel to PDF was cancelled.');
+        return;
+      }
       showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e instanceof Error ? e.message : String(e)}`
+        'Conversion failed',
+        e instanceof Error ? e.message : String(e)
       );
+    } finally {
+      if (processBtn) processBtn.disabled = false;
     }
   };
 
