@@ -19,6 +19,7 @@ export const VIEWER_CHROME_FEATURES = [
   'redo',
   'reset',
   'save',
+  'flatten',
 ] as const;
 
 export type ViewerChromeFeature = (typeof VIEWER_CHROME_FEATURES)[number];
@@ -51,6 +52,7 @@ export const VIEWER_CHROME_PRESETS: Record<
     redo: false,
     reset: false,
     save: false,
+    flatten: false,
   },
   tool: {
     back: false,
@@ -62,6 +64,7 @@ export const VIEWER_CHROME_PRESETS: Record<
     redo: true,
     reset: true,
     save: true,
+    flatten: false,
   },
 };
 
@@ -76,10 +79,27 @@ export function resolveViewerChromeFeatures(
   root: Document = document
 ): ViewerChromeFeatureMap {
   const preset = options.preset ?? detectViewerChromePreset(root);
-  return {
+  const features = {
     ...VIEWER_CHROME_PRESETS[preset],
     ...options.features,
   };
+  if (options.features?.flatten === undefined && hasAuthoredFlatten(root)) {
+    features.flatten = isToolViewerShowing(root);
+  }
+  return features;
+}
+
+function hasAuthoredFlatten(root: Document): boolean {
+  return Boolean(
+    root.querySelector(`[${VIEWER_CHROME_FEATURE_ATTR}="flatten"]`)
+  );
+}
+
+function isToolViewerShowing(root: Document): boolean {
+  return (
+    root.body.classList.contains('shift-tool-viewer') ||
+    root.body.classList.contains('shift-tool-viewer-pending')
+  );
 }
 
 export function isViewerChromeFeatureOn(
@@ -94,7 +114,7 @@ export function isViewerChromeFeatureOn(
 
 /**
  * Adopt or create the shared header, then show only the requested features.
- * View PDF already authors this markup; tool pages lift their h1 into it.
+ * View PDF and Sign PDF author this markup; other tool pages lift their h1.
  */
 export function mountViewerChrome(
   root: Document = document,
@@ -141,6 +161,14 @@ function ensureHeader(root: Document): HTMLElement | null {
       null
     );
   }
+
+  const shell = root.querySelector<HTMLElement>(
+    '#uploader.shift-pdf-viewer-shell'
+  );
+  const authored = shell?.querySelector<HTMLElement>(
+    `:scope > .${VIEWER_CHROME_HEADER_CLASS}`
+  );
+  if (authored) return authored;
 
   const card = root.getElementById('tool-uploader');
   if (!card) return null;

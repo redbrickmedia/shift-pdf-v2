@@ -547,9 +547,10 @@
   }
 
   /* Title + Reset/Save have to be outside the gray card on the first painted
-     frame. Pages still author h1 inside #tool-uploader; this script runs from
-     <head> and lifts that row while the parser is still working, so main.ts
-     does not snap the heading out after paint. Mirrors ensureViewerChrome. */
+     frame. Sign PDF authors the shared header already; other pages still
+     author h1 inside #tool-uploader. This script runs from <head> and lifts
+     that row while the parser is still working, so main.ts does not snap the
+     heading out after paint. Mirrors ensureViewerChrome. */
   function paintToolHeader() {
     if (isNonToolHeaderPage()) return true;
 
@@ -596,9 +597,10 @@
     return true;
   }
 
-  /* Every viewer tool should read as one panel: heading row and document inside
-     the same card. sign-pdf and crop-pdf author their viewer as a sibling of
-     #tool-uploader, so the shell moves it in. Mirrors adoptViewerIntoCard in
+  /* Crop and other leftover pages still author their viewer as a sibling of
+     #tool-uploader, so the shell moves it in. Sign PDF authors the View PDF
+     shell and keeps the stage as a sibling of the empty-state card — do not
+     pull that stage into the gray panel. Mirrors adoptViewerIntoCard in
      tool-viewer-layout.ts, and runs here because the move has to beat the tool
      mounting its PDF.js iframe — reparenting one discards its browsing context
      and reloads the document — and because doing it after first paint would
@@ -613,6 +615,13 @@
     for (var i = 0; i < VIEWER_ROOT_IDS.length; i++) {
       var viewer = document.getElementById(VIEWER_ROOT_IDS[i]);
       if (!viewer || card.contains(viewer)) continue;
+      if (
+        viewer.parentNode &&
+        viewer.parentNode.classList &&
+        viewer.parentNode.classList.contains('shift-pdf-viewer-shell')
+      ) {
+        continue;
+      }
       if (viewer.querySelector('iframe')) continue;
       card.appendChild(viewer);
       // One viewer per page, so there is nothing left to watch for.

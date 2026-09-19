@@ -78,23 +78,44 @@
   <body class="antialiased bg-gray-900">
     {{> navbar }}
 
-    <div
-      id="uploader"
-      class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900"
-    >
+    <div id="uploader" class="shift-pdf-viewer-shell">
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1 data-i18n="tools:signPdf.name">Sign PDF</h1>
+          <p data-viewer-chrome="subtitle" data-i18n="tools:signPdf.subtitle">
+            Draw, type, or upload your signature.
+          </p>
+        </div>
+
+        <div
+          class="shift-pdf-viewer-actions"
+          data-shift-viewer-actions
+          role="toolbar"
+          aria-label="PDF actions"
+        >
+          <label
+            class="shift-pdf-viewer-flatten"
+            data-viewer-chrome="flatten"
+            hidden
+            title="Flattened output visibly burns signatures into pages and removes their edit controls."
+            data-i18n-title="tools:signPdf.flattenHint"
+          >
+            <input
+              type="checkbox"
+              id="flatten-signature-toggle"
+              class="shift-pdf-viewer-flatten-input"
+            />
+            <span data-i18n="tools:signPdf.flattenLabel"
+              >Flatten signatures into page content</span
+            >
+          </label>
+        </div>
+      </header>
+
       <div
         id="tool-uploader"
         class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
       >
-        <h1
-          class="text-2xl font-bold text-white mb-2"
-          data-i18n="tools:signPdf.name"
-        >
-          Sign PDF
-        </h1>
-        <p class="text-gray-400 mb-6" data-i18n="tools:signPdf.subtitle">
-          Draw, type, or upload your signature.
-        </p>
         <div
           class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-6 flex items-start gap-3"
         >
@@ -160,38 +181,14 @@
       </div>
 
       <!-- Signature Editor (shown after file upload) -->
-      <div id="signature-editor" class="hidden w-full max-w-2xl mt-6">
-        <div
-          id="canvas-container-sign"
-          class="relative w-full overflow-auto bg-gray-900 rounded-lg border border-gray-600"
-          style="height: 85vh"
-        >
+      <div
+        id="signature-editor"
+        class="shift-pdf-viewer-stage hidden"
+        aria-label="Signature editor"
+      >
+        <div id="canvas-container-sign">
           <!-- PDF.js viewer iframe will be loaded here -->
         </div>
-
-        <div
-          class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <label
-            class="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer"
-          >
-            <input
-              type="checkbox"
-              id="flatten-signature-toggle"
-              class="w-4 h-4 rounded text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
-            />
-            <span data-i18n="tools:signPdf.flattenLabel"
-              >Flatten signatures into page content</span
-            >
-          </label>
-        </div>
-        <p
-          class="mt-2 text-xs text-gray-400"
-          data-i18n="tools:signPdf.flattenHint"
-        >
-          Flattened output visibly burns signatures into pages and removes their
-          edit controls.
-        </p>
 
         <button
           id="process-btn"

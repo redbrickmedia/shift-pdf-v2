@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   VIEWER_CHROME_ACTIONS_ATTR,
+  VIEWER_CHROME_ACTIONS_CLASS,
   VIEWER_CHROME_FEATURE_ATTR,
   VIEWER_CHROME_HEADER_CLASS,
   VIEWER_CHROME_HEADING_CLASS,
@@ -13,6 +16,10 @@ import {
 } from '../js/logic/viewer-chrome';
 import { initPdfViewerPage, resetPdfViewerPageForTests } from '../js/logic/pdf-viewer-page';
 import { initToolOutputToolbar } from '../js/logic/tool-output-toolbar';
+
+function readPage(name: string): string {
+  return readFileSync(resolve(process.cwd(), 'src/pages', name), 'utf8');
+}
 
 describe('viewer chrome', () => {
   beforeEach(() => {
@@ -157,5 +164,81 @@ describe('viewer chrome', () => {
     );
     expect(isViewerChromeFeatureOn(existing!, 'back')).toBe(true);
     expect(isViewerChromeFeatureOn(existing!, 'print')).toBe(true);
+  });
+
+  it('adopts the Sign PDF header View PDF already uses, without building a second one', () => {
+    document.body.innerHTML = `
+      <div id="uploader" class="shift-pdf-viewer-shell">
+        <header class="shift-pdf-viewer-header">
+          <div class="shift-pdf-viewer-heading">
+            <h1>Sign PDF</h1>
+            <p data-viewer-chrome="subtitle">Draw, type, or upload your signature.</p>
+          </div>
+          <div class="shift-pdf-viewer-actions" data-shift-viewer-actions role="toolbar">
+            <label data-viewer-chrome="flatten" hidden>
+              <input id="flatten-signature-toggle" type="checkbox" />
+              <span>Flatten signatures into page content</span>
+            </label>
+          </div>
+        </header>
+        <div id="tool-uploader">
+          <div id="drop-zone"></div>
+        </div>
+        <div id="signature-editor" class="shift-pdf-viewer-stage hidden"></div>
+      </div>
+    `;
+    const existing = document.querySelector(`.${VIEWER_CHROME_HEADER_CLASS}`);
+
+    const chrome = mountViewerChrome(document, { preset: 'tool' });
+
+    expect(document.querySelectorAll(`.${VIEWER_CHROME_HEADER_CLASS}`)).toHaveLength(
+      1
+    );
+    expect(chrome?.header).toBe(existing);
+    expect(chrome?.header.parentElement?.id).toBe('uploader');
+    expect(chrome?.header.nextElementSibling?.id).toBe('tool-uploader');
+    expect(isViewerChromeFeatureOn(chrome!.header, 'subtitle')).toBe(true);
+    expect(isViewerChromeFeatureOn(chrome!.header, 'flatten')).toBe(false);
+    expect(isViewerChromeFeatureOn(chrome!.header, 'back')).toBe(false);
+    expect(isViewerChromeFeatureOn(chrome!.header, 'launchers')).toBe(false);
+
+    document.body.classList.add('shift-tool-viewer');
+    mountViewerChrome(document, { preset: 'tool' });
+    expect(isViewerChromeFeatureOn(existing!, 'flatten')).toBe(true);
+    expect(isViewerChromeFeatureOn(existing!, 'subtitle')).toBe(true);
+  });
+
+  it('authors Sign PDF with the same header component as View PDF', () => {
+    const viewPdf = readPage('view-pdf.html');
+    const signPdf = readPage('sign-pdf.html');
+
+    expect(viewPdf).toContain('class="shift-pdf-viewer-shell"');
+    expect(viewPdf).toContain(`class="${VIEWER_CHROME_HEADER_CLASS}"`);
+    expect(viewPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
+    expect(viewPdf).toContain(`class="${VIEWER_CHROME_ACTIONS_CLASS}"`);
+    expect(viewPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
+
+    expect(signPdf).toContain('id="uploader" class="shift-pdf-viewer-shell"');
+    expect(signPdf).toContain(`<header class="${VIEWER_CHROME_HEADER_CLASS}">`);
+    expect(signPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
+    expect(signPdf).toContain(`class="${VIEWER_CHROME_ACTIONS_CLASS}"`);
+    expect(signPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
+    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="subtitle"`);
+    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="flatten"`);
+    expect(signPdf).toContain('id="flatten-signature-toggle"');
+    expect(signPdf).toContain('id="signature-editor"');
+    expect(signPdf).toContain('class="shift-pdf-viewer-stage hidden"');
+    expect(signPdf).not.toMatch(
+      /id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/
+    );
+    expect(signPdf).not.toContain('shiftLaunchpad');
+    expect(signPdf).not.toContain('id="shift-pdf-viewer"');
+
+    const signPage = readFileSync(
+      resolve(process.cwd(), 'src/js/logic/sign-pdf-page.ts'),
+      'utf8'
+    );
+    expect(signPage).toContain("bentoSign: '1'");
+    expect(signPage).not.toContain('shiftLaunchpad');
   });
 });

@@ -74,6 +74,41 @@ function mountSignLikeShell() {
   `;
 }
 
+function mountSignViewerShell() {
+  document.body.innerHTML = `
+    <div id="uploader" class="shift-pdf-viewer-shell">
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1>Sign PDF</h1>
+          <p data-viewer-chrome="subtitle">Add a signature to your PDF.</p>
+        </div>
+        <div
+          class="shift-pdf-viewer-actions"
+          data-shift-viewer-actions
+          role="toolbar"
+        >
+          <label data-viewer-chrome="flatten" hidden>
+            <input id="flatten-signature-toggle" type="checkbox" />
+            <span>Flatten signatures into page content</span>
+          </label>
+        </div>
+      </header>
+      <div id="tool-uploader">
+        <div id="drop-zone">
+          <input id="file-input" type="file" accept="application/pdf" />
+        </div>
+        <div id="file-display-area"></div>
+      </div>
+      <div id="signature-editor" class="shift-pdf-viewer-stage hidden">
+        <div id="canvas-container-sign"></div>
+        <button id="process-btn" type="button" class="btn-gradient w-full mt-4">
+          Download Signed PDF
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function mountMergeLikeShell() {
   document.body.innerHTML = `
     <div id="uploader">
@@ -365,12 +400,12 @@ describe('tool viewer layout', () => {
 });
 
 /**
- * sign-pdf and crop-pdf author their viewer as a sibling of the card, which
- * left them looking unlike edit-pdf, form-filler, compare and stamps: heading
- * in a card, document loose on the page below it.
+ * Crop and leftover pages still author their viewer as a sibling of the card.
+ * Sign PDF authors the View PDF shell and keeps the stage beside the
+ * empty-state card — that structure must stay put.
  */
 describe('viewer inside the tool card', () => {
-  it('moves a viewer the page authored outside the card into it', () => {
+  it('moves a leftover sibling viewer into the card', () => {
     mountSignLikeShell();
     const viewer = document.getElementById('signature-editor');
     expect(viewer?.parentElement?.id).toBe('uploader');
@@ -382,6 +417,44 @@ describe('viewer inside the tool card', () => {
     expect(document.getElementById('tool-uploader')?.lastElementChild).toBe(
       viewer
     );
+  });
+
+  it('leaves a Sign PDF shell stage beside the empty-state card', () => {
+    mountSignViewerShell();
+    const viewer = document.getElementById('signature-editor');
+    const header = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
+
+    initToolViewerLayout();
+
+    expect(viewer?.parentElement?.id).toBe('uploader');
+    expect(viewer?.parentElement?.classList.contains('shift-pdf-viewer-shell')).toBe(
+      true
+    );
+    expect(header?.parentElement?.id).toBe('uploader');
+    expect(header?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
+      1
+    );
+    expect(document.getElementById('flatten-signature-toggle')?.closest('header')).toBe(
+      header
+    );
+  });
+
+  it('shows flatten in the shared header while Sign is viewing', () => {
+    mountSignViewerShell();
+    initToolViewerLayout();
+
+    const flatten = document.querySelector<HTMLElement>(
+      '[data-viewer-chrome="flatten"]'
+    );
+    expect(flatten?.hidden).toBe(true);
+
+    document.getElementById('signature-editor')?.classList.remove('hidden');
+    syncToolViewerLayout();
+
+    expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(true);
+    expect(flatten?.hidden).toBe(false);
+    expect(flatten?.closest(`.${TOOL_VIEWER_BAR_CLASS}`)).not.toBeNull();
   });
 
   it('leaves a viewer the page already authored in the card alone', () => {
@@ -669,6 +742,29 @@ describe('sidebar-boot.js viewer layout', () => {
     expect(bar?.parentElement?.id).toBe('uploader');
     expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
     expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
+  });
+
+  it('keeps an authored Sign PDF shell header and stage on the first painted frame', () => {
+    mountSignViewerShell();
+    sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+
+    runBootScript();
+
+    expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(true);
+    expect(document.getElementById('signature-editor')?.parentElement?.id).toBe(
+      'uploader'
+    );
+    expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
+      1
+    );
+    expect(
+      document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)?.parentElement?.id
+    ).toBe('uploader');
+    expect(
+      document.getElementById('flatten-signature-toggle')?.closest(
+        `.${TOOL_VIEWER_BAR_CLASS}`
+      )
+    ).not.toBeNull();
   });
 
   it('lifts boxed tool titles out of the card before first paint', () => {

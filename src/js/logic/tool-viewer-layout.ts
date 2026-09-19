@@ -127,12 +127,14 @@ export function isViewerPending(root: Document = document): boolean {
 }
 
 /**
- * Put the viewer in the tool card, so every viewer tool reads as one panel:
- * heading row and document inside the same surface.
+ * Put a leftover sibling viewer in the tool card so crop / compare pages that
+ * still author it next to `#tool-uploader` do not sit heading-then-document
+ * on the page background.
  *
- * Four of the six author it that way already. sign-pdf and crop-pdf leave
- * theirs as a sibling of `#tool-uploader`, which left the card collapsed to its
- * heading with the document on the page background beneath it.
+ * Sign PDF authors the View PDF shell (`#uploader.shift-pdf-viewer-shell`)
+ * with the stage as a sibling of the empty-state card. Leave that structure
+ * alone — moving the stage into the card would hide the shared header behind
+ * a gray panel again.
  *
  * Timing is the whole constraint: these viewers host a PDF.js iframe, and
  * reparenting an iframe discards its browsing context and reloads the document.
@@ -147,6 +149,9 @@ export function adoptViewerIntoCard(root: Document = document): void {
     const viewer = root.getElementById(id);
     if (!(viewer instanceof HTMLElement)) continue;
     if (card.contains(viewer)) continue;
+    if (viewer.parentElement?.classList.contains('shift-pdf-viewer-shell')) {
+      continue;
+    }
     // Revealed, or already holding a frame, means the tool has mounted: leave
     // it where it is rather than reload the document inside it.
     if (isRevealed(viewer) || viewer.querySelector('iframe')) continue;
@@ -239,7 +244,6 @@ export function syncToolViewerLayout(root: Document = document): void {
     return;
   }
 
-  ensureViewerChrome(root);
   const active = isViewerActive(root);
   if (active) resolvePendingViewer();
   const pending = !active && isViewerPending(root);
@@ -247,6 +251,7 @@ export function syncToolViewerLayout(root: Document = document): void {
 
   root.body.classList.toggle(TOOL_VIEWER_BODY_CLASS, viewing);
   root.body.classList.toggle(TOOL_VIEWER_PENDING_CLASS, pending);
+  ensureViewerChrome(root);
   suppressUploadChrome(root, viewing);
   markViewerScrollHosts(root, viewing);
 
