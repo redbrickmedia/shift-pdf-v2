@@ -1159,34 +1159,25 @@ body.shift-has-open-file #file-display-area {
   z-index: 2;
 }
 
-/* Same page chrome as .shift-pdf-viewer-shell / viewer tools: beat the
-   authored Tailwind `p-4 py-12` so boxed tools and viewers share one inset
-   and one gap under the header. Convert hub has no #tool-uploader.
-
-   Fill the pane out to that padding, then cap at `--shift-panel-max` (the
-   same 1400px the catalog and footer use). Pages author `max-w-2xl` on the
-   card (~672px); that is too narrow, especially on a phone or a short
-   laptop, so the header and the card both drop it and stretch together.
-   Viewer tools keep their own full-pane flex layout below. */
-body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
-    .shift-tool-viewer-pending
-  ):has(#shift-sidebar):has(> .shift-footer)
+/* One inset for boxed tools and viewer tools. Same tokens as
+   .shift-pdf-viewer-shell. Do not add a second max-width here — that is
+   what made boxed pages sit inside a narrower column than Sign / View.
+   Convert hub has no #tool-uploader. */
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   > #uploader:has(#tool-uploader) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--shift-panel-max);
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
   gap: clamp(16px, 2.5vw, 32px);
   padding: clamp(16px, 3vw, 40px);
   background: var(--background-secondary);
 }
 
-body:not(.simple-mode):not(.shift-home):not(.shift-tool-viewer):not(
-    .shift-tool-viewer-pending
-  ):has(#shift-sidebar):has(> .shift-footer)
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   > #uploader:has(#tool-uploader)
   > :is(.shift-tool-viewer-bar, #tool-uploader) {
   width: 100%;
@@ -1455,15 +1446,8 @@ body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
   flex: 1 1 auto;
   flex-shrink: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(16px, 2.5vw, 32px);
   overflow: hidden;
   overscroll-behavior: none;
-  /* Same chrome as .shift-pdf-viewer-shell: the document fills this pane,
-     not a nested card. Beats Tailwind `p-4` / `py-12` on #uploader. */
-  padding: clamp(16px, 3vw, 40px);
-  background: var(--background-secondary);
 }
 
 /* Neutralize the Tailwind card on #tool-uploader while viewing (and while

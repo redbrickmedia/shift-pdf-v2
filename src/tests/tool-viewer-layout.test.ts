@@ -237,6 +237,18 @@ describe('tool viewer layout', () => {
     );
     expect(css).toContain('> #uploader');
     expect(css).toMatch(/body\.shift-tool-viewer[\s\S]*flex:\s*1 1 auto/);
+    // Viewer #uploader only adds pane growth. Padding lives on the shared
+    // `#uploader:has(#tool-uploader)` rule so boxed tools cannot drift.
+    const viewerUploader = css.slice(
+      css.indexOf(
+        'body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(\n    > .shift-footer\n  )\n  > #uploader {'
+      ),
+      css.indexOf(
+        '/* Neutralize the Tailwind card on #tool-uploader while viewing'
+      )
+    );
+    expect(viewerUploader).toContain('flex: 1 1 auto');
+    expect(viewerUploader).not.toMatch(/padding:/);
     expect(css).not.toMatch(
       /body\.shift-home:has\(#shift-my-pdfs\).*shift-tool-viewer/s
     );
@@ -247,23 +259,22 @@ describe('tool viewer layout', () => {
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*gap:\s*clamp\(16px, 2\.5vw, 32px\)/s
     );
     expect(css).toMatch(
-      /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*var\(--shift-panel-max\)/s
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*none/s
     );
     expect(css).toMatch(
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*stretch/s
     );
-    // Header and card fill that pane together. Do not pin them to the
-    // authored `max-w-2xl` card (~672px) — that is too narrow on small screens.
+    // Boxed and viewer share that #uploader rule. A second cap (panel max
+    // or max-w-2xl) is what made Merge sit inside a tighter margin than Sign.
+    expect(css).not.toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*max-width:\s*var\(--shift-panel-max\)/s
+    );
     expect(css).toMatch(
       /:is\(\.shift-tool-viewer-bar,\s*#tool-uploader\)\s*\{[^}]*max-width:\s*none\s*!important/s
     );
     expect(css).not.toMatch(
-      /#uploader:has\(#tool-uploader\)\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*42rem\)/s
-    );
-    expect(css).not.toMatch(
       /#uploader:has\(#tool-uploader\)\s*\{[^}]*align-items:\s*center/s
     );
-    expect(css).toContain(':not(.shift-tool-viewer):not(');
   });
 
   it('drops the Tailwind card on #tool-uploader while viewing', () => {
