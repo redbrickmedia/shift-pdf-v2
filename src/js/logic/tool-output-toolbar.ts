@@ -13,7 +13,10 @@ import {
   saveToShiftPdf,
   TOOL_OUTPUT_STATE_EVENT,
 } from './shift-pdf-save.js';
-import { isViewerToolDocument } from './tool-viewer-layout.js';
+import {
+  ensureToolCardHeader,
+  isViewerToolDocument,
+} from './tool-viewer-layout.js';
 import { getPrimaryLibrarySaveTarget } from './workspace-files.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
@@ -195,106 +198,16 @@ function isNonToolPage(root: Document): boolean {
     root.body.classList.contains('shift-home') ||
     Boolean(root.getElementById('shift-my-pdfs')) ||
     Boolean(root.getElementById('tool-grid')) ||
+    Boolean(root.getElementById('convert-hub')) ||
     // The PDF viewer produces no output, so it keeps its own header actions.
     Boolean(root.getElementById('shift-pdf-viewer'))
   );
 }
 
 function ensureToolbar(root: Document): HTMLElement | null {
-  if (isViewerToolDocument(root)) {
-    root.getElementById(TOOL_OUTPUT_TOOLBAR_ID)?.remove();
-    return ensureViewerHeaderActions(root);
-  }
-
-  const existing = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
-  if (existing) return existing;
-
-  const host =
-    root.getElementById('workflow-toolbar') ??
-    root.querySelector<HTMLElement>('.toolbar-container') ??
-    root.getElementById('tool-uploader') ??
-    root.getElementById('tool-interface') ??
-    root.querySelector<HTMLElement>('main');
-  if (!host) return null;
-
-  const toolbar = root.createElement('div');
-  toolbar.id = TOOL_OUTPUT_TOOLBAR_ID;
-  toolbar.className = 'shift-tool-output-toolbar';
-  toolbar.setAttribute('role', 'toolbar');
-  toolbar.setAttribute('aria-label', 'Document actions');
-
-  const history = root.createElement('div');
-  history.className = 'shift-tool-output-history';
-  history.append(
-    createActionButton(root, TOOL_OUTPUT_UNDO_ID, 'Undo', 'undo-2'),
-    createActionButton(root, TOOL_OUTPUT_REDO_ID, 'Redo', 'redo-2')
-  );
-
-  const outputActions = root.createElement('div');
-  outputActions.className = 'shift-tool-output-actions';
-  outputActions.append(
-    createActionButton(root, TOOL_OUTPUT_RESET_ID, 'Reset', 'rotate-ccw')
-  );
-
-  const split = root.createElement('div');
-  split.className = 'shift-tool-output-split';
-  const save = createActionButton(
-    root,
-    TOOL_OUTPUT_SAVE_ID,
-    'Save',
-    'save',
-    true
-  );
-  const menu = root.createElement('details');
-  menu.id = TOOL_OUTPUT_MENU_ID;
-  menu.className = 'shift-tool-output-menu';
-  const summary = root.createElement('summary');
-  summary.className = 'shift-tool-output-disclosure';
-  summary.setAttribute('aria-label', 'More save options');
-  summary.innerHTML = chevronIcon();
-  const menuSurface = root.createElement('div');
-  menuSurface.className = 'shift-tool-output-menu-surface';
-  const overwrite = createActionButton(
-    root,
-    TOOL_OUTPUT_OVERWRITE_ID,
-    'Overwrite',
-    'replace'
-  );
-  const download = createActionButton(
-    root,
-    TOOL_OUTPUT_DOWNLOAD_ID,
-    'Download',
-    'download'
-  );
-  const print = createActionButton(
-    root,
-    TOOL_OUTPUT_PRINT_ID,
-    'Print',
-    'printer'
-  );
-  menuSurface.append(overwrite, download, print);
-  menu.append(summary, menuSurface);
-  split.append(save, menu);
-  outputActions.append(split);
-
-  toolbar.append(history, outputActions);
-  const heading = host.querySelector('h1');
-  const subtitle =
-    heading?.nextElementSibling instanceof HTMLParagraphElement
-      ? heading.nextElementSibling
-      : null;
-  (subtitle ?? heading)?.insertAdjacentElement('afterend', toolbar);
-  if (!heading) host.append(toolbar);
-
-  bindSharedActionHandlers(root);
-  save.addEventListener('click', () => void saveOutput(root));
-  overwrite.addEventListener('click', () => void overwriteOutput(root));
-  getButton(root, TOOL_OUTPUT_RESET_ID)?.addEventListener('click', () => {
-    void resetOutput(root);
-  });
-
-  hideLegacyOutputActions(root);
-  return toolbar;
+  root.getElementById(TOOL_OUTPUT_TOOLBAR_ID)?.remove();
+  ensureToolCardHeader(root);
+  return ensureViewerHeaderActions(root);
 }
 
 function ensureViewerHeaderActions(root: Document): HTMLElement | null {
@@ -313,6 +226,12 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
     TOOL_OUTPUT_REDO_ID,
     'Redo',
     'ph-arrow-u-up-right'
+  );
+  const reset = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_RESET_ID,
+    'Reset',
+    'ph-arrow-counter-clockwise'
   );
   const saveGroup = root.createElement('div');
   saveGroup.id = TOOL_OUTPUT_MENU_ID;
@@ -354,7 +273,7 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
   menu.append(surface);
   saveGroup.append(save, menu);
   bindViewerSaveHover(saveGroup);
-  host.prepend(undo, redo, saveGroup);
+  host.prepend(undo, redo, reset, saveGroup);
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
   overwrite.addEventListener('click', () => void overwriteOutput(root));
@@ -363,6 +282,9 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
 }
 
 function bindSharedActionHandlers(root: Document): void {
+  getButton(root, TOOL_OUTPUT_RESET_ID)?.addEventListener('click', () => {
+    void resetOutput(root);
+  });
   getButton(root, TOOL_OUTPUT_DOWNLOAD_ID)?.addEventListener('click', () => {
     void downloadOutput(root);
   });
@@ -400,24 +322,6 @@ function createViewerActionButton(
   const text = root.createElement('span');
   text.textContent = label;
   button.append(icon, text);
-  return button;
-}
-
-function createActionButton(
-  root: Document,
-  id: string,
-  label: string,
-  icon: string,
-  primary = false
-): HTMLButtonElement {
-  const button = root.createElement('button');
-  button.id = id;
-  button.type = 'button';
-  button.className = primary
-    ? 'shift-tool-output-button shift-tool-output-save'
-    : 'shift-tool-output-button';
-  button.setAttribute('aria-label', label);
-  button.innerHTML = `${actionIcon(icon)}<span>${label}</span>`;
   return button;
 }
 
@@ -536,8 +440,7 @@ const EMBEDDED_VIEWER_FRAMES =
   '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe';
 
 function findPrintableViewerFrame(root: Document): HTMLIFrameElement | null {
-  const toolbar = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
-  const viewerRoot = toolbar?.closest('#tool-uploader') ?? root;
+  const viewerRoot = root.getElementById('tool-uploader') ?? root;
   return viewerRoot.querySelector<HTMLIFrameElement>(EMBEDDED_VIEWER_FRAMES);
 }
 
@@ -692,22 +595,3 @@ function getLegacyHistoryButton(
   return null;
 }
 
-function actionIcon(name: string): string {
-  const paths: Record<string, string> = {
-    'undo-2': '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v1"/>',
-    'redo-2': '<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0-6 6v1"/>',
-    'rotate-ccw': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
-    save: '<path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
-    replace:
-      '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
-    download:
-      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
-    printer:
-      '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3h12v6"/><rect width="12" height="8" x="6" y="14"/>',
-  };
-  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;
-}
-
-function chevronIcon(): string {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-}

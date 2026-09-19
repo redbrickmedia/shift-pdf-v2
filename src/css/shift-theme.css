@@ -1142,13 +1142,41 @@ body.shift-has-open-file #file-display-area {
  * Scoped away from My PDFs and the catalog (those never get the body class).
  * Thumbnail-grid tools (rotate / organize / split) stay out on purpose.
  */
-.shift-tool-viewer-bar,
+.shift-tool-viewer-bar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+  width: 100%;
+  margin-bottom: var(--spacing-16);
+  order: 0;
+}
+
 .shift-tool-viewer-title {
-  display: contents;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.shift-tool-viewer-title > h1 {
+  margin-bottom: 0;
+}
+
+.shift-tool-viewer-title > p {
+  margin-bottom: 0;
 }
 
 .shift-tool-viewer-actions {
-  display: none;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: clamp(4px, 1vw, 12px);
+  max-width: 100%;
 }
 
 /* Process success is published to the toolbar; do not celebrate it inline. */
@@ -1286,29 +1314,9 @@ body.shift-tool-viewer .shift-tool-output-toolbar {
 }
 
 body.shift-tool-viewer .shift-tool-viewer-bar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-12);
-  width: 100%;
   /* Gap on the host (same as .shift-pdf-viewer-shell) separates this row
      from the document; do not add card-style margin here. */
-  margin-bottom: 0;
-  /* Beat the global #tool-uploader > #file-display-area { order: 1 } rule so
-     the title/Download row stays above chips if chips are briefly visible. */
-  order: 0;
-}
-
-body.shift-tool-viewer .shift-tool-viewer-title {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-body.shift-tool-viewer .shift-tool-viewer-title > h1 {
+  align-items: center;
   margin-bottom: 0;
 }
 
@@ -1316,16 +1324,6 @@ body.shift-tool-viewer .shift-tool-viewer-title > h1 {
    enough once a file is open. */
 body.shift-tool-viewer .shift-tool-viewer-title > p {
   display: none;
-}
-
-body.shift-tool-viewer .shift-tool-viewer-actions {
-  display: flex;
-  flex: 0 1 auto;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: clamp(4px, 1vw, 12px);
-  max-width: 100%;
 }
 
 body.shift-tool-viewer

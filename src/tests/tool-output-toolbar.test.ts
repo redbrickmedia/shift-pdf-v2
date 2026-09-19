@@ -64,36 +64,45 @@ afterEach(async () => {
 
 describe('tool output toolbar', () => {
   it('does not resync in a loop when unrelated page classes change', () => {
-    const toolbar = document.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
+    const bar = document.querySelector('.shift-tool-viewer-bar');
     const host = document.getElementById('tool-uploader');
-    expect(toolbar).toBeTruthy();
+    expect(bar).toBeTruthy();
 
     for (let i = 0; i < 40; i++) {
       document.body.classList.toggle('shift-tool-viewer');
       host?.classList.toggle('max-w-6xl');
     }
 
-    expect(document.querySelectorAll(`#${TOOL_OUTPUT_TOOLBAR_ID}`)).toHaveLength(
-      1
-    );
-    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBe(toolbar);
+    expect(document.querySelectorAll('.shift-tool-viewer-bar')).toHaveLength(1);
+    expect(document.querySelector('.shift-tool-viewer-bar')).toBe(bar);
   });
 
-  it('renders one consistent action surface with progressive Download', () => {
-    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeTruthy();
+  it('puts the title on the left and Reset/Save on the right of the card header', () => {
+    const card = document.getElementById('tool-uploader');
+    const bar = card?.querySelector('.shift-tool-viewer-bar');
+    const title = bar?.querySelector('.shift-tool-viewer-title');
+    const actions = bar?.querySelector('[data-shift-viewer-actions]');
+
+    expect(bar?.firstElementChild).toBe(title);
+    expect(title?.querySelector('h1')?.textContent).toBe('Sign PDF');
+    expect(title?.querySelector('p')?.textContent).toBe('Sign a document.');
+    expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
-    expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
-      HTMLDetailsElement
+    expect(document.getElementById(TOOL_OUTPUT_MENU_ID)?.className).toBe(
+      'shift-tool-viewer-save'
     );
     expect(
       document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
     ).toBe(false);
     expect(document.getElementById('clear-files-btn')?.hidden).toBe(true);
+    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
   });
 
   it('stays out of the PDF viewer, which has no output to save', () => {
@@ -118,15 +127,15 @@ describe('tool output toolbar', () => {
     );
   });
 
-  it('keeps Download behind the Save disclosure on tools without a viewer', () => {
-    const menu = document.getElementById(
-      TOOL_OUTPUT_MENU_ID
-    ) as HTMLDetailsElement;
+  it('keeps Download behind the Save disclosure on every tool header', () => {
+    const menu = document.getElementById(TOOL_OUTPUT_MENU_ID) as HTMLElement;
 
+    expect(menu.className).toBe('shift-tool-viewer-save');
+    expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
-    expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
+    expect(button(TOOL_OUTPUT_SAVE_ID).className).toBe('shift-pdf-viewer-action');
   });
 
   it('puts inline Save in the viewer header and discloses Overwrite, Download, and Print', () => {
@@ -150,7 +159,7 @@ describe('tool output toolbar', () => {
       TOOL_OUTPUT_MENU_ID
     ) as HTMLElement | null;
     expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
-    expect(document.getElementById(TOOL_OUTPUT_RESET_ID)).toBeNull();
+    expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
@@ -473,6 +482,21 @@ describe('tool output toolbar', () => {
     button(TOOL_OUTPUT_RESET_ID).click();
     await vi.waitFor(() => expect(reset).toHaveBeenCalledOnce());
     unregister();
+  });
+
+  it('skips the convert hub destination flow', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="convert-hub">
+          <h1>Convert</h1>
+          <p>Select one or more documents.</p>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    expect(document.querySelector('.shift-tool-viewer-bar')).toBeNull();
+    expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).toBeNull();
   });
 
   it('keeps boxed Process visible and Save disabled until a result exists', () => {

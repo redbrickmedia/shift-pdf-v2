@@ -147,6 +147,12 @@ export function adoptViewerIntoCard(root: Document = document): void {
   }
 }
 
+export function ensureToolCardHeader(
+  root: Document = document
+): HTMLElement | null {
+  return ensureViewerChrome(root);
+}
+
 /**
  * Full-panel viewer layout for PDF viewer tools: hide the drop zone once a
  * file is showing, fill the content panel with the viewer, and park Download
