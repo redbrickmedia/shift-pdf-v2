@@ -8,8 +8,13 @@ import {
   getSignedPdfFilename,
 } from '../js/utils/sign-pdf-export';
 import {
+  bindPdfJsEditorHistory,
   configureSessionOnlySignatureUi,
+  editorHistoryFromStates,
+  EMPTY_PDFJS_EDITOR_HISTORY,
   PDFJS_SIGNATURE_MODE,
+  redoPdfJsEditor,
+  undoPdfJsEditor,
   waitForPdfJsPagesReady,
 } from '../js/utils/pdfjs-sign-viewer';
 import type { PDFViewerApplication } from '../js/types/sign-pdf-type';
@@ -141,5 +146,72 @@ describe('PDF.js visual signature mode', () => {
     await expect(waitForPdfJsPagesReady(application, 500)).resolves.toBe(
       undefined
     );
+  });
+
+  it('treats an empty editor as having nothing to save, undo, or redo', () => {
+    expect(editorHistoryFromStates(undefined)).toEqual(
+      EMPTY_PDFJS_EDITOR_HISTORY
+    );
+    expect(
+      editorHistoryFromStates({
+        isEmpty: true,
+        hasSomethingToUndo: false,
+        hasSomethingToRedo: false,
+      })
+    ).toEqual(EMPTY_PDFJS_EDITOR_HISTORY);
+    expect(
+      editorHistoryFromStates({
+        isEmpty: false,
+        hasSomethingToUndo: true,
+        hasSomethingToRedo: false,
+      })
+    ).toEqual({ hasEdits: true, canUndo: true, canRedo: false });
+  });
+
+  it('forwards PDF.js editor undo and redo and tracks history events', () => {
+    const listeners = new Map<string, (event?: unknown) => void>();
+    const undo = vi.fn();
+    const redo = vi.fn();
+    const onChange = vi.fn();
+    const application = {
+      eventBus: {
+        on: (event: string, listener: (event?: unknown) => void) => {
+          listeners.set(event, listener);
+        },
+        off: (event: string) => {
+          listeners.delete(event);
+        },
+        _on: vi.fn(),
+        dispatch: vi.fn(),
+      },
+      pdfViewer: {
+        _layerProperties: {
+          annotationEditorUIManager: { undo, redo },
+        },
+      },
+    } as PDFViewerApplication;
+
+    const unbind = bindPdfJsEditorHistory(application, onChange);
+    listeners.get('editingstateschanged')?.({
+      details: {
+        isEmpty: false,
+        hasSomethingToUndo: true,
+        hasSomethingToRedo: true,
+      },
+    });
+
+    expect(onChange).toHaveBeenCalledWith({
+      hasEdits: true,
+      canUndo: true,
+      canRedo: true,
+    });
+
+    undoPdfJsEditor(application);
+    redoPdfJsEditor(application);
+    expect(undo).toHaveBeenCalledOnce();
+    expect(redo).toHaveBeenCalledOnce();
+
+    unbind();
+    expect(listeners.has('editingstateschanged')).toBe(false);
   });
 });

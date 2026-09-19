@@ -6,13 +6,18 @@ import { hideLoader, showLoader } from '../ui.js';
 import {
   applyPdfViewerDownloadFilename,
   encodePdfjsViewerFileParam,
-  type PdfViewerFilenameTarget,
 } from '../utils/pdfjs-viewer-filename.js';
 import { hidePdfJsPrintControls } from '../utils/pdfjs-viewer-print.js';
+import { waitForPdfJsSignViewer } from '../utils/pdfjs-sign-viewer.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
 let currentFile: File | null = null;
+let formDirty = false;
 
 function showAlert(
   title: string,
@@ -97,6 +102,8 @@ function resetState() {
   viewerIframe = null;
   viewerReady = false;
   currentFile = null;
+  formDirty = false;
+  syncToolOutputToolbar();
   const displayArea = document.getElementById('file-display-area');
   if (displayArea) displayArea.innerHTML = '';
   document.getElementById('form-filler-options')?.classList.add('hidden');
@@ -200,13 +207,35 @@ async function setupFormViewer() {
 
     viewerIframe.onload = () => {
       hidePdfJsPrintControls(viewerIframe?.contentDocument);
-      const app = (
-        viewerIframe?.contentWindow as
-          (Window & { PDFViewerApplication?: PdfViewerFilenameTarget }) | null
-      )?.PDFViewerApplication;
-      applyPdfViewerDownloadFilename(app, currentFile?.name);
-      viewerReady = true;
-      hideLoader();
+      void (async () => {
+        if (!viewerIframe) return;
+        try {
+          const app = await waitForPdfJsSignViewer(viewerIframe);
+          applyPdfViewerDownloadFilename(app, currentFile?.name);
+          const storage = app.pdfDocument?.annotationStorage as
+            | {
+                onSetModified?: (() => void) | null;
+                onResetModified?: (() => void) | null;
+              }
+            | undefined;
+          if (storage) {
+            storage.onSetModified = () => {
+              formDirty = true;
+              syncToolOutputToolbar();
+            };
+            storage.onResetModified = () => {
+              formDirty = false;
+              syncToolOutputToolbar();
+            };
+          }
+          viewerReady = true;
+          syncToolOutputToolbar();
+        } catch (error) {
+          console.error('Could not initialize the form viewer:', error);
+        } finally {
+          hideLoader();
+        }
+      })();
     };
 
     pdfViewerContainer.appendChild(viewerIframe);
@@ -308,4 +337,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   processBtn?.addEventListener('click', processAndDownloadForm);
+  registerToolOutputSession({
+    apply: processAndDownloadForm,
+    canSave: () => formDirty,
+    canPrint: () => viewerReady,
+  });
 });

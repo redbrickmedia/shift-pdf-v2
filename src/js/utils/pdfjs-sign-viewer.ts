@@ -59,6 +59,75 @@ export async function waitForPdfJsPagesReady(
   throw new Error('Timed out while preparing all PDF pages for printing.');
 }
 
+export type PdfJsEditorHistoryState = {
+  hasEdits: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+};
+
+export const EMPTY_PDFJS_EDITOR_HISTORY: PdfJsEditorHistoryState = {
+  hasEdits: false,
+  canUndo: false,
+  canRedo: false,
+};
+
+type EditorStatesChangedEvent = {
+  details?: {
+    isEmpty?: boolean;
+    hasSomethingToUndo?: boolean;
+    hasSomethingToRedo?: boolean;
+  };
+};
+
+export function editorHistoryFromStates(
+  details: EditorStatesChangedEvent['details']
+): PdfJsEditorHistoryState {
+  return {
+    hasEdits: details?.isEmpty === false,
+    canUndo: Boolean(details?.hasSomethingToUndo),
+    canRedo: Boolean(details?.hasSomethingToRedo),
+  };
+}
+
+export function getPdfJsAnnotationEditorUIManager(
+  application: PDFViewerApplication | null | undefined
+): { undo?: () => void; redo?: () => void } | null {
+  return application?.pdfViewer?._layerProperties?.annotationEditorUIManager ??
+    null;
+}
+
+export function bindPdfJsEditorHistory(
+  application: PDFViewerApplication,
+  onChange: (state: PdfJsEditorHistoryState) => void
+): () => void {
+  const eventBus = application.eventBus;
+  if (!eventBus) return () => {};
+
+  const listener = (event?: unknown) => {
+    const details = (event as EditorStatesChangedEvent | undefined)?.details;
+    onChange(editorHistoryFromStates(details));
+  };
+
+  if (typeof eventBus.on === 'function') {
+    eventBus.on('editingstateschanged', listener);
+    return () => eventBus.off?.('editingstateschanged', listener);
+  }
+  eventBus._on('editingstateschanged', listener);
+  return () => {};
+}
+
+export function undoPdfJsEditor(
+  application: PDFViewerApplication | null | undefined
+): void {
+  getPdfJsAnnotationEditorUIManager(application)?.undo?.();
+}
+
+export function redoPdfJsEditor(
+  application: PDFViewerApplication | null | undefined
+): void {
+  getPdfJsAnnotationEditorUIManager(application)?.redo?.();
+}
+
 export function configureSessionOnlySignatureUi(
   iframe: HTMLIFrameElement,
   application: PDFViewerApplication

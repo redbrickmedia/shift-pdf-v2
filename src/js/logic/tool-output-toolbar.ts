@@ -127,13 +127,24 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (print) {
     setButtonDisabled(print, !canPrintOutput(root));
   }
+  syncSaveDisclosure(root, canSaveOutput(root) || Boolean(output));
   hideEmbeddedViewerPrintControls(root);
 }
 
 function canSaveOutput(root: Document): boolean {
   if (session?.canSave) return session.canSave();
   if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
+  if (isViewerToolDocument(root)) return false;
   return Boolean(session?.apply || findProcessButton(root));
+}
+
+function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
+  const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
+  if (!menu) return;
+  menu.classList.toggle('is-ready', canDisclose);
+  if (menu instanceof HTMLDetailsElement && !canDisclose) {
+    menu.open = false;
+  }
 }
 
 function canOverwriteOutput(root: Document): boolean {

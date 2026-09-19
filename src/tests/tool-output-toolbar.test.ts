@@ -73,6 +73,9 @@ describe('tool output toolbar', () => {
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
       HTMLDetailsElement
     );
+    expect(
+      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+    ).toBe(false);
     expect(document.getElementById('clear-files-btn')?.hidden).toBe(true);
   });
 
@@ -139,8 +142,56 @@ describe('tool output toolbar', () => {
     expect(menu?.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
     expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
     expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
+    expect(menu?.classList.contains('is-ready')).toBe(false);
     expect(document.getElementById('process-btn')?.hidden).toBe(true);
+  });
+
+  it('keeps viewer Save, hover, Undo, and Redo off until the PDF changes', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+          <button id="process-btn" type="button">Apply signatures</button>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    let hasEdits = false;
+    let canUndo = false;
+    let canRedo = false;
+    const unregister = registerToolOutputSession({
+      apply: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn(),
+      canSave: () => hasEdits,
+      canUndo: () => canUndo,
+      canRedo: () => canRedo,
+    });
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
+    expect(
+      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+    ).toBe(false);
+
+    hasEdits = true;
+    canUndo = true;
+    syncToolOutputToolbar();
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
+    expect(
+      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+    ).toBe(true);
+    unregister();
   });
 
   it('prints from the viewer header through the active tool', async () => {

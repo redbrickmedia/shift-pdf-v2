@@ -21,8 +21,13 @@ import {
   getSignedPdfFilename,
 } from '../utils/sign-pdf-export.js';
 import {
+  bindPdfJsEditorHistory,
   configureSessionOnlySignatureUi,
+  EMPTY_PDFJS_EDITOR_HISTORY,
+  redoPdfJsEditor,
+  undoPdfJsEditor,
   waitForPdfJsSignViewer,
+  type PdfJsEditorHistoryState,
 } from '../utils/pdfjs-sign-viewer.js';
 import { printPdfJsViewerFrame } from '../utils/pdfjs-viewer-print.js';
 import {
@@ -48,6 +53,8 @@ const signState: SignState = {
 };
 let completionPanel: ToolCompletionPanel | null = null;
 let fileLoadVersion = 0;
+let editorHistory: PdfJsEditorHistoryState = EMPTY_PDFJS_EDITOR_HISTORY;
+let unbindEditorHistory: (() => void) | null = null;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializePage);
@@ -62,7 +69,11 @@ function initializePage() {
     reset: resetState,
     apply: applyAndSaveSignatures,
     print: printSignedPdf,
-    canSave: () => signState.viewerReady,
+    undo: () => undoPdfJsEditor(getSignViewerApplication()),
+    redo: () => redoPdfJsEditor(getSignViewerApplication()),
+    canUndo: () => editorHistory.canUndo,
+    canRedo: () => editorHistory.canRedo,
+    canSave: () => editorHistory.hasEdits,
     canPrint: () => signState.viewerReady,
   });
   window.addEventListener('pagehide', unregisterOutputSession, { once: true });
@@ -279,6 +290,7 @@ async function setupSignTool(loadVersion: number) {
       applyPdfViewerDownloadFilename(app, signState.file?.name);
       configureSessionOnlySignatureUi(iframe, app);
       signState.viewerReady = true;
+      bindSignEditorHistory(app);
 
       const saveBtn = document.getElementById(
         'process-btn'
@@ -299,6 +311,22 @@ async function setupSignTool(loadVersion: number) {
       hideLoader();
     }
   };
+}
+
+function getSignViewerApplication(): PDFViewerWindow['PDFViewerApplication'] {
+  return (signState.viewerIframe?.contentWindow as PDFViewerWindow | null)
+    ?.PDFViewerApplication;
+}
+
+function bindSignEditorHistory(
+  application: NonNullable<PDFViewerWindow['PDFViewerApplication']>
+): void {
+  unbindEditorHistory?.();
+  editorHistory = EMPTY_PDFJS_EDITOR_HISTORY;
+  unbindEditorHistory = bindPdfJsEditorHistory(application, (next) => {
+    editorHistory = next;
+    syncToolOutputToolbar();
+  });
 }
 
 async function printSignedPdf() {
@@ -416,6 +444,9 @@ function resetState() {
 }
 
 function cleanup() {
+  unbindEditorHistory?.();
+  unbindEditorHistory = null;
+  editorHistory = EMPTY_PDFJS_EDITOR_HISTORY;
   if (signState.blobUrl) {
     URL.revokeObjectURL(signState.blobUrl);
     signState.blobUrl = null;
