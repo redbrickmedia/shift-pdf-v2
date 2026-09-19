@@ -33,3 +33,54 @@ export async function printPdfJsViewerFrame(
   iframe.contentWindow?.focus();
   await application.triggerPrinting();
 }
+
+/** Print a published PDF blob from boxed tools that have no viewer iframe. */
+export function printPdfBlob(
+  blob: Blob,
+  root: Document = document
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const iframe = root.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+
+    const cleanup = () => {
+      iframe.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    iframe.addEventListener('load', () => {
+      const win = iframe.contentWindow;
+      if (!win) {
+        cleanup();
+        reject(new Error('Could not print this PDF.'));
+        return;
+      }
+      const finish = () => {
+        cleanup();
+        resolve();
+      };
+      win.addEventListener('afterprint', finish, { once: true });
+      try {
+        win.focus();
+        win.print();
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    });
+    iframe.addEventListener('error', () => {
+      cleanup();
+      reject(new Error('Could not print this PDF.'));
+    });
+
+    iframe.src = url;
+    root.body.append(iframe);
+  });
+}

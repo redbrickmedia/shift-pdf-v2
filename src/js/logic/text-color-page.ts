@@ -181,9 +181,6 @@ async function changeTextColor() {
       new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       pageState.file?.name || 'document.pdf'
     );
-    showAlert('Success', 'Text color changed successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Could not change text color.');

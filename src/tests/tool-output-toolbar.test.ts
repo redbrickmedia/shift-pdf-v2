@@ -86,7 +86,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
-    expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
       HTMLDetailsElement
     );
@@ -125,7 +125,7 @@ describe('tool output toolbar', () => {
 
     expect(menu.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
-    expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
+    expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
   });
 
@@ -415,6 +415,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
 
     setLatestPdfOutput({
       blob: new Blob(['zip'], { type: 'application/zip' }),
@@ -425,6 +426,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
   });
 
   it('saves a PDF copy to My PDFs', async () => {
@@ -470,6 +472,110 @@ describe('tool output toolbar', () => {
 
     button(TOOL_OUTPUT_RESET_ID).click();
     await vi.waitFor(() => expect(reset).toHaveBeenCalledOnce());
+    unregister();
+  });
+
+  it('keeps boxed Process visible and Save disabled until a result exists', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <h1>Compress PDF</h1>
+          <p>Reduce file size.</p>
+          <button id="process-btn" type="button">Process</button>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    expect(document.getElementById('process-btn')?.hidden).toBe(false);
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+
+    setLatestPdfOutput({
+      blob: new Blob(['pdf'], { type: 'application/pdf' }),
+      filename: 'compressed.pdf',
+    });
+    syncToolOutputToolbar();
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+    expect(document.getElementById('process-btn')?.hidden).toBe(false);
+  });
+
+  it('does not click boxed Process when Save already has published output', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <h1>Compress PDF</h1>
+          <button id="process-btn" type="button">Process</button>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+    const process = document.getElementById('process-btn') as HTMLButtonElement;
+    const processClick = vi.fn();
+    process.addEventListener('click', processClick);
+
+    setLatestPdfOutput({
+      blob: new Blob(['pdf'], { type: 'application/pdf' }),
+      filename: 'compressed.pdf',
+    });
+    syncToolOutputToolbar();
+    button(TOOL_OUTPUT_SAVE_ID).click();
+
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+    });
+    expect(processClick).not.toHaveBeenCalled();
+  });
+
+  it('applies Compare output through the shared session before Save', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <h1>Compare PDFs</h1>
+          <div data-shift-viewer-actions></div>
+          <div id="compare-viewer"></div>
+          <div id="export-dropdown-wrapper">
+            <button id="export-dropdown-btn" type="button">Export</button>
+          </div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    let pairsReady = false;
+    const apply = vi.fn(() => {
+      setLatestPdfOutput({
+        blob: new Blob(['compare'], { type: 'application/pdf' }),
+        filename: 'bentopdf-compare-export.pdf',
+      });
+    });
+    const unregister = registerToolOutputSession({
+      apply,
+      canSave: () => pairsReady,
+    });
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(document.getElementById('export-dropdown-wrapper')?.hidden).toBe(
+      true
+    );
+
+    pairsReady = true;
+    syncToolOutputToolbar();
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+
+    button(TOOL_OUTPUT_SAVE_ID).click();
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('bentopdf-compare-export.pdf');
+    });
     unregister();
   });
 });

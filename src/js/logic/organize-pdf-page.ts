@@ -389,9 +389,6 @@ async function saveChanges() {
     );
 
     hideLoader();
-    showAlert('Success', 'PDF organized successfully!', 'success', () =>
-      resetState()
-    );
   } catch (error) {
     console.error('Error saving changes:', error);
     hideLoader();

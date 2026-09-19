@@ -31,6 +31,7 @@ import {
   extractPagesWithQpdf,
 } from '../utils/split-pdf-helpers.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
+import { registerToolOutputSession } from './tool-output-toolbar.ts';
 
 document.addEventListener('DOMContentLoaded', () => {
   let visualSelectorRendered = false;
@@ -282,6 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUI();
   };
 
+  registerToolOutputSession({
+    reset: resetState,
+  });
+
   const split = async () => {
     if (isSplitting) return;
     isSplitting = true;
@@ -412,9 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           downloadFile(zipBlob, 'split-by-bookmarks.zip');
           hideLoader();
-          showAlert('Success', 'PDF split successfully!', 'success', () => {
-            resetState();
-          });
           return;
         }
 
@@ -436,9 +438,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const zipBlob2 = await zip2.generateAsync({ type: 'blob' });
           downloadFile(zipBlob2, 'split-n-times.zip');
           hideLoader();
-          showAlert('Success', 'PDF split successfully!', 'success', () => {
-            resetState();
-          });
           return;
         }
       }
@@ -481,10 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (splitMode === 'visual') {
         visualSelectorRendered = false;
       }
-
-      showAlert('Success', 'PDF split successfully!', 'success', () => {
-        resetState();
-      });
     } catch (e: unknown) {
       console.error(e);
       showAlert(

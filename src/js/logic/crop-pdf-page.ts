@@ -305,12 +305,6 @@ async function performCrop() {
       new Blob([new Uint8Array(finalPdfBytes)], { type: 'application/pdf' }),
       cropperState.file?.name || 'document.pdf'
     );
-    showAlert(
-      'Success',
-      'Crop complete! Your download has started.',
-      'success',
-      () => resetState()
-    );
   } catch (e) {
     console.error(e);
     showAlert('Error', 'An error occurred during cropping.');

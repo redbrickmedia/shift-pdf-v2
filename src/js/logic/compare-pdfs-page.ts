@@ -24,6 +24,10 @@ import {
   computeComparisonForPair,
   getComparisonCacheKey,
 } from './compare-render.ts';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.ts';
 
 const pageState: CompareState = {
   pdfDoc1: null,
@@ -513,6 +517,7 @@ async function buildPagePairs() {
 
   pageState.pagePairs = await pairPagesAsync(leftSignatures, rightSignatures);
   pageState.currentPage = 1;
+  syncToolOutputToolbar();
 }
 
 async function buildReportResults() {
@@ -791,7 +796,57 @@ async function handleFileInput(
   }
 }
 
+function getCompareExportMode(): ComparePdfExportMode {
+  return pageState.viewMode === 'overlay' ? 'overlay' : 'split';
+}
+
+function getCompareExportOptions() {
+  const opacitySlider = getElement<HTMLInputElement>('opacity-slider');
+  return {
+    useOcr: pageState.useOcr,
+    ocrLanguage: pageState.ocrLanguage,
+    showOverlayDocument:
+      pageState.viewMode === 'overlay'
+        ? pageState.overlayChangeScope === 'all' &&
+          pageState.overlayDocumentVisible
+        : undefined,
+    overlayOpacity:
+      pageState.viewMode === 'overlay'
+        ? Number.parseFloat(opacitySlider?.value || '0.5')
+        : undefined,
+    includeChange: (change: CompareTextChange) =>
+      shouldIncludeChange(change, { includeSearch: false }),
+  };
+}
+
+async function runCompareExport(mode: ComparePdfExportMode): Promise<void> {
+  if (pageState.pagePairs.length === 0) return;
+  try {
+    showLoader('Preparing PDF export...');
+    await exportComparePdf(
+      mode,
+      pageState.pdfDoc1,
+      pageState.pdfDoc2,
+      pageState.pagePairs,
+      function (message, percent) {
+        showLoader(message, percent);
+      },
+      getCompareExportOptions()
+    );
+  } catch (e) {
+    console.error('PDF export failed:', e);
+    showAlert('Export Error', 'Could not export comparison PDF.');
+  } finally {
+    hideLoader();
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
+  registerToolOutputSession({
+    apply: () => runCompareExport(getCompareExportMode()),
+    canSave: () => pageState.pagePairs.length > 0,
+  });
+
   handleFileInput('file-input-1', 'pdfDoc1', 'file-display-1');
   handleFileInput('file-input-2', 'pdfDoc2', 'file-display-2');
 
@@ -1148,38 +1203,7 @@ document.addEventListener('DOMContentLoaded', function () {
           .exportMode as ComparePdfExportMode;
         if (!mode || pageState.pagePairs.length === 0) return;
         exportDropdownMenu.classList.add('hidden');
-        try {
-          showLoader('Preparing PDF export...');
-          await exportComparePdf(
-            mode,
-            pageState.pdfDoc1,
-            pageState.pdfDoc2,
-            pageState.pagePairs,
-            function (message, percent) {
-              showLoader(message, percent);
-            },
-            {
-              useOcr: pageState.useOcr,
-              ocrLanguage: pageState.ocrLanguage,
-              showOverlayDocument:
-                pageState.viewMode === 'overlay'
-                  ? pageState.overlayChangeScope === 'all' &&
-                    pageState.overlayDocumentVisible
-                  : undefined,
-              overlayOpacity:
-                pageState.viewMode === 'overlay'
-                  ? Number.parseFloat(opacitySlider?.value || '0.5')
-                  : undefined,
-              includeChange: (change) =>
-                shouldIncludeChange(change, { includeSearch: false }),
-            }
-          );
-        } catch (e) {
-          console.error('PDF export failed:', e);
-          showAlert('Export Error', 'Could not export comparison PDF.');
-        } finally {
-          hideLoader();
-        }
+        await runCompareExport(mode);
       });
     });
   }

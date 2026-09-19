@@ -2,6 +2,7 @@ import { showAlert } from '../ui.js';
 import { downloadBlob, PDF_OUTPUT_READY_EVENT } from '../utils/helpers.js';
 import {
   hidePdfJsPrintControls,
+  printPdfBlob,
   printPdfJsViewerFrame,
 } from '../utils/pdfjs-viewer-print.js';
 import {
@@ -141,26 +142,24 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (reset)
     setButtonDisabled(reset, !hasResettableState(root, output !== null));
   if (save) {
-    setButtonDisabled(save, saveInFlight || !canSaveOutput(root));
+    setButtonDisabled(save, saveInFlight || !canSaveOutput());
   }
   if (overwrite) {
-    setButtonDisabled(overwrite, saveInFlight || !canOverwriteOutput(root));
+    setButtonDisabled(overwrite, saveInFlight || !canOverwriteOutput());
   }
   if (download) {
-    setButtonDisabled(download, saveInFlight || !canDownloadOutput(root));
+    setButtonDisabled(download, saveInFlight || !canDownloadOutput());
   }
   if (print) {
     setButtonDisabled(print, !canPrintOutput(root));
   }
-  syncSaveDisclosure(root, canSaveOutput(root) || Boolean(output));
+  syncSaveDisclosure(root, canSaveOutput() || Boolean(output));
   hideEmbeddedViewerPrintControls(root);
 }
 
-function canSaveOutput(root: Document): boolean {
+function canSaveOutput(): boolean {
   if (session?.canSave) return session.canSave();
-  if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
-  if (isViewerToolDocument(root)) return false;
-  return Boolean(session?.apply || findProcessButton(root));
+  return canSaveToShiftPdf(getLatestPdfOutput());
 }
 
 function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
@@ -175,18 +174,20 @@ function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
   }
 }
 
-function canDownloadOutput(root: Document): boolean {
+function canDownloadOutput(): boolean {
   if (getLatestPdfOutput()) return true;
-  return canSaveOutput(root);
+  return canSaveOutput();
 }
 
-function canOverwriteOutput(root: Document): boolean {
-  return canSaveOutput(root) && Boolean(getPrimaryLibrarySaveTarget());
+function canOverwriteOutput(): boolean {
+  return canSaveOutput() && Boolean(getPrimaryLibrarySaveTarget());
 }
 
 function canPrintOutput(root: Document): boolean {
   if (session?.print) return session.canPrint?.() ?? true;
-  return findPrintableViewerFrame(root) !== null;
+  if (findPrintableViewerFrame(root)) return true;
+  if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
+  return Boolean(session?.apply && canSaveOutput());
 }
 
 function isNonToolPage(root: Document): boolean {
@@ -265,7 +266,13 @@ function ensureToolbar(root: Document): HTMLElement | null {
     'Download',
     'download'
   );
-  menuSurface.append(overwrite, download);
+  const print = createActionButton(
+    root,
+    TOOL_OUTPUT_PRINT_ID,
+    'Print',
+    'printer'
+  );
+  menuSurface.append(overwrite, download, print);
   menu.append(summary, menuSurface);
   split.append(save, menu);
   outputActions.append(split);
@@ -415,7 +422,7 @@ function createActionButton(
 }
 
 async function saveOutput(root: Document): Promise<void> {
-  if (saveInFlight || !canSaveOutput(root)) return;
+  if (saveInFlight || !canSaveOutput()) return;
   saveInFlight = true;
   syncToolOutputToolbar(root);
   try {
@@ -433,7 +440,7 @@ async function saveOutput(root: Document): Promise<void> {
 }
 
 async function overwriteOutput(root: Document): Promise<void> {
-  if (saveInFlight || !canOverwriteOutput(root)) return;
+  if (saveInFlight || !canOverwriteOutput()) return;
   saveInFlight = true;
   closeOutputMenu(root);
   syncToolOutputToolbar(root);
@@ -461,7 +468,9 @@ async function applyToolOutput(root: Document): Promise<void> {
     await session.apply();
     return;
   }
-  findProcessButton(root)?.click();
+  if (isViewerToolDocument(root)) {
+    findProcessButton(root)?.click();
+  }
 }
 
 function findProcessButton(root: Document): HTMLButtonElement | null {
@@ -478,7 +487,7 @@ function findProcessButton(root: Document): HTMLButtonElement | null {
 }
 
 async function downloadOutput(root: Document): Promise<void> {
-  if (saveInFlight || !canDownloadOutput(root)) return;
+  if (saveInFlight || !canDownloadOutput()) return;
   closeOutputMenu(root);
   saveInFlight = true;
   syncToolOutputToolbar(root);
@@ -503,7 +512,18 @@ async function printOutput(root: Document): Promise<void> {
       await session.print();
       return;
     }
-    await printPdfJsViewerFrame(findPrintableViewerFrame(root));
+    const frame = findPrintableViewerFrame(root);
+    if (frame) {
+      await printPdfJsViewerFrame(frame);
+      return;
+    }
+    if (!getLatestPdfOutput() || Boolean(session?.canSave?.())) {
+      await applyToolOutput(root);
+    }
+    const output = getLatestPdfOutput();
+    if (output && canSaveToShiftPdf(output)) {
+      await printPdfBlob(output.blob, root);
+    }
   } catch (error) {
     showAlert(
       'Print failed',
@@ -617,13 +637,12 @@ function hasResettableState(root: Document, hasOutput: boolean): boolean {
 }
 
 function hideLegacyOutputActions(root: Document): void {
-  for (const id of [
+  const ids = [
     'completion-download',
     'completion-start-over',
     'completion-save-shift',
     'shift-pdf-save-output',
     'shift-pdf-save-viewer',
-    'process-btn',
     'download-edited-pdf',
     'crop-button',
     'clear-files-btn',
@@ -633,7 +652,12 @@ function hideLegacyOutputActions(root: Document): void {
     'redo-btn',
     'reset-btn',
     'save-stamped-btn',
-  ]) {
+    'export-dropdown-wrapper',
+  ];
+  if (isViewerToolDocument(root)) {
+    ids.push('process-btn');
+  }
+  for (const id of ids) {
     const control = root.getElementById(id);
     if (control instanceof HTMLElement) {
       if (!control.hidden) control.hidden = true;
@@ -678,6 +702,8 @@ function actionIcon(name: string): string {
       '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
     download:
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    printer:
+      '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3h12v6"/><rect width="12" height="8" x="6" y="14"/>',
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;
 }
