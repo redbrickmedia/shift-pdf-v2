@@ -11,6 +11,8 @@ const HIDDEN_EDITOR_IDS = [
   'editorHighlight',
   'editorInk',
   'editorStamp',
+  'downloadButton',
+  'secondaryDownload',
 ] as const;
 
 function getViewerApplication(

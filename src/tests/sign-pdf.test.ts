@@ -68,6 +68,8 @@ describe('PDF.js visual signature mode', () => {
     const viewerDocument = iframe.contentDocument!;
     viewerDocument.body.innerHTML = `
       <div id="editorHighlight"></div>
+      <button id="downloadButton"></button>
+      <button id="secondaryDownload"></button>
       <div id="editorSignature" hidden></div>
       <button id="editorSignatureButton" disabled></button>
       <div id="addSignatureSaveContainer"></div>
@@ -81,6 +83,10 @@ describe('PDF.js visual signature mode', () => {
     configureSessionOnlySignatureUi(iframe, application);
 
     expect(viewerDocument.getElementById('editorHighlight')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('downloadButton')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('secondaryDownload')?.hidden).toBe(
+      true
+    );
     expect(viewerDocument.getElementById('editorSignature')?.hidden).toBe(
       false
     );
