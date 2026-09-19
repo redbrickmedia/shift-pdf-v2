@@ -19,6 +19,7 @@ export const VIEWER_DOWNLOAD_BUTTON_IDS = [
   'download-edited-pdf',
   'process-btn',
   'crop-button',
+  'save-stamped-btn',
 ] as const;
 
 /** Drop zone / file-chip nodes that must leave the layout while viewing. */

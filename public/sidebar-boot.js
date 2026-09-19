@@ -78,7 +78,12 @@
   var PENDING_VIEWER_ROOT_IDS = VIEWER_ROOT_IDS.filter(function (id) {
     return MULTI_FILE_VIEWER_ROOT_IDS.indexOf(id) === -1;
   });
-  var VIEWER_ACTION_IDS = ['download-edited-pdf', 'process-btn', 'crop-button'];
+  var VIEWER_ACTION_IDS = [
+    'download-edited-pdf',
+    'process-btn',
+    'crop-button',
+    'save-stamped-btn',
+  ];
   var SIDEBAR_THUMB_STORE_KEY = 'shiftSidebarThumbnails';
   var SIDEBAR_THUMB_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
   var MAX_SIDEBAR_ROWS = 3;

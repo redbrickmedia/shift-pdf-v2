@@ -16,10 +16,13 @@ const embedPdfWasmUrl = new URL(
 ).href;
 
 import type { EmbedPdfContainer } from 'embedpdf-snippet';
-import type { DocManagerPlugin } from '@/types';
+import type { DocManagerPlugin, HistoryPlugin, PrintPlugin } from '@/types';
 
 let viewerInstance: EmbedPdfContainer | null = null;
 let docManagerPlugin: DocManagerPlugin | null = null;
+let historyPlugin: HistoryPlugin | null = null;
+let printPlugin: PrintPlugin | null = null;
+let unbindHistory: (() => void) | null = null;
 let isViewerInitialized = false;
 let currentFileName = 'document.pdf';
 const fileEntryMap = new Map<string, HTMLElement>();
@@ -36,8 +39,12 @@ function resetViewer() {
   if (downloadBtn) downloadBtn.classList.add('hidden');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
   if (fileInput) fileInput.value = '';
+  unbindHistory?.();
+  unbindHistory = null;
   viewerInstance = null;
   docManagerPlugin = null;
+  historyPlugin = null;
+  printPlugin = null;
   isViewerInitialized = false;
   fileEntryMap.clear();
   exportEditedPdf = null;
@@ -71,11 +78,51 @@ async function applyEditedPdf(): Promise<void> {
   }
 }
 
+function editorHasEdits(): boolean {
+  try {
+    return Boolean(historyPlugin?.getHistoryState().global.canUndo);
+  } catch {
+    return Boolean(historyPlugin?.canUndo());
+  }
+}
+
+async function printEditedPdf(): Promise<void> {
+  const task = printPlugin?.print();
+  if (!task || typeof task.wait !== 'function') {
+    throw new Error('Printing is unavailable in this editor.');
+  }
+  await new Promise<void>((resolve, reject) => {
+    task.wait(
+      () => resolve(),
+      (error) =>
+        reject(error instanceof Error ? error : new Error('Print failed.'))
+    );
+  });
+}
+
+function getRegistryPlugin<T>(
+  registry: { getPlugin: (id: string) => { provides?: () => unknown } },
+  id: string
+): T | null {
+  try {
+    return (registry.getPlugin(id).provides?.() as T) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function initializePage() {
   createIcons({ icons });
   registerToolOutputSession({
+    reset: resetViewer,
     apply: applyEditedPdf,
-    canSave: () => isViewerInitialized,
+    print: printEditedPdf,
+    undo: () => historyPlugin?.undo(),
+    redo: () => historyPlugin?.redo(),
+    canUndo: () => historyPlugin?.canUndo() ?? false,
+    canRedo: () => historyPlugin?.canRedo() ?? false,
+    canSave: () => editorHasEdits(),
+    canPrint: () => isViewerInitialized,
   });
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -173,6 +220,13 @@ async function handleFiles(files: FileList) {
       docManagerPlugin = registry
         .getPlugin('document-manager')
         .provides() as unknown as DocManagerPlugin;
+      historyPlugin = getRegistryPlugin<HistoryPlugin>(registry, 'history');
+      printPlugin = getRegistryPlugin<PrintPlugin>(registry, 'print');
+      unbindHistory?.();
+      const unbind = historyPlugin?.onHistoryChange(() => {
+        syncToolOutputToolbar();
+      });
+      unbindHistory = typeof unbind === 'function' ? unbind : null;
 
       docManagerPlugin.onDocumentClosed((data: { id?: string }) => {
         const docId = data?.id || '';

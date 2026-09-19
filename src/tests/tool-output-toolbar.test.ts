@@ -139,6 +139,7 @@ describe('tool output toolbar', () => {
           </div>
           <div id="signature-editor"></div>
           <button id="process-btn" type="button">Apply signatures</button>
+          <button id="save-stamped-btn" type="button">Save Stamped PDF</button>
         </div>
       </main>
     `;
@@ -165,6 +166,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(menu?.classList.contains('is-ready')).toBe(false);
     expect(document.getElementById('process-btn')?.hidden).toBe(true);
+    expect(document.getElementById('save-stamped-btn')?.hidden).toBe(true);
   });
 
   it('keeps viewer Save, hover, Undo, and Redo off until the PDF changes', () => {

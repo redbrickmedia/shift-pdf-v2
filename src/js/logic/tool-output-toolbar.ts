@@ -465,7 +465,12 @@ async function applyToolOutput(root: Document): Promise<void> {
 }
 
 function findProcessButton(root: Document): HTMLButtonElement | null {
-  for (const id of ['process-btn', 'download-edited-pdf', 'crop-button']) {
+  for (const id of [
+    'process-btn',
+    'download-edited-pdf',
+    'crop-button',
+    'save-stamped-btn',
+  ]) {
     const button = getButton(root, id);
     if (button && !button.disabled) return button;
   }
@@ -627,6 +632,7 @@ function hideLegacyOutputActions(root: Document): void {
     'undo-btn',
     'redo-btn',
     'reset-btn',
+    'save-stamped-btn',
   ]) {
     const control = root.getElementById(id);
     if (control instanceof HTMLElement) {
