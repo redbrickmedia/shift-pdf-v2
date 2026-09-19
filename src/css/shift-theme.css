@@ -1145,11 +1145,11 @@ body.shift-has-open-file #file-display-area {
 .shift-tool-viewer-bar {
   display: flex;
   flex-shrink: 0;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-12);
+  gap: clamp(12px, 2vw, 32px);
   width: 100%;
-  margin-bottom: var(--spacing-16);
+  margin-bottom: 0;
   order: 0;
 }
 
@@ -1157,6 +1157,19 @@ body.shift-has-open-file #file-display-area {
   /* Stay a sibling of the gray card so title/Reset/Save match viewer tools. */
   position: relative;
   z-index: 2;
+}
+
+/* Same page chrome as .shift-pdf-viewer-shell / viewer tools: beat the
+   authored Tailwind `p-4 py-12` so boxed tools and viewers share one inset
+   and one gap under the header. Convert hub has no #tool-uploader. */
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
+  > #uploader:has(#tool-uploader) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 2.5vw, 32px);
+  padding: clamp(16px, 3vw, 40px);
+  background: var(--background-secondary);
 }
 
 .shift-tool-viewer-title {
@@ -1321,10 +1334,6 @@ body.shift-tool-viewer .shift-tool-output-toolbar {
 
 body.shift-tool-viewer .shift-tool-viewer-bar,
 body.shift-tool-viewer-pending .shift-tool-viewer-bar {
-  /* Gap on the host (same as .shift-pdf-viewer-shell) separates this row
-     from the document; do not add card-style margin here. */
-  align-items: center;
-  margin-bottom: 0;
   max-width: none !important;
 }
 

@@ -240,6 +240,12 @@ describe('tool viewer layout', () => {
     expect(css).not.toMatch(
       /body\.shift-home:has\(#shift-my-pdfs\).*shift-tool-viewer/s
     );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*padding:\s*clamp\(16px, 3vw, 40px\)/s
+    );
+    expect(css).toMatch(
+      /#uploader:has\(#tool-uploader\)\s*\{[^}]*gap:\s*clamp\(16px, 2\.5vw, 32px\)/s
+    );
   });
 
   it('drops the Tailwind card on #tool-uploader while viewing', () => {
