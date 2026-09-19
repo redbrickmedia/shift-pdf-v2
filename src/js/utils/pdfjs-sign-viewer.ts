@@ -89,11 +89,23 @@ export function editorHistoryFromStates(
   };
 }
 
+export function isEditorHistoryDetails(
+  details: EditorStatesChangedEvent['details'] | unknown
+): details is NonNullable<EditorStatesChangedEvent['details']> {
+  if (!details || typeof details !== 'object') return false;
+  return (
+    'isEmpty' in details ||
+    'hasSomethingToUndo' in details ||
+    'hasSomethingToRedo' in details
+  );
+}
+
 export function getPdfJsAnnotationEditorUIManager(
   application: PDFViewerApplication | null | undefined
 ): { undo?: () => void; redo?: () => void } | null {
-  return application?.pdfViewer?._layerProperties?.annotationEditorUIManager ??
-    null;
+  return (
+    application?.pdfViewer?._layerProperties?.annotationEditorUIManager ?? null
+  );
 }
 
 export function bindPdfJsEditorHistory(
@@ -105,6 +117,8 @@ export function bindPdfJsEditorHistory(
 
   const listener = (event?: unknown) => {
     const details = (event as EditorStatesChangedEvent | undefined)?.details;
+    // PDF.js also emits this event for thumbnail page selection. Ignore those.
+    if (!isEditorHistoryDetails(details)) return;
     onChange(editorHistoryFromStates(details));
   };
 
@@ -119,12 +133,20 @@ export function bindPdfJsEditorHistory(
 export function undoPdfJsEditor(
   application: PDFViewerApplication | null | undefined
 ): void {
+  if (application?.eventBus) {
+    application.eventBus.dispatch('editingaction', { name: 'undo' });
+    return;
+  }
   getPdfJsAnnotationEditorUIManager(application)?.undo?.();
 }
 
 export function redoPdfJsEditor(
   application: PDFViewerApplication | null | undefined
 ): void {
+  if (application?.eventBus) {
+    application.eventBus.dispatch('editingaction', { name: 'redo' });
+    return;
+  }
   getPdfJsAnnotationEditorUIManager(application)?.redo?.();
 }
 

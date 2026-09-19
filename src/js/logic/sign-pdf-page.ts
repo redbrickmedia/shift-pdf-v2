@@ -323,10 +323,34 @@ function bindSignEditorHistory(
 ): void {
   unbindEditorHistory?.();
   editorHistory = EMPTY_PDFJS_EDITOR_HISTORY;
-  unbindEditorHistory = bindPdfJsEditorHistory(application, (next) => {
+  const unbindEvents = bindPdfJsEditorHistory(application, (next) => {
     editorHistory = next;
     syncToolOutputToolbar();
   });
+  const storage = application.pdfDocument?.annotationStorage as
+    | {
+        onSetModified?: (() => void) | null;
+        size?: number;
+      }
+    | undefined;
+  const previousModified = storage?.onSetModified;
+  if (storage) {
+    storage.onSetModified = () => {
+      previousModified?.();
+      if (!editorHistory.hasEdits || !editorHistory.canUndo) {
+        editorHistory = {
+          ...editorHistory,
+          hasEdits: true,
+          canUndo: true,
+        };
+        syncToolOutputToolbar();
+      }
+    };
+  }
+  unbindEditorHistory = () => {
+    unbindEvents();
+    if (storage) storage.onSetModified = previousModified ?? null;
+  };
 }
 
 async function printSignedPdf() {

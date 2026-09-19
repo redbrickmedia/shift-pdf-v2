@@ -5,6 +5,10 @@ import { formatBytes, downloadFile } from '../utils/helpers.js';
 import { makeUniqueFileKey } from '../utils/deduplicate-filename.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { getEditorDisabledCategories } from '../utils/disabled-tools.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 const embedPdfWasmUrl = new URL(
   'embedpdf-snippet/dist/pdfium.wasm',
@@ -19,6 +23,7 @@ let docManagerPlugin: DocManagerPlugin | null = null;
 let isViewerInitialized = false;
 let currentFileName = 'document.pdf';
 const fileEntryMap = new Map<string, HTMLElement>();
+let exportEditedPdf: (() => Promise<void>) | null = null;
 
 function resetViewer() {
   const pdfWrapper = document.getElementById('embed-pdf-wrapper');
@@ -35,6 +40,8 @@ function resetViewer() {
   docManagerPlugin = null;
   isViewerInitialized = false;
   fileEntryMap.clear();
+  exportEditedPdf = null;
+  syncToolOutputToolbar();
 }
 
 function removeFileEntry(documentId: string) {
@@ -54,8 +61,22 @@ if (document.readyState === 'loading') {
   initializePage();
 }
 
+async function applyEditedPdf(): Promise<void> {
+  if (!exportEditedPdf) return;
+  try {
+    await exportEditedPdf();
+  } catch (err) {
+    console.error('Error exporting PDF:', err);
+    showAlert('Error', 'Failed to download the edited PDF.');
+  }
+}
+
 function initializePage() {
   createIcons({ icons });
+  registerToolOutputSession({
+    apply: applyEditedPdf,
+    canSave: () => isViewerInitialized,
+  });
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
@@ -199,6 +220,12 @@ async function handleFiles(files: FileList) {
       }
 
       isViewerInitialized = true;
+      exportEditedPdf = async () => {
+        const exportPlugin = registry.getPlugin('export').provides();
+        const arrayBuffer = await exportPlugin.saveAsCopy().toPromise();
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        downloadFile(blob, currentFileName);
+      };
 
       let downloadBtn = document.getElementById('download-edited-pdf');
       if (!downloadBtn) {
@@ -210,17 +237,13 @@ async function handleFiles(files: FileList) {
       }
       downloadBtn.classList.remove('hidden');
 
-      downloadBtn.onclick = async () => {
-        try {
-          const exportPlugin = registry.getPlugin('export').provides();
-          const arrayBuffer = await exportPlugin.saveAsCopy().toPromise();
-          const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-          downloadFile(blob, currentFileName);
-        } catch (err) {
+      downloadBtn.onclick = () => {
+        void exportEditedPdf?.().catch((err) => {
           console.error('Error downloading PDF:', err);
           showAlert('Error', 'Failed to download the edited PDF.');
-        }
+        });
       };
+      syncToolOutputToolbar();
     } else {
       addFileEntries(fileDisplayArea, decryptedFiles);
 

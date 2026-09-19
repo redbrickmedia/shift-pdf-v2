@@ -336,6 +336,7 @@ describe('tool output toolbar', () => {
     });
 
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
     button(TOOL_OUTPUT_SAVE_ID).click();
 
     await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
@@ -344,6 +345,45 @@ describe('tool output toolbar', () => {
       expect(entries).toHaveLength(1);
       expect(entries[0]?.name).toBe('signed.pdf');
     });
+    unregister();
+  });
+
+  it('applies then downloads from the viewer Download button', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const apply = vi.fn(() => {
+      setLatestPdfOutput({
+        blob: new Blob(['signed'], { type: 'application/pdf' }),
+        filename: 'signed.pdf',
+      });
+    });
+    const createElement = document.createElement.bind(document);
+    const clicked = vi.fn();
+    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+      const element = createElement(tag);
+      if (tag === 'a') {
+        element.click = clicked;
+      }
+      return element;
+    });
+    const unregister = registerToolOutputSession({
+      apply,
+      canSave: () => true,
+    });
+
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    button(TOOL_OUTPUT_DOWNLOAD_ID).click();
+
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(clicked).toHaveBeenCalledOnce());
     unregister();
   });
 

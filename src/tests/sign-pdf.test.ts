@@ -12,6 +12,7 @@ import {
   configureSessionOnlySignatureUi,
   editorHistoryFromStates,
   EMPTY_PDFJS_EDITOR_HISTORY,
+  isEditorHistoryDetails,
   PDFJS_SIGNATURE_MODE,
   redoPdfJsEditor,
   undoPdfJsEditor,
@@ -170,8 +171,7 @@ describe('PDF.js visual signature mode', () => {
 
   it('forwards PDF.js editor undo and redo and tracks history events', () => {
     const listeners = new Map<string, (event?: unknown) => void>();
-    const undo = vi.fn();
-    const redo = vi.fn();
+    const dispatch = vi.fn();
     const onChange = vi.fn();
     const application = {
       eventBus: {
@@ -182,12 +182,7 @@ describe('PDF.js visual signature mode', () => {
           listeners.delete(event);
         },
         _on: vi.fn(),
-        dispatch: vi.fn(),
-      },
-      pdfViewer: {
-        _layerProperties: {
-          annotationEditorUIManager: { undo, redo },
-        },
+        dispatch,
       },
     } as PDFViewerApplication;
 
@@ -199,17 +194,25 @@ describe('PDF.js visual signature mode', () => {
         hasSomethingToRedo: true,
       },
     });
+    listeners.get('editingstateschanged')?.({
+      details: {
+        thumbnailId: 1,
+        hasSelectedPages: true,
+      },
+    });
 
+    expect(onChange).toHaveBeenCalledOnce();
     expect(onChange).toHaveBeenCalledWith({
       hasEdits: true,
       canUndo: true,
       canRedo: true,
     });
+    expect(isEditorHistoryDetails({ thumbnailId: 1 })).toBe(false);
 
     undoPdfJsEditor(application);
     redoPdfJsEditor(application);
-    expect(undo).toHaveBeenCalledOnce();
-    expect(redo).toHaveBeenCalledOnce();
+    expect(dispatch).toHaveBeenCalledWith('editingaction', { name: 'undo' });
+    expect(dispatch).toHaveBeenCalledWith('editingaction', { name: 'redo' });
 
     unbind();
     expect(listeners.has('editingstateschanged')).toBe(false);

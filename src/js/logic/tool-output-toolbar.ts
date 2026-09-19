@@ -125,7 +125,9 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (overwrite) {
     setButtonDisabled(overwrite, saveInFlight || !canOverwriteOutput(root));
   }
-  if (download) setButtonDisabled(download, !output);
+  if (download) {
+    setButtonDisabled(download, saveInFlight || !canDownloadOutput(root));
+  }
   if (print) {
     setButtonDisabled(print, !canPrintOutput(root));
   }
@@ -148,6 +150,11 @@ function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
     closeViewerSaveMenu(menu);
     if (menu instanceof HTMLDetailsElement) menu.open = false;
   }
+}
+
+function canDownloadOutput(root: Document): boolean {
+  if (getLatestPdfOutput()) return true;
+  return canSaveOutput(root);
 }
 
 function canOverwriteOutput(root: Document): boolean {
@@ -326,9 +333,9 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
 }
 
 function bindSharedActionHandlers(root: Document): void {
-  getButton(root, TOOL_OUTPUT_DOWNLOAD_ID)?.addEventListener('click', () =>
-    downloadOutput(root)
-  );
+  getButton(root, TOOL_OUTPUT_DOWNLOAD_ID)?.addEventListener('click', () => {
+    void downloadOutput(root);
+  });
   getButton(root, TOOL_OUTPUT_PRINT_ID)?.addEventListener('click', () => {
     void printOutput(root);
   });
@@ -442,11 +449,22 @@ function findProcessButton(root: Document): HTMLButtonElement | null {
   return null;
 }
 
-function downloadOutput(root: Document): void {
-  const output = getLatestPdfOutput();
-  if (!output) return;
-  downloadBlob(output.blob, output.filename);
+async function downloadOutput(root: Document): Promise<void> {
+  if (saveInFlight || !canDownloadOutput(root)) return;
   closeOutputMenu(root);
+  saveInFlight = true;
+  syncToolOutputToolbar(root);
+  try {
+    if (!getLatestPdfOutput() || Boolean(session?.canSave?.())) {
+      await applyToolOutput(root);
+    }
+    const output = getLatestPdfOutput();
+    if (!output) return;
+    downloadBlob(output.blob, output.filename);
+  } finally {
+    saveInFlight = false;
+    syncToolOutputToolbar(root);
+  }
 }
 
 async function printOutput(root: Document): Promise<void> {
