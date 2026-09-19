@@ -13,6 +13,7 @@ import {
   editorHistoryFromStates,
   EMPTY_PDFJS_EDITOR_HISTORY,
   isEditorHistoryDetails,
+  openPdfJsSignatureDialog,
   PDFJS_SIGNATURE_MODE,
   redoPdfJsEditor,
   undoPdfJsEditor,
@@ -115,6 +116,43 @@ describe('PDF.js visual signature mode', () => {
         ) as HTMLInputElement
       ).disabled
     ).toBe(true);
+    expect(dispatch).toHaveBeenCalledWith('switchannotationeditormode', {
+      source: window,
+      mode: PDFJS_SIGNATURE_MODE,
+    });
+  });
+
+  it('clicks the viewer Add signature button even though it is in another realm', () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const viewerDocument = iframe.contentDocument!;
+    viewerDocument.body.innerHTML =
+      '<button id="editorSignatureAddSignature"></button>';
+    const addButton = viewerDocument.getElementById(
+      'editorSignatureAddSignature'
+    )!;
+    const clicked = vi.fn();
+    addButton.addEventListener('click', clicked);
+    const dispatch = vi.fn();
+
+    openPdfJsSignatureDialog(iframe, {
+      eventBus: { dispatch, _on: vi.fn() },
+    } as PDFViewerApplication);
+
+    expect(addButton instanceof HTMLElement).toBe(false);
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Signature mode when the viewer button is missing', () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const dispatch = vi.fn();
+
+    openPdfJsSignatureDialog(iframe, {
+      eventBus: { dispatch, _on: vi.fn() },
+    } as PDFViewerApplication);
+
     expect(dispatch).toHaveBeenCalledWith('switchannotationeditormode', {
       source: window,
       mode: PDFJS_SIGNATURE_MODE,

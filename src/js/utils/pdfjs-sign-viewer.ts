@@ -150,6 +150,29 @@ export function redoPdfJsEditor(
   getPdfJsAnnotationEditorUIManager(application)?.redo?.();
 }
 
+/**
+ * Open PDF.js's "Add a signature" dialog from the host page.
+ *
+ * The button belongs to the iframe's realm, so `instanceof HTMLElement`
+ * against this window's constructor is always false.
+ */
+export function openPdfJsSignatureDialog(
+  iframe: HTMLIFrameElement | null | undefined,
+  application: PDFViewerApplication | null | undefined
+): void {
+  const addButton = iframe?.contentDocument?.getElementById(
+    'editorSignatureAddSignature'
+  ) as HTMLElement | null;
+  if (typeof addButton?.click === 'function') {
+    addButton.click();
+    return;
+  }
+  application?.eventBus?.dispatch('switchannotationeditormode', {
+    source: window,
+    mode: PDFJS_SIGNATURE_MODE,
+  });
+}
+
 export function configureSessionOnlySignatureUi(
   iframe: HTMLIFrameElement,
   application: PDFViewerApplication
