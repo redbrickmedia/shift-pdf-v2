@@ -491,6 +491,25 @@ describe('tool output toolbar', () => {
     unregister();
   });
 
+  it('lets a tool keep Reset disabled until there are edits', () => {
+    let canReset = false;
+    const reset = vi.fn(() => {
+      canReset = false;
+    });
+    const unregister = registerToolOutputSession({
+      reset,
+      canReset: () => canReset,
+    });
+
+    expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(true);
+
+    canReset = true;
+    syncToolOutputToolbar();
+    expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(false);
+
+    unregister();
+  });
+
   it('does not build a second header when boot already lifted the title', () => {
     document.body.innerHTML = `
       <main>

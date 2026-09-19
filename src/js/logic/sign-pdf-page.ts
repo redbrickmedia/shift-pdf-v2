@@ -68,13 +68,14 @@ function initializePage() {
   createIcons({ icons });
   completionPanel = createDefaultToolCompletionPanel(resetState);
   const unregisterOutputSession = registerToolOutputSession({
-    reset: resetState,
+    reset: resetEdits,
     apply: applyAndSaveSignatures,
     print: printSignedPdf,
     undo: () => undoPdfJsEditor(getSignViewerApplication()),
     redo: () => redoPdfJsEditor(getSignViewerApplication()),
     canUndo: () => editorHistory.canUndo,
     canRedo: () => editorHistory.canRedo,
+    canReset: hasSignEditsToReset,
     canSave: () => editorHistory.hasEdits,
     canPrint: () => signState.viewerReady,
   });
@@ -459,6 +460,37 @@ async function applyAndSaveSignatures() {
       'Could not export the signed PDF. Please try again.'
     );
   }
+}
+
+function hasSignEditsToReset(): boolean {
+  return (
+    editorHistory.hasEdits ||
+    Boolean(
+      (
+        document.getElementById(
+          'flatten-signature-toggle'
+        ) as HTMLInputElement | null
+      )?.checked
+    )
+  );
+}
+
+async function resetEdits(): Promise<void> {
+  const file = signState.file;
+  if (!file) return;
+
+  const flattenCheckbox = document.getElementById(
+    'flatten-signature-toggle'
+  ) as HTMLInputElement | null;
+  if (flattenCheckbox) flattenCheckbox.checked = false;
+  updateDownloadButtonLabel();
+
+  if (!editorHistory.hasEdits && signState.viewerReady) {
+    syncToolOutputToolbar();
+    return;
+  }
+
+  await handleFile(file);
 }
 
 function resetState() {

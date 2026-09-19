@@ -42,6 +42,7 @@ export interface ToolOutputSession {
   print?: () => void | Promise<void>;
   canUndo?: () => boolean;
   canRedo?: () => boolean;
+  canReset?: () => boolean;
   canSave?: () => boolean;
   canPrint?: () => boolean;
 }
@@ -559,6 +560,7 @@ function clickFirstLegacyReset(root: Document): void {
 }
 
 function hasResettableState(root: Document, hasOutput: boolean): boolean {
+  if (session?.canReset) return session.canReset();
   if (hasOutput || session?.reset) return true;
   return Boolean(
     root.querySelector(

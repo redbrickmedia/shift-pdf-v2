@@ -80,6 +80,20 @@ describe('viewer tool output sessions', () => {
     expect(edit).not.toContain('canSave: () => isViewerInitialized');
   });
 
+  it('resets Sign PDF edits without removing the open file', () => {
+    const sign = readSrc('src/js/logic/sign-pdf-page.ts');
+    expect(sign).toContain('reset: resetEdits');
+    expect(sign).toContain('canReset: hasSignEditsToReset');
+    expect(sign).toContain('await handleFile(file)');
+    expect(sign).toMatch(
+      /registerToolOutputSession\(\{[\s\S]*reset: resetEdits/
+    );
+    expect(sign).not.toMatch(
+      /registerToolOutputSession\(\{[\s\S]*reset: resetState/
+    );
+    expect(sign).toContain('void clearWorkspaceOpenFile()');
+  });
+
   it('publishes Compare PDFs through the shared Save session', () => {
     const compare = readSrc('src/js/logic/compare-pdfs-page.ts');
     expect(compare).toContain('registerToolOutputSession');
