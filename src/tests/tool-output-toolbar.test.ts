@@ -67,6 +67,28 @@ describe('tool output toolbar', () => {
     expect(document.getElementById('clear-files-btn')?.hidden).toBe(true);
   });
 
+  it('stays out of the PDF viewer, which has no output to save', () => {
+    document.body.innerHTML = `
+      <main id="shift-pdf-viewer">
+        <div class="shift-pdf-viewer-actions">
+          <button id="shift-pdf-viewer-print" type="button">Print</button>
+          <button id="shift-pdf-viewer-download" type="button">Download</button>
+        </div>
+        <iframe id="shift-pdf-viewer-frame"></iframe>
+      </main>
+    `;
+    initToolOutputToolbar();
+    syncToolOutputToolbar();
+
+    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
+    expect(document.getElementById('shift-pdf-viewer-print')?.hidden).toBe(
+      false
+    );
+    expect(document.getElementById('shift-pdf-viewer-download')?.hidden).toBe(
+      false
+    );
+  });
+
   it('keeps Download and Print together behind the disclosure', () => {
     const menu = document.getElementById(
       TOOL_OUTPUT_MENU_ID

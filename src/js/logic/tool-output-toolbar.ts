@@ -133,7 +133,9 @@ function isNonToolPage(root: Document): boolean {
   return (
     root.body.classList.contains('shift-home') ||
     Boolean(root.getElementById('shift-my-pdfs')) ||
-    Boolean(root.getElementById('tool-grid'))
+    Boolean(root.getElementById('tool-grid')) ||
+    // The PDF viewer produces no output, so it keeps its own header actions.
+    Boolean(root.getElementById('shift-pdf-viewer'))
   );
 }
 
@@ -151,7 +153,6 @@ function ensureToolbar(root: Document): HTMLElement | null {
 
   const host =
     viewerActions ??
-    root.querySelector<HTMLElement>('.shift-pdf-viewer-actions') ??
     root.getElementById('workflow-toolbar') ??
     root.querySelector<HTMLElement>('.toolbar-container') ??
     root.getElementById('tool-uploader') ??
@@ -298,17 +299,18 @@ async function printOutput(root: Document): Promise<void> {
   }
 }
 
+const EMBEDDED_VIEWER_FRAMES =
+  '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe';
+
 function findPrintableViewerFrame(root: Document): HTMLIFrameElement | null {
   const toolbar = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
   const viewerRoot = toolbar?.closest('#tool-uploader') ?? root;
-  return viewerRoot.querySelector<HTMLIFrameElement>(
-    '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe, #shift-pdf-viewer-frame'
-  );
+  return viewerRoot.querySelector<HTMLIFrameElement>(EMBEDDED_VIEWER_FRAMES);
 }
 
 function hideEmbeddedViewerPrintControls(root: Document): void {
   for (const frame of root.querySelectorAll<HTMLIFrameElement>(
-    '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe, #shift-pdf-viewer-frame'
+    EMBEDDED_VIEWER_FRAMES
   )) {
     try {
       hidePdfJsPrintControls(frame.contentDocument);
@@ -373,7 +375,6 @@ function hideLegacyOutputActions(root: Document): void {
     'completion-save-shift',
     'shift-pdf-save-output',
     'shift-pdf-save-viewer',
-    'shift-pdf-viewer-download',
     'clear-files-btn',
     'undo-merge-btn',
     'redo-merge-btn',

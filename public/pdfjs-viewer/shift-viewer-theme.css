@@ -1,6 +1,9 @@
-/* Shift owns Print in the parent tool toolbar disclosure. */
-html[data-shift-viewer] #printButton,
-html[data-shift-viewer] #secondaryPrint {
+/* Tool embeds print from the parent toolbar disclosure; the launchpad viewer
+   keeps its own stock chrome. */
+html[data-shift-viewer='sign'] #printButton,
+html[data-shift-viewer='sign'] #secondaryPrint,
+html[data-shift-viewer='embed'] #printButton,
+html[data-shift-viewer='embed'] #secondaryPrint {
   display: none !important;
 }
 
