@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** viewer.html loads this as a classic script, not an ES module. */
 async function runLaunchpadScript() {
@@ -102,6 +102,39 @@ describe('Shift launchpad controls for the PDF.js viewer', () => {
       (163 * 152) / 126 + 4,
       1
     );
+  });
+
+  it('waits for every page view before printing from the viewer header', async () => {
+    document.documentElement.dataset.shiftViewer = 'launchpad';
+    renderViewerMarkup();
+    const printButton = document.createElement('button');
+    printButton.id = 'printButton';
+    const printed = vi.fn();
+    printButton.addEventListener('click', printed);
+    document.body.append(printButton);
+
+    const pdfViewer = { pageViewsReady: false };
+    (window as unknown as Record<string, unknown>).PDFViewerApplication = {
+      pdfViewer,
+    };
+
+    await runLaunchpadScript();
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { channel: 'shift-pdf-viewer', action: 'print' },
+        origin: window.location.origin,
+        source: window,
+      })
+    );
+
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+    expect(printed).not.toHaveBeenCalled();
+
+    pdfViewer.pageViewsReady = true;
+    await vi.waitFor(() => expect(printed).toHaveBeenCalled());
+
+    delete (window as unknown as Record<string, unknown>).PDFViewerApplication;
   });
 
   it('leaves other embeds untouched', async () => {

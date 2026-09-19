@@ -11,6 +11,7 @@
   var THUMB_BORDER_WIDTH = 2;
   var THUMB_CONTENT_WIDTH = THUMB_DESIGN_WIDTH - THUMB_BORDER_WIDTH * 2;
   var THUMB_SCALE = THUMB_CONTENT_WIDTH / THUMB_NATIVE_WIDTH;
+  var PAGES_READY_TIMEOUT_MS = 15000;
 
   function element(id) {
     return document.getElementById(id);
@@ -213,6 +214,21 @@
     window.setTimeout(openThumbnails, 0);
   }
 
+  /* PDF.js prints the page views it has built, so printing before the last one
+     is ready silently drops pages from the output. */
+  function whenPagesReady(run) {
+    var deadline = Date.now() + PAGES_READY_TIMEOUT_MS;
+    var poll = function () {
+      var viewer = window.PDFViewerApplication?.pdfViewer;
+      if (viewer?.pageViewsReady !== false || Date.now() > deadline) {
+        run();
+        return;
+      }
+      window.setTimeout(poll, 50);
+    };
+    poll();
+  }
+
   function bindParentActions() {
     window.addEventListener('message', function (event) {
       if (
@@ -224,7 +240,9 @@
       if (!event.data || event.data.channel !== CHANNEL) return;
 
       if (event.data.action === 'print') {
-        element('printButton')?.click();
+        whenPagesReady(function () {
+          element('printButton')?.click();
+        });
         return;
       }
       if (event.data.action === 'download') {
