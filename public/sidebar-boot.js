@@ -414,11 +414,14 @@
       });
       if (!hasViewer) return true;
 
-      var heading = card.querySelector('h1');
-      if (!heading) return false;
-
-      var bar = card.querySelector('.' + VIEWER_BAR_CLASS);
+      var host = card.parentNode;
+      var bar =
+        (host && host.querySelector
+          ? host.querySelector(':scope > .' + VIEWER_BAR_CLASS)
+          : null) || card.querySelector('.' + VIEWER_BAR_CLASS);
       if (!bar) {
+        var heading = card.querySelector('h1');
+        if (!heading) return false;
         bar = document.createElement('div');
         bar.className = VIEWER_BAR_CLASS;
 
@@ -431,7 +434,6 @@
             ? heading.nextElementSibling
             : null;
 
-        heading.replaceWith(bar);
         title.appendChild(heading);
         if (subtitle) title.appendChild(subtitle);
 
@@ -441,6 +443,17 @@
 
         bar.appendChild(title);
         bar.appendChild(actions);
+      }
+
+      if (host && bar.parentNode !== host) {
+        host.insertBefore(bar, card);
+      }
+      if (card.classList) {
+        card.classList.forEach(function (cls) {
+          if (cls === 'w-full' || cls.indexOf('max-w-') === 0) {
+            bar.classList.add(cls);
+          }
+        });
       }
 
       document.body.classList.add(TOOL_VIEWER_CLASS);

@@ -77,12 +77,15 @@ describe('tool output toolbar', () => {
     expect(document.querySelector('.shift-tool-viewer-bar')).toBe(bar);
   });
 
-  it('puts the title on the left and Reset/Save on the right of the card header', () => {
+  it('puts the title on the left and Reset/Save on the right outside the card', () => {
     const card = document.getElementById('tool-uploader');
-    const bar = card?.querySelector('.shift-tool-viewer-bar');
+    const bar = document.querySelector('.shift-tool-viewer-bar');
     const title = bar?.querySelector('.shift-tool-viewer-title');
     const actions = bar?.querySelector('[data-shift-viewer-actions]');
 
+    expect(bar?.parentElement).toBe(card?.parentElement);
+    expect(card?.contains(bar)).toBe(false);
+    expect(bar?.nextElementSibling).toBe(card);
     expect(bar?.firstElementChild).toBe(title);
     expect(title?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(title?.querySelector('p')?.textContent).toBe('Sign a document.');
@@ -154,10 +157,14 @@ describe('tool output toolbar', () => {
     `;
     initToolOutputToolbar();
 
+    const card = document.getElementById('tool-uploader');
+    const bar = document.querySelector('.shift-tool-viewer-bar');
     const actions = document.querySelector('[data-shift-viewer-actions]');
     const menu = document.getElementById(
       TOOL_OUTPUT_MENU_ID
     ) as HTMLElement | null;
+    expect(card?.contains(bar)).toBe(false);
+    expect(bar?.nextElementSibling).toBe(card);
     expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
     expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);

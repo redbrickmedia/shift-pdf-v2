@@ -1153,6 +1153,12 @@ body.shift-has-open-file #file-display-area {
   order: 0;
 }
 
+#uploader > .shift-tool-viewer-bar {
+  /* Stay a sibling of the gray card so title/Reset/Save match viewer tools. */
+  position: relative;
+  z-index: 2;
+}
+
 .shift-tool-viewer-title {
   display: flex;
   flex: 1 1 auto;
@@ -1313,11 +1319,13 @@ body.shift-tool-viewer .shift-tool-output-toolbar {
   display: none;
 }
 
-body.shift-tool-viewer .shift-tool-viewer-bar {
+body.shift-tool-viewer .shift-tool-viewer-bar,
+body.shift-tool-viewer-pending .shift-tool-viewer-bar {
   /* Gap on the host (same as .shift-pdf-viewer-shell) separates this row
      from the document; do not add card-style margin here. */
   align-items: center;
   margin-bottom: 0;
+  max-width: none !important;
 }
 
 /* Subtitle / empty-state copy compete with the viewer; the heading alone is
@@ -1419,6 +1427,7 @@ body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar):has(
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: clamp(16px, 2.5vw, 32px);
   overflow: hidden;
   overscroll-behavior: none;
   /* Same chrome as .shift-pdf-viewer-shell: the document fills this pane,

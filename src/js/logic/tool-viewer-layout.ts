@@ -314,10 +314,12 @@ function ensureViewerChrome(root: Document): HTMLElement | null {
   const toolUploader = root.getElementById('tool-uploader');
   if (!toolUploader) return null;
 
-  const existing = toolUploader.querySelector<HTMLElement>(
-    `.${TOOL_VIEWER_BAR_CLASS}`
-  );
+  const existing =
+    toolUploader.parentElement?.querySelector<HTMLElement>(
+      `:scope > .${TOOL_VIEWER_BAR_CLASS}`
+    ) ?? toolUploader.querySelector<HTMLElement>(`.${TOOL_VIEWER_BAR_CLASS}`);
   if (existing) {
+    placeToolCardHeader(existing, toolUploader);
     return existing.querySelector<HTMLElement>(`[${TOOL_VIEWER_ACTIONS_ATTR}]`);
   }
 
@@ -335,7 +337,6 @@ function ensureViewerChrome(root: Document): HTMLElement | null {
       ? heading.nextElementSibling
       : null;
 
-  heading.replaceWith(bar);
   title.append(heading);
   if (subtitle) title.append(subtitle);
 
@@ -344,7 +345,21 @@ function ensureViewerChrome(root: Document): HTMLElement | null {
   actions.setAttribute(TOOL_VIEWER_ACTIONS_ATTR, '');
 
   bar.append(title, actions);
+  placeToolCardHeader(bar, toolUploader);
   return actions;
+}
+
+/** Title + Reset/Save sit on the page, not inside the gray tool card. */
+function placeToolCardHeader(bar: HTMLElement, card: HTMLElement): void {
+  const host = card.parentElement;
+  if (host && bar.parentElement !== host) {
+    host.insertBefore(bar, card);
+  }
+  for (const cls of card.classList) {
+    if (cls === 'w-full' || cls.startsWith('max-w-')) {
+      bar.classList.add(cls);
+    }
+  }
 }
 
 function relocateDownloadButtons(root: Document): void {

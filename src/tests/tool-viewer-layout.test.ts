@@ -146,6 +146,8 @@ describe('tool viewer layout', () => {
     const download = document.getElementById('process-btn');
 
     expect(bar).not.toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
     expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(actions?.contains(download)).toBe(true);
     expect(download?.closest('#signature-editor')).toBeNull();
@@ -279,7 +281,7 @@ describe('tool viewer layout', () => {
       document
         .querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)
         ?.closest('#tool-uploader')
-    ).not.toBeNull();
+    ).toBeNull();
     expect(host?.closest('#signature-editor')).not.toBeNull();
 
     document.getElementById('signature-editor')?.classList.add('hidden');
@@ -594,7 +596,9 @@ describe('sidebar-boot.js viewer layout', () => {
 
     const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
     const actions = document.querySelector(`[${TOOL_VIEWER_ACTIONS_ATTR}]`);
-    expect(bar?.closest('#tool-uploader')).not.toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.parentElement?.id).toBe('uploader');
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
     expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(
       bar?.querySelector(`.${TOOL_VIEWER_TITLE_CLASS} p`)?.textContent
