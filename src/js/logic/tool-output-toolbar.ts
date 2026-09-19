@@ -21,7 +21,10 @@ import {
   resolveViewerChromeFeatures,
   type ViewerChromeFeature,
 } from './viewer-chrome.js';
-import { getPrimaryLibrarySaveTarget } from './workspace-files.js';
+import {
+  getPrimaryLibrarySaveTarget,
+  openLibraryFileInViewer,
+} from './workspace-files.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
 export const TOOL_OUTPUT_UNDO_ID = 'shift-tool-output-undo';
@@ -372,7 +375,11 @@ async function saveOutput(root: Document): Promise<void> {
   }
 }
 
-async function overwriteOutput(root: Document): Promise<void> {
+export async function overwriteOutput(
+  root: Document = document,
+  assignLocation: (href: string) => void = (href) =>
+    window.location.assign(href)
+): Promise<void> {
   if (saveInFlight || !canOverwriteOutput()) return;
   saveInFlight = true;
   closeOutputMenu(root);
@@ -381,8 +388,19 @@ async function overwriteOutput(root: Document): Promise<void> {
     await applyToolOutput(root);
     const output = getLatestPdfOutput();
     if (!output || !canSaveToShiftPdf(output)) return;
+    const target = getPrimaryLibrarySaveTarget();
     const result = await overwriteToShiftPdf(output.blob, output.filename, root);
     if (result === 'replaced') {
+      if (
+        target &&
+        (await openLibraryFileInViewer(
+          { id: target.id, name: target.name, source: 'upload' },
+          root,
+          assignLocation
+        ))
+      ) {
+        return;
+      }
       showAlert('Saved', 'The original PDF was updated in My PDFs.', 'success');
       return;
     }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   initToolOutputToolbar,
+  overwriteOutput,
   registerToolOutputSession,
   syncToolOutputToolbar,
   TOOL_OUTPUT_DOWNLOAD_ID,
@@ -334,16 +335,18 @@ describe('tool output toolbar', () => {
     syncToolOutputToolbar();
 
     expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(false);
-    button(TOOL_OUTPUT_OVERWRITE_ID).click();
+    const assignLocation = vi.fn();
+    await overwriteOutput(document, assignLocation);
 
-    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
-    await vi.waitFor(async () => {
-      const entries = await readPdfLibrary();
-      expect(entries).toHaveLength(1);
-      expect(entries[0]?.id).toBe(original.id);
-      expect(entries[0]?.name).toBe('invoice.pdf');
-      await expect(entries[0]?.file.text()).resolves.toBe('signed');
-    });
+    expect(apply).toHaveBeenCalledOnce();
+    const entries = await readPdfLibrary();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBe(original.id);
+    expect(entries[0]?.name).toBe('invoice.pdf');
+    await expect(entries[0]?.file.text()).resolves.toBe('signed');
+    expect(assignLocation).toHaveBeenCalledWith(
+      `view-pdf.html?file=${original.id}`
+    );
     unregister();
   });
 
