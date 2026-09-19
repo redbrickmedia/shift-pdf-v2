@@ -52,6 +52,16 @@ describe('Shift theme for the PDF.js viewer', () => {
     );
   });
 
+  it('lifts launchpad overflow clipping while printing so every page paginates', async () => {
+    const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
+    expect(theme).toMatch(
+      /@media print\s*\{[\s\S]*html\[data-shift-viewer='launchpad'\][\s\S]*overflow:\s*visible\s*!important/s
+    );
+    expect(theme).toMatch(
+      /@media print\s*\{[\s\S]*#printContainer[\s\S]*overflow:\s*visible\s*!important/s
+    );
+  });
+
   it('themes the signing embed', async () => {
     window.history.replaceState(
       {},

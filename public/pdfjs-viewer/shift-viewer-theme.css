@@ -388,6 +388,24 @@ html[data-shift-viewer='launchpad'] #outerContainer {
   background: transparent;
 }
 
+/* PDF.js builds one .printedPage per document page inside #printContainer.
+   The screen shell above pins html/body to a single viewport with overflow
+   clipped. Without a print override Chrome collapses every printed page into
+   one preview page (Sign embed is unaffected — it never sets this rule). */
+@media print {
+  html[data-shift-viewer='launchpad'],
+  html[data-shift-viewer='launchpad'] body {
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  html[data-shift-viewer='launchpad'] #printContainer {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
 html[data-shift-viewer='launchpad'] #toolbarContainer {
   height: 0;
   padding: 0;
