@@ -5,6 +5,7 @@ import {
   syncToolOutputToolbar,
   TOOL_OUTPUT_DOWNLOAD_ID,
   TOOL_OUTPUT_MENU_ID,
+  TOOL_OUTPUT_OVERWRITE_ID,
   TOOL_OUTPUT_PRINT_ID,
   TOOL_OUTPUT_REDO_ID,
   TOOL_OUTPUT_RESET_ID,
@@ -16,8 +17,16 @@ import {
   clearLatestPdfOutput,
   setLatestPdfOutput,
 } from '../js/logic/shift-pdf-save';
-import { clearPdfLibrary, readPdfLibrary } from '../js/logic/pdf-library-store';
-import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
+import {
+  addPdfToLibrary,
+  clearPdfLibrary,
+  readPdfLibrary,
+} from '../js/logic/pdf-library-store';
+import {
+  markFileLibraryId,
+  resetWorkspaceFileIndicator,
+  setWorkspaceFiles,
+} from '../js/logic/workspace-files';
 
 vi.mock('../js/ui.js', () => ({
   showAlert: vi.fn(),
@@ -58,6 +67,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
@@ -93,12 +103,13 @@ describe('tool output toolbar', () => {
       TOOL_OUTPUT_MENU_ID
     ) as HTMLDetailsElement;
 
+    expect(menu.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_PRINT_ID)).toBeNull();
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
   });
 
-  it('puts inline Save in the viewer header and discloses Download and Print', () => {
+  it('puts inline Save in the viewer header and discloses Overwrite, Download, and Print', () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -125,8 +136,10 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_SAVE_ID).className).toBe('shift-pdf-viewer-action');
     expect(menu?.className).toBe('shift-tool-viewer-save');
     expect(menu?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+    expect(menu?.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
     expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
     expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(document.getElementById('process-btn')?.hidden).toBe(true);
   });
 
@@ -156,6 +169,54 @@ describe('tool output toolbar', () => {
     button(TOOL_OUTPUT_PRINT_ID).click();
 
     await vi.waitFor(() => expect(print).toHaveBeenCalledOnce());
+    unregister();
+  });
+
+  it('applies then overwrites the original library PDF from the viewer menu', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <div data-shift-viewer-actions></div>
+          <div id="signature-editor"></div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const original = await addPdfToLibrary(
+      new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    setWorkspaceFiles([
+      markFileLibraryId(
+        new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+        original.id
+      ),
+    ]);
+
+    const apply = vi.fn(() => {
+      setLatestPdfOutput({
+        blob: new Blob(['signed'], { type: 'application/pdf' }),
+        filename: 'invoice-signed.pdf',
+      });
+    });
+    const unregister = registerToolOutputSession({
+      apply,
+      canSave: () => true,
+    });
+    syncToolOutputToolbar();
+
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(false);
+    button(TOOL_OUTPUT_OVERWRITE_ID).click();
+
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.id).toBe(original.id);
+      expect(entries[0]?.name).toBe('invoice.pdf');
+      await expect(entries[0]?.file.text()).resolves.toBe('signed');
+    });
     unregister();
   });
 
@@ -201,6 +262,7 @@ describe('tool output toolbar', () => {
     syncToolOutputToolbar();
 
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
 
     setLatestPdfOutput({
@@ -210,6 +272,7 @@ describe('tool output toolbar', () => {
     syncToolOutputToolbar();
 
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
   });
 

@@ -5,9 +5,11 @@ import {
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import {
+  canOverwriteToShiftPdf,
   canSaveToShiftPdf,
   clearLatestPdfOutput,
   initShiftPdfSave,
+  overwriteToShiftPdf,
   saveToShiftPdf,
   setLatestPdfOutput,
 } from '../js/logic/shift-pdf-save';
@@ -132,6 +134,91 @@ describe('saveToShiftPdf', () => {
     ).resolves.toBe('skipped');
 
     await expect(readPdfLibrary()).resolves.toHaveLength(1);
+  });
+});
+
+describe('overwriteToShiftPdf', () => {
+  it('replaces the selected library PDF instead of adding a copy', async () => {
+    const original = await addPdfToLibrary(
+      new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    const selected = markFileLibraryId(
+      new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+      original.id
+    );
+    setWorkspaceFiles([selected]);
+
+    const result = await overwriteToShiftPdf(
+      new Blob(['after'], { type: 'application/pdf' }),
+      'invoice-edited.pdf'
+    );
+
+    expect(result).toBe('replaced');
+    const entries = await readPdfLibrary();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBe(original.id);
+    expect(entries[0]?.name).toBe('invoice.pdf');
+    await expect(entries[0]?.file.text()).resolves.toBe('after');
+  });
+
+  it('skips overwrite when there is no library target', async () => {
+    await expect(
+      overwriteToShiftPdf(
+        new Blob(['fresh'], { type: 'application/pdf' }),
+        'new.pdf'
+      )
+    ).resolves.toBe('skipped');
+    await expect(readPdfLibrary()).resolves.toHaveLength(0);
+  });
+
+  it('skips non-PDF outputs', async () => {
+    const original = await addPdfToLibrary(
+      new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    setWorkspaceFiles([
+      markFileLibraryId(
+        new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+        original.id
+      ),
+    ]);
+
+    await expect(
+      overwriteToShiftPdf(
+        new Blob(['zip'], { type: 'application/zip' }),
+        'out.zip'
+      )
+    ).resolves.toBe('skipped');
+    const entries = await readPdfLibrary();
+    expect(entries).toHaveLength(1);
+    await expect(entries[0]?.file.text()).resolves.toBe('before');
+  });
+
+  it('gates Overwrite until a single library PDF is selected', async () => {
+    setLatestPdfOutput({
+      blob: new Blob(['x'], { type: 'application/pdf' }),
+      filename: 'x.pdf',
+    });
+    expect(canOverwriteToShiftPdf()).toBe(false);
+
+    const original = await addPdfToLibrary(
+      new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    setWorkspaceFiles([
+      markFileLibraryId(
+        new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+        original.id
+      ),
+    ]);
+    expect(canOverwriteToShiftPdf()).toBe(true);
+
+    setWorkspaceFiles([
+      new File(['a'], 'a.pdf', { type: 'application/pdf' }),
+      new File(['b'], 'b.pdf', { type: 'application/pdf' }),
+    ]);
+    expect(canOverwriteToShiftPdf()).toBe(false);
   });
 });
 

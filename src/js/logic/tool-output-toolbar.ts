@@ -8,16 +8,19 @@ import {
   canSaveToShiftPdf,
   clearLatestPdfOutput,
   getLatestPdfOutput,
+  overwriteToShiftPdf,
   saveToShiftPdf,
   TOOL_OUTPUT_STATE_EVENT,
 } from './shift-pdf-save.js';
 import { isViewerToolDocument } from './tool-viewer-layout.js';
+import { getPrimaryLibrarySaveTarget } from './workspace-files.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
 export const TOOL_OUTPUT_UNDO_ID = 'shift-tool-output-undo';
 export const TOOL_OUTPUT_REDO_ID = 'shift-tool-output-redo';
 export const TOOL_OUTPUT_RESET_ID = 'shift-tool-output-reset';
 export const TOOL_OUTPUT_SAVE_ID = 'shift-tool-output-save';
+export const TOOL_OUTPUT_OVERWRITE_ID = 'shift-tool-output-overwrite';
 export const TOOL_OUTPUT_MENU_ID = 'shift-tool-output-menu';
 export const TOOL_OUTPUT_DOWNLOAD_ID = 'shift-tool-output-download';
 export const TOOL_OUTPUT_PRINT_ID = 'shift-tool-output-print';
@@ -90,6 +93,7 @@ export function syncToolOutputToolbar(root: Document = document): void {
   const redo = getButton(root, TOOL_OUTPUT_REDO_ID);
   const reset = getButton(root, TOOL_OUTPUT_RESET_ID);
   const save = getButton(root, TOOL_OUTPUT_SAVE_ID);
+  const overwrite = getButton(root, TOOL_OUTPUT_OVERWRITE_ID);
   const download = getButton(root, TOOL_OUTPUT_DOWNLOAD_ID);
   const print = getButton(root, TOOL_OUTPUT_PRINT_ID);
 
@@ -116,6 +120,9 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (save) {
     setButtonDisabled(save, saveInFlight || !canSaveOutput(root));
   }
+  if (overwrite) {
+    setButtonDisabled(overwrite, saveInFlight || !canOverwriteOutput(root));
+  }
   if (download) setButtonDisabled(download, !output);
   if (print) {
     setButtonDisabled(print, !canPrintOutput(root));
@@ -127,6 +134,10 @@ function canSaveOutput(root: Document): boolean {
   if (session?.canSave) return session.canSave();
   if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
   return Boolean(session?.apply || findProcessButton(root));
+}
+
+function canOverwriteOutput(root: Document): boolean {
+  return canSaveOutput(root) && Boolean(getPrimaryLibrarySaveTarget());
 }
 
 function canPrintOutput(root: Document): boolean {
@@ -198,13 +209,19 @@ function ensureToolbar(root: Document): HTMLElement | null {
   summary.innerHTML = chevronIcon();
   const menuSurface = root.createElement('div');
   menuSurface.className = 'shift-tool-output-menu-surface';
+  const overwrite = createActionButton(
+    root,
+    TOOL_OUTPUT_OVERWRITE_ID,
+    'Overwrite',
+    'replace'
+  );
   const download = createActionButton(
     root,
     TOOL_OUTPUT_DOWNLOAD_ID,
     'Download',
     'download'
   );
-  menuSurface.append(download);
+  menuSurface.append(overwrite, download);
   menu.append(summary, menuSurface);
   split.append(save, menu);
   outputActions.append(split);
@@ -220,6 +237,7 @@ function ensureToolbar(root: Document): HTMLElement | null {
 
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
+  overwrite.addEventListener('click', () => void overwriteOutput(root));
   getButton(root, TOOL_OUTPUT_RESET_ID)?.addEventListener('click', () => {
     void resetOutput(root);
   });
@@ -258,6 +276,12 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
   menu.className = 'shift-tool-viewer-save-menu';
   menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', 'More save options');
+  const overwrite = createViewerActionButton(
+    root,
+    TOOL_OUTPUT_OVERWRITE_ID,
+    'Overwrite',
+    'ph-file'
+  );
   const download = createViewerActionButton(
     root,
     TOOL_OUTPUT_DOWNLOAD_ID,
@@ -270,13 +294,15 @@ function ensureViewerHeaderActions(root: Document): HTMLElement | null {
     'Print',
     'ph-printer'
   );
+  overwrite.setAttribute('role', 'menuitem');
   download.setAttribute('role', 'menuitem');
   print.setAttribute('role', 'menuitem');
-  menu.append(download, print);
+  menu.append(overwrite, download, print);
   saveGroup.append(save, menu);
   host.prepend(undo, redo, saveGroup);
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
+  overwrite.addEventListener('click', () => void overwriteOutput(root));
   hideLegacyOutputActions(root);
   return host;
 }
@@ -352,6 +378,30 @@ async function saveOutput(root: Document): Promise<void> {
     if (result === 'added') {
       showAlert('Saved', 'A copy was saved to My PDFs.', 'success');
     }
+  } finally {
+    saveInFlight = false;
+    syncToolOutputToolbar(root);
+  }
+}
+
+async function overwriteOutput(root: Document): Promise<void> {
+  if (saveInFlight || !canOverwriteOutput(root)) return;
+  saveInFlight = true;
+  closeOutputMenu(root);
+  syncToolOutputToolbar(root);
+  try {
+    await applyToolOutput(root);
+    const output = getLatestPdfOutput();
+    if (!output || !canSaveToShiftPdf(output)) return;
+    const result = await overwriteToShiftPdf(output.blob, output.filename, root);
+    if (result === 'replaced') {
+      showAlert('Saved', 'The original PDF was updated in My PDFs.', 'success');
+      return;
+    }
+    showAlert(
+      'Could not overwrite',
+      'The original PDF is no longer in My PDFs.'
+    );
   } finally {
     saveInFlight = false;
     syncToolOutputToolbar(root);
@@ -524,6 +574,8 @@ function actionIcon(name: string): string {
     'redo-2': '<path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0-6 6v1"/>',
     'rotate-ccw': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     save: '<path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
+    replace:
+      '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
     download:
       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
   };
