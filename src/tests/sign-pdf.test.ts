@@ -10,6 +10,7 @@ import {
 import {
   configureSessionOnlySignatureUi,
   PDFJS_SIGNATURE_MODE,
+  waitForPdfJsPagesReady,
 } from '../js/utils/pdfjs-sign-viewer';
 import type { PDFViewerApplication } from '../js/types/sign-pdf-type';
 
@@ -123,5 +124,37 @@ describe('PDF.js visual signature mode', () => {
 
     expect(signatureStorage).not.toContain('pdfjs.signature');
     expect(signatureStorage).not.toContain('localStorage');
+  });
+
+  it('waits for every PDF.js page view before printing', async () => {
+    const application = {
+      pdfViewer: { pageViewsReady: false },
+    } as PDFViewerApplication;
+    window.setTimeout(() => {
+      if (application.pdfViewer) application.pdfViewer.pageViewsReady = true;
+    }, 10);
+
+    await expect(waitForPdfJsPagesReady(application, 500)).resolves.toBe(
+      undefined
+    );
+  });
+
+  it('passes the selected signature color into placed and saved signatures', async () => {
+    const viewerBundle = await readFile(
+      resolve(process.cwd(), 'public/pdfjs-viewer/viewer.mjs'),
+      'utf8'
+    );
+    const pdfBundle = await readFile(
+      resolve(process.cwd(), 'public/pdfjs-viewer/pdf.mjs'),
+      'utf8'
+    );
+
+    expect(viewerBundle).toContain('data.signatureColor = signatureColor');
+    expect(pdfBundle).toContain(
+      'color: parseHexColorToRgbArray(signatureColor || fallbackColor)'
+    );
+    expect(pdfBundle).toContain(
+      'signatureColor ? { stroke: signatureColor } : null'
+    );
   });
 });

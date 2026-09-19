@@ -45,6 +45,18 @@ export async function waitForPdfJsSignViewer(
   throw new Error('Timed out while waiting for the PDF.js signing viewer.');
 }
 
+export async function waitForPdfJsPagesReady(
+  application: PDFViewerApplication,
+  timeoutMs = 15_000
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (application.pdfViewer?.pageViewsReady !== false) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+  }
+  throw new Error('Timed out while preparing all PDF pages for printing.');
+}
+
 export function configureSessionOnlySignatureUi(
   iframe: HTMLIFrameElement,
   application: PDFViewerApplication

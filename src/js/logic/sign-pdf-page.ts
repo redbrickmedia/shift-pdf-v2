@@ -22,6 +22,7 @@ import {
 } from '../utils/sign-pdf-export.js';
 import {
   configureSessionOnlySignatureUi,
+  waitForPdfJsPagesReady,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
 import {
@@ -308,6 +309,8 @@ async function printSignedPdf() {
     if (!application.triggerPrinting) {
       throw new Error('Printing is unavailable in this browser.');
     }
+    await waitForPdfJsPagesReady(application);
+    signState.viewerIframe.contentWindow?.focus();
     await application.triggerPrinting();
   } catch (error) {
     showAlert(

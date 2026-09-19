@@ -16,6 +16,10 @@ export interface PDFViewerApplication {
   pdfDocument?: {
     saveDocument: (storage?: unknown) => Promise<ArrayBuffer | Uint8Array>;
     annotationStorage: unknown;
+    numPages?: number;
+  };
+  pdfViewer?: {
+    pageViewsReady?: boolean;
   };
   triggerPrinting?: () => Promise<void>;
   /** PDF.js private field used for toolbar Save/Download naming. */
