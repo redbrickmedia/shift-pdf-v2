@@ -621,15 +621,30 @@ describe('sidebar-boot.js viewer layout', () => {
     );
   });
 
-  it('leaves the card alone when nothing is selected', () => {
+  it('lifts the title out of the card before first paint even with no file', () => {
     mountSignLikeShell();
 
     runBootScript();
 
+    const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
     expect(document.body.classList.contains(TOOL_VIEWER_BODY_CLASS)).toBe(
       false
     );
-    expect(document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)).toBeNull();
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.parentElement?.id).toBe('uploader');
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(bar?.querySelector('h1')?.textContent).toBe('Sign PDF');
+  });
+
+  it('lifts boxed tool titles out of the card before first paint', () => {
+    mountMergeLikeShell();
+
+    runBootScript();
+
+    const bar = document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`);
+    expect(bar?.closest('#tool-uploader')).toBeNull();
+    expect(bar?.nextElementSibling?.id).toBe('tool-uploader');
+    expect(bar?.querySelector('h1')?.textContent).toBe('Merge PDF');
   });
 
   it('shares its literals with tool-viewer-layout.ts', () => {

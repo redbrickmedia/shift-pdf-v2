@@ -413,52 +413,14 @@
         return !!document.getElementById(id);
       });
       if (!hasViewer) return true;
+      if (!paintToolHeader()) return false;
 
-      var host = card.parentNode;
-      var bar =
-        (host && host.querySelector
-          ? host.querySelector(':scope > .' + VIEWER_BAR_CLASS)
-          : null) || card.querySelector('.' + VIEWER_BAR_CLASS);
-      if (!bar) {
-        var heading = card.querySelector('h1');
-        if (!heading) return false;
-        bar = document.createElement('div');
-        bar.className = VIEWER_BAR_CLASS;
-
-        var title = document.createElement('div');
-        title.className = VIEWER_TITLE_CLASS;
-
-        var subtitle =
-          heading.nextElementSibling &&
-          heading.nextElementSibling.tagName === 'P'
-            ? heading.nextElementSibling
-            : null;
-
-        title.appendChild(heading);
-        if (subtitle) title.appendChild(subtitle);
-
-        var actions = document.createElement('div');
-        actions.className = VIEWER_ACTIONS_CLASS;
-        actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
-
-        bar.appendChild(title);
-        bar.appendChild(actions);
-      }
-
-      if (host && bar.parentNode !== host) {
-        host.insertBefore(bar, card);
-      }
-      if (card.classList) {
-        card.classList.forEach(function (cls) {
-          if (cls === 'w-full' || cls.indexOf('max-w-') === 0) {
-            bar.classList.add(cls);
-          }
-        });
-      }
-
+      var bar = findToolHeaderBar(card);
       document.body.classList.add(TOOL_VIEWER_CLASS);
       document.body.classList.add(TOOL_VIEWER_PENDING_CLASS);
-      relocateViewerActions(bar.querySelector('[' + VIEWER_ACTIONS_ATTR + ']'));
+      relocateViewerActions(
+        bar && bar.querySelector('[' + VIEWER_ACTIONS_ATTR + ']')
+      );
       return true;
     }
 
@@ -555,6 +517,86 @@
     }
   }
 
+  function isNonToolHeaderPage() {
+    var body = document.body;
+    return (
+      (body && body.classList.contains('shift-home')) ||
+      !!document.getElementById('shift-my-pdfs') ||
+      !!document.getElementById('tool-grid') ||
+      !!document.getElementById('convert-hub') ||
+      !!document.getElementById('shift-pdf-viewer')
+    );
+  }
+
+  function findToolHeaderBar(card) {
+    var host = card && card.parentNode;
+    return (
+      (host && host.querySelector
+        ? host.querySelector(':scope > .' + VIEWER_BAR_CLASS)
+        : null) ||
+      (card && card.querySelector('.' + VIEWER_BAR_CLASS))
+    );
+  }
+
+  function placeToolHeaderBar(bar, card) {
+    var host = card.parentNode;
+    if (host && bar.parentNode !== host) {
+      host.insertBefore(bar, card);
+    }
+    if (card.classList) {
+      card.classList.forEach(function (cls) {
+        if (cls === 'w-full' || cls.indexOf('max-w-') === 0) {
+          bar.classList.add(cls);
+        }
+      });
+    }
+  }
+
+  /* Title + Reset/Save have to be outside the gray card on the first painted
+     frame. Pages still author h1 inside #tool-uploader; this script runs from
+     <head> and lifts that row while the parser is still working, so main.ts
+     does not snap the heading out after paint. Mirrors ensureViewerChrome. */
+  function paintToolHeader() {
+    if (isNonToolHeaderPage()) return true;
+
+    var card = document.getElementById('tool-uploader');
+    if (!card) return document.readyState !== 'loading';
+
+    var bar = findToolHeaderBar(card);
+    if (!bar) {
+      var heading = card.querySelector('h1');
+      if (!heading) return document.readyState !== 'loading';
+      if (document.readyState === 'loading' && !heading.nextElementSibling) {
+        return false;
+      }
+
+      bar = document.createElement('div');
+      bar.className = VIEWER_BAR_CLASS;
+
+      var title = document.createElement('div');
+      title.className = VIEWER_TITLE_CLASS;
+
+      var subtitle =
+        heading.nextElementSibling &&
+        heading.nextElementSibling.tagName === 'P'
+          ? heading.nextElementSibling
+          : null;
+
+      title.appendChild(heading);
+      if (subtitle) title.appendChild(subtitle);
+
+      var actions = document.createElement('div');
+      actions.className = VIEWER_ACTIONS_CLASS;
+      actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
+
+      bar.appendChild(title);
+      bar.appendChild(actions);
+    }
+
+    placeToolHeaderBar(bar, card);
+    return true;
+  }
+
   /* Every viewer tool should read as one panel: heading row and document inside
      the same card. sign-pdf and crop-pdf author their viewer as a sibling of
      #tool-uploader, so the shell moves it in. Mirrors adoptViewerIntoCard in
@@ -592,6 +634,20 @@
     document.addEventListener('DOMContentLoaded', function () {
       adoptViewerIntoCard();
       viewerObserver.disconnect();
+    });
+  }
+
+  if (!paintToolHeader()) {
+    var headerObserver = new MutationObserver(function () {
+      if (paintToolHeader()) headerObserver.disconnect();
+    });
+    headerObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+      paintToolHeader();
+      headerObserver.disconnect();
     });
   }
 

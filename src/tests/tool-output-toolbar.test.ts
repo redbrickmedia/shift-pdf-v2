@@ -491,6 +491,28 @@ describe('tool output toolbar', () => {
     unregister();
   });
 
+  it('does not build a second header when boot already lifted the title', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="uploader">
+          <div class="shift-tool-viewer-bar">
+            <div class="shift-tool-viewer-title"><h1>Compress PDF</h1></div>
+            <div class="shift-tool-viewer-actions" data-shift-viewer-actions></div>
+          </div>
+          <div id="tool-uploader">
+            <button id="process-btn" type="button">Process</button>
+          </div>
+        </div>
+      </main>
+    `;
+    const existing = document.querySelector('.shift-tool-viewer-bar');
+    initToolOutputToolbar();
+
+    expect(document.querySelectorAll('.shift-tool-viewer-bar')).toHaveLength(1);
+    expect(document.querySelector('.shift-tool-viewer-bar')).toBe(existing);
+    expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+  });
+
   it('skips the convert hub destination flow', () => {
     document.body.innerHTML = `
       <main>
