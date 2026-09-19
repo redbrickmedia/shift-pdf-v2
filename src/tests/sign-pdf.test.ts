@@ -71,6 +71,8 @@ describe('PDF.js visual signature mode', () => {
       <div id="editorHighlight"></div>
       <button id="downloadButton"></button>
       <button id="secondaryDownload"></button>
+      <button id="printButton"></button>
+      <button id="secondaryPrint"></button>
       <div id="editorSignature" hidden></div>
       <button id="editorSignatureButton" disabled></button>
       <div id="addSignatureSaveContainer"></div>
@@ -88,6 +90,8 @@ describe('PDF.js visual signature mode', () => {
     expect(viewerDocument.getElementById('secondaryDownload')?.hidden).toBe(
       true
     );
+    expect(viewerDocument.getElementById('printButton')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('secondaryPrint')?.hidden).toBe(true);
     expect(viewerDocument.getElementById('editorSignature')?.hidden).toBe(
       false
     );

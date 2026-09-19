@@ -8,6 +8,7 @@ import {
   encodePdfjsViewerFileParam,
   type PdfViewerFilenameTarget,
 } from '../utils/pdfjs-viewer-filename.js';
+import { hidePdfJsPrintControls } from '../utils/pdfjs-viewer-print.js';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
@@ -198,6 +199,7 @@ async function setupFormViewer() {
     viewerIframe.style.border = 'none';
 
     viewerIframe.onload = () => {
+      hidePdfJsPrintControls(viewerIframe?.contentDocument);
       const app = (
         viewerIframe?.contentWindow as
           (Window & { PDFViewerApplication?: PdfViewerFilenameTarget }) | null

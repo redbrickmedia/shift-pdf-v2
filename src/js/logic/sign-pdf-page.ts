@@ -22,9 +22,9 @@ import {
 } from '../utils/sign-pdf-export.js';
 import {
   configureSessionOnlySignatureUi,
-  waitForPdfJsPagesReady,
   waitForPdfJsSignViewer,
 } from '../utils/pdfjs-sign-viewer.js';
+import { printPdfJsViewerFrame } from '../utils/pdfjs-viewer-print.js';
 import {
   applyPdfViewerDownloadFilename,
   withPdfViewerFilename,
@@ -300,14 +300,7 @@ async function setupSignTool(loadVersion: number) {
 }
 
 async function printSignedPdf() {
-  if (!signState.viewerIframe) return;
-  const application = await waitForPdfJsSignViewer(signState.viewerIframe);
-  if (!application.triggerPrinting) {
-    throw new Error('Printing is unavailable in this browser.');
-  }
-  await waitForPdfJsPagesReady(application);
-  signState.viewerIframe.contentWindow?.focus();
-  await application.triggerPrinting();
+  await printPdfJsViewerFrame(signState.viewerIframe);
 }
 
 function updateDownloadButtonLabel() {

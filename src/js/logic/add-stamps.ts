@@ -10,6 +10,7 @@ import {
   applyPdfViewerDownloadFilename,
   encodePdfjsViewerFileParam,
 } from '../utils/pdfjs-viewer-filename.js';
+import { hidePdfJsPrintControls } from '../utils/pdfjs-viewer-print.js';
 import { syncSeededToolFiles } from './tool-file-seed.js';
 
 let selectedFile: File | null = null;
@@ -222,6 +223,7 @@ function setupAnnotationViewer(
       | null;
     const doc = win?.document as Document | null;
     if (!win || !doc) return;
+    hidePdfJsPrintControls(doc);
 
     const initialize = async () => {
       try {

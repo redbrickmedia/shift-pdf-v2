@@ -1,3 +1,9 @@
+/* Shift owns Print in the parent tool toolbar disclosure. */
+html[data-shift-viewer] #printButton,
+html[data-shift-viewer] #secondaryPrint {
+  display: none !important;
+}
+
 /* Shift theme for the embedded PDF.js viewer.
  *
  * The viewer runs in an iframe, so it is a separate document: it inherits no

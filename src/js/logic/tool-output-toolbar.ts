@@ -1,6 +1,10 @@
 import { showAlert } from '../ui.js';
 import { downloadBlob, PDF_OUTPUT_READY_EVENT } from '../utils/helpers.js';
 import {
+  hidePdfJsPrintControls,
+  printPdfJsViewerFrame,
+} from '../utils/pdfjs-viewer-print.js';
+import {
   canSaveToShiftPdf,
   clearLatestPdfOutput,
   getLatestPdfOutput,
@@ -26,9 +30,6 @@ export interface ToolOutputSession {
   canRedo?: () => boolean;
   canPrint?: () => boolean;
 }
-
-/** Keeps the print frame alive long enough for the browser print dialog. */
-const PRINT_FRAME_CLEANUP_MS = 60000;
 
 let boundRoot: Document | null = null;
 let session: ToolOutputSession | null = null;
@@ -113,12 +114,19 @@ export function syncToolOutputToolbar(root: Document = document): void {
     setButtonDisabled(save, saveInFlight || !canSaveToShiftPdf(output));
   }
   if (download) setButtonDisabled(download, !output);
-  if (print) setButtonDisabled(print, !canPrintOutput(output));
+  if (print) {
+    const inViewerToolbar = Boolean(
+      print.closest('[data-shift-viewer-actions]')
+    );
+    if (print.hidden === inViewerToolbar) print.hidden = !inViewerToolbar;
+    setButtonDisabled(print, !inViewerToolbar || !canPrintOutput(root));
+  }
+  hideEmbeddedViewerPrintControls(root);
 }
 
-function canPrintOutput(output: { isPdf: boolean } | null): boolean {
+function canPrintOutput(root: Document): boolean {
   if (session?.print) return session.canPrint?.() ?? true;
-  return Boolean(output?.isPdf);
+  return findPrintableViewerFrame(root) !== null;
 }
 
 function isNonToolPage(root: Document): boolean {
@@ -274,15 +282,14 @@ function downloadOutput(root: Document): void {
 }
 
 async function printOutput(root: Document): Promise<void> {
-  const output = getLatestPdfOutput();
-  if (!canPrintOutput(output)) return;
+  if (!canPrintOutput(root)) return;
   closeOutputMenu(root);
   try {
     if (session?.print) {
       await session.print();
       return;
     }
-    if (output) printBlob(root, output.blob);
+    await printPdfJsViewerFrame(findPrintableViewerFrame(root));
   } catch (error) {
     showAlert(
       'Print failed',
@@ -291,26 +298,24 @@ async function printOutput(root: Document): Promise<void> {
   }
 }
 
-function printBlob(root: Document, blob: Blob): void {
-  const url = URL.createObjectURL(blob);
-  const frame = root.createElement('iframe');
-  frame.setAttribute('aria-hidden', 'true');
-  frame.title = 'Print preview';
-  frame.style.cssText =
-    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-  frame.addEventListener('load', () => {
-    const frameWindow = frame.contentWindow;
-    if (typeof frameWindow?.print === 'function') {
-      frameWindow.focus();
-      frameWindow.print();
+function findPrintableViewerFrame(root: Document): HTMLIFrameElement | null {
+  const toolbar = root.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
+  const viewerRoot = toolbar?.closest('#tool-uploader') ?? root;
+  return viewerRoot.querySelector<HTMLIFrameElement>(
+    '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe, #shift-pdf-viewer-frame'
+  );
+}
+
+function hideEmbeddedViewerPrintControls(root: Document): void {
+  for (const frame of root.querySelectorAll<HTMLIFrameElement>(
+    '#canvas-container-sign iframe, #pdf-viewer-container iframe, #stamp-viewer-container iframe, #shift-pdf-viewer-frame'
+  )) {
+    try {
+      hidePdfJsPrintControls(frame.contentDocument);
+    } catch {
+      // Cross-origin viewers are not controlled by the Shift toolbar.
     }
-    globalThis.setTimeout(() => {
-      frame.remove();
-      URL.revokeObjectURL(url);
-    }, PRINT_FRAME_CLEANUP_MS);
-  });
-  frame.src = url;
-  root.body.append(frame);
+  }
 }
 
 function closeOutputMenu(root: Document): void {
@@ -369,7 +374,6 @@ function hideLegacyOutputActions(root: Document): void {
     'shift-pdf-save-output',
     'shift-pdf-save-viewer',
     'shift-pdf-viewer-download',
-    'shift-pdf-viewer-print',
     'clear-files-btn',
     'undo-merge-btn',
     'redo-merge-btn',

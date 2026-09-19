@@ -60,6 +60,7 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_MENU_ID)).toBeInstanceOf(
       HTMLDetailsElement
     );
@@ -76,23 +77,22 @@ describe('tool output toolbar', () => {
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
   });
 
-  it('enables Print once a PDF output exists', () => {
-    setLatestPdfOutput({
-      blob: new Blob(['zip'], { type: 'application/zip' }),
-      filename: 'batch.zip',
-    });
-    syncToolOutputToolbar();
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
-
+  it('does not show Print in the output bar below a tool', () => {
     setLatestPdfOutput({
       blob: new Blob(['pdf'], { type: 'application/pdf' }),
       filename: 'signed.pdf',
     });
     syncToolOutputToolbar();
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
   });
 
   it('prints through the active tool and closes the disclosure', async () => {
+    const toolbarHost = document.createElement('div');
+    toolbarHost.setAttribute('data-shift-viewer-actions', '');
+    document.querySelector('main')?.prepend(toolbarHost);
+    initToolOutputToolbar();
+
     let viewerReady = false;
     const print = vi.fn();
     const unregister = registerToolOutputSession({

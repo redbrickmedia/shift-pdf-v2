@@ -216,12 +216,6 @@ function bindViewerActions(root: Document): void {
     });
 
   root
-    .getElementById('shift-pdf-viewer-print')
-    ?.addEventListener('click', () => {
-      postViewerAction(frame, 'print');
-    });
-
-  root
     .getElementById('shift-pdf-viewer-download')
     ?.addEventListener('click', () => {
       clearDownloadTimer();
