@@ -59,19 +59,40 @@ export function initToolOutputToolbar(root: Document = document): void {
   root.addEventListener(PDF_OUTPUT_READY_EVENT, () => {
     syncToolOutputToolbar(root);
   });
+  observeToolOutputToolbar(root);
+  syncToolOutputToolbar(root);
+}
+
+function observeToolOutputToolbar(root: Document): void {
   observer?.disconnect();
   observer = new MutationObserver(() => {
-    ensureToolbar(root);
-    hideLegacyOutputActions(root);
-    syncToolOutputToolbar(root);
+    // Ignore mutations we cause while hiding legacy controls and syncing
+    // disabled state. Watching the whole page for `class` used to re-enter
+    // this callback on every layout/i18n/icon update and freeze tool load.
+    observer?.disconnect();
+    try {
+      ensureToolbar(root);
+      hideLegacyOutputActions(root);
+      syncToolOutputToolbar(root);
+    } finally {
+      observer?.takeRecords();
+      startToolOutputToolbarObserver(root);
+    }
   });
-  observer.observe(root.body, {
+  startToolOutputToolbarObserver(root);
+}
+
+function startToolOutputToolbarObserver(root: Document): void {
+  const host =
+    root.getElementById('tool-uploader') ??
+    root.getElementById('tool-interface') ??
+    root.body;
+  observer?.observe(host, {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ['disabled', 'class', 'hidden'],
+    attributeFilter: ['hidden', 'disabled'],
   });
-  syncToolOutputToolbar(root);
 }
 
 export function registerToolOutputSession(
@@ -145,10 +166,12 @@ function canSaveOutput(root: Document): boolean {
 function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
   const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
   if (!menu) return;
-  menu.classList.toggle('is-ready', canDisclose);
+  if (menu.classList.contains('is-ready') !== canDisclose) {
+    menu.classList.toggle('is-ready', canDisclose);
+  }
   if (!canDisclose) {
     closeViewerSaveMenu(menu);
-    if (menu instanceof HTMLDetailsElement) menu.open = false;
+    if (menu instanceof HTMLDetailsElement && menu.open) menu.open = false;
   }
 }
 

@@ -63,6 +63,22 @@ afterEach(async () => {
 });
 
 describe('tool output toolbar', () => {
+  it('does not resync in a loop when unrelated page classes change', () => {
+    const toolbar = document.getElementById(TOOL_OUTPUT_TOOLBAR_ID);
+    const host = document.getElementById('tool-uploader');
+    expect(toolbar).toBeTruthy();
+
+    for (let i = 0; i < 40; i++) {
+      document.body.classList.toggle('shift-tool-viewer');
+      host?.classList.toggle('max-w-6xl');
+    }
+
+    expect(document.querySelectorAll(`#${TOOL_OUTPUT_TOOLBAR_ID}`)).toHaveLength(
+      1
+    );
+    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBe(toolbar);
+  });
+
   it('renders one consistent action surface with progressive Download', () => {
     expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeTruthy();
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);

@@ -169,14 +169,15 @@ export function initToolViewerLayout(root: Document = document): void {
   ensureViewerChrome(root);
 
   observer = new MutationObserver(() => {
-    syncToolViewerLayout(root);
+    observer?.disconnect();
+    try {
+      syncToolViewerLayout(root);
+    } finally {
+      observer?.takeRecords();
+      observeToolViewerLayout(root);
+    }
   });
-  observer.observe(root.body, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['class', 'style', 'hidden'],
-  });
+  observeToolViewerLayout(root);
 
   root.addEventListener(
     WORKSPACE_FILES_RENDERED_EVENT,
@@ -195,6 +196,15 @@ export function initToolViewerLayout(root: Document = document): void {
   }
 
   syncToolViewerLayout(root);
+}
+
+function observeToolViewerLayout(root: Document): void {
+  observer?.observe(root.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden'],
+  });
 }
 
 function resolvePendingViewer(): void {
