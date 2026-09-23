@@ -372,7 +372,6 @@ export async function setupCropperTool() {
         new Blob([new Uint8Array(finalPdfBytes)], { type: 'application/pdf' }),
         fileName
       );
-      showAlert('Success', 'Crop complete! Your download has started.');
     } catch (e) {
       console.error(e);
       showAlert('Error', 'An error occurred during cropping.');

@@ -120,9 +120,6 @@ async function convert() {
       new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
       'from_bmps.pdf'
     );
-    showAlert('Success', 'PDF created successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert(

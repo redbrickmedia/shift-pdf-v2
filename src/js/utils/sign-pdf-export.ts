@@ -1,4 +1,5 @@
 import type { PDFDocument } from 'pdf-lib';
+import { getDerivedPdfFilename } from './derived-pdf-filename.js';
 import { loadPdfDocument } from './load-pdf-document.js';
 import { flattenAnnotations } from './flatten-annotations.js';
 
@@ -21,9 +22,10 @@ export function getSignedPdfFilename(
   originalFilename: string | undefined,
   flattened = false
 ): string {
-  const filename = originalFilename?.trim() || 'document.pdf';
-  const base = filename.replace(/\.pdf$/i, '') || 'document';
-  return `${base}${flattened ? '_signed_flattened' : '_signed'}.pdf`;
+  return getDerivedPdfFilename(
+    originalFilename,
+    flattened ? '_signed_flattened' : '_signed'
+  );
 }
 
 export async function exportPdfJsAnnotations(

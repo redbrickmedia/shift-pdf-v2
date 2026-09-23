@@ -156,6 +156,25 @@ function destinationFromTool(
   };
 }
 
+export function filterConvertDestinations(
+  destinations: readonly ConvertDestination[],
+  query: string
+): ConvertDestination[] {
+  const term = query.trim().toLowerCase();
+  if (!term) return [...destinations];
+
+  return destinations.filter((destination) => {
+    const haystack = [
+      destination.name,
+      destination.subtitle,
+      destination.outputExtension,
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(term);
+  });
+}
+
 export function getPdfDestinations(options?: {
   isToolDisabled?: (toolId: string) => boolean;
 }): { primary: ConvertDestination[]; secondary: ConvertDestination[] } {

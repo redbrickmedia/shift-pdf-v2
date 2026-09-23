@@ -3,6 +3,7 @@ import {
   buildConvertSourceAccept,
   getConvertSourceKind,
   getOutputFilename,
+  filterConvertDestinations,
   getSharedDestinations,
   isPdfFile,
   resolveDestinationHref,
@@ -34,6 +35,12 @@ export type ConvertHubState = {
   step: ConvertHubStep;
   sourceFiles: File[];
 };
+
+export const CONVERT_DESTINATION_SEARCH_ID = 'convert-destination-search';
+export const CONVERT_DESTINATION_SEARCH_EMPTY_ID =
+  'convert-destination-search-empty';
+
+let destinationSearchQuery = '';
 
 export function createInitialConvertHubState(
   sourceFiles: File[] = []
@@ -238,6 +245,64 @@ function createDestinationButton(
   return button;
 }
 
+export function getConvertDestinationSearchQuery(): string {
+  return destinationSearchQuery;
+}
+
+export function setConvertDestinationSearchQuery(query: string): void {
+  destinationSearchQuery = query;
+}
+
+function ensureConvertDestinationSearch(
+  root: Document,
+  onQuery: (query: string) => void
+): HTMLInputElement | null {
+  const destinationStep = root.getElementById('convert-destination-step');
+  const heading = root.getElementById('convert-destination-heading');
+  if (!destinationStep || !heading) return null;
+
+  let input = root.getElementById(
+    CONVERT_DESTINATION_SEARCH_ID
+  ) as HTMLInputElement | null;
+  if (!input) {
+    const field = root.createElement('div');
+    field.className = 'shift-search-field shift-convert-search-field';
+
+    const icon = root.createElement('i');
+    icon.className = 'ph ph-magnifying-glass shift-search-icon';
+    icon.setAttribute('aria-hidden', 'true');
+
+    const label = root.createElement('label');
+    label.className = 'shift-convert-search-label';
+    label.setAttribute('for', CONVERT_DESTINATION_SEARCH_ID);
+    label.textContent = 'Search formats';
+
+    input = root.createElement('input');
+    input.id = CONVERT_DESTINATION_SEARCH_ID;
+    input.type = 'search';
+    input.className = 'shift-search-input';
+    input.placeholder = 'Search formats';
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('spellcheck', 'false');
+
+    field.append(icon, label, input);
+    heading.insertAdjacentElement('afterend', field);
+  }
+
+  if (input.dataset.searchBound !== 'true') {
+    input.dataset.searchBound = 'true';
+    input.addEventListener('input', () => {
+      destinationSearchQuery = input.value;
+      onQuery(input.value);
+    });
+  }
+
+  if (input.value !== destinationSearchQuery) {
+    input.value = destinationSearchQuery;
+  }
+  return input;
+}
+
 function renderDestinationGrid(
   root: Document,
   container: HTMLElement,
@@ -296,6 +361,7 @@ export function renderConvertHub(
     onRemoveSource: (file: MergeFileIdentity) => void;
     onDestinationSelected: (destination: ConvertDestination) => void;
     onToggleMore: () => void;
+    onSearch?: (query: string) => void;
     showMore: boolean;
   }
 ): void {
@@ -359,7 +425,20 @@ export function renderConvertHub(
       sourceKind === 'pdf' ? 'Convert to…' : 'Convert to PDF';
   }
 
+  ensureConvertDestinationSearch(root, (query) => {
+    handlers.onSearch?.(query);
+  });
+
   const { primary, secondary } = getDestinationsForSources(files);
+  const visiblePrimary = filterConvertDestinations(
+    primary,
+    destinationSearchQuery
+  );
+  const visibleSecondary = filterConvertDestinations(
+    secondary,
+    destinationSearchQuery
+  );
+  const isSearching = destinationSearchQuery.trim().length > 0;
   const isUnsupported = primary.length === 0 && secondary.length === 0;
   unsupportedMessage?.classList.toggle('hidden', !isUnsupported);
   if (isUnsupported && unsupportedMessage) {
@@ -368,28 +447,54 @@ export function renderConvertHub(
       : 'That file type is not supported for conversion yet. Try a PDF or another common document format.';
   }
 
+  const showSecondary = handlers.showMore || isSearching;
   if (primaryGrid) {
-    renderDestinationGrid(root, primaryGrid, files, primary, (destination) => {
-      handlers.onDestinationSelected(destination);
-    });
-  }
-
-  if (secondaryGrid) {
-    secondaryGrid.classList.toggle('hidden', !handlers.showMore);
     renderDestinationGrid(
       root,
-      secondaryGrid,
+      primaryGrid,
       files,
-      secondary,
+      visiblePrimary,
       (destination) => {
         handlers.onDestinationSelected(destination);
       }
     );
   }
 
+  if (secondaryGrid) {
+    secondaryGrid.classList.toggle('hidden', !showSecondary);
+    renderDestinationGrid(
+      root,
+      secondaryGrid,
+      files,
+      visibleSecondary,
+      (destination) => {
+        handlers.onDestinationSelected(destination);
+      }
+    );
+  }
+
+  let searchEmpty = root.getElementById(CONVERT_DESTINATION_SEARCH_EMPTY_ID);
+  if (!searchEmpty && destinationStep) {
+    searchEmpty = root.createElement('p');
+    searchEmpty.id = CONVERT_DESTINATION_SEARCH_EMPTY_ID;
+    searchEmpty.className = 'shift-convert-search-empty';
+    destinationStep.appendChild(searchEmpty);
+  }
+  if (searchEmpty) {
+    const noMatches =
+      isSearching &&
+      visiblePrimary.length === 0 &&
+      visibleSecondary.length === 0 &&
+      !isUnsupported;
+    searchEmpty.hidden = !noMatches;
+    searchEmpty.textContent = noMatches
+      ? 'No formats match your search.'
+      : '';
+  }
+
   if (showMoreButton) {
     const hasSecondary = secondary.length > 0 && sourceKind === 'pdf';
-    showMoreButton.classList.toggle('hidden', !hasSecondary);
+    showMoreButton.classList.toggle('hidden', !hasSecondary || isSearching);
     showMoreButton.textContent = handlers.showMore ? 'Show less' : 'Show more';
     showMoreButton.onclick = () => handlers.onToggleMore();
   }
@@ -448,6 +553,7 @@ export function initConvertHubPage(root: Document = document): void {
       onChangeSource: () => {
         state = clearConvertSources();
         showMore = false;
+        destinationSearchQuery = '';
         void clearWorkspaceOpenFile(root).then(refresh);
       },
       onAddSource: () => {
@@ -475,6 +581,10 @@ export function initConvertHubPage(root: Document = document): void {
       },
       onToggleMore: () => {
         showMore = !showMore;
+        refresh();
+      },
+      onSearch: (query) => {
+        destinationSearchQuery = query;
         refresh();
       },
       showMore,

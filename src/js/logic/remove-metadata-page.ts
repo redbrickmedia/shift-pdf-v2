@@ -158,9 +158,6 @@ async function removeMetadata() {
       new Blob([newPdfBytes as BlobPart], { type: 'application/pdf' }),
       pageState.file?.name || 'document.pdf'
     );
-    showAlert('Success', 'Metadata removed successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert('Error', 'An error occurred while trying to remove metadata.');

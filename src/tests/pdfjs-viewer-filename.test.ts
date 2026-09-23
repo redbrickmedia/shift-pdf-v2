@@ -64,9 +64,11 @@ describe('pdfjs viewer filename bridge', () => {
     const signSrc = new URLSearchParams({
       file: withPdfViewerFilename(blobUrl, 'nda.pdf'),
       bentoSign: '1',
+      shiftLaunchpad: '1',
     }).toString();
     expect(decodeURIComponent(signSrc)).toContain(`${blobUrl}#nda.pdf`);
     expect(signSrc).toContain('bentoSign=1');
+    expect(signSrc).toContain('shiftLaunchpad=1');
 
     const formSrc = `pdfjs-viewer/viewer.html?file=${encodePdfjsViewerFileParam(blobUrl, 'tax-form.pdf')}`;
     expect(

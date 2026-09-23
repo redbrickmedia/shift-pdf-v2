@@ -8,8 +8,16 @@ import {
   getSignedPdfFilename,
 } from '../js/utils/sign-pdf-export';
 import {
+  bindPdfJsEditorHistory,
   configureSessionOnlySignatureUi,
+  editorHistoryFromStates,
+  EMPTY_PDFJS_EDITOR_HISTORY,
+  isEditorHistoryDetails,
+  openPdfJsSignatureDialog,
   PDFJS_SIGNATURE_MODE,
+  redoPdfJsEditor,
+  undoPdfJsEditor,
+  waitForPdfJsPagesReady,
 } from '../js/utils/pdfjs-sign-viewer';
 import type { PDFViewerApplication } from '../js/types/sign-pdf-type';
 
@@ -68,6 +76,10 @@ describe('PDF.js visual signature mode', () => {
     const viewerDocument = iframe.contentDocument!;
     viewerDocument.body.innerHTML = `
       <div id="editorHighlight"></div>
+      <button id="downloadButton"></button>
+      <button id="secondaryDownload"></button>
+      <button id="printButton"></button>
+      <button id="secondaryPrint"></button>
       <div id="editorSignature" hidden></div>
       <button id="editorSignatureButton" disabled></button>
       <div id="addSignatureSaveContainer"></div>
@@ -81,6 +93,12 @@ describe('PDF.js visual signature mode', () => {
     configureSessionOnlySignatureUi(iframe, application);
 
     expect(viewerDocument.getElementById('editorHighlight')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('downloadButton')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('secondaryDownload')?.hidden).toBe(
+      true
+    );
+    expect(viewerDocument.getElementById('printButton')?.hidden).toBe(true);
+    expect(viewerDocument.getElementById('secondaryPrint')?.hidden).toBe(true);
     expect(viewerDocument.getElementById('editorSignature')?.hidden).toBe(
       false
     );
@@ -104,6 +122,43 @@ describe('PDF.js visual signature mode', () => {
     });
   });
 
+  it('clicks the viewer Add signature button even though it is in another realm', () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const viewerDocument = iframe.contentDocument!;
+    viewerDocument.body.innerHTML =
+      '<button id="editorSignatureAddSignature"></button>';
+    const addButton = viewerDocument.getElementById(
+      'editorSignatureAddSignature'
+    )!;
+    const clicked = vi.fn();
+    addButton.addEventListener('click', clicked);
+    const dispatch = vi.fn();
+
+    openPdfJsSignatureDialog(iframe, {
+      eventBus: { dispatch, _on: vi.fn() },
+    } as PDFViewerApplication);
+
+    expect(addButton instanceof HTMLElement).toBe(false);
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Signature mode when the viewer button is missing', () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const dispatch = vi.fn();
+
+    openPdfJsSignatureDialog(iframe, {
+      eventBus: { dispatch, _on: vi.fn() },
+    } as PDFViewerApplication);
+
+    expect(dispatch).toHaveBeenCalledWith('switchannotationeditormode', {
+      source: window,
+      mode: PDFJS_SIGNATURE_MODE,
+    });
+  });
+
   it('keeps the vendored signature store session-only', async () => {
     const viewerBundle = await readFile(
       resolve(process.cwd(), 'public/pdfjs-viewer/viewer.mjs'),
@@ -117,5 +172,87 @@ describe('PDF.js visual signature mode', () => {
 
     expect(signatureStorage).not.toContain('pdfjs.signature');
     expect(signatureStorage).not.toContain('localStorage');
+  });
+
+  it('waits for every PDF.js page view before printing', async () => {
+    const application = {
+      pdfViewer: { pageViewsReady: false },
+    } as PDFViewerApplication;
+    window.setTimeout(() => {
+      if (application.pdfViewer) application.pdfViewer.pageViewsReady = true;
+    }, 10);
+
+    await expect(waitForPdfJsPagesReady(application, 500)).resolves.toBe(
+      undefined
+    );
+  });
+
+  it('treats an empty editor as having nothing to save, undo, or redo', () => {
+    expect(editorHistoryFromStates(undefined)).toEqual(
+      EMPTY_PDFJS_EDITOR_HISTORY
+    );
+    expect(
+      editorHistoryFromStates({
+        isEmpty: true,
+        hasSomethingToUndo: false,
+        hasSomethingToRedo: false,
+      })
+    ).toEqual(EMPTY_PDFJS_EDITOR_HISTORY);
+    expect(
+      editorHistoryFromStates({
+        isEmpty: false,
+        hasSomethingToUndo: true,
+        hasSomethingToRedo: false,
+      })
+    ).toEqual({ hasEdits: true, canUndo: true, canRedo: false });
+  });
+
+  it('forwards PDF.js editor undo and redo and tracks history events', () => {
+    const listeners = new Map<string, (event?: unknown) => void>();
+    const dispatch = vi.fn();
+    const onChange = vi.fn();
+    const application = {
+      eventBus: {
+        on: (event: string, listener: (event?: unknown) => void) => {
+          listeners.set(event, listener);
+        },
+        off: (event: string) => {
+          listeners.delete(event);
+        },
+        _on: vi.fn(),
+        dispatch,
+      },
+    } as PDFViewerApplication;
+
+    const unbind = bindPdfJsEditorHistory(application, onChange);
+    listeners.get('editingstateschanged')?.({
+      details: {
+        isEmpty: false,
+        hasSomethingToUndo: true,
+        hasSomethingToRedo: true,
+      },
+    });
+    listeners.get('editingstateschanged')?.({
+      details: {
+        thumbnailId: 1,
+        hasSelectedPages: true,
+      },
+    });
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({
+      hasEdits: true,
+      canUndo: true,
+      canRedo: true,
+    });
+    expect(isEditorHistoryDetails({ thumbnailId: 1 })).toBe(false);
+
+    undoPdfJsEditor(application);
+    redoPdfJsEditor(application);
+    expect(dispatch).toHaveBeenCalledWith('editingaction', { name: 'undo' });
+    expect(dispatch).toHaveBeenCalledWith('editingaction', { name: 'redo' });
+
+    unbind();
+    expect(listeners.has('editingstateschanged')).toBe(false);
   });
 });

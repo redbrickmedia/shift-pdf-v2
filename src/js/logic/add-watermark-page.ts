@@ -1004,7 +1004,6 @@ async function applyWatermark() {
       new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
       pageState.file?.name || 'document.pdf'
     );
-    showAlert('Success', 'Watermark added successfully!', 'success');
   } catch (e: unknown) {
     console.error(e);
     showAlert(

@@ -9,6 +9,10 @@ import { CropperState, CropPercentages } from '@/types';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { state } from '../state.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 const cropperState: CropperState = {
   pdfDoc: null,
@@ -65,6 +69,11 @@ function initializePage() {
   onToolFilesSeeded(() => {
     if (cropperState.file || state.files.length === 0) return;
     void handleFile(state.files[0]);
+  });
+
+  registerToolOutputSession({
+    apply: performCrop,
+    canSave: () => Object.keys(cropperState.pageCrops).length > 0,
   });
 }
 
@@ -153,6 +162,7 @@ function saveCurrentCrop() {
       height: currentCrop.height / imageData.naturalHeight,
     };
     cropperState.pageCrops[cropperState.currentPageNum] = cropPercentages;
+    syncToolOutputToolbar();
   }
 }
 
@@ -194,6 +204,9 @@ async function displayPageAsImage(num: number) {
         responsive: true,
         rotatable: false,
         zoomable: false,
+        cropend() {
+          saveCurrentCrop();
+        },
       });
 
       const savedCrop = cropperState.pageCrops[num];
@@ -291,12 +304,6 @@ async function performCrop() {
     downloadFile(
       new Blob([new Uint8Array(finalPdfBytes)], { type: 'application/pdf' }),
       cropperState.file?.name || 'document.pdf'
-    );
-    showAlert(
-      'Success',
-      'Crop complete! Your download has started.',
-      'success',
-      () => resetState()
     );
   } catch (e) {
     console.error(e);
@@ -442,4 +449,5 @@ function resetState() {
 
   const cropBtn = document.getElementById('crop-button') as HTMLButtonElement;
   if (cropBtn) cropBtn.disabled = true;
+  syncToolOutputToolbar();
 }

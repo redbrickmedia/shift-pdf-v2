@@ -179,9 +179,6 @@ async function addPageNumbers() {
       }),
       pageState.file?.name || 'document.pdf'
     );
-    showAlert('Success', 'Page numbers added successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Could not add page numbers.');

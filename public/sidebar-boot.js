@@ -60,10 +60,11 @@
      asserts the literals match. */
   var TOOL_VIEWER_CLASS = 'shift-tool-viewer';
   var TOOL_VIEWER_PENDING_CLASS = 'shift-tool-viewer-pending';
-  var VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
-  var VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
-  var VIEWER_ACTIONS_CLASS = 'shift-tool-viewer-actions';
+  var VIEWER_BAR_CLASS = 'shift-pdf-viewer-header';
+  var VIEWER_TITLE_CLASS = 'shift-pdf-viewer-heading';
+  var VIEWER_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
   var VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
+  var VIEWER_FEATURE_ATTR = 'data-viewer-chrome';
   var VIEWER_SLOT_ATTR = 'data-shift-viewer-slot';
   var VIEWER_ROOT_IDS = [
     'embed-pdf-wrapper',
@@ -78,7 +79,12 @@
   var PENDING_VIEWER_ROOT_IDS = VIEWER_ROOT_IDS.filter(function (id) {
     return MULTI_FILE_VIEWER_ROOT_IDS.indexOf(id) === -1;
   });
-  var VIEWER_ACTION_IDS = ['download-edited-pdf', 'process-btn', 'crop-button'];
+  var VIEWER_ACTION_IDS = [
+    'download-edited-pdf',
+    'process-btn',
+    'crop-button',
+    'save-stamped-btn',
+  ];
   var SIDEBAR_THUMB_STORE_KEY = 'shiftSidebarThumbnails';
   var SIDEBAR_THUMB_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
   var MAX_SIDEBAR_ROWS = 3;
@@ -408,39 +414,14 @@
         return !!document.getElementById(id);
       });
       if (!hasViewer) return true;
+      if (!paintToolHeader()) return false;
 
-      var heading = card.querySelector('h1');
-      if (!heading) return false;
-
-      var bar = card.querySelector('.' + VIEWER_BAR_CLASS);
-      if (!bar) {
-        bar = document.createElement('div');
-        bar.className = VIEWER_BAR_CLASS;
-
-        var title = document.createElement('div');
-        title.className = VIEWER_TITLE_CLASS;
-
-        var subtitle =
-          heading.nextElementSibling &&
-          heading.nextElementSibling.tagName === 'P'
-            ? heading.nextElementSibling
-            : null;
-
-        heading.replaceWith(bar);
-        title.appendChild(heading);
-        if (subtitle) title.appendChild(subtitle);
-
-        var actions = document.createElement('div');
-        actions.className = VIEWER_ACTIONS_CLASS;
-        actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
-
-        bar.appendChild(title);
-        bar.appendChild(actions);
-      }
-
+      var bar = findToolHeaderBar(card);
       document.body.classList.add(TOOL_VIEWER_CLASS);
       document.body.classList.add(TOOL_VIEWER_PENDING_CLASS);
-      relocateViewerActions(bar.querySelector('[' + VIEWER_ACTIONS_ATTR + ']'));
+      relocateViewerActions(
+        bar && bar.querySelector('[' + VIEWER_ACTIONS_ATTR + ']')
+      );
       return true;
     }
 
@@ -537,9 +518,89 @@
     }
   }
 
-  /* Every viewer tool should read as one panel: heading row and document inside
-     the same card. sign-pdf and crop-pdf author their viewer as a sibling of
-     #tool-uploader, so the shell moves it in. Mirrors adoptViewerIntoCard in
+  function isNonToolHeaderPage() {
+    var body = document.body;
+    return (
+      (body && body.classList.contains('shift-home')) ||
+      !!document.getElementById('shift-my-pdfs') ||
+      !!document.getElementById('tool-grid') ||
+      !!document.getElementById('convert-hub') ||
+      !!document.getElementById('shift-pdf-viewer')
+    );
+  }
+
+  function findToolHeaderBar(card) {
+    var host = card && card.parentNode;
+    return (
+      (host && host.querySelector
+        ? host.querySelector(':scope > .' + VIEWER_BAR_CLASS)
+        : null) ||
+      (card && card.querySelector('.' + VIEWER_BAR_CLASS))
+    );
+  }
+
+  function placeToolHeaderBar(bar, card) {
+    var host = card.parentNode;
+    if (host && bar.parentNode !== host) {
+      host.insertBefore(bar, card);
+    }
+  }
+
+  /* Title + Reset/Save have to be outside the gray card on the first painted
+     frame. Sign PDF authors the shared header already; other pages still
+     author h1 inside #tool-uploader. This script runs from <head> and lifts
+     that row while the parser is still working, so main.ts does not snap the
+     heading out after paint. Mirrors ensureViewerChrome. */
+  function paintToolHeader() {
+    if (isNonToolHeaderPage()) return true;
+
+    var card = document.getElementById('tool-uploader');
+    if (!card) return document.readyState !== 'loading';
+
+    var bar = findToolHeaderBar(card);
+    if (!bar) {
+      var heading = card.querySelector('h1');
+      if (!heading) return document.readyState !== 'loading';
+      if (document.readyState === 'loading' && !heading.nextElementSibling) {
+        return false;
+      }
+
+      bar = document.createElement('header');
+      bar.className = VIEWER_BAR_CLASS;
+
+      var title = document.createElement('div');
+      title.className = VIEWER_TITLE_CLASS;
+
+      var subtitle =
+        heading.nextElementSibling &&
+        heading.nextElementSibling.tagName === 'P'
+          ? heading.nextElementSibling
+          : null;
+
+      title.appendChild(heading);
+      if (subtitle) {
+        subtitle.setAttribute(VIEWER_FEATURE_ATTR, 'subtitle');
+        title.appendChild(subtitle);
+      }
+
+      var actions = document.createElement('div');
+      actions.className = VIEWER_ACTIONS_CLASS;
+      actions.setAttribute(VIEWER_ACTIONS_ATTR, '');
+      actions.setAttribute('role', 'toolbar');
+      actions.setAttribute('aria-label', 'PDF actions');
+
+      bar.appendChild(title);
+      bar.appendChild(actions);
+    }
+
+    placeToolHeaderBar(bar, card);
+    return true;
+  }
+
+  /* Crop and other leftover pages still author their viewer as a sibling of
+     #tool-uploader, so the shell moves it in. Sign PDF authors the View PDF
+     shell and keeps the stage as a sibling of the empty-state card — do not
+     pull that stage into the gray panel. Mirrors adoptViewerIntoCard in
      tool-viewer-layout.ts, and runs here because the move has to beat the tool
      mounting its PDF.js iframe — reparenting one discards its browsing context
      and reloads the document — and because doing it after first paint would
@@ -554,6 +615,14 @@
     for (var i = 0; i < VIEWER_ROOT_IDS.length; i++) {
       var viewer = document.getElementById(VIEWER_ROOT_IDS[i]);
       if (!viewer || card.contains(viewer)) continue;
+      if (
+        (viewer.parentNode &&
+          viewer.parentNode.classList &&
+          viewer.parentNode.classList.contains('shift-pdf-viewer-shell')) ||
+        (viewer.closest && viewer.closest('.shift-pdf-viewer-stage'))
+      ) {
+        continue;
+      }
       if (viewer.querySelector('iframe')) continue;
       card.appendChild(viewer);
       // One viewer per page, so there is nothing left to watch for.
@@ -574,6 +643,20 @@
     document.addEventListener('DOMContentLoaded', function () {
       adoptViewerIntoCard();
       viewerObserver.disconnect();
+    });
+  }
+
+  if (!paintToolHeader()) {
+    var headerObserver = new MutationObserver(function () {
+      if (paintToolHeader()) headerObserver.disconnect();
+    });
+    headerObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+      paintToolHeader();
+      headerObserver.disconnect();
     });
   }
 

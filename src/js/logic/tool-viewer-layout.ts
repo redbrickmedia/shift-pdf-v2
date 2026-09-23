@@ -1,4 +1,10 @@
 import { isHomeDocument } from './seed-tool-open-file.js';
+import {
+  VIEWER_CHROME_ACTIONS_ATTR,
+  VIEWER_CHROME_HEADER_CLASS,
+  VIEWER_CHROME_HEADING_CLASS,
+  mountViewerChrome,
+} from './viewer-chrome.js';
 import { WORKSPACE_FILES_RENDERED_EVENT } from './workspace-files.js';
 
 /**
@@ -19,6 +25,7 @@ export const VIEWER_DOWNLOAD_BUTTON_IDS = [
   'download-edited-pdf',
   'process-btn',
   'crop-button',
+  'save-stamped-btn',
 ] as const;
 
 /** Drop zone / file-chip nodes that must leave the layout while viewing. */
@@ -67,11 +74,12 @@ export const PENDING_VIEWER_ROOT_IDS = VIEWER_ROOT_IDS.filter(
 export const TOOL_VIEWER_BODY_CLASS = 'shift-tool-viewer';
 export const TOOL_VIEWER_PENDING_CLASS = 'shift-tool-viewer-pending';
 export const TOOL_VIEWER_CAPABLE_CLASS = 'shift-tool-viewer-capable';
-export const TOOL_VIEWER_BAR_CLASS = 'shift-tool-viewer-bar';
-export const TOOL_VIEWER_TITLE_CLASS = 'shift-tool-viewer-title';
+/** Same header node as View PDF. Do not invent a second bar. */
+export const TOOL_VIEWER_BAR_CLASS = VIEWER_CHROME_HEADER_CLASS;
+export const TOOL_VIEWER_TITLE_CLASS = VIEWER_CHROME_HEADING_CLASS;
 export const TOOL_VIEWER_SUPPRESS_CLASS = 'shift-tool-viewer-suppressed';
 export const TOOL_VIEWER_SCROLL_HOST_CLASS = 'shift-viewer-scroll-host';
-export const TOOL_VIEWER_ACTIONS_ATTR = 'data-shift-viewer-actions';
+export const TOOL_VIEWER_ACTIONS_ATTR = VIEWER_CHROME_ACTIONS_ATTR;
 /** Marks where a relocated action button came from, so it can go back. */
 export const TOOL_VIEWER_SLOT_ATTR = 'data-shift-viewer-slot';
 /** Body class sidebar-boot.js sets alongside the open-file classes. */
@@ -119,12 +127,14 @@ export function isViewerPending(root: Document = document): boolean {
 }
 
 /**
- * Put the viewer in the tool card, so every viewer tool reads as one panel:
- * heading row and document inside the same surface.
+ * Put a leftover sibling viewer in the tool card so crop / compare pages that
+ * still author it next to `#tool-uploader` do not sit heading-then-document
+ * on the page background.
  *
- * Four of the six author it that way already. sign-pdf and crop-pdf leave
- * theirs as a sibling of `#tool-uploader`, which left the card collapsed to its
- * heading with the document on the page background beneath it.
+ * Sign PDF authors the View PDF shell (`#uploader.shift-pdf-viewer-shell`)
+ * with the stage as a sibling of the empty-state card. Leave that structure
+ * alone — moving the stage into the card would hide the shared header behind
+ * a gray panel again.
  *
  * Timing is the whole constraint: these viewers host a PDF.js iframe, and
  * reparenting an iframe discards its browsing context and reloads the document.
@@ -139,11 +149,23 @@ export function adoptViewerIntoCard(root: Document = document): void {
     const viewer = root.getElementById(id);
     if (!(viewer instanceof HTMLElement)) continue;
     if (card.contains(viewer)) continue;
+    if (
+      viewer.parentElement?.classList.contains('shift-pdf-viewer-shell') ||
+      viewer.closest('.shift-pdf-viewer-stage')
+    ) {
+      continue;
+    }
     // Revealed, or already holding a frame, means the tool has mounted: leave
     // it where it is rather than reload the document inside it.
     if (isRevealed(viewer) || viewer.querySelector('iframe')) continue;
     card.append(viewer);
   }
+}
+
+export function ensureToolCardHeader(
+  root: Document = document
+): HTMLElement | null {
+  return ensureViewerChrome(root);
 }
 
 /**
@@ -169,14 +191,15 @@ export function initToolViewerLayout(root: Document = document): void {
   ensureViewerChrome(root);
 
   observer = new MutationObserver(() => {
-    syncToolViewerLayout(root);
+    observer?.disconnect();
+    try {
+      syncToolViewerLayout(root);
+    } finally {
+      observer?.takeRecords();
+      observeToolViewerLayout(root);
+    }
   });
-  observer.observe(root.body, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['class', 'style', 'hidden'],
-  });
+  observeToolViewerLayout(root);
 
   root.addEventListener(
     WORKSPACE_FILES_RENDERED_EVENT,
@@ -197,6 +220,15 @@ export function initToolViewerLayout(root: Document = document): void {
   syncToolViewerLayout(root);
 }
 
+function observeToolViewerLayout(root: Document): void {
+  observer?.observe(root.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden'],
+  });
+}
+
 function resolvePendingViewer(): void {
   pendingResolved = true;
   if (pendingTimer === null) return;
@@ -215,7 +247,6 @@ export function syncToolViewerLayout(root: Document = document): void {
     return;
   }
 
-  ensureViewerChrome(root);
   const active = isViewerActive(root);
   if (active) resolvePendingViewer();
   const pending = !active && isViewerPending(root);
@@ -223,6 +254,7 @@ export function syncToolViewerLayout(root: Document = document): void {
 
   root.body.classList.toggle(TOOL_VIEWER_BODY_CLASS, viewing);
   root.body.classList.toggle(TOOL_VIEWER_PENDING_CLASS, pending);
+  ensureViewerChrome(root);
   suppressUploadChrome(root, viewing);
   markViewerScrollHosts(root, viewing);
 
@@ -294,40 +326,9 @@ function markViewerScrollHosts(root: Document, active: boolean): void {
 }
 
 function ensureViewerChrome(root: Document): HTMLElement | null {
-  const toolUploader = root.getElementById('tool-uploader');
-  if (!toolUploader) return null;
-
-  const existing = toolUploader.querySelector<HTMLElement>(
-    `.${TOOL_VIEWER_BAR_CLASS}`
+  return (
+    mountViewerChrome(root, { preset: 'tool' })?.actions ?? null
   );
-  if (existing) {
-    return existing.querySelector<HTMLElement>(`[${TOOL_VIEWER_ACTIONS_ATTR}]`);
-  }
-
-  const heading = toolUploader.querySelector('h1');
-  if (!heading) return null;
-
-  const bar = root.createElement('div');
-  bar.className = TOOL_VIEWER_BAR_CLASS;
-
-  const title = root.createElement('div');
-  title.className = TOOL_VIEWER_TITLE_CLASS;
-
-  const subtitle =
-    heading.nextElementSibling instanceof HTMLParagraphElement
-      ? heading.nextElementSibling
-      : null;
-
-  heading.replaceWith(bar);
-  title.append(heading);
-  if (subtitle) title.append(subtitle);
-
-  const actions = root.createElement('div');
-  actions.className = 'shift-tool-viewer-actions';
-  actions.setAttribute(TOOL_VIEWER_ACTIONS_ATTR, '');
-
-  bar.append(title, actions);
-  return actions;
 }
 
 function relocateDownloadButtons(root: Document): void {
@@ -347,7 +348,7 @@ function relocateDownloadButtons(root: Document): void {
 
 /**
  * Leave a marker where the page authored the button. The header is the right
- * place for it while a viewer fills the panel, but `.shift-tool-viewer-actions`
+ * place for it while a viewer fills the panel, but `.shift-pdf-viewer-actions`
  * is `display: none` outside that layout, so a button left there after a
  * fallback would simply vanish from the card.
  */

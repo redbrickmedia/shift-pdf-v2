@@ -8,6 +8,7 @@ import {
   parseFavoriteToolIds,
   partitionToolIdsByFavorites,
   placeFavoriteToolCards,
+  reorderFavoriteToolIds,
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
@@ -129,6 +130,36 @@ describe('tool favorites', () => {
       'sign-pdf',
       'split-pdf',
     ]);
+  });
+
+  it('does not re-seed defaults after Clear all writes an empty list', () => {
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) return '[]';
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return null;
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([]);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_MIGRATED_KEY,
+      '1'
+    );
+  });
+
+  it('reorders a favorite without dropping the rest', () => {
+    expect(
+      reorderFavoriteToolIds(
+        ['compress-pdf', 'merge-pdf', 'pdf-converter'],
+        0,
+        2
+      )
+    ).toEqual(['merge-pdf', 'pdf-converter', 'compress-pdf']);
+    expect(
+      reorderFavoriteToolIds(['compress-pdf', 'merge-pdf'], 1, 1)
+    ).toEqual(['compress-pdf', 'merge-pdf']);
   });
 
   it('does not re-seed after a former prepinned tool is unpinned', () => {

@@ -110,11 +110,6 @@ function handleFiles(newFiles: FileList) {
   }
 }
 
-const resetState = () => {
-  files = [];
-  updateUI();
-};
-
 function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
   const fileControls = document.getElementById('file-controls');
@@ -195,10 +190,6 @@ async function convertToPdf() {
     const pdfBlob = await mupdf.imagesToPdf(compressedFiles);
 
     downloadFile(pdfBlob, 'from_jpgs.pdf');
-
-    showAlert('Success', 'PDF created successfully!', 'success', () => {
-      resetState();
-    });
   } catch (e: unknown) {
     console.error('[JpgToPdf]', e);
     showAlert(

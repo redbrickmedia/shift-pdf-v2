@@ -174,16 +174,6 @@ async function encryptPdf() {
     downloadFile(blob, pageState.file.name);
 
     hideLoader();
-
-    let successMessage = 'PDF encrypted successfully with 256-bit AES!';
-    if (!hasDistinctOwnerPassword) {
-      successMessage +=
-        ' Note: Without a separate owner password, the PDF has no usage restrictions.';
-    }
-
-    showAlert('Success', successMessage, 'success', () => {
-      resetState();
-    });
   } catch (error: unknown) {
     console.error('Error during PDF encryption:', error);
     hideLoader();

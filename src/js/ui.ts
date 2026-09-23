@@ -86,6 +86,17 @@ export const showCancellableLoader = (
   loaderModal.querySelector('.bg-gray-800')?.appendChild(cancelWrap);
 };
 
+function isProcessSuccessAlert(title: string, type: string): boolean {
+  if (title === 'Saved' || title === 'Loaded' || title === 'Copied') {
+    return false;
+  }
+  return (
+    type === 'success' ||
+    title === 'Success' ||
+    title === 'Processing Complete'
+  );
+}
+
 export const showAlert = (
   title: string,
   message: string,
@@ -93,6 +104,7 @@ export const showAlert = (
   callback?: () => void
 ) => {
   noteProcessAlert(type);
+  if (isProcessSuccessAlert(title, type)) return;
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
   if (dom.alertModal) {

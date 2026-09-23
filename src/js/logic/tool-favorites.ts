@@ -128,8 +128,11 @@ export function loadFavoriteToolIds(
     }
 
     const existing = parseFavoriteToolIds(raw, validToolIds);
+    const clearedAll = raw.trim() === '[]';
 
-    if (!migrated) {
+    // An explicit empty list is "Clear all". Do not merge the former
+    // prepinned tools back — that is the re-seed the smoke pass caught.
+    if (!migrated && !clearedAll) {
       const existingSet = new Set(existing);
       const merged = [
         ...defaults.filter((toolId) => !existingSet.has(toolId)),
@@ -140,6 +143,10 @@ export function loadFavoriteToolIds(
         markFavoritesMigrated(storage as StorageWriter);
       }
       return merged;
+    }
+
+    if (clearedAll && !migrated && canWrite) {
+      markFavoritesMigrated(storage as StorageWriter);
     }
 
     return existing;
@@ -228,6 +235,28 @@ export function loadFavoriteRailSnapshot(
     console.warn('PDF favorites rail cache is unavailable.', error);
     return [];
   }
+}
+
+export function reorderFavoriteToolIds(
+  favoriteIds: readonly string[],
+  fromIndex: number,
+  toIndex: number
+): string[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= favoriteIds.length ||
+    toIndex >= favoriteIds.length
+  ) {
+    return [...favoriteIds];
+  }
+
+  const next = [...favoriteIds];
+  const [moved] = next.splice(fromIndex, 1);
+  if (!moved) return [...favoriteIds];
+  next.splice(toIndex, 0, moved);
+  return next;
 }
 
 export function toggleFavoriteToolId(

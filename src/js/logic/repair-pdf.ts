@@ -126,10 +126,6 @@ export async function repairPdf() {
       downloadFile(zipBlob, 'repaired_pdfs.zip');
       hideLoader();
     }
-
-    if (failedRepairs.length === 0) {
-      showAlert('Success', 'All files repaired successfully!');
-    }
   } catch (error: unknown) {
     console.error('Critical error during repair:', error);
     hideLoader();

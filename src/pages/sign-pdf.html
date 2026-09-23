@@ -75,140 +75,97 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
   </head>
 
-  <body class="antialiased bg-gray-900">
+  <body class="antialiased shift-pdf-viewer-page">
     {{> navbar }}
 
-    <div
-      id="uploader"
-      class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900"
-    >
-      <div
-        id="tool-uploader"
-        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
-      >
-        <h1
-          class="text-2xl font-bold text-white mb-2"
-          data-i18n="tools:signPdf.name"
-        >
-          Sign PDF
-        </h1>
-        <p class="text-gray-400 mb-6" data-i18n="tools:signPdf.subtitle">
-          Draw, type, or upload your signature.
-        </p>
-        <div
-          class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-6 flex items-start gap-3"
-        >
-          <i
-            data-lucide="pen-line"
-            class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"
-          ></i>
-          <div class="text-sm">
-            <p
-              class="text-blue-300 font-medium"
-              data-i18n="tools:signPdf.visualSignatureNotice"
-            >
-              Sign PDF adds a visual signature to the page. It is not a
-              certificate-backed Digital Signature. Use the Digital Signature
-              tool when certificate validation is required.
-            </p>
-            <p
-              class="text-blue-400/80 mt-1"
-              data-i18n="tools:signPdf.sessionOnlyNotice"
-            >
-              Signatures and PDFs stay in this browser session and are not saved
-              for later use.
-            </p>
-          </div>
-        </div>
-
-        <!-- Drop Zone -->
-        <div
-          id="drop-zone"
-          class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
-        >
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
-            <i
-              data-lucide="circle-arrow-up"
-              class="w-10 h-10 mb-3 text-gray-400"
-            ></i>
-            <p class="mb-2 text-sm text-gray-400">
-              <span class="font-semibold" data-i18n="upload.clickToSelect"
-                >Click to select a file</span
-              >
-              <span data-i18n="upload.orDragAndDrop">or drag and drop</span>
-            </p>
-            <p
-              class="text-xs text-gray-500"
-              data-i18n="upload.hints.pdfDocuments"
-            >
-              PDF Documents
-            </p>
-            <p class="text-xs text-gray-500" data-i18n="upload.filesNeverLeave">
-              Your files never leave your device.
-            </p>
-          </div>
-          <input
-            id="file-input"
-            type="file"
-            class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-            accept="application/pdf"
-          />
-        </div>
-
-        <!-- File Display -->
-        <div id="file-display-area" class="mt-4 space-y-2"></div>
-      </div>
-
-      <!-- Signature Editor (shown after file upload) -->
-      <div id="signature-editor" class="hidden w-full max-w-2xl mt-6">
-        <div
-          id="canvas-container-sign"
-          class="relative w-full overflow-auto bg-gray-900 rounded-lg border border-gray-600"
-          style="height: 85vh"
-        >
-          <!-- PDF.js viewer iframe will be loaded here -->
+    <div id="uploader" class="shift-pdf-viewer-shell">
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1 data-i18n="tools:signPdf.name">Sign PDF</h1>
+          <p data-viewer-chrome="subtitle" data-i18n="tools:signPdf.subtitle">
+            Draw, type, or upload your signature.
+          </p>
         </div>
 
         <div
-          class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          class="shift-pdf-viewer-actions"
+          data-shift-viewer-actions
+          role="toolbar"
+          aria-label="PDF actions"
         >
+          <button
+            id="shift-sign-add"
+            class="shift-pdf-viewer-action"
+            type="button"
+            data-viewer-chrome="sign"
+            hidden
+            aria-label="Add signature"
+          >
+            <i class="ph ph-pen-nib" aria-hidden="true"></i>
+            <span>Sign</span>
+          </button>
           <label
-            class="flex items-center gap-2 text-sm font-medium text-gray-300 cursor-pointer"
+            class="shift-pdf-viewer-flatten"
+            data-viewer-chrome="flatten"
+            hidden
+            title="Flattened output visibly burns signatures into pages and removes their edit controls."
+            data-i18n-title="tools:signPdf.flattenHint"
           >
             <input
               type="checkbox"
               id="flatten-signature-toggle"
-              class="w-4 h-4 rounded text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+              class="shift-pdf-viewer-flatten-input"
             />
             <span data-i18n="tools:signPdf.flattenLabel"
               >Flatten signatures into page content</span
             >
           </label>
+        </div>
+      </header>
+
+      <section
+        class="shift-pdf-viewer-stage"
+        aria-label="Signature editor"
+      >
+        <div id="signature-editor" class="hidden">
+          <div id="canvas-container-sign" class="shift-pdf-viewer-frame">
+            <!-- PDF.js viewer iframe will be loaded here -->
+          </div>
           <button
-            id="print-signed-pdf"
-            type="button"
-            class="hidden flex btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg items-center justify-center gap-2 text-sm"
+            id="process-btn"
+            class="btn-gradient w-full mt-4"
+            style="display: none"
           >
-            <i data-lucide="printer" class="w-4 h-4" aria-hidden="true"></i>
-            <span data-i18n="tools:signPdf.print">Print</span>
+            <span>Apply signatures</span>
           </button>
         </div>
-        <p
-          class="mt-2 text-xs text-gray-400"
-          data-i18n="tools:signPdf.flattenHint"
-        >
-          Flattened output visibly burns signatures into pages and removes their
-          edit controls.
-        </p>
 
-        <button
-          id="process-btn"
-          class="btn-gradient w-full mt-4"
-          style="display: none"
-        >
-          <span data-i18n="tools:signPdf.download">Download Signed PDF</span>
-        </button>
-      </div>
+        <div id="tool-uploader" class="shift-pdf-viewer-empty">
+          <div id="drop-zone">
+            <p>
+              <span class="font-semibold" data-i18n="upload.clickToSelect"
+                >Click to select a file</span
+              >
+              <span data-i18n="upload.orDragAndDrop">or drag and drop</span>
+            </p>
+            <p data-i18n="tools:signPdf.visualSignatureNotice">
+              Sign PDF adds a visual signature to the page. It is not a
+              certificate-backed Digital Signature. Use the Digital Signature
+              tool when certificate validation is required.
+            </p>
+            <p data-i18n="tools:signPdf.sessionOnlyNotice">
+              Signatures and PDFs stay in this browser session and are not saved
+              for later use.
+            </p>
+            <input
+              id="file-input"
+              type="file"
+              accept="application/pdf"
+            />
+          </div>
+          <div id="file-display-area"></div>
+        </div>
+      </section>
 
       <section
         id="completion-panel"
@@ -301,7 +258,6 @@
       </div>
     </div>
 
-    {{> footer }}
     <script type="module" src="/src/js/utils/lucide-init.ts"></script>
     <script type="module" src="/src/js/utils/full-width.ts"></script>
     <script type="module" src="/src/js/utils/simple-mode-footer.ts"></script>

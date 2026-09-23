@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
+import { runAsyncRenderQueue } from '../utils/async-render-queue.js';
 import { confirmAction } from './confirm-dialog.js';
 import {
   addPdfToLibrary,
@@ -16,6 +17,7 @@ import {
   writePersistedOpenFiles,
 } from './open-file-store.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
+import { downloadBlob } from '../utils/helpers.js';
 import {
   createMyPdfsSearchEmptyCopy,
   createMyPdfsSearchEmptyRow,
@@ -2172,6 +2174,7 @@ function createHomeFileRow(
   nameLayout.className = 'shift-my-pdfs-name';
   const name = root.createElement('span');
   name.textContent = file.name;
+  attachShiftTooltip(name, { placement: 'bottom', text: file.name });
   nameLayout.append(name);
   if (file.source === 'download') {
     nameLayout.appendChild(createDownloadedCopyBadge(root));
@@ -2194,6 +2197,7 @@ function createHomeFileRow(
   actionLayout.className = 'shift-my-pdfs-action-layout';
   actionLayout.append(
     createHomeFileViewButton(file, root),
+    createHomeFileDownloadButton(file, root),
     createHomeFileDeleteButton(file, root)
   );
   actionCell.appendChild(actionLayout);
@@ -2239,6 +2243,7 @@ function createHomeFileThumb(
   const name = root.createElement('span');
   name.className = 'shift-open-file-thumb-name';
   name.textContent = file.name;
+  attachShiftTooltip(name, { placement: 'bottom', text: file.name });
   meta.appendChild(name);
   const details = formatFileSize(file.size);
   if (details) {
@@ -2273,6 +2278,7 @@ function createHomeFileThumb(
   actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
   actions.append(
     createHomeFileViewButton(file, root),
+    createHomeFileDownloadButton(file, root),
     createHomeFileDeleteButton(file, root)
   );
   item.append(card, actions);
@@ -2293,6 +2299,27 @@ function createHomeFileViewButton(
     event.stopPropagation();
     hideShiftTooltip();
     void openLibraryFileInViewer(file, root);
+  });
+  return button;
+}
+
+function createHomeFileDownloadButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-download';
+  button.dataset.fileName = file.name;
+  button.textContent = 'Download';
+  button.setAttribute('aria-label', `Download ${file.name}`);
+  button.disabled = !file.blob;
+  attachShiftTooltip(button, { placement: 'bottom', text: 'Download PDF' });
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    if (!file.blob) return;
+    downloadBlob(file.blob, file.name);
   });
   return button;
 }
@@ -2480,29 +2507,36 @@ async function fillHomeThumbnails(
 
   const cards = homeLibraryThumbCards(thumbs);
 
-  for (const [index, file] of files.entries()) {
-    if (token !== thumbnailRenderToken) return;
-    const card = cards[index];
-    const preview = card?.querySelector<HTMLElement>(
-      '.shift-open-file-thumb-preview'
-    );
-    const canvas = preview?.querySelector('canvas');
-    if (!preview || !canvas || !file.blob) continue;
-    // Already painted — skip so selection/reuse re-renders do not redraw.
-    if (!preview.classList.contains('is-empty')) continue;
+  await runAsyncRenderQueue(
+    files,
+    async (file, index) => {
+      if (token !== thumbnailRenderToken) return;
+      const card = cards[index];
+      const preview = card?.querySelector<HTMLElement>(
+        '.shift-open-file-thumb-preview'
+      );
+      const canvas = preview?.querySelector('canvas');
+      if (!preview || !canvas || !file.blob) return;
+      // Already painted — skip so selection/reuse re-renders do not redraw.
+      if (!preview.classList.contains('is-empty')) return;
 
-    try {
-      await renderPdfFirstPage(file.blob, canvas);
-      // Clear is-empty before the cancellation check. A newer fill may bump the
-      // token after pixels land; leaving is-empty would hide those pixels via CSS
-      // (`.is-empty canvas { display: none }`) even though the canvas painted.
-      preview.classList.remove('is-empty');
-      if (token !== thumbnailRenderToken) return;
-    } catch {
-      if (token !== thumbnailRenderToken) return;
-      preview.classList.add('is-empty');
+      try {
+        await renderPdfFirstPage(file.blob, canvas);
+        // Clear is-empty before the cancellation check. A newer fill may bump the
+        // token after pixels land; leaving is-empty would hide those pixels via CSS
+        // (`.is-empty canvas { display: none }`) even though the canvas painted.
+        preview.classList.remove('is-empty');
+        if (token !== thumbnailRenderToken) return;
+      } catch {
+        if (token !== thumbnailRenderToken) return;
+        preview.classList.add('is-empty');
+      }
+    },
+    {
+      concurrency: 2,
+      shouldCancel: () => token !== thumbnailRenderToken,
     }
-  }
+  );
 }
 
 function bindHomeFileViewToggle(root: Document): void {

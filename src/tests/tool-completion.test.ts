@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createToolCompletionPanel,
   ToolCompletionStore,
 } from '../js/utils/tool-completion';
+import { clearLatestPdfOutput, getLatestPdfOutput } from '../js/logic/shift-pdf-save';
 
 function result(blob: Blob, filename: string) {
   return {
@@ -59,6 +60,10 @@ describe('ToolCompletionStore', () => {
   });
 });
 
+afterEach(() => {
+  clearLatestPdfOutput();
+});
+
 describe('ToolCompletionPanel', () => {
   it('keeps Download again available until Start over', async () => {
     const panel = document.createElement('section');
@@ -91,7 +96,8 @@ describe('ToolCompletionPanel', () => {
 
     expect(onDownloadAgain).toHaveBeenCalledOnce();
     expect(completion.getResult()?.objectUrl).toBe('blob:retained-output');
-    expect(panel.classList.contains('hidden')).toBe(false);
+    expect(getLatestPdfOutput()?.filename).toBe('ready.pdf');
+    expect(panel.classList.contains('hidden')).toBe(true);
 
     startOverButton.click();
     await vi.waitFor(() => expect(onStartOver).toHaveBeenCalledOnce());

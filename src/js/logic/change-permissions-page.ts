@@ -232,16 +232,6 @@ async function changePermissions() {
     downloadFile(blob, pageState.file.name);
 
     hideLoader();
-
-    let successMessage = 'PDF permissions changed successfully!';
-    if (!shouldEncrypt) {
-      successMessage =
-        'PDF decrypted successfully! All encryption and restrictions removed.';
-    }
-
-    showAlert('Success', successMessage, 'success', () => {
-      resetState();
-    });
   } catch (error: unknown) {
     console.error('Error during PDF permission change:', error);
     hideLoader();

@@ -99,11 +99,6 @@ function handleFiles(newFiles: FileList) {
   }
 }
 
-const resetState = () => {
-  files = [];
-  updateUI();
-};
-
 function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
   const fileControls = document.getElementById('file-controls');
@@ -191,9 +186,6 @@ async function extractText() {
       downloadFile(textBlob, `${baseName}.txt`);
 
       hideLoader();
-      showAlert('Success', 'Text extracted successfully!', 'success', () => {
-        resetState();
-      });
     } else {
       showLoader('Extracting text from multiple files...');
 
@@ -218,14 +210,6 @@ async function extractText() {
       downloadFile(zipBlob, 'pdf-to-text.zip');
 
       hideLoader();
-      showAlert(
-        'Success',
-        `Extracted text from ${files.length} PDF files!`,
-        'success',
-        () => {
-          resetState();
-        }
-      );
     }
   } catch (e: unknown) {
     console.error('[PDFToText]', e);
