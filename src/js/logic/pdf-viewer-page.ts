@@ -1,7 +1,12 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { runOnDomReady } from './tool-file-seed.js';
 import { mountViewerChrome } from './viewer-chrome.js';
-import { readPdfLibrary, readPdfLibraryEntry } from './pdf-library-store.js';
+import {
+  readPdfLibrary,
+  readPdfLibraryEntry,
+  restoreLibraryEntryAccess,
+  type PdfLibraryEntry,
+} from './pdf-library-store.js';
 import { readPersistedOpenFiles } from './open-file-store.js';
 import {
   markFileLibraryId,
@@ -32,6 +37,19 @@ let currentFile: File | null = null;
 let currentObjectUrl: string | null = null;
 let currentRevokeObjectUrl: ((url: string) => void) | null = null;
 let downloadTimer: number | null = null;
+
+async function readableLibraryEntry(
+  entry: PdfLibraryEntry | null
+): Promise<PdfLibraryEntry | null> {
+  if (!entry) return null;
+  if (entry.availability === 'ready' && entry.file.size > 0) return entry;
+  if (!entry.handle || entry.availability === 'unavailable') return null;
+  const restored = await restoreLibraryEntryAccess(entry.id);
+  if (!restored || restored.availability !== 'ready' || restored.file.size === 0) {
+    return null;
+  }
+  return restored;
+}
 
 function markViewerFile(
   file: File,
@@ -102,7 +120,7 @@ export async function loadViewerDocumentFromUrl(
   const name = params.get('name')?.trim();
 
   if (id) {
-    const entry = await readPdfLibraryEntry(id);
+    const entry = await readableLibraryEntry(await readPdfLibraryEntry(id));
     if (!entry) {
       showEmptyState(root);
       return false;
@@ -119,8 +137,11 @@ export async function loadViewerDocumentFromUrl(
       (entry) => entry.name === name
     );
     if (libraryMatches.length === 1) {
-      const entry = libraryMatches[0];
-      if (!entry) return false;
+      const entry = await readableLibraryEntry(libraryMatches[0] ?? null);
+      if (!entry) {
+        showEmptyState(root);
+        return false;
+      }
       return showPdfInViewer(
         markViewerFile(entry.file, entry.source, entry.id),
         root,

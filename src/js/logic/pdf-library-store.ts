@@ -431,7 +431,9 @@ async function fromOriginalSavedPdfRecord(
   }
   const buffer = handledFile
     ? await handledFile.arrayBuffer()
-    : dataUriToBuffer(record.base64 ?? '');
+    : record.base64
+      ? dataUriToBuffer(record.base64)
+      : new ArrayBuffer(0);
   return {
     id: record.id,
     name: handledFile?.name ?? record.filename,

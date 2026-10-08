@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addPdfToLibrary,
   classifyHandleFailure,
@@ -6,6 +6,7 @@ import {
   readPdfLibrary,
   removePdfFromLibrary,
   replacePdfInLibrary,
+  restoreLibraryEntryAccess,
   updatePdfInLibrary,
 } from '../js/logic/pdf-library-store';
 
@@ -182,6 +183,80 @@ describe('PDF library store', () => {
     ).toBe('unavailable');
   });
 
+  it('does not hydrate a locked handle as an empty PDF', async () => {
+    const file = new File(['pdf-bytes'], 'kept.pdf', {
+      type: 'application/pdf',
+    });
+    const handle = {
+      kind: 'file',
+      getFile: vi
+        .fn()
+        .mockRejectedValue(new DOMException('nope', 'NotAllowedError')),
+      queryPermission: vi.fn().mockResolvedValue('prompt'),
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    } as unknown as FileSystemFileHandle;
+    const stored = [
+      {
+        id: 'kept-id',
+        filename: 'kept.pdf',
+        dateAddedTimestamp: Date.now(),
+        folderId: '',
+        pageCount: 0,
+        sizeInBytes: file.size,
+        source: 'handoff',
+        handle,
+      },
+    ];
+    vi.stubGlobal('indexedDB', {
+      open: (): unknown => {
+        const request = {
+          result: {
+            objectStoreNames: { contains: (): boolean => true },
+            close: (): void => undefined,
+            transaction: (): {
+              objectStore: () => {
+                getAll: () => ReturnType<typeof settle<typeof stored>>;
+                get: () => ReturnType<typeof settle<(typeof stored)[number] | undefined>>;
+                put: () => ReturnType<typeof settle<undefined>>;
+                delete: () => ReturnType<typeof settle<undefined>>;
+                clear: () => ReturnType<typeof settle<undefined>>;
+              };
+            } => ({
+              objectStore: () => ({
+                getAll: () => settle(stored),
+                get: () => settle(stored[0]),
+                put: () => settle(undefined),
+                delete: () => settle(undefined),
+                clear: () => settle(undefined),
+              }),
+            }),
+          },
+          onsuccess: null as null | (() => void),
+          onerror: null as null | (() => void),
+          onupgradeneeded: null as null | (() => void),
+        };
+        queueMicrotask(() => request.onsuccess?.());
+        return request;
+      },
+    });
+
+    try {
+      const [locked] = await readPdfLibrary();
+      expect(locked).toMatchObject({
+        name: 'kept.pdf',
+        availability: 'needs-permission',
+      });
+      expect(locked?.file.size).toBe(0);
+
+      (handle.getFile as ReturnType<typeof vi.fn>).mockResolvedValue(file);
+      const restored = await restoreLibraryEntryAccess(locked?.id ?? '');
+      expect(restored?.availability).toBe('ready');
+      await expect(restored?.file.text()).resolves.toBe('pdf-bytes');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('re-persists the handle after a rename so the entry stays readable', async () => {
     const before = movableHandle('before.pdf');
     const saved = await addPdfToLibrary(
@@ -201,6 +276,20 @@ describe('PDF library store', () => {
     });
   });
 });
+
+function settle<T>(result: T): {
+  result: T;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+} {
+  const operation = {
+    result,
+    onsuccess: null as (() => void) | null,
+    onerror: null as (() => void) | null,
+  };
+  queueMicrotask(() => operation.onsuccess?.());
+  return operation;
+}
 
 function movableHandle(
   name: string

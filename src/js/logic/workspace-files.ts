@@ -7,6 +7,7 @@ import {
   addPdfToLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
+  restoreLibraryEntryAccess,
   updatePdfInLibrary,
 } from './pdf-library-store.js';
 import type { PdfLibraryAvailability } from './pdf-library-store.js';
@@ -319,12 +320,48 @@ export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
 }
 
+async function withRestoredLibraryAccess(
+  file: WorkspaceFileInfo
+): Promise<WorkspaceFileInfo> {
+  if (!file.id || !file.availability || file.availability === 'ready') {
+    return file;
+  }
+  const restored = await restoreLibraryEntryAccess(file.id);
+  if (!restored || restored.availability !== 'ready') return file;
+  return {
+    ...file,
+    name: restored.name,
+    size: restored.size,
+    blob: restored.file,
+    handle: restored.handle,
+    availability: restored.availability,
+  };
+}
+
 export async function openLibraryFileInViewer(
   file: WorkspaceFileInfo,
   root: Document = document,
   assignLocation: (href: string) => void = (href) =>
     window.location.assign(href)
 ): Promise<boolean> {
+  const readable =
+    file.availability && file.availability !== 'ready'
+      ? await withRestoredLibraryAccess(file)
+      : file;
+  if (readable.availability && readable.availability !== 'ready') {
+    await confirmAction({
+      root,
+      title: 'Could not open this PDF',
+      message:
+        readable.availability === 'unavailable'
+          ? 'This PDF is no longer available on disk.'
+          : 'Shift needs permission to open this PDF.',
+      confirmLabel: 'OK',
+      cancelLabel: 'Close',
+    });
+    return false;
+  }
+  file = readable;
   const href = viewPdfHref(root, file);
   if (!href) return false;
   assignLocation(href);
@@ -2340,6 +2377,13 @@ function createHomeFileDownloadButton(
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     hideShiftTooltip();
+    if (file.availability && file.availability !== 'ready') {
+      void withRestoredLibraryAccess(file).then((readable) => {
+        if (!readable.blob || readable.blob.size === 0) return;
+        downloadBlob(readable.blob, readable.name);
+      });
+      return;
+    }
     if (!file.blob) return;
     downloadBlob(file.blob, file.name);
   });
@@ -2577,29 +2621,46 @@ function activateHomeLibraryFile(
     return;
   }
 
-  fileOrigins.set(file.blob, file.source);
-  if (file.id) markFileLibraryId(file.blob, file.id);
-  setWorkspaceFiles(
-    [
-      ...currentFiles.map((current) => ({
-        id: current.id,
-        name: current.name,
-        size: current.size,
-        source: current.source,
-        addedAt: current.addedAt,
-        blob: current.blob,
-      })),
-      {
-        id: file.id,
-        name: file.name,
-        size: file.size,
-        source: file.source,
-        addedAt: file.addedAt,
-        blob: file.blob,
-      },
-    ],
-    root
-  );
+  const choose = (next: WorkspaceFileInfo) => {
+    if (!next.blob) return;
+    fileOrigins.set(next.blob, next.source);
+    if (next.id) markFileLibraryId(next.blob, next.id);
+    setWorkspaceFiles(
+      [
+        ...currentFiles.map((current) => ({
+          id: current.id,
+          name: current.name,
+          size: current.size,
+          source: current.source,
+          addedAt: current.addedAt,
+          blob: current.blob,
+          handle: current.handle,
+          availability: current.availability,
+        })),
+        {
+          id: next.id,
+          name: next.name,
+          size: next.size,
+          source: next.source,
+          addedAt: next.addedAt,
+          blob: next.blob,
+          handle: next.handle,
+          availability: next.availability,
+        },
+      ],
+      root
+    );
+  };
+
+  if (file.availability && file.availability !== 'ready') {
+    void withRestoredLibraryAccess(file).then((readable) => {
+      if (readable.availability && readable.availability !== 'ready') return;
+      choose(readable);
+    });
+    return;
+  }
+
+  choose(file);
 }
 
 function isHomeLibraryFileSelected(file: WorkspaceFileInfo): boolean {

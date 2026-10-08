@@ -98,26 +98,35 @@ async function chooseFilesWithHandles(
 }
 
 async function filesFromDrop(event: DragEvent): Promise<FileWithHandle[]> {
-  const items = Array.from(event.dataTransfer?.items ?? []);
-  if (items.length > 0) {
-    const handled = await Promise.all(
-      items.map(async (item): Promise<FileWithHandle | null> => {
-        if (item.kind !== 'file') return null;
-        const handle = await (
-          item as HandleDataTransferItem
-        ).getAsFileSystemHandle?.();
-        if (isFileHandle(handle)) {
-          return { file: await handle.getFile(), handle };
-        }
-        const file = item.getAsFile();
-        return file ? { file } : null;
-      })
-    );
-    return handled.filter((item): item is FileWithHandle => item !== null);
-  }
-  return Array.from(event.dataTransfer?.files ?? []).map((file) => ({
+  const snapshot = Array.from(event.dataTransfer?.files ?? []).map((file) => ({
     file,
   }));
+  const items = Array.from(event.dataTransfer?.items ?? []);
+  if (items.length === 0) return snapshot;
+
+  // getAsFile() is only valid during the drop event. Read it before awaiting
+  // a handle, and keep that file when the handle lookup fails or is missing.
+  const handled = await Promise.all(
+    items.map((item): Promise<FileWithHandle | null> => {
+      if (item.kind !== 'file') return Promise.resolve(null);
+      const fallback = item.getAsFile();
+      const readHandle = (item as HandleDataTransferItem).getAsFileSystemHandle;
+      if (typeof readHandle !== 'function') {
+        return Promise.resolve(fallback ? { file: fallback } : null);
+      }
+      return readHandle
+        .call(item)
+        .then(async (handle: FileSystemHandle | null) => {
+          if (isFileHandle(handle)) {
+            return { file: await handle.getFile(), handle };
+          }
+          return fallback ? { file: fallback } : null;
+        })
+        .catch(() => (fallback ? { file: fallback } : null));
+    })
+  );
+  const files = handled.filter((item): item is FileWithHandle => item !== null);
+  return files.length > 0 ? files : snapshot;
 }
 
 async function restoreOpenFiles(root: Document): Promise<void> {
@@ -191,9 +200,10 @@ export function initHomeFiles(root: Document = document): void {
           'function'
       );
       if (canReadHandle) {
-        void filesFromDrop(event).then((files) =>
-          addOpenFiles(files, root, libraryEpoch)
-        );
+        const snapshot = Array.from(event.dataTransfer?.files ?? []);
+        void filesFromDrop(event)
+          .then((files) => addOpenFiles(files, root, libraryEpoch))
+          .catch(() => addFiles(snapshot));
       } else {
         addFiles(event.dataTransfer?.files ?? null);
       }

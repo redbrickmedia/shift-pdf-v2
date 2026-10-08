@@ -146,6 +146,41 @@ describe('downloaded PDF library', () => {
     await expect(entries[0]?.file.text()).resolves.toBe('after');
   });
 
+  it('writes through a library handle when the workspace file has none', async () => {
+    const { handle, writable } = mockHandle({});
+    const original = new File(['before'], 'report.pdf', {
+      type: 'application/pdf',
+    });
+    const saved = await addPdfToLibrary(original, 'handoff', { handle });
+    setWorkspaceFiles([
+      {
+        id: saved.id,
+        name: saved.name,
+        size: saved.size,
+        source: saved.source,
+        blob: saved.file,
+      },
+    ]);
+    initDownloadedPdfLibrary();
+
+    downloadFile(
+      new Blob(['after'], { type: 'application/pdf' }),
+      'report.pdf'
+    );
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
+    });
+    confirmSaveToDisk();
+
+    await vi.waitFor(async () => {
+      expect(writable.write).toHaveBeenCalledOnce();
+    });
+    await expect((await readPdfLibrary())[0]?.file.text()).resolves.toBe(
+      'after'
+    );
+  });
+
   it('does not auto-download when saving through the handle fails', async () => {
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn(() => 'blob:download'),

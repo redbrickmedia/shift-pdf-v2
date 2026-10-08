@@ -105,6 +105,33 @@ describe('home files', () => {
     expect(document.getElementById('shift-my-pdfs')).toBeNull();
   });
 
+  it('keeps a dropped PDF when the file handle is not available', async () => {
+    mountHome();
+    initHomeFiles();
+    const pdf = new File(['%PDF'], 'dropped.pdf', { type: 'application/pdf' });
+    let dragDataReleased = false;
+    const item = {
+      kind: 'file' as const,
+      getAsFile: () => (dragDataReleased ? null : pdf),
+      getAsFileSystemHandle: () =>
+        Promise.resolve(null).then((handle) => {
+          dragDataReleased = true;
+          return handle;
+        }),
+    };
+    const dropZone = document.getElementById('drop-zone');
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { files: [pdf], items: [item] },
+    });
+
+    dropZone?.dispatchEvent(event);
+
+    await vi.waitFor(() => {
+      expect(getWorkspaceFiles()).toMatchObject([{ name: 'dropped.pdf' }]);
+    });
+  });
+
   it('lists a dropped PDF in the home Open file section', () => {
     mountHome();
     initHomeFiles();

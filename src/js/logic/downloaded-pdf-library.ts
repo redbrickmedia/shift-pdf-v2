@@ -28,10 +28,10 @@ async function handlePdfOutput(blob: Blob, root: Document): Promise<boolean> {
   const selected = getWorkspaceFiles();
   if (selected.length !== 1 || !selected[0]) return false;
   const selectedFile = selected[0];
-  if (!selectedFile.handle) return false;
 
   const entry = await findWritableLibraryEntry(selectedFile);
   const handle = entry?.handle ?? selectedFile.handle;
+  if (!handle) return false;
   const filename = entry?.name ?? selectedFile.name;
 
   const shouldSave = await confirmAction({
