@@ -105,4 +105,30 @@ describe('Shift theme for the PDF.js viewer', () => {
 
     expect(document.documentElement.dataset.shiftViewer).toBe('embed');
   });
+
+  it('copies the parent palette and preset onto the viewer document', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.append(iframe);
+    const child = iframe.contentWindow;
+    const childRoot = iframe.contentDocument?.documentElement;
+    expect(child).toBeTruthy();
+    expect(childRoot).toBeTruthy();
+
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'amber');
+    document.documentElement.style.setProperty('--brand-600', '#90491e');
+
+    const source = await readText('public/pdfjs-viewer/shift-viewer-theme.js');
+    child!.Function(source)();
+
+    expect(childRoot!.dataset.shiftViewer).toBe('embed');
+    expect(childRoot!.classList.contains('dark')).toBe(true);
+    expect(childRoot!.getAttribute('data-theme')).toBe('amber');
+    expect(childRoot!.style.getPropertyValue('--brand-600')).toBe('#90491e');
+
+    iframe.remove();
+    document.documentElement.classList.remove('dark');
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.style.removeProperty('--brand-600');
+  });
 });

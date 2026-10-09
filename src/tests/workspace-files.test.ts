@@ -3011,12 +3011,14 @@ describe('workspace files sidebar', () => {
   });
 
   /**
-   * Short or tall page previews used to stretch `.shift-open-file-thumb-preview`
-   * (min-height + canvas height:auto), so meta sat at different Y positions and
-   * cards in the grid were uneven. The preview frame must be a fixed box that
-   * centers the canvas; the canvas must not be allowed to grow that box.
+   * Thumbnail cards used to be a fixed 160px with a 154px preview strip and a
+   * single-line filename, so a letter page smeared and two files that shared
+   * a prefix looked identical. The row is a wrapping grid with a 280px floor,
+   * the preview keeps a portrait page ratio, and the name wraps to two lines.
+   * The canvas fills that frame; height:auto must not be allowed to grow it.
+   * The collapsed rail's 24px preview is a different control.
    */
-  it('keeps My PDFs thumbnail preview frames a fixed height', () => {
+  it('lays My PDFs thumbnail cards out wide enough to read', () => {
     const css = readFileSync('src/css/shift-theme.css', 'utf8');
     const ruleBody = (selector: string): string => {
       const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -3025,18 +3027,58 @@ describe('workspace files sidebar', () => {
       return css.slice(match.index, css.indexOf('\n}', match.index));
     };
 
+    const grid = ruleBody('.shift-open-file-thumbs');
+    expect(grid).toMatch(/display:\s*grid/);
+    expect(grid).toMatch(
+      /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(280px,\s*1fr\)\)/
+    );
+
+    const card = ruleBody('.shift-open-file-thumb');
+    expect(card).toMatch(/width:\s*100%/);
+    expect(card).not.toMatch(/width:\s*160px/);
+    expect(ruleBody('.shift-my-pdfs-thumb-item')).not.toMatch(/width:\s*160px/);
+    expect(ruleBody('.shift-my-pdfs-thumb-item')).toMatch(/width:\s*100%/);
+
+    const empty = ruleBody('.shift-open-file-thumb.shift-my-pdfs-empty-card');
+    expect(empty).toMatch(/width:\s*100%/);
+    expect(empty).not.toMatch(/16\.5rem/);
+    expect(empty).not.toMatch(/width:\s*160px/);
+
     const preview = ruleBody('.shift-open-file-thumb-preview');
-    expect(preview).toMatch(/height:\s*154px/);
+    expect(preview).toMatch(/aspect-ratio:\s*8\.5\s*\/\s*11/);
+    expect(preview).not.toMatch(/height:\s*154px/);
     expect(preview).not.toMatch(/min-height:/);
-    expect(preview).toContain('align-items: center');
-    expect(preview).toContain('justify-content: center');
     expect(preview).toContain('overflow: hidden');
 
     const canvas = ruleBody('.shift-open-file-thumb-preview canvas');
-    expect(canvas).toContain('max-width: 100%');
-    expect(canvas).toContain('max-height: 100%');
+    expect(canvas).toContain('width: 100%');
+    expect(canvas).toContain('height: 100%');
     expect(canvas).toContain('object-fit: contain');
-    // Full-bleed width:100% + height:auto was what let tall pages grow the card.
-    expect(canvas).not.toMatch(/^\s*width:\s*100%;/m);
+    expect(canvas).not.toMatch(/height:\s*auto/);
+
+    const name = ruleBody('.shift-open-file-thumb-name');
+    expect(name).toMatch(/-webkit-line-clamp:\s*2/);
+    expect(name).toMatch(/line-clamp:\s*2/);
+    expect(name).toMatch(/white-space:\s*normal/);
+    expect(name).not.toMatch(/white-space:\s*nowrap/);
+
+    const actions = ruleBody(
+      '.shift-my-pdfs-thumb-actions .shift-my-pdfs-view,\n.shift-my-pdfs-thumb-actions .shift-my-pdfs-download'
+    );
+    expect(actions).toMatch(/min-height:\s*32px/);
+    expect(actions).toMatch(
+      /background:\s*var\(--action-button-surface-secondary-default\)/
+    );
+    expect(actions).toMatch(/border-radius:\s*var\(--radius-8\)/);
+
+    const remove = ruleBody(
+      '.shift-my-pdfs-thumb-actions .shift-my-pdfs-rename,\n.shift-my-pdfs-thumb-actions .shift-my-pdfs-delete'
+    );
+    expect(remove).toMatch(/min-height:\s*32px/);
+    expect(remove).toMatch(/height:\s*32px/);
+
+    const rail = ruleBody('.shift-open-file-preview');
+    expect(rail).toMatch(/width:\s*24px/);
+    expect(rail).toMatch(/height:\s*24px/);
   });
 });

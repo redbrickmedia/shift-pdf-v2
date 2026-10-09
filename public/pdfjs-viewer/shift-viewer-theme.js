@@ -63,14 +63,64 @@
     root.classList.toggle('is-light', mode === 'light');
   }
 
+  /* Palette stops the shell semantic tokens read. Copied as computed values
+     because this document cannot see the parent's stylesheet or its inline
+     custom properties. Preset themes and custom themes both land here. */
+  var PALETTE_STOPS = [
+    '--light-50',
+    '--light-100',
+    '--light-200',
+    '--light-300',
+    '--light-700',
+    '--light-800',
+    '--light-900',
+    '--dark-50',
+    '--dark-100',
+    '--dark-200',
+    '--dark-300',
+    '--dark-600',
+    '--dark-700',
+    '--dark-800',
+    '--brand-50',
+    '--brand-500',
+    '--brand-600',
+    '--brand-700',
+  ];
+
+  function copyHostPalette(host) {
+    var computed;
+    try {
+      var view = host.ownerDocument && host.ownerDocument.defaultView;
+      computed = view.getComputedStyle(host);
+    } catch (err) {
+      return;
+    }
+    var theme = host.getAttribute('data-theme');
+    if (theme) root.setAttribute('data-theme', theme);
+    else root.removeAttribute('data-theme');
+
+    for (var i = 0; i < PALETTE_STOPS.length; i++) {
+      var name = PALETTE_STOPS[i];
+      var value = (computed.getPropertyValue(name) || '').trim();
+      if (value) root.style.setProperty(name, value);
+      else root.style.removeProperty(name);
+    }
+  }
+
   applyMode(preferredMode());
 
-  /* Follow the shell if the host flips colour mode while the viewer is open. */
+  /* Follow the shell if the host flips colour mode, preset, or custom palette
+     while the viewer is open. */
   var host = hostRoot();
+  if (host) copyHostPalette(host);
   if (host && typeof MutationObserver === 'function') {
     new MutationObserver(function () {
       applyMode(preferredMode());
-    }).observe(host, { attributes: true, attributeFilter: ['class'] });
+      copyHostPalette(host);
+    }).observe(host, {
+      attributes: true,
+      attributeFilter: ['class', 'style', 'data-theme'],
+    });
   }
 
   /* PDF.js reports invalid files on the console only. Forward that to the
