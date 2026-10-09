@@ -1,3 +1,8 @@
+import {
+  getToolIdFromPath,
+  PDF_ENGINE_EVENTS,
+  track,
+} from '../host/analytics.js';
 import { syncHomeLibraryFromStore } from '../logic/workspace-files.js';
 import { addPdfToLibrary } from '../logic/pdf-library-store.js';
 
@@ -131,6 +136,10 @@ export function listenForShiftFileHandoff(
           version: FILE_HANDOFF_VERSION,
         });
       } catch (error) {
+        track(PDF_ENGINE_EVENTS.toolUsed, {
+          tool_id: getToolIdFromPath(),
+          result: 'error',
+        });
         reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.rejected,
           handoffId,

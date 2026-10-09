@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PDF_ENGINE_EVENTS } from '../host/analytics';
 import { clearPdfLibrary, readPdfLibrary } from '../logic/pdf-library-store';
 import { listenForShiftFileHandoff } from './shift-file-handoff';
 
@@ -29,6 +30,8 @@ describe('listenForShiftFileHandoff', () => {
     window.history.replaceState({}, '', `/${originalSearch}`);
     await clearPdfLibrary();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('no-ops when shiftHandoff is missing', () => {
@@ -117,6 +120,46 @@ describe('listenForShiftFileHandoff', () => {
       },
       SHIFT_ORIGIN
     );
+  });
+
+  it('reports a rejected handoff through the host analytics bridge', async () => {
+    vi.stubEnv('VITE_HOST_API_ROOT', 'testHost.api');
+    const trackFn = vi.fn();
+    vi.stubGlobal('testHost', { api: { analytics: { track: trackFn } } });
+    window.history.replaceState(
+      {},
+      '',
+      `/pdf-converter.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    const source = { postMessage: vi.fn() };
+
+    listenForShiftFileHandoff({
+      onFile: vi.fn().mockResolvedValue(false),
+    });
+    dispatchMessage({
+      data: {
+        bytes: new Uint8Array([37, 80, 68, 70]).buffer,
+        channel: 'shift-file-handoff-payload',
+        filename: 'basicapi.pdf',
+        handoffId: HANDOFF_ID,
+        mimeType: 'application/pdf',
+        version: 1,
+      },
+      source,
+    });
+
+    await vi.waitFor(() =>
+      expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
+        tool_id: 'pdf-converter',
+        result: 'error',
+      })
+    );
+    expect(source.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'shift-file-handoff-rejected' }),
+      SHIFT_ORIGIN
+    );
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('rejects the handoff when onFile returns false', async () => {

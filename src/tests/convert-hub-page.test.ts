@@ -464,6 +464,51 @@ describe('convert hub against the shipped page markup', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  it('loads a Shift file handoff into the convert selection', async () => {
+    const handoffId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
+    window.history.replaceState(
+      {},
+      '',
+      `/pdf-converter.html?shiftHandoff=${handoffId}`
+    );
+    mountRealPage();
+    initConvertHubPage(document);
+
+    const source = { postMessage: vi.fn() };
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          bytes: new Uint8Array([37, 80, 68, 70]).buffer,
+          channel: 'shift-file-handoff-payload',
+          filename: 'basicapi.pdf',
+          handoffId,
+          mimeType: 'application/pdf',
+          mode: 'copy',
+          version: 1,
+        },
+        origin: 'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna',
+        source: source as unknown as Window,
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('convert-source-name')?.textContent).toBe(
+        'basicapi.pdf'
+      );
+    });
+    await vi.waitFor(() => {
+      expect(source.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'shift-file-handoff-accepted',
+          handoffId,
+          version: 1,
+        }),
+        'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna'
+      );
+    });
+    window.history.replaceState({}, '', '/pdf-converter.html');
+  });
+
   it('accepts a multi-file selection through the page file input', async () => {
     mountRealPage();
     initConvertHubPage(document);
