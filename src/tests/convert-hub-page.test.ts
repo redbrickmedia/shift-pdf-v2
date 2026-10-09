@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
+import * as analytics from '../js/host/analytics';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addConvertSources,
   createInitialConvertHubState,
+  describeRejectedConvertSources,
   getDestinationsForSources,
   handoffConvertSourcesToTool,
   initConvertHubPage,
@@ -123,6 +125,22 @@ describe('convert hub state', () => {
 
     expect(addConvertSources(state, [pdf('one.pdf')]).sourceFiles).toHaveLength(
       1
+    );
+  });
+
+  it('does not call a duplicate PDF an unsupported type', () => {
+    const file = pdf('find_all.pdf');
+    const state = addConvertSources(createInitialConvertHubState(), [file]);
+
+    expect(describeRejectedConvertSources(state, [pdf('find_all.pdf')])).toBe(
+      'find_all.pdf is already in this conversion.'
+    );
+    expect(
+      describeRejectedConvertSources(state, [
+        new File(['zzz'], 'notes.zip', { type: 'application/zip' }),
+      ])
+    ).toBe(
+      'That file type is not supported for conversion yet. Try a PDF or another common document format.'
     );
   });
 
@@ -321,7 +339,9 @@ describe('convert hub page', () => {
       document.querySelectorAll<HTMLButtonElement>('.shift-convert-destination')
     ).map((button) => button.dataset.destinationId);
     expect(visible).toEqual(['pdf-to-docx']);
-    expect(document.getElementById('convert-destination-search')).not.toBeNull();
+    expect(
+      document.getElementById('convert-destination-search')
+    ).not.toBeNull();
   });
 
   it('explains a selection with no format in common', () => {
@@ -339,10 +359,16 @@ describe('convert hub page', () => {
   });
 
   it('persists every source file and navigates into the selected tool', async () => {
+    const tracked = vi.spyOn(analytics, 'track');
     const assign = vi.fn();
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { assign },
+      value: {
+        assign,
+        pathname: '/pdf-converter.html',
+        origin: 'http://localhost',
+        href: 'http://localhost/pdf-converter.html',
+      },
     });
 
     await handoffConvertSourcesToTool(
@@ -359,6 +385,10 @@ describe('convert hub page', () => {
     );
 
     expect(assign).toHaveBeenCalledWith('/pdf-to-docx.html');
+    expect(tracked).toHaveBeenCalledWith(
+      analytics.PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({ result: 'success' })
+    );
     expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
       'one.pdf',
       'two.pdf',
@@ -369,7 +399,12 @@ describe('convert hub page', () => {
     const assign = vi.fn();
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { assign },
+      value: {
+        assign,
+        pathname: '/pdf-converter.html',
+        origin: 'http://localhost',
+        href: 'http://localhost/pdf-converter.html',
+      },
     });
 
     await handoffConvertSourcesToTool(
@@ -463,6 +498,25 @@ describe('convert hub against the shipped page markup', () => {
     });
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
+
+  it('names the Excel download xlsx and explains a duplicate PDF', async () => {
+    const end = vi.spyOn(analytics, 'endToolUse');
+    mountRealPage();
+    initConvertHubPage(document);
+    await Promise.resolve();
+
+    selectFiles([pdf('basicapi.pdf')]);
+    expect(
+      document.querySelector('[data-destination-id="pdf-to-excel"]')
+        ?.textContent
+    ).toContain('basicapi.xlsx');
+
+    selectFiles([pdf('basicapi.pdf')]);
+    expect(
+      document.getElementById('convert-unsupported-message')?.textContent
+    ).toBe('basicapi.pdf is already in this conversion.');
+    expect(end).toHaveBeenCalledWith('error');
+  });
 
   it('accepts a multi-file selection through the page file input', async () => {
     mountRealPage();

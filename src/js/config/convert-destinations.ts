@@ -139,12 +139,28 @@ function toolHrefById(
   return `${baseUrl}${toolId}.html`;
 }
 
+/** Slug suffixes that are not the file the tool actually downloads. */
+const OUTPUT_EXTENSION_BY_TOOL_ID: Record<string, string> = {
+  'pdf-to-excel': 'xlsx',
+  'pdf-to-greyscale': 'pdf',
+  'pdf-to-json': 'zip',
+  'pdf-to-markdown': 'md',
+  'pdf-to-text': 'txt',
+  'extract-images': 'zip',
+  'prepare-pdf-for-ai': 'json',
+};
+
+function outputExtensionForTool(toolId: string): string {
+  return (
+    OUTPUT_EXTENSION_BY_TOOL_ID[toolId] ??
+    (toolId.startsWith('pdf-to-') ? toolId.replace('pdf-to-', '') : 'pdf')
+  );
+}
+
 function destinationFromTool(
   tool: (typeof categories)[number]['tools'][number]
 ): ConvertDestination {
-  const outputExtension = tool.id.startsWith('pdf-to-')
-    ? tool.id.replace('pdf-to-', '')
-    : 'pdf';
+  const outputExtension = outputExtensionForTool(tool.id);
   return {
     id: tool.id,
     name: tool.name,
