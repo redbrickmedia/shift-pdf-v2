@@ -34,7 +34,6 @@ let currentFile: File | null = null;
 let currentObjectUrl: string | null = null;
 let currentRevokeObjectUrl: ((url: string) => void) | null = null;
 let downloadTimer: number | null = null;
-let openErrorReported = false;
 
 /** Arm PdfEngine_ToolUsed for the viewer Download control. */
 export function armViewerDownload(): void {
@@ -44,17 +43,6 @@ export function armViewerDownload(): void {
 /** Close the download attempt as success or error. A second result is ignored. */
 export function finishViewerDownload(result: 'success' | 'error'): void {
   endToolUse(result);
-}
-
-/**
- * The embedded PDF.js viewer has no visible error surface. A failed open
- * (for example bug1020226.pdf) posts `document-error`; record it once.
- */
-export function noteViewerOpenError(): void {
-  if (openErrorReported) return;
-  openErrorReported = true;
-  beginToolUse();
-  endToolUse('error');
 }
 
 function markViewerFile(
@@ -92,7 +80,6 @@ export async function showPdfInViewer(
   if (!frame) return false;
 
   currentFile = file;
-  openErrorReported = false;
 
   const createObjectUrl =
     dependencies.createObjectUrl ??
@@ -254,10 +241,6 @@ function bindViewerActions(root: Document): void {
     if (!event.data || typeof event.data !== 'object') return;
     const data = event.data as Record<string, unknown>;
     if (data.channel !== VIEWER_MESSAGE_CHANNEL) return;
-    if (data.event === 'document-error') {
-      noteViewerOpenError();
-      return;
-    }
     if (data.event !== 'download-started') return;
     clearDownloadTimer();
     setDownloadBusy(root, false);
@@ -303,7 +286,6 @@ export function resetPdfViewerPageForTests(): void {
   currentFile = null;
   currentObjectUrl = null;
   currentRevokeObjectUrl = null;
-  openErrorReported = false;
 }
 
 runOnDomReady(() => initPdfViewerPage());

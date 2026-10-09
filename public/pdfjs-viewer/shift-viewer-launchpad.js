@@ -229,90 +229,6 @@
     poll();
   }
 
-  var errorWatchTimer = 0;
-
-  function documentErrorText(evt) {
-    var reason = evt && typeof evt.reason === 'string' ? evt.reason.trim() : '';
-    if (/cancel/i.test(reason)) {
-      return 'A password is required to open this PDF.';
-    }
-    var message =
-      evt && typeof evt.message === 'string' ? evt.message.trim() : '';
-    if (
-      message &&
-      message.indexOf('pdfjs-') !== 0 &&
-      message.indexOf('\n') === -1
-    ) {
-      return message;
-    }
-    if (reason && reason.length < 240 && reason.indexOf('\n') === -1) {
-      return reason;
-    }
-    return 'This PDF could not be opened.';
-  }
-
-  function showDocumentError(text) {
-    var host = element('outerContainer') || document.body;
-    var banner = element('shift-pdf-open-error');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'shift-pdf-open-error';
-      banner.setAttribute('role', 'alert');
-      var paragraph = document.createElement('p');
-      banner.appendChild(paragraph);
-      host.appendChild(banner);
-    }
-    var copy = banner.querySelector('p');
-    if (copy) copy.textContent = text;
-    banner.hidden = false;
-  }
-
-  function clearDocumentError() {
-    var banner = element('shift-pdf-open-error');
-    if (banner) banner.hidden = true;
-  }
-
-  /* PDF.js reports InvalidPDFException only on the console. bug1020226.pdf
-     then sits on a blank 0/0 page. Surface the same event in the page. */
-  function watchDocumentErrors() {
-    if (errorWatchTimer) {
-      window.clearInterval(errorWatchTimer);
-      errorWatchTimer = 0;
-    }
-    var attached = false;
-    var tries = 0;
-    var attach = function () {
-      if (attached) return;
-      var bus =
-        window.PDFViewerApplication && window.PDFViewerApplication.eventBus;
-      if (!bus || typeof bus.on !== 'function') return;
-      attached = true;
-      bus.on('documenterror', function (evt) {
-        var text = documentErrorText(evt);
-        showDocumentError(text);
-        window.parent.postMessage(
-          {
-            channel: CHANNEL,
-            event: 'document-error',
-            message: text,
-          },
-          window.location.origin
-        );
-      });
-      bus.on('documentloaded', clearDocumentError);
-    };
-    attach();
-    if (attached) return;
-    errorWatchTimer = window.setInterval(function () {
-      tries += 1;
-      attach();
-      if (attached || tries > 40) {
-        window.clearInterval(errorWatchTimer);
-        errorWatchTimer = 0;
-      }
-    }, 50);
-  }
-
   function bindParentActions() {
     window.addEventListener('message', function (event) {
       if (
@@ -340,7 +256,6 @@
   }
 
   function init() {
-    watchDocumentErrors();
     if (document.documentElement.dataset.shiftViewer !== 'launchpad') return;
     // Ahead of buildControls, which bails out if any stock control is missing.
     // The rail must survive that case, since the toggle stays usable.

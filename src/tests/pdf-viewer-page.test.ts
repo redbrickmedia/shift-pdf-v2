@@ -7,7 +7,6 @@ import {
   isPdf,
   launchViewerTool,
   loadViewerDocumentFromUrl,
-  noteViewerOpenError,
   resetPdfViewerPageForTests,
   showPdfInViewer,
   VIEWER_TOOL_TARGETS,
@@ -234,17 +233,12 @@ describe('PDF viewer page', () => {
     expect(getWorkspaceFiles()[0]?.blob).toBe(file);
   });
 
-  it('records download success and one error when a PDF cannot be opened', () => {
+  it('records a successful viewer download', () => {
     const end = vi.spyOn(analytics, 'endToolUse');
 
     armViewerDownload();
     finishViewerDownload('success');
+    expect(end).toHaveBeenCalledOnce();
     expect(end).toHaveBeenCalledWith('success');
-
-    end.mockClear();
-    noteViewerOpenError();
-    noteViewerOpenError();
-    expect(end).toHaveBeenCalledTimes(1);
-    expect(end).toHaveBeenCalledWith('error');
   });
 });
