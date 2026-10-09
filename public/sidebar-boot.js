@@ -131,7 +131,19 @@
   document.documentElement.classList.add(colorMode);
   document.documentElement.style.colorScheme = colorMode;
 
-  if (read('shiftSidebarCollapsed') === 'true') {
+  /* Keep in step with main.ts and the max-width: 640px rule in shift-theme.css. */
+  var viewportNarrow = false;
+  try {
+    if (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+    ) {
+      viewportNarrow = true;
+    }
+  } catch (_narrowError) {
+    // matchMedia can throw in a locked-down browser; leave the rail expanded.
+  }
+  if (read('shiftSidebarCollapsed') === 'true' || viewportNarrow) {
     document.documentElement.classList.add('shift-sidebar-collapsed-pending');
   }
 
@@ -572,8 +584,7 @@
       title.className = VIEWER_TITLE_CLASS;
 
       var subtitle =
-        heading.nextElementSibling &&
-        heading.nextElementSibling.tagName === 'P'
+        heading.nextElementSibling && heading.nextElementSibling.tagName === 'P'
           ? heading.nextElementSibling
           : null;
 

@@ -10,7 +10,7 @@ describe('default starting page', () => {
     const html = read('index.html');
 
     expect(html).toContain('id="shift-my-pdfs"');
-    expect(html).toContain('id="shift-my-pdfs-heading"');
+    expect(html).toContain('<h1 id="shift-my-pdfs-heading">');
     expect(html).toContain('id="drop-zone"');
     expect(html).toContain('shift-home');
   });
@@ -40,6 +40,7 @@ describe('default starting page', () => {
       const html = read(page);
       const steps = html.match(/class="shift-onboarding-step"/g);
 
+      expect(html).toContain('<h1 id="shift-my-pdfs-heading">');
       expect(html).toContain('id="shift-promise-banner"');
       expect(html).toContain('id="shift-pdf-promise"');
       expect(html).toContain('Welcome to the PDF App 👋');
