@@ -148,4 +148,52 @@ describe('Shift launchpad controls for the PDF.js viewer', () => {
     );
     expect(document.getElementById('shiftLaunchpadControls')).toBeNull();
   });
+
+  it('explains an unreadable PDF instead of leaving a blank viewer', async () => {
+    document.documentElement.dataset.shiftViewer = 'launchpad';
+    renderViewerMarkup();
+    const handlers = new Map<string, (evt: unknown) => void>();
+    (window as unknown as Record<string, unknown>).PDFViewerApplication = {
+      eventBus: {
+        on(name: string, fn: (evt: unknown) => void) {
+          handlers.set(name, fn);
+        },
+      },
+    };
+    const messages: unknown[] = [];
+    const onMessage = (event: MessageEvent) => messages.push(event.data);
+    window.addEventListener('message', onMessage);
+
+    await runLaunchpadScript();
+    handlers.get('documenterror')?.({
+      message: 'Invalid or corrupted PDF file.',
+      reason: 'Invalid PDF structure.',
+    });
+
+    const banner = document.getElementById('shift-pdf-open-error');
+    expect(banner?.textContent).toBe('Invalid or corrupted PDF file.');
+    expect(banner?.hidden).toBe(false);
+
+    await vi.waitFor(() =>
+      expect(messages).toContainEqual({
+        channel: 'shift-pdf-viewer',
+        event: 'document-error',
+        message: 'Invalid or corrupted PDF file.',
+      })
+    );
+
+    handlers.get('documenterror')?.({
+      message: 'An error occurred while loading the PDF.',
+      reason: 'PasswordPrompt cancelled.',
+    });
+    expect(banner?.textContent).toBe(
+      'A password is required to open this PDF.'
+    );
+
+    handlers.get('documentloaded')?.({});
+    expect(banner?.hidden).toBe(true);
+
+    window.removeEventListener('message', onMessage);
+    delete (window as unknown as Record<string, unknown>).PDFViewerApplication;
+  });
 });

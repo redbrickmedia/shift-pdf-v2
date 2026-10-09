@@ -1,6 +1,7 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
-import { beginToolUse } from '../host/analytics.js';
+import { beginToolUse, endToolUse } from '../host/analytics.js';
 import { showAlert } from '../ui.js';
+import { encodePdfjsViewerFileParam } from '../utils/pdfjs-viewer-filename.js';
 import { runOnDomReady } from './tool-file-seed.js';
 import { mountViewerChrome } from './viewer-chrome.js';
 import {
@@ -41,6 +42,28 @@ let currentFile: File | null = null;
 let currentObjectUrl: string | null = null;
 let currentRevokeObjectUrl: ((url: string) => void) | null = null;
 let downloadTimer: number | null = null;
+let openErrorReported = false;
+
+/** Arm PdfEngine_ToolUsed for the viewer Download control. */
+export function armViewerDownload(): void {
+  beginToolUse();
+}
+
+/** Close the download attempt as success or error. A second result is ignored. */
+export function finishViewerDownload(result: 'success' | 'error'): void {
+  endToolUse(result);
+}
+
+/**
+ * The embedded PDF.js viewer has no visible error surface. A failed open
+ * (for example bug1020226.pdf) posts `document-error`; record it once.
+ */
+export function noteViewerOpenError(): void {
+  if (openErrorReported) return;
+  openErrorReported = true;
+  beginToolUse();
+  endToolUse('error');
+}
 
 async function readableLibraryEntry(
   entry: PdfLibraryEntry | null
@@ -90,6 +113,7 @@ export async function showPdfInViewer(
   if (!frame) return false;
 
   currentFile = file;
+  openErrorReported = false;
 
   const createObjectUrl =
     dependencies.createObjectUrl ??
@@ -109,8 +133,9 @@ export async function showPdfInViewer(
   root.getElementById('shift-pdf-viewer-error')?.setAttribute('hidden', '');
   frame.hidden = false;
   frame.title = `${file.name} PDF viewer`;
-  frame.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(
-    currentObjectUrl
+  frame.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodePdfjsViewerFileParam(
+    currentObjectUrl,
+    file.name
   )}&shiftLaunchpad=1`;
   return true;
 }
@@ -239,10 +264,12 @@ function bindViewerActions(root: Document): void {
     ?.addEventListener('click', () => {
       clearDownloadTimer();
       setDownloadBusy(root, true);
+      armViewerDownload();
       postViewerAction(frame, 'download');
       downloadTimer = window.setTimeout(() => {
         downloadTimer = null;
         setDownloadBusy(root, false);
+        finishViewerDownload('error');
       }, DOWNLOAD_FALLBACK_MS);
     });
 
@@ -255,6 +282,7 @@ function bindViewerActions(root: Document): void {
     if (data.event === 'download-started') {
       clearDownloadTimer();
       setDownloadBusy(root, false);
+      finishViewerDownload('success');
       return;
     }
     if (data.event === 'document-error') {
@@ -331,6 +359,7 @@ export function resetPdfViewerPageForTests(): void {
   currentFile = null;
   currentObjectUrl = null;
   currentRevokeObjectUrl = null;
+  openErrorReported = false;
 }
 
 runOnDomReady(() => initPdfViewerPage());
