@@ -5,9 +5,12 @@
  * loading that stylesheet would re-theme this shell — do not invent
  * `--shift-*` aliases for themed values.
  *
- * Hex values below are the light / default-brand resolutions; the `html.dark`
- * block at the foot of the file carries the dark ones. src/js/host/theme.ts
- * toggles `.light` / `.dark` on <html> from the host's colour mode.
+ * Palette stops are hex fallbacks. Semantic tokens alias those stops
+ * (`var(--brand-600)` and the rest). `html.dark` points semantic tokens at
+ * the dark-mode stop and does not repaint `--brand-*`, `--light-*`,
+ * `--dark-*`, or `--negative-*`. src/js/host/theme.ts toggles `.light` /
+ * `.dark` on <html>. A Shift host replaces the palette inline and sets
+ * `data-theme` for a preset.
  * App-local geometry (sidebar width, panel radius, font stack) stays
  * `--shift-*` because those are not themed.
  *
@@ -19,37 +22,94 @@
 @import '@fontsource/inter/600.css';
 
 :root {
-  /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
-  --background-bar-primary: #f3f4f6; /* light-100 */
-  --background-secondary: #ffffff; /* basic-white */
-  --text-primary: #111827; /* light-900 */
-  --text-secondary: #374151; /* light-700 */
-  --text-white: #ffffff; /* basic-white */
-  --border-divider-secondary: #e6e9ef; /* light-200 */
-  --border-outer-primary: #d1d5db; /* light-300 */
-  --border-brand-primary: #2563eb; /* brand-600 */
-  --border-brand-secondary: #3b82f6; /* brand-500 */
-  --action-button-surface-primary-default: #2563eb; /* brand-600 */
-  --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
-  --action-button-surface-primary-active: #1e40af; /* brand-800 */
-  --action-button-surface-primary-disabled: #e6e9ef; /* light-200 */
-  --action-button-surface-secondary-default: #ffffff; /* basic-white */
-  --action-button-surface-secondary-hover: #ffffff; /* basic-white */
-  --action-button-surface-secondary-active: #ffffff; /* basic-white */
-  --action-button-surface-secondary-disabled: #ffffff; /* basic-white */
-  --action-button-border-secondary-default: #e6e9ef; /* light-200 */
-  --action-button-border-secondary-hover: #d1d5db; /* light-300 */
-  --action-button-border-secondary-active: #9ca3af; /* light-400 */
-  --action-button-surface-negative-default: #fee2e2; /* negative-100 */
-  --action-button-surface-negative-hover: #fecaca; /* negative-200 */
-  --action-button-surface-negative-active: #fca5a5; /* negative-300 */
-  --action-button-border-negative-default: #f87171; /* negative-400 */
-  --action-button-border-negative-hover: #f87171; /* negative-400 */
-  --action-button-border-negative-active: #f87171; /* negative-400 */
-  --text-negative-default: #dc2626; /* negative-600 */
-  --border-negative-secondary: #dc2626; /* negative-600 */
+  /* Fallback palette. The host overwrites these as inline styles for a custom
+     theme. [data-theme] below overwrites them for a preset. Standalone resolves
+     semantic tokens through these hex values, which match the previous
+     hardcoded colours. */
+  --basic-white: #ffffff;
+  --light-50: #f9fafb;
+  --light-100: #f3f4f6;
+  --light-200: #e6e9ef;
+  --light-300: #d1d5db;
+  --light-400: #9ca3af;
+  --light-500: #6b7280;
+  --light-600: #4b5563;
+  --light-700: #374151;
+  --light-800: #1f2937;
+  --light-900: #111827;
+  --dark-50: #fafafa;
+  --dark-100: #f5f5f5;
+  --dark-200: #e5e5e5;
+  --dark-300: #d4d4d4;
+  --dark-400: #a3a3a3;
+  --dark-500: #737373;
+  --dark-600: #525252;
+  --dark-700: #404040;
+  --dark-750: #333333;
+  --dark-800: #262626;
+  --dark-900: #171717;
   --brand-50: #eff6ff;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
   --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --negative-100: #fee2e2;
+  --negative-200: #fecaca;
+  --negative-300: #fca5a5;
+  --negative-400: #f87171;
+  --negative-500: #ef4444;
+  --negative-600: #dc2626;
+  --negative-700: #b91c1c;
+
+  /* ---- Design-system semantic tokens (toolkit-controlled) ---- */
+  --background-bar-primary: var(--light-100); /* light-100 */
+  --background-secondary: var(--basic-white); /* basic-white */
+  --text-primary: var(--light-900); /* light-900 */
+  --text-secondary: var(--light-700); /* light-700 */
+  --text-white: var(--basic-white); /* basic-white */
+  --border-divider-secondary: var(--light-200); /* light-200 */
+  --border-outer-primary: var(--light-300); /* light-300 */
+  --border-brand-primary: var(--brand-600); /* brand-600 */
+  --border-brand-secondary: var(--brand-500); /* brand-500 */
+  --action-button-surface-primary-default: var(--brand-600); /* brand-600 */
+  --action-button-surface-primary-hover: var(--brand-700); /* brand-700 */
+  --action-button-surface-primary-active: var(--brand-800); /* brand-800 */
+  --action-button-surface-primary-disabled: var(--light-200); /* light-200 */
+  --action-button-surface-secondary-default: var(
+    --basic-white
+  ); /* basic-white */
+  --action-button-surface-secondary-hover: var(--basic-white); /* basic-white */
+  --action-button-surface-secondary-active: var(
+    --basic-white
+  ); /* basic-white */
+  --action-button-surface-secondary-disabled: var(
+    --basic-white
+  ); /* basic-white */
+  --action-button-border-secondary-default: var(--light-200); /* light-200 */
+  --action-button-border-secondary-hover: var(--light-300); /* light-300 */
+  --action-button-border-secondary-active: var(--light-400); /* light-400 */
+  --action-button-surface-negative-default: var(
+    --negative-100
+  ); /* negative-100 */
+  --action-button-surface-negative-hover: var(
+    --negative-200
+  ); /* negative-200 */
+  --action-button-surface-negative-active: var(
+    --negative-300
+  ); /* negative-300 */
+  --action-button-border-negative-default: var(
+    --negative-400
+  ); /* negative-400 */
+  --action-button-border-negative-hover: var(--negative-400); /* negative-400 */
+  --action-button-border-negative-active: var(
+    --negative-400
+  ); /* negative-400 */
+  --text-negative-default: var(--negative-600); /* negative-600 */
+  --border-negative-secondary: var(--negative-600); /* negative-600 */
   --radius-4: 4px;
   --radius-6: 6px;
   --radius-8: 8px;
@@ -62,29 +122,31 @@
   --shift-panel-gutter: 32px;
   /* Widest the page content gets; the footer shares it so their edges match. */
   --shift-panel-max: 1400px;
-  --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
-  --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
-  --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
+  --action-controls-surface-primary-default: var(--light-100); /* light-100 */
+  --action-controls-surface-primary-hover: var(--light-200); /* light-200 */
+  --action-controls-surface-secondary-active-tertiary: var(
+    --light-300
+  ); /* light-300 */
   /* Surface behind the pages in a PDF viewer. A step off the toolbar so white
      pages stay visible against it. Same value as the copy in
      public/pdfjs-viewer/shift-viewer-theme.css (that document is an iframe and
      cannot read this one), so both viewers share one workspace colour. */
   --shift-viewer-workspace: var(--action-controls-surface-primary-hover);
-  --action-text-neutral-default: #374151; /* light-700 */
-  --action-text-neutral-hover: #1f2937; /* light-800 */
-  --action-text-neutral-active: #111827; /* light-900 */
-  --action-text-neutral-selected: #111827; /* light-900 */
-  --action-text-neutral-disabled: #9ca3af; /* light-400 */
+  --action-text-neutral-default: var(--light-700); /* light-700 */
+  --action-text-neutral-hover: var(--light-800); /* light-800 */
+  --action-text-neutral-active: var(--light-900); /* light-900 */
+  --action-text-neutral-selected: var(--light-900); /* light-900 */
+  --action-text-neutral-disabled: var(--light-400); /* light-400 */
 
   /* Form inputs — same names as shift-design-system text-field / select */
-  --form-input-border-default: #d1d5db; /* light-300 */
-  --form-input-border-hover: #9ca3af; /* light-400 */
-  --form-input-border-active: #2563eb; /* brand-600 */
-  --form-input-border-focus: #3b82f6; /* brand-500 */
-  --form-input-surface-primary-default: #f9fafb; /* light-50 */
-  --form-input-surface-primary-disabled: #f9fafb; /* light-50 */
-  --form-input-surface-secondary-default: #f9fafb; /* light-50 */
-  --form-input-surface-secondary-disabled: #f9fafb; /* light-50 */
+  --form-input-border-default: var(--light-300); /* light-300 */
+  --form-input-border-hover: var(--light-400); /* light-400 */
+  --form-input-border-active: var(--brand-600); /* brand-600 */
+  --form-input-border-focus: var(--brand-500); /* brand-500 */
+  --form-input-surface-primary-default: var(--light-50); /* light-50 */
+  --form-input-surface-primary-disabled: var(--light-50); /* light-50 */
+  --form-input-surface-secondary-default: var(--light-50); /* light-50 */
+  --form-input-surface-secondary-disabled: var(--light-50); /* light-50 */
 
   /* ---- Type scale (shift-design-system size.css / weight.css) ----
    * Exact pixel steps so every surface — utilities, labels, selects, chrome —
@@ -155,13 +217,13 @@
    * gray-50/100/200 keep their stock light values because the markup already
    * uses those as light surfaces and gradient stops.
    */
-  --color-gray-900: #ffffff;
-  --color-gray-800: #f9fafb;
-  --color-gray-700: #e6e9ef;
-  --color-gray-600: #d1d5db;
-  --color-gray-500: #6b7280;
-  --color-gray-400: #4b5563;
-  --color-gray-300: #374151;
+  --color-gray-900: var(--basic-white);
+  --color-gray-800: var(--light-50);
+  --color-gray-700: var(--light-200);
+  --color-gray-600: var(--light-300);
+  --color-gray-500: var(--light-500);
+  --color-gray-400: var(--light-600);
+  --color-gray-300: var(--light-700);
 
   /* Dark themes reach for the pale -200/-400 shades as accent *ink*: links,
    * icons, status pills and "Note:" copy. Across these pages those levels are
@@ -181,12 +243,12 @@
   --color-indigo-500: var(--brand-500);
   --color-indigo-600: var(--action-button-surface-primary-default);
   --color-indigo-700: var(--action-button-surface-primary-hover);
-  --color-blue-200: #1d4ed8;
-  --color-blue-300: #1d4ed8;
-  --color-blue-400: #1d4ed8;
-  --color-red-200: #b91c1c;
-  --color-red-300: #b91c1c;
-  --color-red-400: #b91c1c;
+  --color-blue-200: var(--brand-700);
+  --color-blue-300: var(--brand-700);
+  --color-blue-400: var(--brand-700);
+  --color-red-200: var(--negative-700);
+  --color-red-300: var(--negative-700);
+  --color-red-400: var(--negative-700);
   --color-green-200: #166534;
   --color-green-300: #166534;
   --color-green-400: #166534;
@@ -202,6 +264,332 @@
   --color-violet-300: #6d28d9;
   --color-teal-300: #0f766e;
   --color-rose-300: #be123c;
+}
+
+/* Preset themes. Same palette remap as @redbrickmedia/shift-design-system:
+   [data-theme] replaces --light-*, --dark-*, and (for amber, emerald, pink)
+   --brand-*. Semantic tokens stay on var(--stop), so the preset flows through
+   buttons and surfaces. Custom themes do not use these rules — the host sets
+   the same stops as inline styles, which outrank this stylesheet. */
+
+[data-theme='amber'] {
+  --light-25: #fefaf8;
+  --light-50: #fdf6f2;
+  --light-75: #fbf3ef;
+  --light-100: #faf1ec;
+  --light-150: #f7e9e0;
+  --light-200: #f4e1d5;
+  --light-250: #f0dbce;
+  --light-300: #edd6c7;
+  --light-400: #d4ac93;
+  --light-500: #b9957d;
+  --light-600: #957057;
+  --light-700: #554439;
+  --light-800: #382b24;
+  --light-900: #191410;
+  --dark-50: #fdf6f2;
+  --dark-100: #faf1ec;
+  --dark-200: #f4e1d5;
+  --dark-300: #edd6c7;
+  --dark-400: #d4ac93;
+  --dark-500: #b9957d;
+  --dark-600: #957057;
+  --dark-650: #755a48;
+  --dark-700: #554439;
+  --dark-750: #46372e;
+  --dark-800: #382b24;
+  --dark-850: #281f1a;
+  --dark-900: #191410;
+  --dark-950: #0c0a08;
+  --brand-50: #e7d0c2;
+  --brand-100: #e1c3b0;
+  --brand-200: #d3a88d;
+  --brand-300: #c68d6a;
+  --brand-400: #b87247;
+  --brand-500: #ab5724;
+  --brand-600: #90491e;
+  --brand-650: #82421b;
+  --brand-700: #743b18;
+  --brand-750: #663415;
+  --brand-800: #592d13;
+  --brand-850: #4b2610;
+  --brand-900: #3e1f0d;
+  --brand-950: #1f0f06;
+}
+
+[data-theme='blue-grey'] {
+  --light-25: #fbfcfd;
+  --light-50: #f8fafc;
+  --light-75: #f4f7fa;
+  --light-100: #f1f5f9;
+  --light-150: #e9eef4;
+  --light-200: #e2e8f0;
+  --light-250: #d6dee8;
+  --light-300: #cbd5e1;
+  --light-400: #94a3b8;
+  --light-500: #64748b;
+  --light-600: #475569;
+  --light-700: #334155;
+  --light-800: #1e293b;
+  --light-900: #0f172a;
+  --dark-50: #f8fafc;
+  --dark-100: #f1f5f9;
+  --dark-200: #e2e8f0;
+  --dark-300: #cbd5e1;
+  --dark-400: #94a3b8;
+  --dark-500: #64748b;
+  --dark-600: #475569;
+  --dark-650: #3d4b5f;
+  --dark-700: #334155;
+  --dark-750: #283548;
+  --dark-800: #1e293b;
+  --dark-850: #162032;
+  --dark-900: #0f172a;
+  --dark-950: #070b15;
+}
+
+[data-theme='default'] {
+  --light-25: #fcfcfd;
+  --light-50: #f9fafb;
+  --light-75: #f6f7f8;
+  --light-100: #f3f4f6;
+  --light-150: #eceef2;
+  --light-200: #e6e9ef;
+  --light-250: #dbdfe5;
+  --light-300: #d1d5db;
+  --light-400: #9ca3af;
+  --light-500: #6b7280;
+  --light-600: #4b5563;
+  --light-700: #374151;
+  --light-800: #1f2937;
+  --light-900: #111827;
+  --dark-50: #fafafa;
+  --dark-100: #f5f5f5;
+  --dark-200: #e5e5e5;
+  --dark-300: #d4d4d4;
+  --dark-400: #a3a3a3;
+  --dark-500: #737373;
+  --dark-600: #525252;
+  --dark-650: #494949;
+  --dark-700: #404040;
+  --dark-750: #333333;
+  --dark-800: #262626;
+  --dark-850: #1e1e1e;
+  --dark-900: #171717;
+  --dark-950: #0a0a0a;
+}
+
+[data-theme='emerald'] {
+  --light-25: #f9fcfb;
+  --light-50: #f3faf7;
+  --light-75: #eff9f5;
+  --light-100: #ecf9f3;
+  --light-150: #e0f2e9;
+  --light-200: #d5ebdf;
+  --light-250: #cce5d8;
+  --light-300: #c3e0d2;
+  --light-400: #91c8b6;
+  --light-500: #558f7f;
+  --light-600: #3c7b6a;
+  --light-700: #325149;
+  --light-800: #1d352e;
+  --light-900: #0d221c;
+  --dark-50: #f3faf7;
+  --dark-100: #ecf9f3;
+  --dark-200: #d5ebdf;
+  --dark-300: #c3e0d2;
+  --dark-400: #91c8b6;
+  --dark-500: #558f7f;
+  --dark-600: #3c7b6a;
+  --dark-650: #376659;
+  --dark-700: #325149;
+  --dark-750: #27433b;
+  --dark-800: #1d352e;
+  --dark-850: #152b25;
+  --dark-900: #0d221c;
+  --dark-950: #06110e;
+  --brand-50: #b8dfd5;
+  --brand-100: #a3d6c9;
+  --brand-200: #7ac3b0;
+  --brand-300: #52b198;
+  --brand-400: #299e80;
+  --brand-500: #008c68;
+  --brand-600: #007657;
+  --brand-650: #006a4f;
+  --brand-700: #005f47;
+  --brand-750: #00543e;
+  --brand-800: #004936;
+  --brand-850: #003d2d;
+  --brand-900: #003225;
+  --brand-950: #001912;
+}
+
+[data-theme='incognito'] {
+  --light-50: #f0f0f0;
+  --dark-50: #f0f0f0;
+  --light-100: #e9e9e9;
+  --dark-100: #e9e9e9;
+  --light-200: #d7d7d7;
+  --dark-200: #d7d7d7;
+  --light-300: #c0c0c0;
+  --dark-300: #c0c0c0;
+  --light-400: #8b8b8b;
+  --dark-400: #8b8b8b;
+  --light-500: #5e5e5e;
+  --dark-500: #5e5e5e;
+  --light-600: #494949;
+  --dark-600: #494949;
+  --light-650: #3a3a3a;
+  --dark-650: #3a3a3a;
+  --light-700: #2b2b2b;
+  --dark-700: #2b2b2b;
+  --light-750: #232323;
+  --dark-750: #232323;
+  --light-800: #1c1c1c;
+  --dark-800: #1c1c1c;
+  --light-850: #131313;
+  --dark-850: #131313;
+  --light-900: #0a0a0a;
+  --dark-900: #0a0a0a;
+  --light-950: #050505;
+  --dark-950: #050505;
+}
+
+[data-theme='indigo'] {
+  --light-25: #fbfbff;
+  --light-50: #f7f7ff;
+  --light-75: #f5f5fe;
+  --light-100: #f4f4fe;
+  --light-150: #ececfb;
+  --light-200: #e5e5f8;
+  --light-250: #dfdff4;
+  --light-300: #dadaf0;
+  --light-400: #a8a8d2;
+  --light-500: #76759c;
+  --light-600: #5b5a86;
+  --light-700: #45446d;
+  --light-800: #262540;
+  --light-900: #141428;
+  --dark-50: #f7f7ff;
+  --dark-100: #f4f4fe;
+  --dark-200: #e5e5f8;
+  --dark-300: #dadaf0;
+  --dark-400: #a8a8d2;
+  --dark-500: #76759c;
+  --dark-600: #5b5a86;
+  --dark-650: #504f79;
+  --dark-700: #45446d;
+  --dark-750: #353456;
+  --dark-800: #262540;
+  --dark-850: #1d1c34;
+  --dark-900: #141428;
+  --dark-950: #0a0a14;
+}
+
+[data-theme='noir-grey'] {
+  --light-25: #f7f7f7;
+  --light-50: #f0f0f0;
+  --light-75: #ececec;
+  --light-100: #e8e8e8;
+  --light-150: #e1e1e1;
+  --light-200: #dadada;
+  --light-250: #d3d3d3;
+  --light-300: #cccccc;
+  --light-400: #828282;
+  --light-500: #565656;
+  --light-600: #323232;
+  --light-700: #232323;
+  --light-800: #181818;
+  --light-900: #0a0a0a;
+  --dark-50: #f0f0f0;
+  --dark-100: #e8e8e8;
+  --dark-200: #dadada;
+  --dark-300: #cccccc;
+  --dark-400: #828282;
+  --dark-500: #565656;
+  --dark-600: #323232;
+  --dark-650: #2a2a2a;
+  --dark-700: #232323;
+  --dark-750: #1d1d1d;
+  --dark-800: #181818;
+  --dark-850: #111111;
+  --dark-900: #0a0a0a;
+  --dark-950: #050505;
+}
+
+[data-theme='pink'] {
+  --light-25: #fcf9fa;
+  --light-50: #faf3f6;
+  --light-75: #f8eff3;
+  --light-100: #f6ebf1;
+  --light-150: #f2e6ed;
+  --light-200: #efe1e9;
+  --light-250: #ebd7e3;
+  --light-300: #e8cedd;
+  --light-400: #d6b2c5;
+  --light-500: #a2728c;
+  --light-600: #825567;
+  --light-700: #613d4b;
+  --light-800: #3b222c;
+  --light-900: #231118;
+  --dark-50: #faf3f6;
+  --dark-100: #f6ebf1;
+  --dark-200: #efe1e9;
+  --dark-300: #e8cedd;
+  --dark-400: #d6b2c5;
+  --dark-500: #a2728c;
+  --dark-600: #825567;
+  --dark-650: #714959;
+  --dark-700: #613d4b;
+  --dark-750: #4e2f3b;
+  --dark-800: #3b222c;
+  --dark-850: #2f1922;
+  --dark-900: #231118;
+  --dark-950: #11080c;
+  --brand-50: #e9c6d4;
+  --brand-100: #e3b6c8;
+  --brand-200: #d696af;
+  --brand-300: #c97696;
+  --brand-400: #bd557e;
+  --brand-500: #b03565;
+  --brand-600: #942d55;
+  --brand-650: #86284d;
+  --brand-700: #782445;
+  --brand-750: #6a203d;
+  --brand-800: #5c1c35;
+  --brand-850: #4d172c;
+  --brand-900: #3f1324;
+  --brand-950: #1f0912;
+}
+
+[data-theme='warm-grey'] {
+  --light-25: #fcfcfc;
+  --light-50: #fafaf9;
+  --light-75: #f7f7f6;
+  --light-100: #f5f5f4;
+  --light-150: #eeedec;
+  --light-200: #e7e5e4;
+  --light-250: #dedcda;
+  --light-300: #d6d3d1;
+  --light-400: #a8a29e;
+  --light-500: #78716c;
+  --light-600: #57534e;
+  --light-700: #44403c;
+  --light-800: #292524;
+  --light-900: #1c1917;
+  --dark-50: #fafaf9;
+  --dark-100: #f5f5f4;
+  --dark-200: #e7e5e4;
+  --dark-300: #d6d3d1;
+  --dark-400: #a8a29e;
+  --dark-500: #78716c;
+  --dark-600: #57534e;
+  --dark-650: #4d4945;
+  --dark-700: #44403c;
+  --dark-750: #363230;
+  --dark-800: #292524;
+  --dark-900: #1c1917;
+  --dark-950: #0e0c0b;
 }
 
 /* ---- Shell layout ---- */
@@ -674,22 +1062,6 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
   background: var(--action-controls-surface-primary-hover);
   color: var(--action-text-neutral-hover);
   box-shadow: inset 0 0 0 1px var(--action-controls-surface-primary-hover);
-}
-
-/* Ghost slot under the pins so the rail reads as a list you can grow, not a
-   fixed set of four. Same 40px row as the links above, dashed instead of
-   filled so it does not look like another favorite. */
-.shift-nav-link.shift-add-tool-link {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px transparent;
-  border: 1px dashed var(--border-outer-primary);
-}
-
-.shift-nav-link.shift-add-tool-link:hover:not(.is-active) {
-  background: var(--action-controls-surface-primary-hover);
-  color: var(--action-text-neutral-hover);
-  box-shadow: none;
-  border-color: var(--border-outer-primary);
 }
 
 .shift-nav-link.is-active {
@@ -3146,79 +3518,87 @@ body:not(.simple-mode):has(#shift-sidebar):has(> .shift-footer)
  */
 html.dark {
   /* dark-700 rail over a dark-800 panel, matching shift-pdf's layering. */
-  --background-bar-primary: #404040; /* dark-700 */
-  --background-secondary: #262626; /* dark-800 */
-  --text-primary: #fafafa; /* dark-50 */
-  --text-secondary: #e5e5e5; /* dark-200 */
-  --border-divider-secondary: #404040; /* dark-700 */
-  --border-outer-primary: #525252; /* dark-600 */
-  --border-brand-primary: #3b82f6; /* brand-500 */
-  --border-brand-secondary: #60a5fa; /* brand-400 */
-  --action-button-surface-primary-default: #3b82f6; /* brand-500 */
-  --action-button-surface-primary-hover: #2563eb; /* brand-600 */
-  --action-button-surface-primary-active: #1d4ed8; /* brand-700 */
-  --action-button-surface-primary-disabled: #404040; /* dark-700 */
-  --action-button-surface-secondary-default: #525252; /* dark-600 */
-  --action-button-surface-secondary-hover: #737373; /* dark-500 */
-  --action-button-surface-secondary-active: #a3a3a3; /* dark-400 */
-  --action-button-surface-secondary-disabled: #404040; /* dark-700 */
-  --action-button-border-secondary-default: #525252; /* dark-600 */
-  --action-button-border-secondary-hover: #737373; /* dark-500 */
-  --action-button-border-secondary-active: #a3a3a3; /* dark-400 */
+  --background-bar-primary: var(--dark-700); /* dark-700 */
+  --background-secondary: var(--dark-800); /* dark-800 */
+  --text-primary: var(--dark-50); /* dark-50 */
+  --text-secondary: var(--dark-200); /* dark-200 */
+  --border-divider-secondary: var(--dark-700); /* dark-700 */
+  --border-outer-primary: var(--dark-600); /* dark-600 */
+  --border-brand-primary: var(--brand-500); /* brand-500 */
+  --border-brand-secondary: var(--brand-400); /* brand-400 */
+  --action-button-surface-primary-default: var(--brand-500); /* brand-500 */
+  --action-button-surface-primary-hover: var(--brand-600); /* brand-600 */
+  --action-button-surface-primary-active: var(--brand-700); /* brand-700 */
+  --action-button-surface-primary-disabled: var(--dark-700); /* dark-700 */
+  --action-button-surface-secondary-default: var(--dark-600); /* dark-600 */
+  --action-button-surface-secondary-hover: var(--dark-500); /* dark-500 */
+  --action-button-surface-secondary-active: var(--dark-400); /* dark-400 */
+  --action-button-surface-secondary-disabled: var(--dark-700); /* dark-700 */
+  --action-button-border-secondary-default: var(--dark-600); /* dark-600 */
+  --action-button-border-secondary-hover: var(--dark-500); /* dark-500 */
+  --action-button-border-secondary-active: var(--dark-400); /* dark-400 */
   /* The destructive button is a tinted *surface*, so it moves to the deep end
      of the negative ramp instead of keeping its pale light-mode fill. */
-  --action-button-surface-negative-default: #b91c1c; /* negative-700 */
-  --action-button-surface-negative-hover: #dc2626; /* negative-600 */
-  --action-button-surface-negative-active: #ef4444; /* negative-500 */
-  --action-button-border-negative-default: #b91c1c; /* negative-700 */
-  --action-button-border-negative-hover: #dc2626; /* negative-600 */
-  --action-button-border-negative-active: #ef4444; /* negative-500 */
-  --text-negative-default: #fca5a5; /* negative-300 */
-  --border-negative-secondary: #ef4444; /* negative-500 */
-  /* Used as a tint *surface* (favourites pill, tile hover, indigo panels), so
-     it inverts to the deep end of the brand ramp rather than staying pale. */
-  --brand-50: #1e3a8a; /* brand-900 */
-  --brand-500: #60a5fa; /* brand-400 — brand ink lightens on dark, as in DS */
-  --action-controls-surface-primary-default: #404040; /* dark-700 */
-  --action-controls-surface-primary-hover: #525252; /* dark-600 */
-  --action-controls-surface-secondary-active-tertiary: #262626; /* dark-800 */
-  --action-text-neutral-default: #d4d4d4; /* dark-300 */
-  --action-text-neutral-hover: #e5e5e5; /* dark-200 */
-  --action-text-neutral-active: #f5f5f5; /* dark-100 */
-  --action-text-neutral-selected: #fafafa; /* dark-50 */
-  --action-text-neutral-disabled: #737373; /* dark-500 */
+  --action-button-surface-negative-default: var(
+    --negative-700
+  ); /* negative-700 */
+  --action-button-surface-negative-hover: var(
+    --negative-600
+  ); /* negative-600 */
+  --action-button-surface-negative-active: var(
+    --negative-500
+  ); /* negative-500 */
+  --action-button-border-negative-default: var(
+    --negative-700
+  ); /* negative-700 */
+  --action-button-border-negative-hover: var(--negative-600); /* negative-600 */
+  --action-button-border-negative-active: var(
+    --negative-500
+  ); /* negative-500 */
+  --text-negative-default: var(--negative-300); /* negative-300 */
+  --border-negative-secondary: var(--negative-500); /* negative-500 */
+  --action-controls-surface-primary-default: var(--dark-700); /* dark-700 */
+  --action-controls-surface-primary-hover: var(--dark-600); /* dark-600 */
+  --action-controls-surface-secondary-active-tertiary: var(
+    --dark-800
+  ); /* dark-800 */
+  --action-text-neutral-default: var(--dark-300); /* dark-300 */
+  --action-text-neutral-hover: var(--dark-200); /* dark-200 */
+  --action-text-neutral-active: var(--dark-100); /* dark-100 */
+  --action-text-neutral-selected: var(--dark-50); /* dark-50 */
+  --action-text-neutral-disabled: var(--dark-500); /* dark-500 */
   /* Dark pages need no separation from the workspace — the paper provides it —
      so this takes the rail colour, matching the PDF.js copy. */
   --shift-viewer-workspace: var(--background-bar-primary);
 
-  --form-input-border-default: #262626; /* dark-800 */
-  --form-input-border-hover: #525252; /* dark-600 */
-  --form-input-border-active: #93c5fd; /* brand-300 */
-  --form-input-border-focus: #60a5fa; /* brand-400 */
-  --form-input-surface-primary-default: #262626; /* dark-800 */
-  --form-input-surface-primary-disabled: #525252; /* dark-600 */
-  --form-input-surface-secondary-default: #171717; /* dark-900 */
-  --form-input-surface-secondary-disabled: #404040; /* dark-700 */
+  --form-input-border-default: var(--dark-800); /* dark-800 */
+  --form-input-border-hover: var(--dark-600); /* dark-600 */
+  --form-input-border-active: var(--brand-300); /* brand-300 */
+  --form-input-border-focus: var(--brand-400); /* brand-400 */
+  --form-input-surface-primary-default: var(--dark-800); /* dark-800 */
+  --form-input-surface-primary-disabled: var(--dark-600); /* dark-600 */
+  --form-input-surface-secondary-default: var(--dark-900); /* dark-900 */
+  --form-input-surface-secondary-disabled: var(--dark-700); /* dark-700 */
 
   /* DS dark grey scale. gray-900 matches the panel so retinted tool pages sit
      flush on it, gray-800 is the card a step up, gray-700 the rules between. */
-  --color-gray-900: #262626; /* dark-800 */
-  --color-gray-800: #333333; /* dark-750 */
-  --color-gray-700: #404040; /* dark-700 */
-  --color-gray-600: #525252; /* dark-600 */
-  --color-gray-500: #737373; /* dark-500 */
-  --color-gray-400: #a3a3a3; /* dark-400 */
-  --color-gray-300: #d4d4d4; /* dark-300 */
+  --color-gray-900: var(--dark-800); /* dark-800 */
+  --color-gray-800: var(--dark-750); /* dark-750 */
+  --color-gray-700: var(--dark-700); /* dark-700 */
+  --color-gray-600: var(--dark-600); /* dark-600 */
+  --color-gray-500: var(--dark-500); /* dark-500 */
+  --color-gray-400: var(--dark-400); /* dark-400 */
+  --color-gray-300: var(--dark-300); /* dark-300 */
 
   /* Indigo pale/mid tokens stay on the :root var() aliases above so they
    * track dark neutral ink and brand surfaces instead of restoring Bento's
    * true indigo (#818cf8 / #a5b4fc). */
-  --color-blue-200: #bfdbfe;
-  --color-blue-300: #93c5fd;
-  --color-blue-400: #60a5fa;
-  --color-red-200: #fecaca;
-  --color-red-300: #fca5a5;
-  --color-red-400: #f87171;
+  --color-blue-200: var(--brand-200);
+  --color-blue-300: var(--brand-300);
+  --color-blue-400: var(--brand-400);
+  --color-red-200: var(--negative-200);
+  --color-red-300: var(--negative-300);
+  --color-red-400: var(--negative-400);
   --color-green-200: #bbf7d0;
   --color-green-300: #86efac;
   --color-green-400: #4ade80;
@@ -3249,9 +3629,11 @@ html.dark
       [class*='from-indigo-']
     )
   ) {
-  --button-background-default: #1d4ed8; /* brand-700, white text ≥ 4.5:1 */
-  --button-background-hover: #1e40af; /* brand-800 */
-  --button-background-active: #1e3a8a; /* brand-900 */
+  --button-background-default: var(
+    --brand-700
+  ); /* brand-700, white text ≥ 4.5:1 */
+  --button-background-hover: var(--brand-800); /* brand-800 */
+  --button-background-active: var(--brand-900); /* brand-900 */
 }
 
 /* The Selected chip uses the panel colour as its text. In dark mode that is
@@ -3981,17 +4363,22 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   display: none;
 }
 
+/* Cards share the row. auto-fill keeps a 280px floor and lets each track
+   grow, so a letter page and a two-line name are not stuck in a 160px tile.
+   The collapsed rail uses .shift-open-file-preview, not this grid. */
 .shift-open-file-thumbs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-items: stretch;
+  gap: var(--spacing-16);
 }
 
 .shift-open-file-thumb {
   display: flex;
   flex-direction: column;
-  width: 160px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border-divider-secondary);
@@ -4026,23 +4413,27 @@ button.shift-open-file-thumb:focus-visible {
   box-shadow: none;
 }
 
+/* Portrait page slot (US Letter is 8.5 × 11). The frame owns the ratio so a
+   short or tall bitmap cannot letterbox the page into a fixed strip or
+   change how tall the card is. */
 .shift-open-file-thumb-preview {
   position: relative;
   display: flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  height: 154px;
+  width: 100%;
+  aspect-ratio: 8.5 / 11;
   overflow: hidden;
   background: var(--action-controls-surface-primary-default);
 }
 
 .shift-open-file-thumb-preview canvas {
+  position: absolute;
+  inset: 0;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -4086,15 +4477,19 @@ button.shift-open-file-thumb:focus-visible {
 }
 
 .shift-open-file-thumb-name {
-  display: block;
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  min-height: calc(var(--text-sm--line-height) * 2);
+  overflow-wrap: anywhere;
   color: var(--text-primary);
   font-family: var(--shift-font);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
   line-height: var(--text-sm--line-height);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .shift-open-file-thumb-detail {
@@ -4132,7 +4527,9 @@ button.shift-open-file-thumb:focus-visible {
 .shift-my-pdfs-thumb-item {
   display: flex;
   flex-direction: column;
-  width: 160px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 .shift-my-pdfs-thumb-item > .shift-open-file-thumb {
@@ -4168,8 +4565,10 @@ button.shift-open-file-thumb:focus-visible {
    takes the free space and Delete stays an icon target on the end. */
 .shift-my-pdfs-thumb-actions {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: 8px;
+  gap: var(--spacing-8);
+  padding: var(--spacing-8);
   border: 1px solid var(--border-divider-secondary);
   border-block-start: 0;
   border-end-start-radius: var(--radius-8);
@@ -4179,8 +4578,19 @@ button.shift-open-file-thumb:focus-visible {
 
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-view,
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-download {
-  flex: 1;
+  flex: 1 1 0;
   width: auto;
+  min-width: 0;
+  min-height: 32px;
+  padding: var(--spacing-8) var(--spacing-12);
+  border: 1px solid var(--action-button-border-secondary-default);
+  border-radius: var(--radius-8);
+  background: var(--action-button-surface-secondary-default);
+  color: var(--action-text-neutral-default);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--text-sm--line-height);
+  white-space: nowrap;
 }
 
 /* In the grid both controls are laid-out action items, so they rest visible.
@@ -4190,6 +4600,16 @@ button.shift-open-file-thumb:focus-visible {
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-rename,
 .shift-my-pdfs-thumb-actions .shift-my-pdfs-delete {
   opacity: 1;
+}
+
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-rename,
+.shift-my-pdfs-thumb-actions .shift-my-pdfs-delete {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: var(--radius-8);
 }
 
 .shift-my-pdfs-thumb-item:has(> .shift-open-file-thumb.is-selected)
@@ -4781,7 +5201,8 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
 }
 
 .shift-open-file-thumb.shift-my-pdfs-empty-card {
-  width: 16.5rem;
+  width: 100%;
+  min-width: 0;
   border-style: dashed;
 }
 

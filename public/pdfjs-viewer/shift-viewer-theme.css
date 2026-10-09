@@ -24,7 +24,9 @@ html[data-shift-viewer='embed'] #secondaryPrint {
  * Token names match @redbrickmedia/shift-design-system (the same names used in
  * src/css/shift-theme.css) so the Shift browser toolkit can re-theme this
  * document by toggling those properties. Values are repeated here, per mode,
- * because the iframe cannot read the app's copy.
+ * because the iframe cannot read the parent stylesheet. Semantic tokens alias
+ * palette stops; the dark block changes which stop they point at and does not
+ * repaint --brand-*, --light-*, --dark-*, or --negative-*.
  *
  * Scoped to `[data-shift-viewer]`, which shift-viewer-theme.js sets on every
  * embed of viewer.html, so the signing and form-filling viewers are one look
@@ -43,26 +45,50 @@ html[data-shift-viewer] {
      iframe has no @font-face for Inter, so this resolves to the system stack
      unless Inter is installed locally; both beat PDF.js's `font: menu`. */
   --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Same fallback stops as src/css/shift-theme.css. shift-viewer-theme.js
+     copies the parent's computed stops onto this element; until that runs,
+     these hex values keep the default brand. The iframe cannot read the
+     parent's stylesheet. */
+  --basic-white: #ffffff;
+  --light-50: #f9fafb;
+  --light-100: #f3f4f6;
+  --light-200: #e6e9ef;
+  --light-300: #d1d5db;
+  --light-700: #374151;
+  --light-800: #1f2937;
+  --light-900: #111827;
+  --dark-50: #fafafa;
+  --dark-100: #f5f5f5;
+  --dark-200: #e5e5e5;
+  --dark-300: #d4d4d4;
+  --dark-600: #525252;
+  --dark-700: #404040;
+  --dark-800: #262626;
+  --brand-50: #eff6ff;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
 }
 
 /* ---- Design-system semantic tokens, light mode ---- */
 html[data-shift-viewer].light {
-  --background-bar-primary: #f3f4f6; /* light-100 */
-  --background-secondary: #ffffff; /* basic-white */
-  --text-primary: #111827; /* light-900 */
-  --text-secondary: #374151; /* light-700 */
-  --border-divider-secondary: #e6e9ef; /* light-200 */
-  --border-outer-primary: #d1d5db; /* light-300 */
-  --action-button-surface-primary-default: #2563eb; /* brand-600 */
-  --action-button-surface-primary-hover: #1d4ed8; /* brand-700 */
-  --brand-50: #eff6ff;
-  --brand-500: #3b82f6;
-  --action-controls-surface-primary-default: #f3f4f6; /* light-100 */
-  --action-controls-surface-primary-hover: #e6e9ef; /* light-200 */
-  --action-controls-surface-secondary-active-tertiary: #d1d5db; /* light-300 */
-  --action-text-neutral-default: #374151; /* light-700 */
-  --action-text-neutral-hover: #1f2937; /* light-800 */
-  --action-text-neutral-selected: #111827; /* light-900 */
+  --background-bar-primary: var(--light-100); /* light-100 */
+  --background-secondary: var(--basic-white); /* basic-white */
+  --text-primary: var(--light-900); /* light-900 */
+  --text-secondary: var(--light-700); /* light-700 */
+  --border-divider-secondary: var(--light-200); /* light-200 */
+  --border-outer-primary: var(--light-300); /* light-300 */
+  --action-button-surface-primary-default: var(--brand-600); /* brand-600 */
+  --action-button-surface-primary-hover: var(--brand-700); /* brand-700 */
+  --action-controls-surface-primary-default: var(--light-100); /* light-100 */
+  --action-controls-surface-primary-hover: var(--light-200); /* light-200 */
+  --action-controls-surface-secondary-active-tertiary: var(
+    --light-300
+  ); /* light-300 */
+  --action-text-neutral-default: var(--light-700); /* light-700 */
+  --action-text-neutral-hover: var(--light-800); /* light-800 */
+  --action-text-neutral-selected: var(--light-900); /* light-900 */
 
   /* Hover states darken a light surface; the stock dark rule brightens it. */
   --shift-hover-filter: brightness(0.95);
@@ -77,22 +103,22 @@ html[data-shift-viewer].light {
    Same values as the html.dark block in src/css/shift-theme.css, so the viewer
    chrome and the shell around it land on one set of greys. */
 html[data-shift-viewer].dark {
-  --background-bar-primary: #404040; /* dark-700 */
-  --background-secondary: #262626; /* dark-800 */
-  --text-primary: #fafafa; /* dark-50 */
-  --text-secondary: #e5e5e5; /* dark-200 */
-  --border-divider-secondary: #404040; /* dark-700 */
-  --border-outer-primary: #525252; /* dark-600 */
-  --action-button-surface-primary-default: #3b82f6; /* brand-500 */
-  --action-button-surface-primary-hover: #2563eb; /* brand-600 */
-  --brand-50: #1e3a8a; /* brand-900 */
-  --brand-500: #60a5fa; /* brand-400 */
-  --action-controls-surface-primary-default: #404040; /* dark-700 */
-  --action-controls-surface-primary-hover: #525252; /* dark-600 */
-  --action-controls-surface-secondary-active-tertiary: #262626; /* dark-800 */
-  --action-text-neutral-default: #d4d4d4; /* dark-300 */
-  --action-text-neutral-hover: #e5e5e5; /* dark-200 */
-  --action-text-neutral-selected: #fafafa; /* dark-50 */
+  --background-bar-primary: var(--dark-700); /* dark-700 */
+  --background-secondary: var(--dark-800); /* dark-800 */
+  --text-primary: var(--dark-50); /* dark-50 */
+  --text-secondary: var(--dark-200); /* dark-200 */
+  --border-divider-secondary: var(--dark-700); /* dark-700 */
+  --border-outer-primary: var(--dark-600); /* dark-600 */
+  --action-button-surface-primary-default: var(--brand-500); /* brand-500 */
+  --action-button-surface-primary-hover: var(--brand-600); /* brand-600 */
+  --action-controls-surface-primary-default: var(--dark-700); /* dark-700 */
+  --action-controls-surface-primary-hover: var(--dark-600); /* dark-600 */
+  --action-controls-surface-secondary-active-tertiary: var(
+    --dark-800
+  ); /* dark-800 */
+  --action-text-neutral-default: var(--dark-300); /* dark-300 */
+  --action-text-neutral-hover: var(--dark-200); /* dark-200 */
+  --action-text-neutral-selected: var(--dark-50); /* dark-50 */
 
   /* Hover has to lift a dark surface rather than darken a light one. */
   --shift-hover-filter: brightness(1.15);

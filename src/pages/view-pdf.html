@@ -35,14 +35,14 @@
         </div>
 
         <div
-          class="shift-pdf-viewer-actions"
+          class="shift-pdf-viewer-actions shift-action-row"
           data-shift-viewer-actions
-          role="toolbar"
+          role="group"
           aria-label="PDF actions"
         >
           <span data-viewer-chrome="launchers">
             <button
-              class="shift-pdf-viewer-action"
+              class="shift-pdf-viewer-action shift-action-button"
               type="button"
               data-viewer-tool="encrypt-pdf.html"
               aria-label="Lock"
@@ -51,7 +51,7 @@
               <span>Lock</span>
             </button>
             <button
-              class="shift-pdf-viewer-action"
+              class="shift-pdf-viewer-action shift-action-button"
               type="button"
               data-viewer-tool="pdf-converter.html"
               aria-label="Convert"
@@ -60,7 +60,7 @@
               <span>Convert</span>
             </button>
             <button
-              class="shift-pdf-viewer-action"
+              class="shift-pdf-viewer-action shift-action-button"
               type="button"
               data-viewer-tool="sign-pdf.html"
               aria-label="eSign"
@@ -69,7 +69,7 @@
               <span>eSign</span>
             </button>
             <button
-              class="shift-pdf-viewer-action"
+              class="shift-pdf-viewer-action shift-action-button"
               type="button"
               data-viewer-tool="compress-pdf.html"
               aria-label="Compress"
@@ -79,27 +79,29 @@
             </button>
           </span>
           <button
-            id="shift-pdf-viewer-print"
-            class="shift-pdf-viewer-action"
-            type="button"
-            aria-label="Print"
-            data-viewer-chrome="print"
-          >
-            <i class="ph ph-printer" aria-hidden="true"></i>
-            <span>Print</span>
-          </button>
-          <button
             id="shift-pdf-viewer-download"
-            class="shift-pdf-viewer-action"
+            class="shift-pdf-viewer-action shift-action-button"
             type="button"
             aria-label="Download"
             data-viewer-chrome="download"
+            data-shift-action="download"
           >
             <span class="shift-pdf-viewer-download-icon" aria-hidden="true">
               <i class="ph ph-download-simple"></i>
               <span class="shift-pdf-viewer-download-spinner"></span>
             </span>
             <span>Download</span>
+          </button>
+          <button
+            id="shift-pdf-viewer-print"
+            class="shift-pdf-viewer-action shift-action-button"
+            type="button"
+            aria-label="Print"
+            data-viewer-chrome="print"
+            data-shift-action="print"
+          >
+            <i class="ph ph-printer" aria-hidden="true"></i>
+            <span>Print</span>
           </button>
         </div>
       </header>

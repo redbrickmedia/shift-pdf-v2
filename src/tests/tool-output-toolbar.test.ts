@@ -11,7 +11,6 @@ import {
   TOOL_OUTPUT_REDO_ID,
   TOOL_OUTPUT_RESET_ID,
   TOOL_OUTPUT_SAVE_ID,
-  TOOL_OUTPUT_SAVE_MENU_HIDE_MS,
   TOOL_OUTPUT_TOOLBAR_ID,
   TOOL_OUTPUT_UNDO_ID,
 } from '../js/logic/tool-output-toolbar';
@@ -74,7 +73,9 @@ describe('tool output toolbar', () => {
       host?.classList.toggle('max-w-6xl');
     }
 
-    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(1);
+    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(
+      1
+    );
     expect(document.querySelector('.shift-pdf-viewer-header')).toBe(bar);
   });
 
@@ -103,10 +104,35 @@ describe('tool output toolbar', () => {
       'shift-tool-viewer-save'
     );
     expect(
-      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+      document
+        .getElementById(TOOL_OUTPUT_MENU_ID)
+        ?.classList.contains('is-ready')
     ).toBe(false);
     expect(document.getElementById('clear-files-btn')?.hidden).toBe(true);
     expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
+  });
+
+  it('keeps a separate action row visible beside the viewer chrome', () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader"><h1>Edit Bookmarks</h1></div>
+        <div id="app">
+          <div class="shift-action-row" role="group" aria-label="PDF actions">
+            <button id="undo-btn" type="button">Undo</button>
+            <button id="redo-btn" type="button">Redo</button>
+            <button id="reset-btn" type="button">Reset</button>
+          </div>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    for (const id of ['undo-btn', 'redo-btn', 'reset-btn']) {
+      const control = document.getElementById(id);
+      expect(control?.hidden).toBe(false);
+      expect(control?.getAttribute('aria-hidden')).not.toBe('true');
+    }
+    expect(document.getElementById(TOOL_OUTPUT_UNDO_ID)).not.toBeNull();
   });
 
   it('stays out of the PDF viewer, which has no output to save', () => {
@@ -131,15 +157,38 @@ describe('tool output toolbar', () => {
     );
   });
 
-  it('keeps Download behind the Save disclosure on every tool header', () => {
+  it('places Save, Overwrite, Download, and Print in one output group', () => {
     const menu = document.getElementById(TOOL_OUTPUT_MENU_ID) as HTMLElement;
+    const output = document.querySelector('[data-shift-action-group="output"]');
+    const ids = [
+      ...document.querySelectorAll('[data-shift-viewer-actions] button'),
+    ].map((node) => node.id);
 
     expect(menu.className).toBe('shift-tool-viewer-save');
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
     expect(menu.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
-    expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
-    expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
-    expect(button(TOOL_OUTPUT_SAVE_ID).className).toBe('shift-pdf-viewer-action');
+    expect(menu.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(false);
+    expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(false);
+    expect(output?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
+    expect(output?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(ids).toEqual([
+      TOOL_OUTPUT_UNDO_ID,
+      TOOL_OUTPUT_REDO_ID,
+      TOOL_OUTPUT_RESET_ID,
+      TOOL_OUTPUT_SAVE_ID,
+      TOOL_OUTPUT_OVERWRITE_ID,
+      TOOL_OUTPUT_DOWNLOAD_ID,
+      TOOL_OUTPUT_PRINT_ID,
+    ]);
+    expect(
+      button(TOOL_OUTPUT_SAVE_ID).classList.contains('shift-pdf-viewer-action')
+    ).toBe(true);
+    expect(
+      button(TOOL_OUTPUT_SAVE_ID).classList.contains('shift-action-button')
+    ).toBe(true);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).getAttribute('role')).not.toBe(
+      'menuitem'
+    );
   });
 
   it('puts inline Save in the viewer header and discloses Overwrite, Download, and Print', () => {
@@ -171,12 +220,14 @@ describe('tool output toolbar', () => {
     expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
     expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
-    expect(button(TOOL_OUTPUT_SAVE_ID).className).toBe('shift-pdf-viewer-action');
+    expect(
+      button(TOOL_OUTPUT_SAVE_ID).classList.contains('shift-action-button')
+    ).toBe(true);
     expect(menu?.className).toBe('shift-tool-viewer-save');
     expect(menu?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
     expect(menu?.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
-    expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
-    expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(false);
+    expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(false);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
@@ -200,7 +251,7 @@ describe('tool output toolbar', () => {
 
     let hasEdits = false;
     let canUndo = false;
-    let canRedo = false;
+    const canRedo = false;
     const unregister = registerToolOutputSession({
       apply: vi.fn(),
       undo: vi.fn(),
@@ -214,7 +265,9 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(
-      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+      document
+        .getElementById(TOOL_OUTPUT_MENU_ID)
+        ?.classList.contains('is-ready')
     ).toBe(false);
 
     hasEdits = true;
@@ -225,13 +278,14 @@ describe('tool output toolbar', () => {
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(false);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(
-      document.getElementById(TOOL_OUTPUT_MENU_ID)?.classList.contains('is-ready')
+      document
+        .getElementById(TOOL_OUTPUT_MENU_ID)
+        ?.classList.contains('is-ready')
     ).toBe(true);
     unregister();
   });
 
-  it('keeps the Save menu open while the pointer travels onto it', () => {
-    vi.useFakeTimers();
+  it('shows Overwrite beside Save only when overwrite is the save action', () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -246,29 +300,15 @@ describe('tool output toolbar', () => {
     });
     syncToolOutputToolbar();
 
-    const group = document.getElementById(TOOL_OUTPUT_MENU_ID) as HTMLElement;
-    const dropdown = group.querySelector('.shift-tool-viewer-save-menu');
-    expect(dropdown?.querySelector('.shift-tool-viewer-save-menu-surface')).toBeTruthy();
-
-    group.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
-    expect(group.classList.contains('is-open')).toBe(true);
-
-    group.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
-    expect(group.classList.contains('is-open')).toBe(true);
-
-    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS - 20);
-    expect(group.classList.contains('is-open')).toBe(true);
-
-    group.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
-    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS + 20);
-    expect(group.classList.contains('is-open')).toBe(true);
-
-    group.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
-    vi.advanceTimersByTime(TOOL_OUTPUT_SAVE_MENU_HIDE_MS + 20);
-    expect(group.classList.contains('is-open')).toBe(false);
-
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).hidden).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(false);
+    expect(
+      document
+        .querySelector('[data-shift-viewer-actions]')
+        ?.getAttribute('role')
+    ).toBe('group');
     unregister();
-    vi.useRealTimers();
   });
 
   it('prints from the viewer header through the active tool', async () => {
@@ -530,7 +570,9 @@ describe('tool output toolbar', () => {
     const existing = document.querySelector('.shift-pdf-viewer-header');
     initToolOutputToolbar();
 
-    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(1);
+    expect(document.querySelectorAll('.shift-pdf-viewer-header')).toHaveLength(
+      1
+    );
     expect(document.querySelector('.shift-pdf-viewer-header')).toBe(existing);
     expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
   });

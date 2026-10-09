@@ -1,0 +1,258 @@
+/* Shared file preview, file browser, and tool action row.
+   Colour and radius come from the semantic tokens in shift-theme.css. */
+
+.shift-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--spacing-8);
+}
+
+.shift-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--spacing-4);
+}
+
+.shift-action-group:empty,
+.shift-action-group:not(:has(:not([hidden]))) {
+  display: none;
+}
+
+/* Save and Overwrite sit in the Output group as ordinary buttons. */
+.shift-tool-viewer-save {
+  display: contents;
+}
+
+.shift-action-button:focus-visible,
+.shift-pdf-viewer-action:focus-visible {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+}
+
+/* Dark bar focus ring. The default brand step on dark-700 is below 3:1. */
+html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible {
+  outline-color: #60a5fa;
+}
+
+.shift-action-caption {
+  align-self: center;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.shift-action-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.shift-action-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.shift-chrome-bar {
+  padding: var(--spacing-8) var(--spacing-12);
+  border-bottom: 1px solid var(--border-divider-secondary);
+  background: var(--background-bar-primary);
+}
+
+/* One preview frame. Rail and card differ only by the slot they sit in. */
+.shift-file-preview {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-4);
+  background-color: var(--action-controls-surface-primary-default);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+.shift-file-preview[data-shift-preview-size='rail'] {
+  width: 24px;
+  height: 24px;
+}
+
+.shift-file-preview[data-shift-preview-size='card'] {
+  width: 100%;
+  height: 154px;
+  border-radius: var(--radius-8);
+}
+
+.shift-file-preview[data-shift-preview-size='modal'] {
+  width: min(90vw, 720px);
+  height: min(70vh, 900px);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+}
+
+.shift-file-preview-canvas,
+.shift-file-preview .shift-open-file-preview-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.shift-file-preview[data-shift-preview-size='rail'] .shift-file-preview-canvas,
+.shift-file-preview[data-shift-preview-size='rail']
+  .shift-open-file-preview-canvas {
+  display: none;
+  object-fit: cover;
+}
+
+.shift-file-preview[data-shift-preview-size='rail']:not(.is-empty)
+  .shift-file-preview-canvas,
+.shift-file-preview[data-shift-preview-size='rail']:not(.is-empty)
+  .shift-open-file-preview-canvas {
+  display: block;
+}
+
+.shift-file-preview.is-empty .shift-file-preview-canvas,
+.shift-file-preview[data-shift-preview-size='card'].is-empty canvas {
+  display: none;
+}
+
+.shift-file-preview-fallback,
+.shift-file-preview .shift-open-file-icon-fallback {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.shift-file-preview.is-empty .shift-file-preview-fallback,
+.shift-file-preview.is-empty .shift-open-file-icon-fallback {
+  display: block;
+}
+
+.shift-file-preview.is-selected,
+.shift-file-preview.is-viewing,
+.shift-file-browser-item.is-selected > .shift-file-preview,
+.shift-file-browser-item.is-viewing > .shift-file-preview,
+.shift-open-file-item.is-selected .shift-file-preview,
+.shift-open-file-item.is-viewing .shift-file-preview {
+  box-shadow: inset 0 0 0 1.5px var(--action-button-surface-primary-default);
+}
+
+.shift-my-pdfs-name > .shift-file-preview {
+  flex: none;
+  text-overflow: clip;
+}
+
+.shift-file-browser-empty {
+  color: var(--text-primary);
+}
+
+.shift-page-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  min-width: 0;
+  padding: var(--spacing-8);
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-8);
+  background: var(--background-secondary);
+  color: var(--text-primary);
+  cursor: move;
+}
+
+.shift-page-card.is-selected {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 0;
+}
+
+.shift-page-card-info,
+.shift-page-card-loading {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  text-align: center;
+}
+
+.shift-page-card-select {
+  position: absolute;
+  top: var(--spacing-8);
+  right: var(--spacing-8);
+  z-index: 1;
+}
+
+@media (min-width: 640px) {
+  .shift-page-card [data-shift-page-actions] {
+    opacity: 0;
+  }
+
+  .shift-page-card:hover [data-shift-page-actions],
+  .shift-page-card:focus-within [data-shift-page-actions],
+  .shift-page-card [data-shift-page-actions] :focus-visible {
+    opacity: 1;
+  }
+}
+
+.shift-page-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-16);
+  background: color-mix(in srgb, var(--text-primary) 72%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shift-page-preview.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shift-page-preview-dialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-12);
+  max-width: 100%;
+}
+
+.shift-page-preview-info {
+  margin: 0;
+  padding: var(--spacing-8) var(--spacing-16);
+  border-radius: var(--radius-12);
+  background: var(--background-bar-primary);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+.shift-page-preview-status {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.shift-page-preview-status.is-error {
+  color: var(--text-negative-default);
+}
+
+.shift-page-preview-open {
+  position: absolute;
+  right: var(--spacing-4);
+  bottom: var(--spacing-4);
+  z-index: 1;
+  opacity: 0;
+}
+
+:hover > .shift-page-preview-open,
+.shift-page-preview-open:focus-visible {
+  opacity: 1;
+}

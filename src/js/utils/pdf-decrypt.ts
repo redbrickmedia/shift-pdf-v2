@@ -7,6 +7,8 @@ export type PdfDecryptEngine = 'cpdf' | 'pymupdf';
 export interface PdfDecryptResult {
   bytes: Uint8Array;
   engine: PdfDecryptEngine;
+  /** False when the file had no encryption, so the bytes are not a decrypt result. */
+  wasEncrypted: boolean;
 }
 
 const DECRYPT_LOG_PREFIX = '[PDF Decrypt]';
@@ -55,7 +57,7 @@ function cleanupCpdfDocument(cpdf: CpdfInstance, pdf: unknown): void {
 async function decryptWithCpdf(
   inputBytes: Uint8Array,
   password: string
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; wasEncrypted: boolean }> {
   const cpdf = await getCpdf();
   cpdf.setSlow();
 
@@ -63,8 +65,9 @@ async function decryptWithCpdf(
 
   try {
     pdf = cpdf.fromMemory(new Uint8Array(inputBytes), password);
+    const wasEncrypted = cpdf.isEncrypted(pdf);
 
-    if (cpdf.isEncrypted(pdf)) {
+    if (wasEncrypted) {
       try {
         cpdf.decryptPdf(pdf, password);
       } catch {
@@ -79,7 +82,7 @@ async function decryptWithCpdf(
       throw new Error('CoherentPDF produced an empty decrypted file.');
     }
 
-    return copyBytes(outputBytes);
+    return { bytes: copyBytes(outputBytes), wasEncrypted };
   } catch (error) {
     if (pdf) {
       cleanupCpdfDocument(cpdf, pdf);
@@ -92,14 +95,15 @@ async function decryptWithCpdf(
 async function decryptWithPyMuPDF(
   inputBytes: Uint8Array,
   password: string
-): Promise<Uint8Array> {
+): Promise<{ bytes: Uint8Array; wasEncrypted: boolean }> {
   const pymupdf = await loadPyMuPDF();
   const document = await pymupdf.open(
     new Blob([new Uint8Array(inputBytes)], { type: 'application/pdf' })
   );
 
   try {
-    if (document.needsPass || document.isEncrypted) {
+    const wasEncrypted = Boolean(document.needsPass || document.isEncrypted);
+    if (wasEncrypted) {
       const authenticated = document.authenticate(password);
       if (!authenticated) {
         throw new Error('Invalid PDF password.');
@@ -111,7 +115,7 @@ async function decryptWithPyMuPDF(
       throw new Error('PyMuPDF produced an empty decrypted file.');
     }
 
-    return copyBytes(outputBytes);
+    return { bytes: copyBytes(outputBytes), wasEncrypted };
   } finally {
     document.close();
   }
@@ -126,12 +130,16 @@ export async function decryptPdfBytes(
   if (isCpdfAvailable()) {
     console.info(`${DECRYPT_LOG_PREFIX} Trying CoherentPDF decryption`);
     try {
+      const decrypted = await decryptWithCpdf(inputBytes, password);
       const result: PdfDecryptResult = {
-        bytes: await decryptWithCpdf(inputBytes, password),
+        bytes: decrypted.bytes,
         engine: 'cpdf',
+        wasEncrypted: decrypted.wasEncrypted,
       };
       console.info(
-        `${DECRYPT_LOG_PREFIX} Decryption succeeded with CoherentPDF`
+        result.wasEncrypted
+          ? `${DECRYPT_LOG_PREFIX} Decryption succeeded with CoherentPDF`
+          : `${DECRYPT_LOG_PREFIX} PDF is not encrypted`
       );
       return result;
     } catch (error) {
@@ -151,11 +159,17 @@ export async function decryptPdfBytes(
   if (isPyMuPDFAvailable()) {
     console.info(`${DECRYPT_LOG_PREFIX} Trying PyMuPDF decryption`);
     try {
+      const decrypted = await decryptWithPyMuPDF(inputBytes, password);
       const result: PdfDecryptResult = {
-        bytes: await decryptWithPyMuPDF(inputBytes, password),
+        bytes: decrypted.bytes,
         engine: 'pymupdf',
+        wasEncrypted: decrypted.wasEncrypted,
       };
-      console.info(`${DECRYPT_LOG_PREFIX} Decryption succeeded with PyMuPDF`);
+      console.info(
+        result.wasEncrypted
+          ? `${DECRYPT_LOG_PREFIX} Decryption succeeded with PyMuPDF`
+          : `${DECRYPT_LOG_PREFIX} PDF is not encrypted`
+      );
       return result;
     } catch (error) {
       const errorMessage = normalizeErrorMessage(error);

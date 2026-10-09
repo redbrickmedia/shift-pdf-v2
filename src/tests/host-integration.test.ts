@@ -146,7 +146,7 @@ describe('host theme', () => {
   beforeEach(() => {
     document.documentElement.className = '';
     document.documentElement.removeAttribute('data-theme');
-    document.documentElement.style.colorScheme = '';
+    document.documentElement.style.cssText = '';
     uninstallHost();
   });
 
@@ -170,20 +170,58 @@ describe('host theme', () => {
   it('follows prefers-color-scheme when a host is configured', () => {
     const media = stubPrefersDark(false);
     installHost();
+    document.documentElement.setAttribute('data-theme', 'amber');
+    document.documentElement.style.setProperty('--brand-600', '#90491e');
     startThemeSync();
     expect(document.documentElement.classList.contains('light')).toBe(true);
-    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
+    expect(document.documentElement.getAttribute('data-theme')).toBe('amber');
+    expect(document.documentElement.style.getPropertyValue('--brand-600')).toBe(
+      '#90491e'
+    );
 
     media.emit(true);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.classList.contains('light')).toBe(false);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('amber');
+    expect(document.documentElement.style.getPropertyValue('--brand-600')).toBe(
+      '#90491e'
+    );
+  });
+
+  it('applies a later preset without touching host palette stops', () => {
+    installHost();
+    stubPrefersDark(true);
+    document.documentElement.style.setProperty('--brand-600', '#90491e');
+    startThemeSync();
+
+    window.dispatchEvent(
+      new CustomEvent('/appearance/theme/active', { detail: 'emerald' })
+    );
+    expect(document.documentElement.getAttribute('data-theme')).toBe('emerald');
+    expect(document.documentElement.style.getPropertyValue('--brand-600')).toBe(
+      '#90491e'
+    );
+
+    window.dispatchEvent(
+      new CustomEvent('/appearance/theme/customThemeCssVars', {
+        detail: { '--brand-600': '#008c68' },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent('/appearance/theme/customThemeCssVars', { detail: null })
+    );
+    expect(document.documentElement.style.getPropertyValue('--brand-600')).toBe(
+      '#90491e'
+    );
   });
 
   it('retains the default when the host root is unset', () => {
     vi.stubEnv('VITE_HOST_API_ROOT', '');
     const media = stubPrefersDark(false);
+    document.documentElement.setAttribute('data-theme', 'amber');
     startThemeSync();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull();
 
     media.emit(false);
     expect(document.documentElement.classList.contains('dark')).toBe(true);
