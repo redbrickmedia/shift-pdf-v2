@@ -27,6 +27,11 @@ export function hasHostConfiguration(): boolean {
   return apiRoot() !== '';
 }
 
+/**
+ * The host `track` function is the consent boundary. Integrated Shift builds
+ * set VITE_HOST_API_ROOT to `chrome.shift`. When the root is unset or `track`
+ * is missing, callers must drop the event. Do not POST to another vendor.
+ */
 export function getHostAnalytics(): HostAnalytics | undefined {
   const root = apiRoot();
   const target = resolvePath(root ? `${root}.analytics` : '');

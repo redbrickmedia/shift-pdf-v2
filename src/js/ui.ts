@@ -91,9 +91,7 @@ function isProcessSuccessAlert(title: string, type: string): boolean {
     return false;
   }
   return (
-    type === 'success' ||
-    title === 'Success' ||
-    title === 'Processing Complete'
+    type === 'success' || title === 'Success' || title === 'Processing Complete'
   );
 }
 
@@ -103,7 +101,7 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
-  noteProcessAlert(type);
+  noteProcessAlert(type, title);
   if (isProcessSuccessAlert(title, type)) return;
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;

@@ -1,3 +1,4 @@
+import { recordRenderOutcome } from '../host/telemetry.js';
 import { pdfjsLib } from '@/js/utils/pdfjs.js';
 
 /**
@@ -255,6 +256,37 @@ function requestIdleCallbackPolyfill(callback: () => void): void {
  * Main function to render pages progressively with optional lazy loading
  */
 export async function renderPagesProgressively(
+  pdfjsDoc: pdfjsLib.PDFDocumentProxy,
+  container: HTMLElement,
+  createWrapper: (
+    canvas: HTMLCanvasElement,
+    pageNumber: number,
+    fileName?: string
+  ) => HTMLElement,
+  config: RenderConfig = {}
+): Promise<void> {
+  const startedAt = performance.now();
+  let failed = false;
+  try {
+    await renderPagesProgressivelyUntracked(
+      pdfjsDoc,
+      container,
+      createWrapper,
+      config
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    recordRenderOutcome(
+      performance.now() - startedAt,
+      pdfjsDoc.numPages,
+      failed
+    );
+  }
+}
+
+async function renderPagesProgressivelyUntracked(
   pdfjsDoc: pdfjsLib.PDFDocumentProxy,
   container: HTMLElement,
   createWrapper: (

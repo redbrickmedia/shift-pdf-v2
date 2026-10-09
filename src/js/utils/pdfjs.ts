@@ -1,4 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import {
+  bytesFromUnknown,
+  errorTypeFromPdfjs,
+  recordDocumentLoad,
+} from '../host/telemetry.js';
 import type {
   DocumentInitParameters,
   PDFDocumentLoadingTask,
@@ -74,9 +79,16 @@ export function getPDFDocument(
     wasmUrl: PDFJS_WASM_URL,
     worker: params.worker ?? getSharedPDFWorker(),
   });
+  const startedAt = performance.now();
+  const bytes = bytesFromUnknown(params.data);
 
   void loadingTask.promise.then(
     (document) => {
+      recordDocumentLoad({
+        bytes,
+        durationMs: performance.now() - startedAt,
+        pageCount: document.numPages,
+      });
       if (!('destroy' in document)) {
         Object.defineProperty(document, 'destroy', {
           configurable: true,
@@ -84,8 +96,13 @@ export function getPDFDocument(
         });
       }
     },
-    () => {
-      // The caller observes loading failures through the original promise.
+    (error: unknown) => {
+      recordDocumentLoad({
+        bytes,
+        durationMs: performance.now() - startedAt,
+        errorType: errorTypeFromPdfjs(error),
+        failed: true,
+      });
     }
   );
 
