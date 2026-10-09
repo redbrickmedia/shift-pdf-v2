@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import * as analytics from '../js/host/analytics';
 import {
+  armViewerDownload,
+  finishViewerDownload,
   isPdf,
   launchViewerTool,
   loadViewerDocumentFromUrl,
+  noteViewerOpenError,
   resetPdfViewerPageForTests,
   showPdfInViewer,
   VIEWER_TOOL_TARGETS,
@@ -89,6 +93,11 @@ describe('PDF viewer page', () => {
     ) as HTMLIFrameElement;
     expect(frame.src).toContain('pdfjs-viewer/viewer.html?file=');
     expect(frame.src).toContain('shiftLaunchpad=1');
+    // basicapi.pdf on the live viewer used to download as document.pdf because
+    // the blob URL had no filename hash for PDF.js to recover.
+    expect(decodeURIComponent(frame.src)).toContain(
+      'blob:quarterly-report#Quarterly report.pdf'
+    );
     expect(frame.title).toBe('Quarterly report.pdf PDF viewer');
     expect(document.getElementById('shift-pdf-viewer-title')?.textContent).toBe(
       'Quarterly report'
@@ -223,5 +232,19 @@ describe('PDF viewer page', () => {
     expect(assignLocation).toHaveBeenCalledOnce();
     expect(assignLocation.mock.calls[0]?.[0]).toMatch(/\/encrypt-pdf\.html$/);
     expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+  });
+
+  it('records download success and one error when a PDF cannot be opened', () => {
+    const end = vi.spyOn(analytics, 'endToolUse');
+
+    armViewerDownload();
+    finishViewerDownload('success');
+    expect(end).toHaveBeenCalledWith('success');
+
+    end.mockClear();
+    noteViewerOpenError();
+    noteViewerOpenError();
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(end).toHaveBeenCalledWith('error');
   });
 });
