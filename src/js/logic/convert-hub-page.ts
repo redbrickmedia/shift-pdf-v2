@@ -1,4 +1,5 @@
 import { createIcons, icons } from 'lucide';
+import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import {
   beginToolUse,
   endToolUse,
@@ -26,6 +27,7 @@ import { openPdfLibraryPicker } from './pdf-library-picker.js';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,
+  markFileFromHandoff,
   markFileLibraryId,
   persistWorkspaceOpenFile,
   setWorkspaceFiles,
@@ -666,6 +668,15 @@ export function initConvertHubPage(root: Document = document): void {
       (file) => addSources([file]),
       state.sourceFiles
     );
+  });
+
+  listenForShiftFileHandoff({
+    onFile: (file) => {
+      markFileFromHandoff(file);
+      const before = state.sourceFiles.length;
+      addSources([file]);
+      return state.sourceFiles.length > before;
+    },
   });
 
   const applySeededSource = () => {

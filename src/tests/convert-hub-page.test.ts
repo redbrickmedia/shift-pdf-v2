@@ -518,6 +518,56 @@ describe('convert hub against the shipped page markup', () => {
     expect(end).toHaveBeenCalledWith('error');
   });
 
+  it('loads a Shift file handoff into the convert selection', async () => {
+    const handoffId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
+    // Earlier tests replace window.location with a navigation stub, so set the
+    // query on that object instead of relying on history.replaceState.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        assign: vi.fn(),
+        href: `http://localhost/pdf-converter.html?shiftHandoff=${handoffId}`,
+        pathname: '/pdf-converter.html',
+        search: `?shiftHandoff=${handoffId}`,
+      },
+    });
+    mountRealPage();
+    initConvertHubPage(document);
+
+    const source = { postMessage: vi.fn() };
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          bytes: new Uint8Array([37, 80, 68, 70]).buffer,
+          channel: 'shift-file-handoff-payload',
+          filename: 'basicapi.pdf',
+          handoffId,
+          mimeType: 'application/pdf',
+          mode: 'copy',
+          version: 1,
+        },
+        origin: 'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna',
+        source: source as unknown as Window,
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('convert-source-name')?.textContent).toBe(
+        'basicapi.pdf'
+      );
+    });
+    await vi.waitFor(() => {
+      expect(source.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'shift-file-handoff-accepted',
+          handoffId,
+          version: 1,
+        }),
+        'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna'
+      );
+    });
+  });
+
   it('accepts a multi-file selection through the page file input', async () => {
     mountRealPage();
     initConvertHubPage(document);
