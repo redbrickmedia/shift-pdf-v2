@@ -466,11 +466,17 @@ describe('convert hub against the shipped page markup', () => {
 
   it('loads a Shift file handoff into the convert selection', async () => {
     const handoffId = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
-    window.history.replaceState(
-      {},
-      '',
-      `/pdf-converter.html?shiftHandoff=${handoffId}`
-    );
+    // Earlier tests replace window.location with a navigation stub, so set the
+    // query on that object instead of relying on history.replaceState.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        assign: vi.fn(),
+        href: `http://localhost/pdf-converter.html?shiftHandoff=${handoffId}`,
+        pathname: '/pdf-converter.html',
+        search: `?shiftHandoff=${handoffId}`,
+      },
+    });
     mountRealPage();
     initConvertHubPage(document);
 
@@ -506,7 +512,6 @@ describe('convert hub against the shipped page markup', () => {
         'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna'
       );
     });
-    window.history.replaceState({}, '', '/pdf-converter.html');
   });
 
   it('accepts a multi-file selection through the page file input', async () => {
