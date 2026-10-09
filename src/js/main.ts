@@ -268,9 +268,6 @@ function markActiveNavLinks() {
   document
     .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
     .forEach((link) => {
-      // Add tool also points at the catalog, but it is an action rather than
-      // the current-page tab — All tools already owns that highlight.
-      if (link.classList.contains('shift-add-tool-link')) return;
       // Every selected-file row points at the viewer, so matching by page
       // would mark all of them current. renderWorkspaceFiles marks the one
       // file the viewer is actually showing.
