@@ -158,10 +158,23 @@ describe('PDF viewer page', () => {
     expect(
       document.getElementById('shift-pdf-viewer-error-text')?.textContent
     ).toBe('Invalid or corrupted PDF file.');
-    expect(track).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
-      tool_id: 'view-pdf',
-      result: 'error',
-    });
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({
+        error_type: 'process_failed',
+        result: 'error',
+        step: 'process',
+        tool_id: 'view-pdf',
+      })
+    );
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.error,
+      expect.objectContaining({
+        error_type: 'process_failed',
+        step: 'process',
+        tool_id: 'view-pdf',
+      })
+    );
     hideAlert();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
