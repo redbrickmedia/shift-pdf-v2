@@ -8,7 +8,9 @@ An automated reader can treat this file as the contract. The same names and prop
 
 The only sink is the host `track` function resolved from `VITE_HOST_API_ROOT`. Integrated Shift builds set that variable to `chrome.shift`, which forwards to Shift's analytics API and then Mixpanel. That host API is the consent boundary: if the user has opted out, or this origin is not an allowlisted integrated app, `track` is absent and the PDF app emits nothing.
 
-When `track` is missing the PDF app does not POST, send a beacon, or call a second analytics vendor. `pages.dev` and local production builds leave `VITE_HOST_API_ROOT` unset on purpose. Do not set it in Wrangler, Pages, or CI to force delivery.
+The production origin is `https://shift-pdf-neo.integrated-apps.tryshift.com`. `http://shift-pdf-neo.integrated-apps.tryshift.com/` redirects there, and the loaded document origin is the https URL. On that origin the app resolves `chrome.shift` even when `VITE_HOST_API_ROOT` is empty. `pages.dev` and local builds do not. Do not set the variable in Wrangler, Pages, or CI.
+
+When `track` is missing the PDF app does not POST, send a beacon, or call a second analytics vendor.
 
 ## Privacy
 
