@@ -1,7 +1,9 @@
 /**
- * Tool output used to auto-download and auto-add a My PDFs row. Downloads stay
- * browser-file only. A handled PDF can still be written in place after the
- * user confirms, when the tool publishes output.
+ * Tool results are published through downloadFile. This listener saves PDF
+ * outputs to My PDFs and opens the shared success screen with a Download
+ * action. A file that already has a disk handle can still be written in place
+ * after the user confirms; that path does not replace the success screen for
+ * ordinary uploads.
  */
 import { registerPdfOutputInterceptor } from '../utils/helpers.js';
 import { confirmAction } from './confirm-dialog.js';
@@ -10,6 +12,7 @@ import {
   findWritableLibraryEntry,
   updatePdfInLibrary,
 } from './pdf-library-store.js';
+import { initToolSuccess } from './tool-success.js';
 import {
   getWorkspaceFiles,
   syncHomeLibraryFromStore,
@@ -21,6 +24,7 @@ export function initDownloadedPdfLibrary(root: Document = document): void {
   if (boundRoots.has(root)) return;
   boundRoots.add(root);
 
+  initToolSuccess(root);
   registerPdfOutputInterceptor((blob) => handlePdfOutput(blob, root));
 }
 

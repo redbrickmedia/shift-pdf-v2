@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import JSZip from 'jszip';
 import { initDownloadedPdfLibrary } from '../js/logic/downloaded-pdf-library';
 import {
   addPdfToLibrary,
   clearPdfLibrary,
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
+import { TOOL_SUCCESS_ID } from '../js/logic/tool-success';
 import { downloadFile } from '../js/utils/helpers';
 import {
   resetWorkspaceFileIndicator,
@@ -48,56 +50,96 @@ function confirmSaveToDisk(): void {
 
 afterEach(async () => {
   resetWorkspaceFileIndicator();
+  document.getElementById(TOOL_SUCCESS_ID)?.remove();
   await clearPdfLibrary();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-describe('downloaded PDF library', () => {
-  it('does not add a downloaded PDF output to My PDFs', async () => {
-    vi.stubGlobal('URL', {
-      createObjectURL: vi.fn(() => 'blob:download'),
-      revokeObjectURL: vi.fn(),
-    });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+function successMessage(): string {
+  return (
+    document.querySelector('#shift-tool-success-message')?.textContent ?? ''
+  );
+}
+
+describe('tool success', () => {
+  it('adds a PDF result to My PDFs and shows a download action', async () => {
     initDownloadedPdfLibrary();
 
     downloadFile(
       new Blob(['generated'], { type: 'application/pdf' }),
-      'merged.pdf'
+      'merged.pdf',
+      'Combined 2 files.'
     );
 
-    await expect(readPdfLibrary()).resolves.toHaveLength(0);
-  });
-
-  it('does not add non-PDF downloads to the library', async () => {
-    vi.stubGlobal('URL', {
-      createObjectURL: vi.fn(() => 'blob:download'),
-      revokeObjectURL: vi.fn(),
+    await vi.waitFor(() => {
+      expect(successMessage()).toContain('merged.pdf was added to My PDFs.');
     });
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    initDownloadedPdfLibrary();
+    expect(successMessage()).toContain('Combined 2 files.');
+    expect(
+      document.getElementById('shift-tool-success')?.classList.contains('hidden')
+    ).toBe(false);
+    expect(
+      (document.getElementById('shift-tool-success-library') as HTMLElement)
+        .hidden
+    ).toBe(false);
+    await expect(readPdfLibrary()).resolves.toEqual([
+      expect.objectContaining({ name: 'merged.pdf' }),
+    ]);
 
-    downloadFile(
-      new Blob(['archive'], { type: 'application/zip' }),
-      'files.zip'
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    document.getElementById('shift-tool-success-download')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
     );
-
-    await expect(readPdfLibrary()).resolves.toHaveLength(0);
+    expect(click).toHaveBeenCalledOnce();
   });
 
-  it('ignores download events without mutating My PDFs', async () => {
+  it('adds each PDF inside a zip and keeps the zip as the download', async () => {
+    initDownloadedPdfLibrary();
+    const zip = new JSZip();
+    zip.file('Invoice (Compressed).pdf', 'small-pdf');
+    zip.file('notes.txt', 'ignore me');
+    const blob = await zip.generateAsync({ type: 'blob' });
+
+    downloadFile(blob, 'compressed-pdfs.zip');
+
+    await vi.waitFor(() => {
+      expect(successMessage()).toContain(
+        'Invoice (Compressed).pdf was added to My PDFs.'
+      );
+    });
+    const library = await readPdfLibrary();
+    expect(library.map((entry) => entry.name)).toEqual([
+      'Invoice (Compressed).pdf',
+    ]);
+
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    (
+      document.getElementById(
+        'shift-tool-success-download'
+      ) as HTMLButtonElement
+    ).click();
+    expect(click).toHaveBeenCalledOnce();
+    const anchor = click.mock.instances[0] as HTMLAnchorElement;
+    expect(anchor.download).toBe('compressed-pdfs.zip');
+  });
+
+  it('offers a download for a non-PDF result without adding it to My PDFs', async () => {
     initDownloadedPdfLibrary();
 
-    document.dispatchEvent(
-      new CustomEvent('shift:pdf-output-downloaded', {
-        detail: {
-          blob: new Blob(['x'], { type: 'application/pdf' }),
-          filename: 'output.pdf',
-        },
-      })
-    );
+    downloadFile(new Blob(['png'], { type: 'image/png' }), 'page.png');
 
+    await vi.waitFor(() => {
+      expect(successMessage()).toContain('page.png is ready to download.');
+    });
+    expect(
+      (document.getElementById('shift-tool-success-library') as HTMLElement)
+        .hidden
+    ).toBe(true);
     await expect(readPdfLibrary()).resolves.toHaveLength(0);
   });
 

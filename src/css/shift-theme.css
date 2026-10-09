@@ -1295,9 +1295,57 @@ body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   max-width: none !important;
 }
 
-/* Process success is published to the toolbar; do not celebrate it inline. */
+/* Per-page completion markup stays hidden. downloadFile opens .shift-tool-success. */
 #completion-panel {
   display: none !important;
+}
+
+.shift-tool-success {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 72%);
+}
+
+.shift-tool-success.hidden {
+  display: none;
+}
+
+.shift-tool-success-card {
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid var(--border-divider-secondary);
+  border-radius: var(--radius-12, 12px);
+  background: var(--background-bar-primary, #1e293b);
+  color: var(--text-primary, #f8fafc);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 28%);
+}
+
+.shift-tool-success-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.shift-tool-success-card p {
+  margin: 12px 0 0;
+  color: var(--text-secondary, #cbd5e1);
+  line-height: 1.5;
+}
+
+.shift-tool-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.shift-tool-success-actions .shift-button {
+  text-decoration: none;
 }
 
 .shift-tool-output-toolbar {

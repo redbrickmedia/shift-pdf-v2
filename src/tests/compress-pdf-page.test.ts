@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { compressedLibraryName } from '../js/logic/compress-pdf-page';
 import {
   addPdfToLibrary,
   clearPdfLibrary,
@@ -38,6 +39,18 @@ afterEach(async () => {
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
   vi.resetModules();
+});
+
+describe('compressed library names', () => {
+  it('uses the original title plus (Compressed)', () => {
+    expect(compressedLibraryName('Invoice.pdf')).toBe(
+      'Invoice (Compressed).pdf'
+    );
+    expect(compressedLibraryName('Invoice (Compressed).pdf')).toBe(
+      'Invoice (Compressed).pdf'
+    );
+    expect(compressedLibraryName('scan')).toBe('scan (Compressed).pdf');
+  });
 });
 
 describe('compress pdf page', () => {
