@@ -119,7 +119,13 @@ describe('Shift theme for the PDF.js viewer', () => {
     document.documentElement.style.setProperty('--brand-600', '#90491e');
 
     const source = await readText('public/pdfjs-viewer/shift-viewer-theme.js');
-    child!.Function(source)();
+    // `Function` is on the window object at runtime. lib.dom does not declare
+    // it, but the script has to run in the iframe so `document` and `parent`
+    // belong to the viewer frame.
+    const evaluate = (
+      child as Window & { Function: (body: string) => () => void }
+    ).Function;
+    evaluate(source)();
 
     expect(childRoot!.dataset.shiftViewer).toBe('embed');
     expect(childRoot!.classList.contains('dark')).toBe(true);
