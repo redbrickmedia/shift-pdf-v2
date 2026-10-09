@@ -85,7 +85,7 @@ function mountSignViewerShell() {
         <div
           class="shift-pdf-viewer-actions"
           data-shift-viewer-actions
-          role="toolbar"
+          role="group"
         >
           <label data-viewer-chrome="flatten" hidden>
             <input id="flatten-signature-toggle" type="checkbox" />
@@ -429,21 +429,21 @@ describe('viewer inside the tool card', () => {
 
     initToolViewerLayout();
 
-    expect(viewer?.parentElement?.classList.contains('shift-pdf-viewer-stage')).toBe(
-      true
-    );
+    expect(
+      viewer?.parentElement?.classList.contains('shift-pdf-viewer-stage')
+    ).toBe(true);
     expect(empty?.classList.contains('shift-pdf-viewer-empty')).toBe(true);
     expect(empty?.closest('#signature-editor')).toBeNull();
     expect(header?.parentElement?.id).toBe('uploader');
-    expect(header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')).toBe(
-      true
-    );
+    expect(
+      header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')
+    ).toBe(true);
     expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
       1
     );
-    expect(document.getElementById('flatten-signature-toggle')?.closest('header')).toBe(
-      header
-    );
+    expect(
+      document.getElementById('flatten-signature-toggle')?.closest('header')
+    ).toBe(header);
   });
 
   it('shows flatten in the shared header while Sign is viewing', () => {
@@ -769,9 +769,9 @@ describe('sidebar-boot.js viewer layout', () => {
       document.querySelector(`.${TOOL_VIEWER_BAR_CLASS}`)?.parentElement?.id
     ).toBe('uploader');
     expect(
-      document.getElementById('flatten-signature-toggle')?.closest(
-        `.${TOOL_VIEWER_BAR_CLASS}`
-      )
+      document
+        .getElementById('flatten-signature-toggle')
+        ?.closest(`.${TOOL_VIEWER_BAR_CLASS}`)
     ).not.toBeNull();
   });
 

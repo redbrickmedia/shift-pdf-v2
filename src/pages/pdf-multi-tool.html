@@ -115,8 +115,19 @@
     <div class="flex flex-col flex-1 overflow-hidden relative">
       <!-- Toolbar -->
       <div class="toolbar-container shift-chrome-bar flex-none z-20">
-        <div class="shift-action-row" role="toolbar" aria-label="PDF actions">
-          <div class="shift-action-group" data-shift-action-group="history">
+        <div class="shift-action-row" role="group" aria-label="PDF actions">
+          <div
+            class="shift-action-group"
+            data-shift-action-group="history"
+            role="group"
+            aria-labelledby="multi-tool-edit-caption"
+          >
+            <span
+              id="multi-tool-edit-caption"
+              class="shift-action-caption"
+              data-i18n="multiTool.edit"
+              >Edit:</span
+            >
             <button
               id="undo-btn"
               type="button"
@@ -148,7 +159,18 @@
               <span data-i18n="multiTool.reset">Reset</span>
             </button>
           </div>
-          <div class="shift-action-group" data-shift-action-group="output">
+          <div
+            class="shift-action-group"
+            data-shift-action-group="output"
+            role="group"
+            aria-labelledby="multi-tool-download-caption"
+          >
+            <span
+              id="multi-tool-download-caption"
+              class="shift-action-caption"
+              data-i18n="multiTool.download"
+              >Download:</span
+            >
             <button
               id="bulk-download-btn"
               type="button"
@@ -193,76 +215,124 @@
               <i data-lucide="file-plus" aria-hidden="true"></i>
               <span data-i18n="multiTool.addBlankPage">Add Blank Page</span>
             </button>
-            <button
-              id="select-all-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Select All"
+            <div
+              class="shift-action-cluster"
+              role="group"
+              aria-labelledby="multi-tool-selection-caption"
             >
-              <i data-lucide="check-square" aria-hidden="true"></i>
-              <span data-i18n="multiTool.selectAll">Select All</span>
-            </button>
-            <button
-              id="deselect-all-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Deselect All"
+              <span
+                id="multi-tool-selection-caption"
+                class="shift-action-caption"
+                data-i18n="multiTool.selection"
+                >Selection:</span
+              >
+              <button
+                id="select-all-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Select All"
+              >
+                <i data-lucide="check-square" aria-hidden="true"></i>
+                <span data-i18n="multiTool.selectAll">Select All</span>
+              </button>
+              <button
+                id="deselect-all-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Deselect All"
+              >
+                <i data-lucide="square" aria-hidden="true"></i>
+                <span data-i18n="multiTool.deselectAll">Deselect All</span>
+              </button>
+            </div>
+            <div
+              class="shift-action-cluster"
+              role="group"
+              aria-labelledby="multi-tool-rotate-caption"
             >
-              <i data-lucide="square" aria-hidden="true"></i>
-              <span data-i18n="multiTool.deselectAll">Deselect All</span>
-            </button>
-            <button
-              id="bulk-rotate-left-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Rotate left"
+              <span
+                id="multi-tool-rotate-caption"
+                class="shift-action-caption"
+                data-i18n="multiTool.rotate"
+                >Rotate:</span
+              >
+              <button
+                id="bulk-rotate-left-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Left"
+              >
+                <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+                <span data-i18n="multiTool.rotateLeft">Left</span>
+              </button>
+              <button
+                id="bulk-rotate-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Right"
+              >
+                <i data-lucide="rotate-cw" aria-hidden="true"></i>
+                <span data-i18n="multiTool.rotateRight">Right</span>
+              </button>
+            </div>
+            <div
+              class="shift-action-cluster"
+              role="group"
+              aria-labelledby="multi-tool-transform-caption"
             >
-              <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-              <span data-i18n="multiTool.rotateLeft">Left</span>
-            </button>
-            <button
-              id="bulk-rotate-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Rotate right"
+              <span
+                id="multi-tool-transform-caption"
+                class="shift-action-caption"
+                data-i18n="multiTool.transform"
+                >Transform:</span
+              >
+              <button
+                id="bulk-duplicate-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Duplicate"
+              >
+                <i data-lucide="copy" aria-hidden="true"></i>
+                <span data-i18n="multiTool.duplicate">Duplicate</span>
+              </button>
+              <button
+                id="bulk-split-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Split"
+              >
+                <i data-lucide="scissors" aria-hidden="true"></i>
+                <span data-i18n="multiTool.split">Split</span>
+              </button>
+            </div>
+            <div
+              class="shift-action-cluster"
+              role="group"
+              aria-labelledby="multi-tool-clear-caption"
             >
-              <i data-lucide="rotate-cw" aria-hidden="true"></i>
-              <span data-i18n="multiTool.rotateRight">Right</span>
-            </button>
-            <button
-              id="bulk-duplicate-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Duplicate"
-            >
-              <i data-lucide="copy" aria-hidden="true"></i>
-              <span data-i18n="multiTool.duplicate">Duplicate</span>
-            </button>
-            <button
-              id="bulk-split-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Split"
-            >
-              <i data-lucide="scissors" aria-hidden="true"></i>
-              <span data-i18n="multiTool.split">Split</span>
-            </button>
-            <button
-              id="bulk-delete-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="extra"
-              aria-label="Delete"
-            >
-              <i data-lucide="trash-2" aria-hidden="true"></i>
-              <span data-i18n="multiTool.delete">Delete</span>
-            </button>
+              <span
+                id="multi-tool-clear-caption"
+                class="shift-action-caption"
+                data-i18n="multiTool.clear"
+                >Clear:</span
+              >
+              <button
+                id="bulk-delete-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Delete"
+              >
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+                <span data-i18n="multiTool.delete">Delete</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

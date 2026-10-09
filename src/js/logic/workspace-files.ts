@@ -1683,7 +1683,7 @@ function updateHomeLibrarySelection(
     const row = rows[index];
     if (row) {
       setShiftBrowserItemState(row, { selected: isSelected });
-      row.setAttribute('aria-pressed', String(isSelected));
+      row.removeAttribute('aria-pressed');
       const checkbox = row.querySelector<HTMLInputElement>(
         '.shift-my-pdfs-checkbox'
       );
@@ -1994,7 +1994,8 @@ function createFileButton(
   link.dataset.fileName = file.name;
   link.dataset.source = file.source;
   link.setAttribute('aria-label', sidebarFileAriaLabel(file));
-  link.setAttribute('aria-current', viewed ? 'page' : 'true');
+  if (viewed) link.setAttribute('aria-current', 'page');
+  else link.removeAttribute('aria-current');
   /* Filename first: the collapsed rail is an icon, and the expanded label
      truncates. Skip data-i18n-tooltip — that path overwrites the whole string
      and would drop the name. aria-label already names the row for AT. */
@@ -2191,10 +2192,6 @@ function createHomeFileRow(
   row.classList.toggle('is-selected', isSelected);
   row.dataset.fileName = file.name;
   row.dataset.source = file.source;
-  row.tabIndex = 0;
-  row.setAttribute('role', 'button');
-  row.setAttribute('aria-label', `Use ${file.name}`);
-  row.setAttribute('aria-pressed', String(isSelected));
 
   const selectCell = root.createElement('td');
   selectCell.className = 'shift-my-pdfs-select-cell';
@@ -2202,8 +2199,10 @@ function createHomeFileRow(
   checkbox.className = 'shift-my-pdfs-checkbox';
   checkbox.type = 'checkbox';
   checkbox.checked = isSelected;
-  checkbox.tabIndex = -1;
-  checkbox.setAttribute('aria-hidden', 'true');
+  checkbox.setAttribute('aria-label', `Select ${file.name}`);
+  checkbox.addEventListener('change', () => {
+    activateHomeLibraryFile(file, root);
+  });
   selectCell.appendChild(checkbox);
 
   const nameCell = root.createElement('td');
@@ -2255,12 +2254,6 @@ function createHomeFileRow(
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
   setShiftBrowserItemState(row, { selected: isSelected });
-  row.addEventListener('click', () => activateHomeLibraryFile(file, root));
-  row.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-    activateHomeLibraryFile(file, root);
-  });
 
   return row;
 }

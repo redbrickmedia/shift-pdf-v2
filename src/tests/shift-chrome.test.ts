@@ -16,7 +16,7 @@ import { createShiftFilePreview } from '../js/logic/shift-file-preview';
 describe('shared chrome', () => {
   it('orders a mixed toolbar into Navigate, History, Output, then extras', () => {
     document.body.innerHTML = `
-      <div id="row" role="toolbar">
+      <div id="row">
         <span data-viewer-chrome="launchers">Launch</span>
         <button type="button" data-viewer-chrome="print">Print</button>
         <button type="button" data-shift-action="undo">Undo</button>
@@ -27,6 +27,9 @@ describe('shared chrome', () => {
     const row = document.getElementById('row') as HTMLElement;
     arrangeShiftActionRow(row);
 
+    expect(row.getAttribute('role')).toBe('group');
+    expect(row.getAttribute('aria-label')).toBe('PDF actions');
+    expect(row.getAttribute('tabindex')).toBeNull();
     expect(
       [...row.querySelectorAll('[data-shift-action-group]')].map((group) =>
         group.getAttribute('data-shift-action-group')
@@ -111,7 +114,12 @@ describe('shared chrome', () => {
       resolve(process.cwd(), 'src/css/shift-chrome.css'),
       'utf8'
     );
-    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    const withoutDarkFocus = css.replace(
+      /html\.dark :is\(\.shift-action-button, \.shift-pdf-viewer-action\):focus-visible \{[^}]*\}/,
+      ''
+    );
+    expect(withoutDarkFocus).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(css).toContain('outline-color: #60a5fa');
     expect(css).not.toMatch(/bg-gray-|text-gray-/);
     expect(css).toContain('var(--action-button-surface-primary-default)');
     expect(css).toContain('var(--radius-8)');
@@ -127,7 +135,10 @@ describe('shared chrome', () => {
       page.indexOf('id="main-scroll-container"')
     );
     expect(toolbar).toContain('class="shift-action-row"');
-    expect(toolbar).toContain('role="toolbar"');
+    expect(toolbar).toContain('role="group"');
+    expect(toolbar).toContain('aria-labelledby="multi-tool-rotate-caption"');
+    expect(toolbar).toContain('aria-label="Left"');
+    expect(toolbar).not.toContain('role="toolbar"');
     expect(toolbar).not.toMatch(/bg-gray-|text-gray-/);
     const history = toolbar.indexOf('data-shift-action-group="history"');
     const output = toolbar.indexOf('data-shift-action-group="output"');
@@ -153,7 +164,7 @@ describe('shared chrome', () => {
       page.indexOf('</header>', headerStart)
     );
     expect(header).toContain('class="shift-action-row"');
-    expect(header).toContain('role="toolbar"');
+    expect(header).toContain('role="group"');
     expect(header).not.toContain('data-shift-viewer-actions');
     expect(header).not.toMatch(/bg-gray-|text-gray-|bg-red-|bg-orange-/);
     const navigate = header.indexOf('data-shift-action-group="navigate"');

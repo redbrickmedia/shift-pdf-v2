@@ -117,7 +117,7 @@ describe('tool output toolbar', () => {
       <main>
         <div id="tool-uploader"><h1>Edit Bookmarks</h1></div>
         <div id="app">
-          <div class="shift-action-row" role="toolbar" aria-label="PDF actions">
+          <div class="shift-action-row" role="group" aria-label="PDF actions">
             <button id="undo-btn" type="button">Undo</button>
             <button id="redo-btn" type="button">Redo</button>
             <button id="reset-btn" type="button">Reset</button>
@@ -307,7 +307,7 @@ describe('tool output toolbar', () => {
       document
         .querySelector('[data-shift-viewer-actions]')
         ?.getAttribute('role')
-    ).toBe('toolbar');
+    ).toBe('group');
     unregister();
   });
 

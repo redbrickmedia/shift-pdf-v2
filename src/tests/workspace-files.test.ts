@@ -168,7 +168,7 @@ describe('workspace files sidebar', () => {
       'contract.pdf'
     );
     expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
-    expect(button?.getAttribute('aria-current')).toBe('true');
+    expect(button?.hasAttribute('aria-current')).toBe(false);
     expect(button?.classList.contains('is-selected')).toBe(true);
     expect(button?.getAttribute('href')).toBe(
       'view-pdf.html?name=contract.pdf'
@@ -714,9 +714,9 @@ describe('workspace files sidebar', () => {
           .map((row) => row.dataset.fileName)
       ).toEqual(['second.pdf']);
       expect(rows.map((row) => row.getAttribute('aria-current'))).toEqual([
-        'true',
+        null,
         'page',
-        'true',
+        null,
       ]);
     } finally {
       history.replaceState({}, '', path);
@@ -737,7 +737,7 @@ describe('workspace files sidebar', () => {
       Array.from(document.querySelectorAll('.shift-open-file-item')).map(
         (row) => row.getAttribute('aria-current')
       )
-    ).toEqual(['true', 'true']);
+    ).toEqual([null, null]);
   });
 
   /**
@@ -1370,7 +1370,9 @@ describe('workspace files sidebar', () => {
       )
     ).toHaveLength(0);
 
-    inactiveRow?.click();
+    inactiveRow
+      ?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')
+      ?.click();
     await vi.waitFor(() => {
       expect(inactiveRow?.classList.contains('is-selected')).toBe(true);
     });
@@ -1631,13 +1633,26 @@ describe('workspace files sidebar', () => {
     const row = document.querySelector<HTMLTableRowElement>(
       '.shift-my-pdfs-row[data-file-name="toggle.pdf"]'
     );
-    row?.click();
-    expect(getWorkspaceFiles()).toMatchObject([{ name: 'toggle.pdf' }]);
-    expect(row?.getAttribute('aria-pressed')).toBe('true');
+    const checkbox = row?.querySelector<HTMLInputElement>(
+      '.shift-my-pdfs-checkbox'
+    );
+    expect(row?.getAttribute('role')).toBeNull();
+    expect(row?.hasAttribute('tabindex')).toBe(false);
+    expect(row?.hasAttribute('aria-label')).toBe(false);
+    expect(checkbox?.getAttribute('aria-label')).toBe('Select toggle.pdf');
+    expect(checkbox?.getAttribute('aria-hidden')).toBeNull();
 
-    row?.click();
+    checkbox?.click();
+    expect(getWorkspaceFiles()).toMatchObject([{ name: 'toggle.pdf' }]);
+    expect(
+      row?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')?.checked
+    ).toBe(true);
+
+    row?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')?.click();
     expect(getWorkspaceFiles()).toEqual([]);
-    expect(row?.getAttribute('aria-pressed')).toBe('false');
+    expect(
+      row?.querySelector<HTMLInputElement>('.shift-my-pdfs-checkbox')?.checked
+    ).toBe(false);
   });
 
   it('hides My PDFs header tool actions when no file is selected', () => {
@@ -2901,7 +2916,11 @@ describe('workspace files sidebar', () => {
       },
     ]);
 
-    document.querySelector<HTMLTableRowElement>('.shift-my-pdfs-row')?.click();
+    document
+      .querySelector<HTMLInputElement>(
+        '.shift-my-pdfs-row .shift-my-pdfs-checkbox'
+      )
+      ?.click();
     expect(getWorkspaceFiles().map((entry) => entry.name)).toEqual([
       'drop.pdf',
     ]);

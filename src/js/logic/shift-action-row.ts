@@ -89,9 +89,7 @@ export function createShiftActionButton(
  */
 export function arrangeShiftActionRow(toolbar: HTMLElement): void {
   toolbar.classList.add(SHIFT_ACTION_ROW_CLASS);
-  if (!toolbar.hasAttribute('role')) {
-    toolbar.setAttribute('role', 'toolbar');
-  }
+  toolbar.setAttribute('role', 'group');
   if (
     !toolbar.hasAttribute('aria-label') &&
     !toolbar.hasAttribute('aria-labelledby')

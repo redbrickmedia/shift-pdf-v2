@@ -31,6 +31,25 @@
   outline-offset: 2px;
 }
 
+/* Dark bar focus ring. The default brand step on dark-700 is below 3:1. */
+html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible {
+  outline-color: #60a5fa;
+}
+
+.shift-action-caption {
+  align-self: center;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.shift-action-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
 .shift-action-button > svg {
   width: 16px;
   height: 16px;
@@ -168,6 +187,18 @@
   z-index: 1;
 }
 
+@media (min-width: 640px) {
+  .shift-page-card [data-shift-page-actions] {
+    opacity: 0;
+  }
+
+  .shift-page-card:hover [data-shift-page-actions],
+  .shift-page-card:focus-within [data-shift-page-actions],
+  .shift-page-card [data-shift-page-actions] :focus-visible {
+    opacity: 1;
+  }
+}
+
 .shift-page-preview {
   position: fixed;
   inset: 0;
@@ -218,4 +249,10 @@
   right: var(--spacing-4);
   bottom: var(--spacing-4);
   z-index: 1;
+  opacity: 0;
+}
+
+:hover > .shift-page-preview-open,
+.shift-page-preview-open:focus-visible {
+  opacity: 1;
 }

@@ -185,7 +185,7 @@ describe('viewer chrome', () => {
             <h1>Sign PDF</h1>
             <p data-viewer-chrome="subtitle">Draw, type, or upload your signature.</p>
           </div>
-          <div class="shift-pdf-viewer-actions" data-shift-viewer-actions role="toolbar">
+          <div class="shift-pdf-viewer-actions" data-shift-viewer-actions role="group">
             <label data-viewer-chrome="flatten" hidden>
               <input id="flatten-signature-toggle" type="checkbox" />
               <span>Flatten signatures into page content</span>

@@ -34,12 +34,18 @@ interface PageData {
   fileName: string; // Added for lazy loading identification
 }
 
-function pageActionButton(label: string, iconClass: string): HTMLButtonElement {
-  return createShiftActionButton(document, {
+function pageActionButton(
+  action: string,
+  label: string,
+  iconClass: string
+): HTMLButtonElement {
+  const button = createShiftActionButton(document, {
     label,
     iconClass,
     action: 'extra',
   });
+  button.dataset.shiftPageAction = action;
+  return button;
 }
 
 function setPageSelectIcon(button: HTMLElement, selected: boolean): void {
@@ -694,68 +700,38 @@ function createPageElement(
   const actions = document.createElement('div');
   actions.className = 'shift-action-row';
   actions.dataset.shiftPageActions = '';
-  actions.setAttribute('role', 'toolbar');
+  actions.setAttribute('role', 'group');
   actions.setAttribute('aria-label', `Page ${index + 1} actions`);
 
-  const selectBtn = pageActionButton('Select page', 'ph-square');
+  const selectBtn = pageActionButton('select', 'Select', 'ph-square');
   selectBtn.classList.add('shift-page-card-select');
   selectBtn.dataset.shiftPageSelect = '';
   setPageSelectIcon(selectBtn, selected);
-  selectBtn.onclick = (e) => {
-    e.stopPropagation();
-    toggleSelectOptimized(index);
-  };
 
   const rotateLeftBtn = pageActionButton(
+    'rotate-left',
     'Rotate left',
     'ph-arrow-counter-clockwise'
   );
-  rotateLeftBtn.onclick = (e) => {
-    e.stopPropagation();
-    rotatePage(index, -90);
-  };
-  const rotateBtn = pageActionButton('Rotate right', 'ph-arrow-clockwise');
-  rotateBtn.onclick = (e) => {
-    e.stopPropagation();
-    rotatePage(index, 90);
-  };
-  const duplicateBtn = pageActionButton(
-    t('multiTool.actions.duplicatePage'),
-    'ph-copy'
+  const rotateBtn = pageActionButton(
+    'rotate-right',
+    'Rotate right',
+    'ph-arrow-clockwise'
   );
-  duplicateBtn.onclick = (e) => {
-    e.stopPropagation();
-    snapshot();
-    duplicatePage(index);
-  };
-  const insertBtn = pageActionButton(
-    t('multiTool.actions.insertPdf'),
-    'ph-file-plus'
+  const duplicateBtn = pageActionButton('duplicate', 'Duplicate', 'ph-copy');
+  const insertBtn = pageActionButton('insert', 'Insert', 'ph-file-plus');
+  const splitBtn = pageActionButton('split', 'Split', 'ph-scissors');
+  const deleteBtn = pageActionButton('delete', 'Delete', 'ph-trash');
+  const moveEarlierBtn = pageActionButton(
+    'move-earlier',
+    'Move earlier',
+    'ph-arrow-left'
   );
-  insertBtn.onclick = (e) => {
-    e.stopPropagation();
-    snapshot();
-    insertPdfAfter(index);
-  };
-  const splitBtn = pageActionButton(
-    t('multiTool.actions.toggleSplit'),
-    'ph-scissors'
+  const moveLaterBtn = pageActionButton(
+    'move-later',
+    'Move later',
+    'ph-arrow-right'
   );
-  splitBtn.onclick = (e) => {
-    e.stopPropagation();
-    snapshot();
-    toggleSplitMarker(index);
-    renderSplitMarkers();
-  };
-  const deleteBtn = pageActionButton(
-    t('multiTool.actions.deletePage'),
-    'ph-trash'
-  );
-  deleteBtn.onclick = (e) => {
-    e.stopPropagation();
-    snapshot();
-    deletePage(index);
-  };
 
   actions.append(
     rotateLeftBtn,
@@ -763,7 +739,9 @@ function createPageElement(
     duplicateBtn,
     insertBtn,
     splitBtn,
-    deleteBtn
+    deleteBtn,
+    moveEarlierBtn,
+    moveLaterBtn
   );
   card.append(preview, info, actions, selectBtn);
 
@@ -777,7 +755,89 @@ function createPageElement(
     card.appendChild(marker);
   }
 
+  bindPageCardControls(card, index);
   return card;
+}
+
+function bindPageCardControls(card: HTMLElement, index: number): void {
+  const actions = card.querySelector<HTMLElement>('[data-shift-page-actions]');
+  if (actions) {
+    actions.setAttribute('role', 'group');
+    actions.setAttribute('aria-label', `Page ${index + 1} actions`);
+  }
+
+  const selectBtn = card.querySelector<HTMLButtonElement>(
+    '[data-shift-page-select]'
+  );
+  if (selectBtn) {
+    const selected = selectedPages.has(index);
+    setShiftBrowserItemState(card, { selected });
+    setPageSelectIcon(selectBtn, selected);
+    selectBtn.onclick = (event) => {
+      event.stopPropagation();
+      toggleSelectOptimized(index);
+    };
+  }
+
+  const on = (action: string, run: () => void, disabled = false) => {
+    const button = card.querySelector<HTMLButtonElement>(
+      `[data-shift-page-action="${action}"]`
+    );
+    if (!button) return;
+    button.disabled = disabled;
+    button.onclick = (event) => {
+      event.stopPropagation();
+      run();
+    };
+  };
+
+  on('rotate-left', () => rotatePage(index, -90));
+  on('rotate-right', () => rotatePage(index, 90));
+  on('duplicate', () => {
+    snapshot();
+    duplicatePage(index);
+  });
+  on('insert', () => {
+    snapshot();
+    insertPdfAfter(index);
+  });
+  on('split', () => {
+    snapshot();
+    toggleSplitMarker(index);
+    renderSplitMarkers();
+  });
+  on('delete', () => {
+    snapshot();
+    deletePage(index);
+  });
+  on('move-earlier', () => movePage(index, -1), index === 0);
+  on('move-later', () => movePage(index, 1), index >= allPages.length - 1);
+}
+
+function movePage(index: number, delta: number): void {
+  const next = index + delta;
+  if (next < 0 || next >= allPages.length) return;
+  snapshot();
+  const [moved] = allPages.splice(index, 1);
+  allPages.splice(next, 0, moved);
+  selectedPages = shiftIndexSet(selectedPages, index, next);
+  splitMarkers = shiftIndexSet(splitMarkers, index, next);
+  updatePageDisplay();
+}
+
+function shiftIndexSet(
+  set: Set<number>,
+  from: number,
+  to: number
+): Set<number> {
+  const shifted = new Set<number>();
+  set.forEach((value) => {
+    if (value === from) shifted.add(to);
+    else if (from < to && value > from && value <= to) shifted.add(value - 1);
+    else if (to < from && value >= to && value < from) shifted.add(value + 1);
+    else shifted.add(value);
+  });
+  return shifted;
 }
 
 function setupSortable() {
@@ -805,6 +865,8 @@ function setupSortable() {
       if (oldIndex !== newIndex) {
         const [moved] = allPages.splice(oldIndex, 1);
         allPages.splice(newIndex, 0, moved);
+        selectedPages = shiftIndexSet(selectedPages, oldIndex, newIndex);
+        splitMarkers = shiftIndexSet(splitMarkers, oldIndex, newIndex);
         updatePageNumbers();
       }
     },
@@ -1369,67 +1431,13 @@ function updatePageDisplay() {
       const info = card.querySelector('[data-shift-page-info]');
       if (info) info.textContent = `Page ${index + 1} `;
 
-      // Update selection state
-      const selectBtn = card.querySelector<HTMLElement>(
-        '[data-shift-page-select]'
-      );
-      if (selectBtn) {
-        const selected = selectedPages.has(index);
-        setShiftBrowserItemState(card, { selected });
-        setPageSelectIcon(selectBtn, selected);
-        // Update click handler to use new index
-        (selectBtn as HTMLElement).onclick = (e) => {
-          e.stopPropagation();
-          toggleSelectOptimized(index);
-        };
-      }
-
       // Update visual rotation
       const canvas = card.querySelector('canvas');
       if (canvas) {
         canvas.style.transform = `rotate(${pageData.visualRotation}deg)`;
       }
 
-      // Update action buttons
-      const actionsInner = card.querySelector('[data-shift-page-actions]');
-      if (actionsInner) {
-        const buttons = actionsInner.querySelectorAll('button');
-        if (buttons[0])
-          (buttons[0] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            rotatePage(index, -90);
-          };
-        if (buttons[1])
-          (buttons[1] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            rotatePage(index, 90);
-          };
-        if (buttons[2])
-          (buttons[2] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            snapshot();
-            duplicatePage(index);
-          };
-        if (buttons[3])
-          (buttons[3] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            snapshot();
-            insertPdfAfter(index);
-          };
-        if (buttons[4])
-          (buttons[4] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            snapshot();
-            toggleSplitMarker(index);
-            renderSplitMarkers();
-          };
-        if (buttons[5])
-          (buttons[5] as HTMLElement).onclick = (e) => {
-            e.stopPropagation();
-            snapshot();
-            deletePage(index);
-          };
-      }
+      bindPageCardControls(card, index);
     } else {
       // Element doesn't exist, create it
       card = createPageElement(pageData.canvas, index);
@@ -1466,59 +1474,6 @@ function updatePageNumbers() {
       info.textContent = `Page ${index + 1} `;
     }
 
-    // Re-attach event listeners for buttons
-    // We need to find the buttons and update their onclick handlers
-    // This is necessary because the original handlers captured the old index
-
-    const selectBtn = card.querySelector(
-      '[data-shift-page-select]'
-    ) as HTMLButtonElement;
-    if (selectBtn) {
-      selectBtn.onclick = (e) => {
-        e.stopPropagation();
-        toggleSelectOptimized(index);
-      };
-    }
-
-    const actionsInner = card.querySelector('[data-shift-page-actions]');
-    if (actionsInner) {
-      const buttons = actionsInner.querySelectorAll('button');
-      // Order: Rotate Left, Rotate Right, Duplicate, Insert, Split, Delete
-      if (buttons[0])
-        buttons[0].onclick = (e) => {
-          e.stopPropagation();
-          rotatePage(index, -90);
-        };
-      if (buttons[1])
-        buttons[1].onclick = (e) => {
-          e.stopPropagation();
-          rotatePage(index, 90);
-        };
-      if (buttons[2])
-        buttons[2].onclick = (e) => {
-          e.stopPropagation();
-          snapshot();
-          duplicatePage(index);
-        };
-      if (buttons[3])
-        buttons[3].onclick = (e) => {
-          e.stopPropagation();
-          snapshot();
-          insertPdfAfter(index);
-        };
-      if (buttons[4])
-        buttons[4].onclick = (e) => {
-          e.stopPropagation();
-          snapshot();
-          toggleSplitMarker(index);
-          renderSplitMarkers();
-        };
-      if (buttons[5])
-        buttons[5].onclick = (e) => {
-          e.stopPropagation();
-          snapshot();
-          deletePage(index);
-        };
-    }
+    bindPageCardControls(card, index);
   });
 }

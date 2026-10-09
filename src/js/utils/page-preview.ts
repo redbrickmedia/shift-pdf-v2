@@ -12,6 +12,8 @@ const state: PreviewState = {
   container: null,
 };
 
+let previewOpener: HTMLElement | null = null;
+
 function getOrCreateModal(): HTMLElement {
   if (state.modal) return state.modal;
 
@@ -27,7 +29,7 @@ function getOrCreateModal(): HTMLElement {
 
   const toolbar = document.createElement('div');
   toolbar.className = 'shift-action-row';
-  toolbar.setAttribute('role', 'toolbar');
+  toolbar.setAttribute('role', 'group');
   toolbar.setAttribute('aria-label', 'Page preview');
 
   const prev = createShiftActionButton(document, {
@@ -60,6 +62,7 @@ function getOrCreateModal(): HTMLElement {
   const pageInfo = document.createElement('p');
   pageInfo.id = 'preview-page-info';
   pageInfo.className = 'shift-page-preview-info';
+  pageInfo.setAttribute('aria-live', 'polite');
 
   dialog.append(toolbar, frame, pageInfo);
   modal.append(dialog);
@@ -138,15 +141,21 @@ export function showPreview(
   pageNumber: number,
   totalPages: number
 ): void {
+  const opener = document.activeElement;
+  const alreadyOpen = state.isOpen;
   state.pdfjsDoc = pdfjsDoc;
   state.totalPages = totalPages;
   state.isOpen = true;
+  if (!alreadyOpen && opener instanceof HTMLElement) {
+    previewOpener = opener;
+  }
 
   const modal = getOrCreateModal();
   modal.classList.add('is-open');
   document.body.style.overflow = 'hidden';
 
   renderPreviewPage(pageNumber);
+  modal.querySelector<HTMLButtonElement>('#preview-close')?.focus();
 }
 
 export function hidePreview(): void {
@@ -154,6 +163,9 @@ export function hidePreview(): void {
   state.isOpen = false;
   state.modal.classList.remove('is-open');
   document.body.style.overflow = '';
+  const opener = previewOpener;
+  previewOpener = null;
+  if (opener?.isConnected) opener.focus();
 }
 
 function handleKeydown(e: KeyboardEvent): void {
