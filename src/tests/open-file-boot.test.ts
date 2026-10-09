@@ -71,8 +71,8 @@ describe('sidebar boot on a narrow viewport', () => {
       vi.fn((query: string) => ({
         matches: narrow && query === '(max-width: 640px)',
         media: query,
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
       }))
     );
   }
