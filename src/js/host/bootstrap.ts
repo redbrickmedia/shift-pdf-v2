@@ -1,4 +1,8 @@
-import { listenForToolJobs, trackExperienceStarted } from './analytics.js';
+import {
+  listenForFeatureUse,
+  listenForToolJobs,
+  trackExperienceStarted,
+} from './analytics.js';
 import { startThemeSync } from './theme.js';
 
 let bootstrapped = false;
@@ -10,6 +14,7 @@ export function bootstrapHostIntegration(): void {
   startThemeSync();
   trackExperienceStarted();
   listenForToolJobs();
+  listenForFeatureUse();
 }
 
 export function resetBootstrapForTests(): void {

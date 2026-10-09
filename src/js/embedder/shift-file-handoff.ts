@@ -1,5 +1,10 @@
 import { syncHomeLibraryFromStore } from '../logic/workspace-files.js';
 import { addPdfToLibrary } from '../logic/pdf-library-store.js';
+import {
+  bytesFromUnknown,
+  handoffReasonFromError,
+  reportHandoff,
+} from '../host/telemetry.js';
 
 const FILE_HANDOFF_VERSION = 1;
 const FILE_HANDOFF_MAX_BYTES = 16 * 1024 * 1024;
@@ -145,6 +150,11 @@ export function listenForShiftFileHandoff(
         handoffId,
         version: FILE_HANDOFF_VERSION,
       });
+      reportHandoff({
+        channel: 'offer',
+        reason: 'offer_accepted',
+        result: 'success',
+      });
       return;
     }
 
@@ -165,7 +175,24 @@ export function listenForShiftFileHandoff(
           handoffId,
           version: FILE_HANDOFF_VERSION,
         });
+        reportHandoff({
+          byteLength: file.size,
+          bytes: bytesFromUnknown(data.bytes),
+          channel: 'accepted',
+          reason: 'accepted',
+          result: 'success',
+        });
       } catch (error) {
+        reportHandoff({
+          byteLength:
+            data.bytes instanceof ArrayBuffer
+              ? data.bytes.byteLength
+              : undefined,
+          bytes: bytesFromUnknown(data.bytes),
+          channel: 'rejected',
+          reason: handoffReasonFromError(error),
+          result: 'fail',
+        });
         reply(event.source as HandoffMessageSource | null, event.origin, {
           channel: CHANNELS.rejected,
           handoffId,

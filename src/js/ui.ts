@@ -131,7 +131,7 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
-  noteProcessAlert(type);
+  noteProcessAlert(type, title);
   if (isProcessSuccessAlert(title, type)) return;
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
