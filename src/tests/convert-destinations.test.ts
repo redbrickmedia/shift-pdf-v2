@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   filterConvertDestinations,
+  getOutputFilename,
   getPdfDestinations,
   getSharedDestinations,
   getToPdfDestination,
@@ -106,14 +107,46 @@ describe('destination batch capability', () => {
     const { primary, secondary } = getPdfDestinations();
     const all = [...primary, ...secondary];
 
-    expect(filterConvertDestinations(all, 'word').map((entry) => entry.id)).toEqual(
-      ['pdf-to-docx']
-    );
     expect(
-      filterConvertDestinations(all, 'jpg').some((entry) => entry.id === 'pdf-to-jpg')
+      filterConvertDestinations(all, 'word').map((entry) => entry.id)
+    ).toEqual(['pdf-to-docx']);
+    expect(
+      filterConvertDestinations(all, 'jpg').some(
+        (entry) => entry.id === 'pdf-to-jpg'
+      )
     ).toBe(true);
     expect(filterConvertDestinations(all, '   ')).toHaveLength(all.length);
     expect(filterConvertDestinations(all, 'zzzz-nope')).toEqual([]);
+  });
+
+  it('previews the extension the tool actually downloads', () => {
+    const { primary, secondary } = getPdfDestinations();
+    const byId = new Map(
+      [...primary, ...secondary].map((entry) => [entry.id, entry])
+    );
+
+    // Live hub showed basicapi.excel for PDF to Excel.
+    expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-excel')!)).toBe(
+      'basicapi.xlsx'
+    );
+    expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-text')!)).toBe(
+      'basicapi.txt'
+    );
+    expect(
+      getOutputFilename('basicapi.pdf', byId.get('pdf-to-markdown')!)
+    ).toBe('basicapi.md');
+    expect(
+      getOutputFilename('basicapi.pdf', byId.get('pdf-to-greyscale')!)
+    ).toBe('basicapi.pdf');
+    expect(getOutputFilename('basicapi.pdf', byId.get('extract-images')!)).toBe(
+      'basicapi.zip'
+    );
+    expect(
+      getOutputFilename('notes.pdf', byId.get('prepare-pdf-for-ai')!)
+    ).toBe('notes.json');
+    expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-docx')!)).toBe(
+      'basicapi.docx'
+    );
   });
 
   it('carries the capability onto to-PDF destinations', () => {

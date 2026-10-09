@@ -1,5 +1,12 @@
 import { createIcons, icons } from 'lucide';
 import {
+  beginToolUse,
+  endToolUse,
+  getToolIdFromPath,
+  track,
+  PDF_ENGINE_EVENTS,
+} from '../host/analytics.js';
+import {
   buildConvertSourceAccept,
   getConvertSourceKind,
   getOutputFilename,
@@ -80,6 +87,33 @@ export function addConvertSources(
   // page to explain why instead of re-rendering an unchanged selection.
   if (added.length === state.sourceFiles.length) return state;
   return { step: 'destination', sourceFiles: added };
+}
+
+/**
+ * Why an add left the selection unchanged. A second copy of find_all.pdf is
+ * not an unsupported type, which is what the hub used to claim.
+ */
+export function describeRejectedConvertSources(
+  state: ConvertHubState,
+  files: File[]
+): string {
+  const supported = files.filter(isSupportedSource);
+  if (supported.length === 0) {
+    return 'That file type is not supported for conversion yet. Try a PDF or another common document format.';
+  }
+
+  const identities = state.sourceFiles.map(toIdentity);
+  const alreadyAdded = supported.every((file) =>
+    isDuplicateMergeFile(identities, toIdentity(file))
+  );
+  if (alreadyAdded) {
+    if (supported.length === 1) {
+      return `${supported[0]?.name ?? 'That file'} is already in this conversion.`;
+    }
+    return 'Those files are already in this conversion.';
+  }
+
+  return 'Some of those files are already added or are not a supported type.';
 }
 
 export function replaceConvertSources(
@@ -187,6 +221,10 @@ export async function handoffConvertSourcesToTool(
     await syncHomeLibraryFromStore(root);
   }
 
+  track(PDF_ENGINE_EVENTS.toolUsed, {
+    tool_id: getToolIdFromPath(window.location.pathname || '/'),
+    result: 'success',
+  });
   window.location.assign(resolveDestinationHref(handedOff[0], destination));
 }
 
@@ -487,9 +525,7 @@ export function renderConvertHub(
       visibleSecondary.length === 0 &&
       !isUnsupported;
     searchEmpty.hidden = !noMatches;
-    searchEmpty.textContent = noMatches
-      ? 'No formats match your search.'
-      : '';
+    searchEmpty.textContent = noMatches ? 'No formats match your search.' : '';
   }
 
   if (showMoreButton) {
@@ -535,9 +571,13 @@ export function initConvertHubPage(root: Document = document): void {
     if (next === state) {
       if (unsupportedMessage) {
         unsupportedMessage.classList.remove('hidden');
-        unsupportedMessage.textContent =
-          'That file type is not supported for conversion yet. Try a PDF or another common document format.';
+        unsupportedMessage.textContent = describeRejectedConvertSources(
+          state,
+          files
+        );
       }
+      beginToolUse();
+      endToolUse('error');
       return;
     }
     state = next;
