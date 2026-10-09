@@ -328,4 +328,39 @@ describe('listenForShiftFileHandoff', () => {
     );
     expect(onFile).not.toHaveBeenCalled();
   });
+
+  it('rejects a non-PDF payload', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      `/compress-pdf.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    const onFile = vi.fn();
+    const source = { postMessage: vi.fn() };
+
+    listenForShiftFileHandoff({ onFile });
+    dispatchMessage({
+      data: {
+        bytes: new Uint8Array([110, 111, 116, 32, 97, 32, 112, 100, 102])
+          .buffer,
+        channel: 'shift-file-handoff-payload',
+        filename: 'notes.txt',
+        handoffId: HANDOFF_ID,
+        mimeType: 'text/plain',
+        version: 1,
+      },
+      source,
+    });
+
+    await vi.waitFor(() =>
+      expect(source.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'shift-file-handoff-rejected',
+          message: 'Only PDF files can be handed off.',
+        }),
+        SHIFT_ORIGIN
+      )
+    );
+    expect(onFile).not.toHaveBeenCalled();
+  });
 });
