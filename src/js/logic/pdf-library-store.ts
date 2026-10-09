@@ -63,25 +63,27 @@ export async function addPdfToLibrary(
     size: file.size,
   });
   if (duplicate && generation === libraryGeneration) {
+    // A tool may have replaced this row while the duplicate lookup was in
+    // flight. Keep that newer record instead of writing the snapshot back.
+    const current = memoryRecords.find(
+      (existing) => existing.id === duplicate.id
+    );
+    const record = current ?? duplicate;
     if (options.handle) {
-      duplicate.handle = options.handle;
-      duplicate.availability = 'ready';
+      record.handle = options.handle;
+      record.availability = 'ready';
       try {
         await withStore('readwrite', (store) =>
-          store.put(toOriginalSavedPdfRecord(duplicate), duplicate.id)
+          store.put(toOriginalSavedPdfRecord(record), record.id)
         );
       } catch {
         // Keep the handle available in memory when IndexedDB is unavailable.
       }
     }
-    if (memoryRecords.some((existing) => existing.id === duplicate.id)) {
-      memoryRecords = memoryRecords.map((existing) =>
-        existing.id === duplicate.id ? duplicate : existing
-      );
-    } else {
-      memoryRecords = [...memoryRecords, duplicate];
+    if (!current) {
+      memoryRecords = [...memoryRecords, record];
     }
-    return toLibraryEntry(duplicate);
+    return toLibraryEntry(record);
   }
 
   const lastAddedAt = memoryRecords.at(-1)?.addedAt ?? 0;

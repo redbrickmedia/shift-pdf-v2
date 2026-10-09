@@ -50,6 +50,21 @@ const CONDENSE_PRESETS = {
   },
 };
 
+const COMPRESSED_TITLE_SUFFIX = ' (Compressed)';
+
+/** Library title for a compressed PDF: `Report.pdf` becomes `Report (Compressed).pdf`. */
+export function compressedLibraryName(originalName: string): string {
+  const source = originalName.trim() || 'document.pdf';
+  const extensionIndex = source.lastIndexOf('.');
+  const hasPdfExtension =
+    extensionIndex > 0 && source.slice(extensionIndex).toLowerCase() === '.pdf';
+  const base = hasPdfExtension ? source.slice(0, extensionIndex) : source;
+  const stem = base.endsWith(COMPRESSED_TITLE_SUFFIX)
+    ? base
+    : `${base}${COMPRESSED_TITLE_SUFFIX}`;
+  return `${stem}.pdf`;
+}
+
 const PHOTON_PRESETS = {
   light: { scale: 2.0, quality: 0.85 },
   balanced: { scale: 1.5, quality: 0.65 },
@@ -479,17 +494,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const savingsPercent =
           savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
 
-        downloadFile(resultBlob, originalFile.name);
-
-        hideLoader();
-
         const summary =
           savings > 0
             ? `Method: ${usedMethod}. Reduced ${originalSize} to ${compressedSize} and saved ${savingsPercent}%.`
             : `Method: ${usedMethod}. The file is already optimized (${compressedSize}).`;
+        const libraryName = compressedLibraryName(originalFile.name);
+        downloadFile(resultBlob, libraryName, summary);
+        hideLoader();
         completionPanel.show({
           blob: resultBlob,
-          filename: originalFile.name,
+          filename: libraryName,
           summary,
           timing: completionTiming(startedAt),
         });
@@ -532,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           totalCompressedSize += resultBytes.length;
-          zip.file(file.name, resultBytes);
+          zip.file(compressedLibraryName(file.name), resultBytes);
         }
 
         const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -542,14 +556,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ? ((totalSavings / totalOriginalSize) * 100).toFixed(1)
             : 0;
 
-        downloadFile(zipBlob, 'compressed-pdfs.zip');
-
-        hideLoader();
-
         const summary =
           totalSavings > 0
             ? `Compressed ${inputCount} PDFs from ${formatBytes(totalOriginalSize)} to ${formatBytes(totalCompressedSize)} and saved ${totalSavingsPercent}%.`
             : `Compressed ${inputCount} PDFs. Total size: ${formatBytes(totalCompressedSize)}.`;
+        downloadFile(zipBlob, 'compressed-pdfs.zip', summary);
+
+        hideLoader();
         completionPanel.show({
           blob: zipBlob,
           filename: 'compressed-pdfs.zip',

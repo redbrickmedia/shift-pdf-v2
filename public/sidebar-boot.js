@@ -112,16 +112,23 @@
     }
   }
 
-  /* Keep this in step with theme.ts: standalone builds are dark, and a build
-     wired to a host follows the colour-scheme query the host maintains. The
-     flag comes from the script tag because sidebarBootPlugin resolves
+  /* Keep this in step with theme.ts and INTEGRATED_APP_ORIGIN in
+     src/js/host/bridge.ts: standalone builds are dark, and a build wired to a
+     host follows the colour-scheme query the host maintains. The flag comes
+     from the script tag because sidebarBootPlugin resolves
      VITE_HOST_API_ROOT at build time and a classic script cannot read it.
+     The production origin is hosted even when that build leaves the variable
+     empty, which is how pages.dev stays standalone.
 
      startThemeSync() still owns the mode afterwards — it re-applies the same
      value and registers the listener that follows the host mid-session — so
      this only moves the first application ahead of paint. */
+  var INTEGRATED_APP_ORIGIN =
+    'https://shift-pdf-neo.integrated-apps.tryshift.com';
   var bootScript = document.currentScript;
-  var hosted = !!bootScript && bootScript.hasAttribute('data-shift-hosted');
+  var hosted =
+    (!!bootScript && bootScript.hasAttribute('data-shift-hosted')) ||
+    location.origin === INTEGRATED_APP_ORIGIN;
   var colorMode =
     hosted &&
     typeof window.matchMedia === 'function' &&
@@ -131,7 +138,19 @@
   document.documentElement.classList.add(colorMode);
   document.documentElement.style.colorScheme = colorMode;
 
-  if (read('shiftSidebarCollapsed') === 'true') {
+  /* Keep in step with main.ts and the max-width: 640px rule in shift-theme.css. */
+  var viewportNarrow = false;
+  try {
+    if (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+    ) {
+      viewportNarrow = true;
+    }
+  } catch (_narrowError) {
+    // matchMedia can throw in a locked-down browser; leave the rail expanded.
+  }
+  if (read('shiftSidebarCollapsed') === 'true' || viewportNarrow) {
     document.documentElement.classList.add('shift-sidebar-collapsed-pending');
   }
 
@@ -572,8 +591,7 @@
       title.className = VIEWER_TITLE_CLASS;
 
       var subtitle =
-        heading.nextElementSibling &&
-        heading.nextElementSibling.tagName === 'P'
+        heading.nextElementSibling && heading.nextElementSibling.tagName === 'P'
           ? heading.nextElementSibling
           : null;
 

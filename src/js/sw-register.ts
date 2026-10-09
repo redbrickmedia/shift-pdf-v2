@@ -36,6 +36,26 @@ function collectTrustedWasmHosts(): string[] {
   return Array.from(hosts);
 }
 
+/**
+ * First install calls skipWaiting() and clients.claim(), which fires
+ * controllerchange on the page that just registered the worker. Reloading
+ * there discards the first paint. Reload only after a controller was already
+ * active, which is an update taking over.
+ */
+export function createControllerChangeHandler(
+  reload: () => void,
+  initiallyControlled: boolean
+): () => void {
+  let controlled = initiallyControlled;
+  return () => {
+    if (!controlled) {
+      controlled = true;
+      return;
+    }
+    reload();
+  };
+}
+
 function sendTrustedHostsToSw(target: ServiceWorker | null | undefined) {
   if (!target) return;
   const hosts = collectTrustedWasmHosts();
@@ -103,9 +123,13 @@ if (isDevelopment) {
       sendTrustedHostsToSw(registration.active);
     });
 
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    const onControllerChange = createControllerChangeHandler(() => {
       console.log('[SW] New service worker activated, reloading...');
       window.location.reload();
-    });
+    }, Boolean(navigator.serviceWorker.controller));
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      onControllerChange
+    );
   });
 }

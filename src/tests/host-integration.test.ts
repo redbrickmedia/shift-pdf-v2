@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getHostAnalytics, INTEGRATED_APP_ORIGIN } from '../js/host/bridge';
 import {
   bootstrapHostIntegration,
   resetBootstrapForTests,
 } from '../js/host/bootstrap';
 import {
+  APP_VERSION,
   beginToolUse,
   endToolUse,
   EXPERIENCE_SENT_STORAGE_KEY,
@@ -11,9 +15,23 @@ import {
   listenForToolJobs,
   PDF_ENGINE_EVENTS,
   resetToolUseForTests,
+  SCHEMA_VERSION,
   track,
   trackExperienceStarted,
 } from '../js/host/analytics';
+
+function withSchema(
+  properties: Record<string, unknown> = {},
+  eventType: 'state-change' | 'user-interaction' = 'state-change'
+): Record<string, unknown> {
+  return {
+    app_version: APP_VERSION,
+    event_type: eventType,
+    schema_version: SCHEMA_VERSION,
+    tool_id: 'merge-pdf',
+    ...properties,
+  };
+}
 import {
   applyColorMode,
   applyDataTheme,
@@ -79,9 +97,10 @@ describe('host bootstrap', () => {
     bootstrapHostIntegration();
 
     expect(trackFn).toHaveBeenCalledTimes(1);
-    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.experienceStarted, {
-      tool_id: 'merge-pdf',
-    });
+    expect(trackFn).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.experienceStarted,
+      withSchema()
+    );
   });
 
   it('does not throw when the host is absent', () => {
@@ -89,6 +108,37 @@ describe('host bootstrap', () => {
     expect(() => bootstrapHostIntegration()).not.toThrow();
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.style.colorScheme).toBe('dark');
+  });
+
+  it('resolves chrome.shift on the production origin when the env root is empty', () => {
+    vi.stubEnv('VITE_HOST_API_ROOT', '');
+    const trackFn = vi.fn();
+    vi.stubGlobal('location', { origin: INTEGRATED_APP_ORIGIN });
+    vi.stubGlobal('chrome', { shift: { analytics: { track: trackFn } } });
+
+    getHostAnalytics()?.track('PdfEngine_ExperienceStarted', {});
+
+    expect(trackFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays dark on pages.dev when the env root is empty', () => {
+    vi.stubEnv('VITE_HOST_API_ROOT', '');
+    const trackFn = vi.fn();
+    vi.stubGlobal('location', {
+      origin: 'https://shift-pdf-neo.pages.dev',
+    });
+    vi.stubGlobal('chrome', { shift: { analytics: { track: trackFn } } });
+
+    expect(getHostAnalytics()).toBeUndefined();
+    expect(trackFn).not.toHaveBeenCalled();
+  });
+
+  it('keeps the production origin in the first-paint boot script', () => {
+    const boot = readFileSync(
+      resolve(process.cwd(), 'public/sidebar-boot.js'),
+      'utf8'
+    );
+    expect(boot).toContain(INTEGRATED_APP_ORIGIN);
   });
 });
 
@@ -163,15 +213,28 @@ describe('host analytics', () => {
 
   afterEach(uninstallHost);
 
-  it('forwards track calls to the host', () => {
+  it('drops unknown events and counts a rejection', () => {
     track('custom_event', { foo: 1 });
-    expect(trackFn).toHaveBeenCalledWith('custom_event', { foo: 1 });
+    expect(trackFn).toHaveBeenCalledTimes(1);
+    expect(trackFn).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.telemetryRejected,
+      withSchema({
+        rejected_event: 'custom_event',
+        rejection_reason: 'unknown_event',
+        step: 'telemetry',
+      })
+    );
+    expect(JSON.stringify(trackFn.mock.calls)).not.toContain('foo');
   });
 
   it('emits ExperienceStarted once per session', () => {
     trackExperienceStarted();
     trackExperienceStarted();
     expect(trackFn).toHaveBeenCalledTimes(1);
+    expect(trackFn).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.experienceStarted,
+      withSchema()
+    );
     expect(sessionStorage.getItem(EXPERIENCE_SENT_STORAGE_KEY)).toBe('true');
   });
 
@@ -200,14 +263,20 @@ describe('host analytics', () => {
     downloadFile(new Blob(['pdf']), 'invoice-secret.pdf');
     downloadFile(new Blob(['pdf']), 'invoice-secret.pdf');
 
-    expect(trackFn).toHaveBeenCalledTimes(1);
-    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
-      tool_id: 'merge-pdf',
-      result: 'success',
-    });
-    expect(JSON.stringify(trackFn.mock.calls[0][1])).not.toContain(
-      'invoice-secret'
+    const toolCalls = trackFn.mock.calls.filter(
+      (call) => call[0] === PDF_ENGINE_EVENTS.toolUsed
     );
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0][1]).toEqual(
+      expect.objectContaining(
+        withSchema({
+          duration_ms: expect.any(Number),
+          result: 'success',
+          step: 'process',
+        })
+      )
+    );
+    expect(JSON.stringify(trackFn.mock.calls)).not.toContain('invoice-secret');
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
   });
@@ -216,11 +285,19 @@ describe('host analytics', () => {
     beginToolUse();
     endToolUse('error');
     endToolUse('error');
-    expect(trackFn).toHaveBeenCalledTimes(1);
-    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
-      tool_id: 'merge-pdf',
-      result: 'error',
-    });
+    const errorCalls = trackFn.mock.calls.filter(
+      (call) => call[0] === PDF_ENGINE_EVENTS.toolUsed
+    );
+    expect(errorCalls).toHaveLength(1);
+    expect(errorCalls[0][1]).toEqual(
+      expect.objectContaining(
+        withSchema({
+          error_type: 'process_failed',
+          result: 'error',
+          step: 'process',
+        })
+      )
+    );
 
     trackFn.mockClear();
     resetToolUseForTests();
@@ -228,11 +305,18 @@ describe('host analytics', () => {
     beginToolUse();
     window.dispatchEvent(new Event('pagehide'));
     endToolUse('cancelled');
-    expect(trackFn).toHaveBeenCalledTimes(1);
-    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
-      tool_id: 'merge-pdf',
-      result: 'cancelled',
-    });
+    const cancelledCalls = trackFn.mock.calls.filter(
+      (call) => call[0] === PDF_ENGINE_EVENTS.toolUsed
+    );
+    expect(cancelledCalls).toHaveLength(1);
+    expect(cancelledCalls[0][1]).toEqual(
+      expect.objectContaining(
+        withSchema({
+          result: 'cancelled',
+          step: 'process',
+        })
+      )
+    );
   });
 
   it('does not treat validation alerts as jobs', () => {
@@ -249,24 +333,60 @@ describe('host analytics', () => {
     listenForToolJobs();
     document.getElementById('process-btn')?.click();
     showAlert('Error', 'Could not add blank page.');
-    expect(trackFn).toHaveBeenCalledTimes(1);
-    expect(trackFn).toHaveBeenCalledWith(PDF_ENGINE_EVENTS.toolUsed, {
-      tool_id: 'merge-pdf',
-      result: 'error',
-    });
+    const toolCalls = trackFn.mock.calls.filter(
+      (call) => call[0] === PDF_ENGINE_EVENTS.toolUsed
+    );
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0][1]).toEqual(
+      expect.objectContaining(
+        withSchema({
+          error_type: 'process_failed',
+          result: 'error',
+          step: 'process',
+        })
+      )
+    );
 
     trackFn.mockClear();
     window.dispatchEvent(new Event('pagehide'));
     expect(trackFn).not.toHaveBeenCalled();
   });
 
-  it('does not treat success alerts as job errors', () => {
+  it('exposes an error alert as a dialog and dismisses it with Escape', () => {
+    const before = document.createElement('button');
+    before.id = 'before-alert';
+    document.body.append(before);
+    before.focus();
+
+    showAlert('Could not open PDF', 'Invalid or corrupted PDF file.');
+
+    const modal = document.getElementById('alert-modal');
+    expect(modal?.getAttribute('role')).toBe('dialog');
+    expect(modal?.getAttribute('aria-modal')).toBe('true');
+    expect(modal?.getAttribute('aria-labelledby')).toBe('alert-title');
+    expect(modal?.getAttribute('aria-describedby')).toBe('alert-message');
+    expect(document.activeElement?.id).toBe('alert-ok');
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    );
+
+    expect(modal?.classList.contains('hidden')).toBe(true);
+    expect(modal?.hasAttribute('aria-modal')).toBe(false);
+    expect(document.activeElement?.id).toBe('before-alert');
+  });
+
+  it('does not treat success alerts as job errors', async () => {
     listenForToolJobs();
     document.getElementById('process-btn')?.click();
     showAlert('Success', 'Metadata removed successfully!', 'success');
-    expect(trackFn).not.toHaveBeenCalled();
-    expect(document.getElementById('alert-modal')?.classList.contains('hidden')).toBe(
-      true
+    await Promise.resolve();
+    const toolCalls = trackFn.mock.calls.filter(
+      (call) => call[0] === PDF_ENGINE_EVENTS.toolUsed
     );
+    expect(toolCalls).toHaveLength(0);
+    expect(
+      document.getElementById('alert-modal')?.classList.contains('hidden')
+    ).toBe(true);
   });
 });

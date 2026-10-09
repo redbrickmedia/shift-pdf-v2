@@ -86,14 +86,42 @@ export const showCancellableLoader = (
   loaderModal.querySelector('.bg-gray-800')?.appendChild(cancelWrap);
 };
 
+let alertReturnFocus: HTMLElement | null = null;
+
+function onAlertKeydown(event: KeyboardEvent): void {
+  const modal = dom.alertModal;
+  if (!modal || modal.classList.contains('hidden')) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    dom.alertOkBtn?.click();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = [
+    ...modal.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    ),
+  ].filter((el) => !el.hasAttribute('disabled'));
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!first || !last) return;
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || !modal.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function isProcessSuccessAlert(title: string, type: string): boolean {
   if (title === 'Saved' || title === 'Loaded' || title === 'Copied') {
     return false;
   }
   return (
-    type === 'success' ||
-    title === 'Success' ||
-    title === 'Processing Complete'
+    type === 'success' || title === 'Success' || title === 'Processing Complete'
   );
 }
 
@@ -103,7 +131,7 @@ export const showAlert = (
   type: string = 'error',
   callback?: () => void
 ) => {
-  noteProcessAlert(type);
+  noteProcessAlert(type, title);
   if (isProcessSuccessAlert(title, type)) return;
   if (dom.alertTitle) dom.alertTitle.textContent = title;
   if (dom.alertMessage) dom.alertMessage.textContent = message;
@@ -116,6 +144,10 @@ export const showAlert = (
       type === 'success' ? 'alert-modal--success' : 'alert-modal--error'
     );
     dom.alertModal.classList.remove('hidden');
+    dom.alertModal.setAttribute('role', 'dialog');
+    dom.alertModal.setAttribute('aria-modal', 'true');
+    dom.alertModal.setAttribute('aria-labelledby', 'alert-title');
+    dom.alertModal.setAttribute('aria-describedby', 'alert-message');
   }
 
   if (dom.alertOkBtn) {
@@ -128,10 +160,26 @@ export const showAlert = (
       if (callback) callback();
     });
   }
+
+  alertReturnFocus =
+    document.activeElement instanceof HTMLElement &&
+    document.activeElement !== dom.alertOkBtn
+      ? document.activeElement
+      : alertReturnFocus;
+  document.removeEventListener('keydown', onAlertKeydown);
+  document.addEventListener('keydown', onAlertKeydown);
+  if (dom.alertOkBtn instanceof HTMLElement) dom.alertOkBtn.focus();
 };
 
 export const hideAlert = () => {
-  if (dom.alertModal) dom.alertModal.classList.add('hidden');
+  if (dom.alertModal) {
+    dom.alertModal.classList.add('hidden');
+    dom.alertModal.removeAttribute('aria-modal');
+  }
+  document.removeEventListener('keydown', onAlertKeydown);
+  const back = alertReturnFocus;
+  alertReturnFocus = null;
+  if (back && document.contains(back)) back.focus();
 };
 
 export const switchView = (view: string) => {

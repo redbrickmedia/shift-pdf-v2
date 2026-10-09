@@ -102,8 +102,16 @@ function isPdfOutput(blob: Blob, filename: string): boolean {
  * interceptor may still write a handled PDF in place; it does not start a
  * browser download.
  */
-export const downloadFile = (blob: Blob, filename: string): void => {
-  const detail = { blob, filename };
+export const downloadFile = (
+  blob: Blob,
+  filename: string,
+  summary?: string
+): void => {
+  const detail: { blob: Blob; filename: string; summary?: string } = {
+    blob,
+    filename,
+  };
+  if (summary) detail.summary = summary;
   document.dispatchEvent(new CustomEvent(PDF_OUTPUT_READY_EVENT, { detail }));
   endToolUse('success');
   void (async () => {

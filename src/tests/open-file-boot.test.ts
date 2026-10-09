@@ -64,6 +64,45 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+describe('sidebar boot on a narrow viewport', () => {
+  function stubViewport(narrow: boolean): void {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: narrow && query === '(max-width: 640px)',
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }))
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.removeItem('shiftSidebarCollapsed');
+  });
+
+  it('collapses the rail before paint when the viewport is at most 640px', () => {
+    stubViewport(true);
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains(
+        'shift-sidebar-collapsed-pending'
+      )
+    ).toBe(true);
+  });
+
+  it('leaves the rail expanded on a wide viewport when that is the saved choice', () => {
+    stubViewport(false);
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains(
+        'shift-sidebar-collapsed-pending'
+      )
+    ).toBe(false);
+  });
+});
+
 describe('applyOpenFileFlagClasses', () => {
   it('does not hide the drop zone when the open-file flag is unset', () => {
     document.body.innerHTML = `

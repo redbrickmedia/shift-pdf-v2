@@ -81,6 +81,8 @@ import { initToolBackMenu } from './logic/tool-back-menu.js';
 declare const __BRAND_NAME__: string;
 
 const SIDEBAR_COLLAPSED_KEY = 'shiftSidebarCollapsed';
+/** Keep in step with sidebar-boot.js and the max-width rule in shift-theme.css. */
+const NARROW_SIDEBAR_QUERY = '(max-width: 640px)';
 
 function readSidebarCollapsed(): boolean {
   try {
@@ -90,8 +92,22 @@ function readSidebarCollapsed(): boolean {
   }
 }
 
-// Applied at module scope so a stored collapse is set before first paint where possible.
-if (typeof document !== 'undefined' && readSidebarCollapsed()) {
+function viewportForcesCollapsedSidebar(): boolean {
+  try {
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia(NARROW_SIDEBAR_QUERY).matches
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Applied at module scope so a stored or narrow collapse is set before first paint where possible.
+if (
+  typeof document !== 'undefined' &&
+  (readSidebarCollapsed() || viewportForcesCollapsedSidebar())
+) {
   document.documentElement.classList.add('shift-sidebar-collapsed-pending');
 }
 
@@ -196,9 +212,20 @@ function initShiftShell() {
       syncSidebarFileTooltips(document);
     };
 
-    applyCollapsed(readSidebarCollapsed());
+    const narrowQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia(NARROW_SIDEBAR_QUERY)
+        : null;
+    const syncCollapsed = () => {
+      applyCollapsed(Boolean(narrowQuery?.matches) || readSidebarCollapsed());
+    };
+    syncCollapsed();
+    narrowQuery?.addEventListener('change', syncCollapsed);
 
     collapseBtn.addEventListener('click', () => {
+      // A narrow viewport keeps the icon rail; don't persist an expand that
+      // cannot be shown until the window is wide again.
+      if (narrowQuery?.matches) return;
       const collapsed = !document.body.classList.contains(
         'shift-sidebar-collapsed'
       );

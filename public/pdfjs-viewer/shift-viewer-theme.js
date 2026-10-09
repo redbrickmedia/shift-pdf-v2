@@ -72,4 +72,41 @@
       applyMode(preferredMode());
     }).observe(host, { attributes: true, attributeFilter: ['class'] });
   }
+
+  /* PDF.js reports invalid files on the console only. Forward that to the
+     embedding page, which can show the error. Top-level viewer.html has no
+     parent to notify. */
+  if (window.parent && window.parent !== window) {
+    var reportedDocumentError = false;
+    var errorAttempts = 0;
+    var errorTimer = window.setInterval(function () {
+      errorAttempts += 1;
+      var app = window.PDFViewerApplication;
+      if (app && app.eventBus && typeof app.eventBus.on === 'function') {
+        window.clearInterval(errorTimer);
+        app.eventBus.on('documenterror', function (evt) {
+          if (reportedDocumentError) return;
+          reportedDocumentError = true;
+          var message =
+            evt && typeof evt.message === 'string' && evt.message.trim()
+              ? evt.message.trim()
+              : 'This PDF could not be opened. The file may be invalid or corrupted.';
+          try {
+            window.parent.postMessage(
+              {
+                channel: 'shift-pdf-viewer',
+                event: 'document-error',
+                message: message,
+              },
+              window.location.origin
+            );
+          } catch (postError) {
+            /* Parent gone or origin rejected. The viewer has already logged. */
+          }
+        });
+        return;
+      }
+      if (errorAttempts > 40) window.clearInterval(errorTimer);
+    }, 50);
+  }
 })();

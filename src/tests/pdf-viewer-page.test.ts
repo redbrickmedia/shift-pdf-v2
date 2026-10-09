@@ -1,14 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import * as analytics from '../js/host/analytics';
 import {
+  armViewerDownload,
+  finishViewerDownload,
   isPdf,
   launchViewerTool,
   loadViewerDocumentFromUrl,
+  noteViewerOpenError,
   resetPdfViewerPageForTests,
   showPdfInViewer,
+  showViewerLoadError,
   VIEWER_TOOL_TARGETS,
   viewerDisplayName,
 } from '../js/logic/pdf-viewer-page';
+import { PDF_ENGINE_EVENTS, resetToolUseForTests } from '../js/host/analytics';
+import { dom, hideAlert } from '../js/ui';
 import {
   clearPersistedOpenFile,
   readPersistedOpenFiles,
@@ -89,11 +96,89 @@ describe('PDF viewer page', () => {
     ) as HTMLIFrameElement;
     expect(frame.src).toContain('pdfjs-viewer/viewer.html?file=');
     expect(frame.src).toContain('shiftLaunchpad=1');
+    // basicapi.pdf on the live viewer used to download as document.pdf because
+    // the blob URL had no filename hash for PDF.js to recover.
+    expect(decodeURIComponent(frame.src)).toContain(
+      'blob:quarterly-report#Quarterly report.pdf'
+    );
     expect(frame.title).toBe('Quarterly report.pdf PDF viewer');
     expect(document.getElementById('shift-pdf-viewer-title')?.textContent).toBe(
       'Quarterly report'
     );
     expect(getWorkspaceFiles()).toEqual([]);
+  });
+
+  it('shows a corrupt PDF error instead of a blank viewer and records it', () => {
+    vi.stubEnv('VITE_HOST_API_ROOT', 'testHost.api');
+    const track = vi.fn();
+    vi.stubGlobal('testHost', { api: { analytics: { track } } });
+    resetToolUseForTests();
+    window.history.replaceState({}, '', '/view-pdf.html');
+    document.body.innerHTML = `
+      <main id="shift-pdf-viewer">
+        <h1 id="shift-pdf-viewer-title">bug1020226</h1>
+        <iframe id="shift-pdf-viewer-frame"></iframe>
+        <div id="shift-pdf-viewer-empty" hidden></div>
+        <div id="shift-pdf-viewer-error" hidden>
+          <p id="shift-pdf-viewer-error-text"></p>
+        </div>
+        <div id="alert-modal" class="hidden">
+          <h3 id="alert-title"></h3>
+          <p id="alert-message"></p>
+          <button id="alert-ok" type="button">OK</button>
+        </div>
+      </main>
+    `;
+    Object.assign(dom, {
+      alertModal: document.getElementById('alert-modal'),
+      alertTitle: document.getElementById('alert-title'),
+      alertMessage: document.getElementById('alert-message'),
+      alertOkBtn: document.getElementById('alert-ok'),
+    });
+
+    showViewerLoadError('Invalid or corrupted PDF file.');
+
+    expect(
+      (document.getElementById('shift-pdf-viewer-frame') as HTMLIFrameElement)
+        .hidden
+    ).toBe(true);
+    expect(document.getElementById('shift-pdf-viewer-error')?.hidden).toBe(
+      true
+    );
+    expect(document.getElementById('alert-title')?.textContent).toBe(
+      'Could not open PDF'
+    );
+    expect(
+      document.getElementById('alert-modal')?.classList.contains('hidden')
+    ).toBe(false);
+    document.getElementById('alert-ok')?.click();
+    expect(document.getElementById('shift-pdf-viewer-error')?.hidden).toBe(
+      false
+    );
+    expect(
+      document.getElementById('shift-pdf-viewer-error-text')?.textContent
+    ).toBe('Invalid or corrupted PDF file.');
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.toolUsed,
+      expect.objectContaining({
+        error_type: 'process_failed',
+        result: 'error',
+        step: 'process',
+        tool_id: 'view-pdf',
+      })
+    );
+    expect(track).toHaveBeenCalledWith(
+      PDF_ENGINE_EVENTS.error,
+      expect.objectContaining({
+        error_type: 'process_failed',
+        step: 'process',
+        tool_id: 'view-pdf',
+      })
+    );
+    hideAlert();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(globalThis, 'testHost');
   });
 
   it('loads the URL-targeted library PDF without changing selection', async () => {
@@ -223,5 +308,19 @@ describe('PDF viewer page', () => {
     expect(assignLocation).toHaveBeenCalledOnce();
     expect(assignLocation.mock.calls[0]?.[0]).toMatch(/\/encrypt-pdf\.html$/);
     expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+  });
+
+  it('records download success and one error when a PDF cannot be opened', () => {
+    const end = vi.spyOn(analytics, 'endToolUse');
+
+    armViewerDownload();
+    finishViewerDownload('success');
+    expect(end).toHaveBeenCalledWith('success');
+
+    end.mockClear();
+    noteViewerOpenError();
+    noteViewerOpenError();
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(end).toHaveBeenCalledWith('error');
   });
 });

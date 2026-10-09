@@ -1,4 +1,7 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
+import { beginToolUse, endToolUse } from '../host/analytics.js';
+import { showAlert } from '../ui.js';
+import { encodePdfjsViewerFileParam } from '../utils/pdfjs-viewer-filename.js';
 import { runOnDomReady } from './tool-file-seed.js';
 import { mountViewerChrome } from './viewer-chrome.js';
 import {
@@ -26,6 +29,8 @@ export const VIEWER_TOOL_TARGETS = {
 const VIEWER_MESSAGE_CHANNEL = 'shift-pdf-viewer';
 const DOWNLOAD_BUSY_CLASS = 'is-loading';
 const DOWNLOAD_FALLBACK_MS = 1600;
+const VIEWER_ERROR_FALLBACK =
+  'This PDF could not be opened. The file may be invalid or corrupted.';
 
 type ViewerPageDependencies = {
   assignLocation?: (href: string) => void;
@@ -37,6 +42,28 @@ let currentFile: File | null = null;
 let currentObjectUrl: string | null = null;
 let currentRevokeObjectUrl: ((url: string) => void) | null = null;
 let downloadTimer: number | null = null;
+let openErrorReported = false;
+
+/** Arm PdfEngine_ToolUsed for the viewer Download control. */
+export function armViewerDownload(): void {
+  beginToolUse();
+}
+
+/** Close the download attempt as success or error. A second result is ignored. */
+export function finishViewerDownload(result: 'success' | 'error'): void {
+  endToolUse(result);
+}
+
+/**
+ * The embedded PDF.js viewer has no visible error surface. A failed open
+ * (for example bug1020226.pdf) posts `document-error`; record it once.
+ */
+export function noteViewerOpenError(): void {
+  if (openErrorReported) return;
+  openErrorReported = true;
+  beginToolUse();
+  endToolUse('error');
+}
 
 async function readableLibraryEntry(
   entry: PdfLibraryEntry | null
@@ -86,6 +113,7 @@ export async function showPdfInViewer(
   if (!frame) return false;
 
   currentFile = file;
+  openErrorReported = false;
 
   const createObjectUrl =
     dependencies.createObjectUrl ??
@@ -102,10 +130,12 @@ export async function showPdfInViewer(
   root.title = `${title} | Shift PDF`;
 
   root.getElementById('shift-pdf-viewer-empty')?.setAttribute('hidden', '');
+  root.getElementById('shift-pdf-viewer-error')?.setAttribute('hidden', '');
   frame.hidden = false;
   frame.title = `${file.name} PDF viewer`;
-  frame.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(
-    currentObjectUrl
+  frame.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodePdfjsViewerFileParam(
+    currentObjectUrl,
+    file.name
   )}&shiftLaunchpad=1`;
   return true;
 }
@@ -234,10 +264,12 @@ function bindViewerActions(root: Document): void {
     ?.addEventListener('click', () => {
       clearDownloadTimer();
       setDownloadBusy(root, true);
+      armViewerDownload();
       postViewerAction(frame, 'download');
       downloadTimer = window.setTimeout(() => {
         downloadTimer = null;
         setDownloadBusy(root, false);
+        finishViewerDownload('error');
       }, DOWNLOAD_FALLBACK_MS);
     });
 
@@ -246,15 +278,47 @@ function bindViewerActions(root: Document): void {
     if (event.source !== frame.contentWindow) return;
     if (!event.data || typeof event.data !== 'object') return;
     const data = event.data as Record<string, unknown>;
-    if (
-      data.channel !== VIEWER_MESSAGE_CHANNEL ||
-      data.event !== 'download-started'
-    ) {
+    if (data.channel !== VIEWER_MESSAGE_CHANNEL) return;
+    if (data.event === 'download-started') {
+      clearDownloadTimer();
+      setDownloadBusy(root, false);
+      finishViewerDownload('success');
       return;
     }
-    clearDownloadTimer();
-    setDownloadBusy(root, false);
+    if (data.event === 'document-error') {
+      const message =
+        typeof data.message === 'string' ? data.message.trim() : '';
+      showViewerLoadError(message || VIEWER_ERROR_FALLBACK, root);
+    }
   });
+}
+
+/** PDF.js only consoles invalid files. Show that failure and record it. */
+export function showViewerLoadError(
+  message: string,
+  root: Document = document
+): void {
+  const text = message.trim() || VIEWER_ERROR_FALLBACK;
+  const frame = root.getElementById(
+    'shift-pdf-viewer-frame'
+  ) as HTMLIFrameElement | null;
+  if (frame) frame.hidden = true;
+  root.getElementById('shift-pdf-viewer-empty')?.setAttribute('hidden', '');
+  const error = root.getElementById('shift-pdf-viewer-error');
+  const errorText = root.getElementById('shift-pdf-viewer-error-text');
+  if (errorText) errorText.textContent = text;
+  // Keep the stage message behind the dialog until OK. Pages without the
+  // dialog (or a failed dialog) still show it immediately.
+  error?.setAttribute('hidden', '');
+  // Arms the host job so noteProcessAlert (inside showAlert) can emit error.
+  beginToolUse();
+  showAlert('Could not open PDF', text, 'error', () => {
+    error?.removeAttribute('hidden');
+  });
+  const modal = root.getElementById('alert-modal');
+  if (!modal || modal.classList.contains('hidden')) {
+    error?.removeAttribute('hidden');
+  }
 }
 
 function showEmptyState(root: Document): void {
@@ -295,6 +359,7 @@ export function resetPdfViewerPageForTests(): void {
   currentFile = null;
   currentObjectUrl = null;
   currentRevokeObjectUrl = null;
+  openErrorReported = false;
 }
 
 runOnDomReady(() => initPdfViewerPage());
