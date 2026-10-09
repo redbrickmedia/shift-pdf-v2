@@ -260,13 +260,37 @@ describe('host analytics', () => {
     expect(trackFn).not.toHaveBeenCalled();
   });
 
+  it('exposes an error alert as a dialog and dismisses it with Escape', () => {
+    const before = document.createElement('button');
+    before.id = 'before-alert';
+    document.body.append(before);
+    before.focus();
+
+    showAlert('Could not open PDF', 'Invalid or corrupted PDF file.');
+
+    const modal = document.getElementById('alert-modal');
+    expect(modal?.getAttribute('role')).toBe('dialog');
+    expect(modal?.getAttribute('aria-modal')).toBe('true');
+    expect(modal?.getAttribute('aria-labelledby')).toBe('alert-title');
+    expect(modal?.getAttribute('aria-describedby')).toBe('alert-message');
+    expect(document.activeElement?.id).toBe('alert-ok');
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    );
+
+    expect(modal?.classList.contains('hidden')).toBe(true);
+    expect(modal?.hasAttribute('aria-modal')).toBe(false);
+    expect(document.activeElement?.id).toBe('before-alert');
+  });
+
   it('does not treat success alerts as job errors', () => {
     listenForToolJobs();
     document.getElementById('process-btn')?.click();
     showAlert('Success', 'Metadata removed successfully!', 'success');
     expect(trackFn).not.toHaveBeenCalled();
-    expect(document.getElementById('alert-modal')?.classList.contains('hidden')).toBe(
-      true
-    );
+    expect(
+      document.getElementById('alert-modal')?.classList.contains('hidden')
+    ).toBe(true);
   });
 });

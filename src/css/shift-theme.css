@@ -702,9 +702,10 @@ html.shift-sidebar-collapsed-pending .shift-sidebar {
 }
 
 /* ---- Collapsed rail (icons only) ----
-   Driven by the body class from the collapse control at the foot of the rail.
-   Viewport width never changes this — shrinking and expanding with a
-   breakpoint was what made the rail jump on resize and on page loads. */
+   Driven by the body class from the collapse control, and also by a narrow
+   viewport (see sidebar-boot.js / main.ts). Phones cannot spare 276px for the
+   expanded rail; they reuse this icon rail instead of a second navigation.
+   Keep the query in step with NARROW_SIDEBAR_QUERY in those scripts. */
 
 /* Set before the sidebar is parsed, then replaced by the body class in main.ts. */
 body.shift-sidebar-collapsed .shift-sidebar-header,
@@ -721,12 +722,28 @@ html.shift-sidebar-collapsed-pending .shift-logo {
 }
 
 body.shift-sidebar-collapsed .shift-logo-text,
+html.shift-sidebar-collapsed-pending .shift-logo-text {
+  display: none;
+}
+
+/* Keep the names available when the labels are visually clipped. display:none
+   would drop "My PDFs" / "All tools" from the accessibility tree on the icon
+   rail, which is the only navigation on a narrow viewport. */
 body.shift-sidebar-collapsed .shift-nav-label,
 body.shift-sidebar-collapsed .shift-open-file-selected-label,
-html.shift-sidebar-collapsed-pending .shift-logo-text,
+body.shift-sidebar-collapsed .shift-sidebar-section-title,
 html.shift-sidebar-collapsed-pending .shift-nav-label,
-html.shift-sidebar-collapsed-pending .shift-open-file-selected-label {
-  display: none;
+html.shift-sidebar-collapsed-pending .shift-open-file-selected-label,
+html.shift-sidebar-collapsed-pending .shift-sidebar-section-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 body.shift-sidebar-collapsed .shift-open-files,
@@ -749,11 +766,17 @@ html.shift-sidebar-collapsed-pending .shift-open-files-list {
   transition: none;
 }
 
-body.shift-sidebar-collapsed .shift-sidebar-section-title,
 body.shift-sidebar-collapsed .shift-favorite-remove,
-html.shift-sidebar-collapsed-pending .shift-sidebar-section-title,
 html.shift-sidebar-collapsed-pending .shift-favorite-remove {
   display: none;
+}
+
+/* The expanded rail does not fit beside the page below 640px, so the icon
+   rail is forced and this control cannot expand it. */
+@media (max-width: 640px) {
+  #shift-sidebar-collapse {
+    display: none;
+  }
 }
 
 /* The remove control is hidden on the rail, so nothing needs the end padding
@@ -774,6 +797,7 @@ html.shift-sidebar-collapsed-pending
 
 body.shift-sidebar-collapsed .shift-nav-link,
 html.shift-sidebar-collapsed-pending .shift-nav-link {
+  position: relative;
   justify-content: center;
   padding: 8px;
 }
@@ -1162,8 +1186,7 @@ body:not(.simple-mode):has(#shift-sidebar):has(
   overflow: hidden;
 }
 
-body:not(.simple-mode):has(#shift-sidebar)
-  > #uploader.shift-pdf-viewer-shell {
+body:not(.simple-mode):has(#shift-sidebar) > #uploader.shift-pdf-viewer-shell {
   flex: 1 1 auto;
   flex-shrink: 1;
   min-height: 0;
@@ -1245,9 +1268,7 @@ body.shift-pdf-viewer-page .shift-footer {
 
 /* Beat `body.shift-tool-viewer #canvas-container-sign { height: auto
    !important }` so the PDF.js iframe's height:100% has a specified parent. */
-body.shift-tool-viewer
-  #uploader.shift-pdf-viewer-shell
-  #canvas-container-sign {
+body.shift-tool-viewer #uploader.shift-pdf-viewer-shell #canvas-container-sign {
   height: 100% !important;
 }
 
@@ -1264,9 +1285,7 @@ body.shift-tool-viewer
 
 /* Hide the empty stage once a PDF is in the viewer. */
 body.shift-tool-viewer #uploader.shift-pdf-viewer-shell #tool-uploader,
-body.shift-tool-viewer-pending
-  #uploader.shift-pdf-viewer-shell
-  #tool-uploader {
+body.shift-tool-viewer-pending #uploader.shift-pdf-viewer-shell #tool-uploader {
   display: none !important;
 }
 
@@ -3162,6 +3181,37 @@ html.dark {
   --color-violet-300: #c4b5fd;
   --color-teal-300: #5eead4;
   --color-rose-300: #fda4af;
+}
+
+/* White on brand-500 (#3b82f6) is 3.68:1. 12px semibold button labels need 4.5:1,
+   so dark primary buttons step down to brand-700. Link ink stays on brand-500. */
+html.dark
+  :is(
+    .shift-button-primary,
+    .btn-gradient,
+    button:is(
+      [class*='bg-indigo-'],
+      [class*='bg-blue-'],
+      [class*='bg-green-'],
+      [class*='from-indigo-']
+    )
+  ) {
+  --button-background-default: #1d4ed8; /* brand-700, white text ≥ 4.5:1 */
+  --button-background-hover: #1e40af; /* brand-800 */
+  --button-background-active: #1e3a8a; /* brand-900 */
+}
+
+/* The Selected chip uses the panel colour as its text. In dark mode that is
+   near-black on brand-500 (about 4.1:1 at 12px). Match the light chip: white
+   on the same darker blue as primary buttons. */
+html.dark .shift-open-file-item .shift-open-file-selected-label {
+  color: var(--text-white);
+  background: #1d4ed8;
+}
+
+/* Choose files sits on the drop zone (dark-700). brand-500 there is about 2.8:1. */
+html.dark .shift-home-choose-files {
+  color: #93c5fd; /* brand-300, ≥ 4.5:1 on #404040 */
 }
 
 /* The tinted alert panels are the one place the light shell hard-codes a hex

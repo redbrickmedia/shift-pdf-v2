@@ -120,10 +120,41 @@
             >Go to My PDFs</a
           >
         </div>
+        <div id="shift-pdf-viewer-error" class="shift-pdf-viewer-empty" hidden>
+          <p id="shift-pdf-viewer-error-text">
+            This PDF could not be opened. The file may be invalid or corrupted.
+          </p>
+          <a class="shift-button" href="{{baseUrl}}my-pdfs.html"
+            >Go to My PDFs</a
+          >
+        </div>
       </section>
 
       <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
     </main>
+
+    <div
+      id="alert-modal"
+      class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4"
+    >
+      <div
+        class="bg-gray-800 max-w-sm w-full p-6 rounded-lg border border-gray-700 shadow-xl text-center"
+      >
+        <h3 id="alert-title" class="text-xl font-bold text-white mb-2">
+          Alert
+        </h3>
+        <p id="alert-message" class="text-gray-300 mb-6 whitespace-pre-line">
+          This is an alert message.
+        </p>
+        <button
+          id="alert-ok"
+          type="button"
+          class="btn bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-indigo-700"
+        >
+          OK
+        </button>
+      </div>
+    </div>
 
     <script type="module" src="/src/js/logic/pdf-viewer-page.ts"></script>
     <script type="module" src="/src/js/main.ts"></script>
