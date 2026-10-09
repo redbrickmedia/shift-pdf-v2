@@ -18,6 +18,7 @@
 @import 'tailwindcss';
 /* Shift shell chrome and tokens. */
 @import './shift-theme.css';
+@import './shift-chrome.css';
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;

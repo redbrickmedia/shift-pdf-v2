@@ -34,6 +34,12 @@ import { findToolFileInput } from './tool-file-seed.js';
 import { loadFavoriteRailSnapshot } from './tool-favorites.js';
 import { categories } from '../config/tools.js';
 import { isPdfFile } from '../utils/pdf-file.js';
+import {
+  createShiftBrowserEmpty,
+  markShiftFileBrowser,
+  setShiftBrowserItemState,
+} from './shift-file-browser.js';
+import { createShiftFilePreview } from './shift-file-preview.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
@@ -1376,6 +1382,7 @@ function renderSidebarFiles(root: Document, files: WorkspaceFileInfo[]): void {
   const hasFiles = files.length > 0;
   // The section also holds the My PDFs nav link, so only the file list toggles.
   section.hidden = false;
+  markShiftFileBrowser(list, 'list');
 
   if (!hasFiles) {
     renderPendingSidebarFiles(root, list);
@@ -1630,29 +1637,12 @@ function homeLibraryHasEmptyState(root: Document): boolean {
 }
 
 function createHomeEmptyCopy(root: Document): HTMLDivElement {
-  const empty = root.createElement('div');
-  empty.className = 'shift-my-pdfs-empty';
-
-  const heading = root.createElement('h3');
-  heading.className = 'shift-library-picker-empty-heading';
-  heading.textContent = EMPTY_LIBRARY_HEADING;
-
-  const message = root.createElement('p');
-  message.className = 'shift-library-picker-empty-message';
-  message.textContent = EMPTY_LIBRARY_MESSAGE;
-
-  const action = root.createElement('button');
-  action.type = 'button';
-  action.className =
-    'shift-button shift-button-secondary shift-library-picker-upload';
-  action.textContent = EMPTY_LIBRARY_ACTION;
-  action.addEventListener('click', (event) => {
-    event.stopPropagation();
-    openFilePicker(root);
+  return createShiftBrowserEmpty(root, {
+    heading: EMPTY_LIBRARY_HEADING,
+    message: EMPTY_LIBRARY_MESSAGE,
+    actionLabel: EMPTY_LIBRARY_ACTION,
+    onAction: () => openFilePicker(root),
   });
-
-  empty.append(heading, message, action);
-  return empty;
 }
 
 function createHomeEmptyRow(root: Document): HTMLTableRowElement {
@@ -1692,7 +1682,7 @@ function updateHomeLibrarySelection(
 
     const row = rows[index];
     if (row) {
-      row.classList.toggle('is-selected', isSelected);
+      setShiftBrowserItemState(row, { selected: isSelected });
       row.setAttribute('aria-pressed', String(isSelected));
       const checkbox = row.querySelector<HTMLInputElement>(
         '.shift-my-pdfs-checkbox'
@@ -1702,7 +1692,7 @@ function updateHomeLibrarySelection(
 
     const card = cards?.[index];
     if (card) {
-      card.classList.toggle('is-selected', isSelected);
+      setShiftBrowserItemState(card, { selected: isSelected });
       card.setAttribute('aria-pressed', String(isSelected));
     }
   }
@@ -2015,6 +2005,7 @@ function createFileButton(
     createLabel(file.name, root),
     createSelectedFileChip(root, 'shift-open-file-selected-label')
   );
+  setShiftBrowserItemState(link, { selected: true, viewing: viewed });
   return link;
 }
 
@@ -2103,32 +2094,26 @@ function clearSidebarThumbnailCache(): void {
 function createOpenFilePreview(
   file: WorkspaceFileInfo,
   root: Document
-): HTMLSpanElement {
-  const preview = root.createElement('span');
-  preview.className = 'shift-nav-icon shift-open-file-preview is-empty';
-  preview.setAttribute('aria-hidden', 'true');
-
+): HTMLElement {
   const key = sidebarThumbnailKey(file);
   const painted = sidebarThumbnailCanvases.get(key);
   // A detached painted canvas keeps its bitmap, so re-adopting the node shows
   // the thumbnail in the same frame the button is inserted.
   const canvas =
     painted && !painted.isConnected ? painted : root.createElement('canvas');
-  canvas.className = 'shift-open-file-preview-canvas';
 
   const storedDataUrl = readSidebarThumbnailStore().get(key);
+  const icon = createFileIcon(file.source, root);
+  icon.classList.remove('shift-nav-icon');
+  const preview = createShiftFilePreview(root, {
+    size: 'rail',
+    empty: !(canvas === painted || storedDataUrl),
+    canvas,
+    fallback: icon,
+  });
   if (storedDataUrl) {
     preview.style.backgroundImage = `url("${storedDataUrl}")`;
   }
-  if (canvas === painted || storedDataUrl) {
-    preview.classList.remove('is-empty');
-  }
-
-  const icon = createFileIcon(file.source, root);
-  icon.classList.remove('shift-nav-icon');
-  icon.classList.add('shift-open-file-icon-fallback');
-
-  preview.append(canvas, icon);
   return preview;
 }
 
@@ -2225,6 +2210,16 @@ function createHomeFileRow(
   nameCell.className = 'shift-my-pdfs-name-cell';
   const nameLayout = root.createElement('div');
   nameLayout.className = 'shift-my-pdfs-name';
+  const rowFallback = root.createElement('span');
+  rowFallback.setAttribute('aria-hidden', 'true');
+  nameLayout.append(
+    createShiftFilePreview(root, {
+      size: 'rail',
+      empty: true,
+      selected: isSelected,
+      fallback: rowFallback,
+    })
+  );
   const name = root.createElement('span');
   name.textContent = file.name;
   attachShiftTooltip(name, { placement: 'bottom', text: file.name });
@@ -2259,6 +2254,7 @@ function createHomeFileRow(
   actionCell.appendChild(actionLayout);
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
+  setShiftBrowserItemState(row, { selected: isSelected });
   row.addEventListener('click', () => activateHomeLibraryFile(file, root));
   row.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -2286,13 +2282,15 @@ function createHomeFileThumb(
   card.setAttribute('aria-label', `Use ${file.name}`);
   card.setAttribute('aria-pressed', String(isSelected));
 
-  const preview = root.createElement('div');
-  preview.className = 'shift-open-file-thumb-preview is-empty';
-  const canvas = root.createElement('canvas');
+  const preview = createShiftFilePreview(root, {
+    size: 'card',
+    empty: true,
+    selected: isSelected,
+  });
   const replaceHint = root.createElement('span');
   replaceHint.className = 'shift-open-file-thumb-replace';
   replaceHint.textContent = 'Use this PDF';
-  preview.append(canvas, replaceHint);
+  preview.append(replaceHint);
 
   const meta = root.createElement('div');
   meta.className = 'shift-open-file-thumb-meta';
@@ -2313,6 +2311,7 @@ function createHomeFileThumb(
   }
 
   card.append(preview, meta);
+  setShiftBrowserItemState(card, { selected: isSelected });
   if (file.source === 'handoff') {
     attachShiftTooltip(card, {
       placement: 'bottom',
@@ -2726,7 +2725,10 @@ function bindHomeFileViewToggle(root: Document): void {
 
 function applyHomeFileView(root: Document): void {
   const section = root.getElementById('shift-my-pdfs');
-  if (section) section.dataset.view = homeFileView;
+  if (section) {
+    section.dataset.view = homeFileView;
+    markShiftFileBrowser(section, homeFileView === 'list' ? 'list' : 'grid');
+  }
 
   root
     .getElementById('shift-open-file-view-list')

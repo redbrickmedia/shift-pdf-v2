@@ -1,5 +1,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PreviewState } from '@/types';
+import { createShiftActionButton } from '../logic/shift-action-row.js';
+import { createShiftFilePreview } from '../logic/shift-file-preview.js';
 
 const state: PreviewState = {
   modal: null,
@@ -15,38 +17,71 @@ function getOrCreateModal(): HTMLElement {
 
   const modal = document.createElement('div');
   modal.id = 'page-preview-modal';
-  modal.className =
-    'fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-200';
-  modal.innerHTML = `
-    <button id="preview-close" class="absolute top-4 right-4 text-white/70 hover:text-white z-10 transition-colors" title="Close (Esc)">
-      <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-    </button>
-    <button id="preview-prev" class="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-2" title="Previous page">
-      <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-    </button>
-    <button id="preview-next" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-2" title="Next page">
-      <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-    </button>
-    <div id="preview-canvas-container" class="flex items-center justify-center max-w-[90vw] max-h-[85vh]">
-      <div id="preview-loading" class="text-white/60 text-sm">Loading...</div>
-    </div>
-    <div id="preview-page-info" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-900/80 text-white text-sm px-4 py-2 rounded-full backdrop-blur-sm"></div>
-  `;
+  modal.className = 'shift-page-preview';
 
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) hidePreview();
+  const dialog = document.createElement('div');
+  dialog.className = 'shift-page-preview-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'preview-page-info');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'shift-action-row';
+  toolbar.setAttribute('role', 'toolbar');
+  toolbar.setAttribute('aria-label', 'Page preview');
+
+  const prev = createShiftActionButton(document, {
+    id: 'preview-prev',
+    label: 'Previous page',
+    iconClass: 'ph-caret-left',
+    action: 'extra',
   });
-  modal.querySelector('#preview-close')!.addEventListener('click', hidePreview);
-  modal
-    .querySelector('#preview-prev')!
-    .addEventListener('click', () => navigatePage(-1));
-  modal
-    .querySelector('#preview-next')!
-    .addEventListener('click', () => navigatePage(1));
+  const next = createShiftActionButton(document, {
+    id: 'preview-next',
+    label: 'Next page',
+    iconClass: 'ph-caret-right',
+    action: 'extra',
+  });
+  const close = createShiftActionButton(document, {
+    id: 'preview-close',
+    label: 'Close',
+    iconClass: 'ph-x',
+    action: 'extra',
+  });
+  close.title = 'Close (Esc)';
+  toolbar.append(prev, next, close);
+
+  const frame = createShiftFilePreview(document, {
+    size: 'modal',
+    empty: true,
+  });
+  frame.id = 'preview-canvas-container';
+
+  const pageInfo = document.createElement('p');
+  pageInfo.id = 'preview-page-info';
+  pageInfo.className = 'shift-page-preview-info';
+
+  dialog.append(toolbar, frame, pageInfo);
+  modal.append(dialog);
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) hidePreview();
+  });
+  prev.addEventListener('click', () => navigatePage(-1));
+  next.addEventListener('click', () => navigatePage(1));
+  close.addEventListener('click', hidePreview);
 
   document.body.appendChild(modal);
   state.modal = modal;
   return modal;
+}
+
+function statusLine(text: string, isError = false): HTMLElement {
+  const status = document.createElement('div');
+  status.className = 'shift-page-preview-status';
+  status.classList.toggle('is-error', isError);
+  status.textContent = text;
+  return status;
 }
 
 async function renderPreviewPage(pageNumber: number): Promise<void> {
@@ -60,7 +95,8 @@ async function renderPreviewPage(pageNumber: number): Promise<void> {
   const prevBtn = modal.querySelector('#preview-prev') as HTMLElement;
   const nextBtn = modal.querySelector('#preview-next') as HTMLElement;
 
-  container.innerHTML = '<div class="text-white/60 text-sm">Loading...</div>';
+  container.classList.add('is-empty');
+  container.replaceChildren(statusLine('Loading...'));
 
   pageInfo.textContent = `Page ${pageNumber} of ${state.totalPages}`;
   prevBtn.style.visibility = pageNumber > 1 ? 'visible' : 'hidden';
@@ -75,23 +111,18 @@ async function renderPreviewPage(pageNumber: number): Promise<void> {
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    canvas.className =
-      'max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl';
-    canvas.style.width = 'auto';
-    canvas.style.height = 'auto';
-    canvas.style.maxWidth = '90vw';
-    canvas.style.maxHeight = '85vh';
+    canvas.className = 'shift-file-preview-canvas';
 
     const ctx = canvas.getContext('2d')!;
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
 
-    container.innerHTML = '';
-    container.appendChild(canvas);
+    container.classList.remove('is-empty');
+    container.replaceChildren(canvas);
     state.currentPage = pageNumber;
   } catch (err) {
     console.error('Preview render error:', err);
-    container.innerHTML =
-      '<div class="text-red-400 text-sm">Failed to render page</div>';
+    container.classList.add('is-empty');
+    container.replaceChildren(statusLine('Failed to render page', true));
   }
 }
 
@@ -112,7 +143,7 @@ export function showPreview(
   state.isOpen = true;
 
   const modal = getOrCreateModal();
-  modal.classList.remove('opacity-0', 'pointer-events-none');
+  modal.classList.add('is-open');
   document.body.style.overflow = 'hidden';
 
   renderPreviewPage(pageNumber);
@@ -121,7 +152,7 @@ export function showPreview(
 export function hidePreview(): void {
   if (!state.modal) return;
   state.isOpen = false;
-  state.modal.classList.add('opacity-0', 'pointer-events-none');
+  state.modal.classList.remove('is-open');
   document.body.style.overflow = '';
 }
 
@@ -167,35 +198,33 @@ export function initPagePreview(
       pageNum = parseInt(thumb.dataset.pageIndex, 10) + 1;
     }
 
-    const icon = document.createElement('button');
-    icon.className =
-      'page-preview-btn absolute bottom-1 right-1 bg-gray-900/80 hover:bg-indigo-600 text-white/70 hover:text-white rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10';
+    const icon = createShiftActionButton(document, {
+      label: 'Preview',
+      iconClass: 'ph-magnifying-glass',
+      action: 'extra',
+    });
+    icon.classList.add('shift-page-preview-open');
     icon.title = 'Preview';
-    icon.innerHTML =
-      '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>';
-    icon.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
+    icon.addEventListener('click', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
       showPreview(pdfjsDoc, pageNum, totalPages);
     });
 
     if (!thumb.classList.contains('relative')) {
       thumb.classList.add('relative');
     }
-    if (!thumb.classList.contains('group')) {
-      thumb.classList.add('group');
-    }
 
     thumb.appendChild(icon);
   });
 
-  container.addEventListener('keydown', (e) => {
-    if (e.key === ' ' && !state.isOpen) {
+  container.addEventListener('keydown', (event) => {
+    if (event.key === ' ' && !state.isOpen) {
       const hovered = container.querySelector<HTMLElement>(
         '[data-preview-init]:hover'
       );
       if (hovered) {
-        e.preventDefault();
+        event.preventDefault();
         let pageNum = 1;
         if (hovered.dataset.pageNumber) {
           pageNum = parseInt(hovered.dataset.pageNumber, 10);

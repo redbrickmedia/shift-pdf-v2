@@ -18,6 +18,9 @@ import { convertImagesToPdfFile } from '../utils/images-to-pdf-lib.js';
 import { t } from '../i18n/i18n';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { syncSeededToolFiles } from './tool-file-seed.js';
+import { createShiftActionButton } from './shift-action-row.js';
+import { createShiftFilePreview } from './shift-file-preview.js';
+import { setShiftBrowserItemState } from './shift-file-browser.js';
 
 interface PageData {
   id: string; // Unique ID for DOM reconciliation
@@ -29,6 +32,21 @@ interface PageData {
   pdfDoc: PDFLibDocument;
   originalPageIndex: number;
   fileName: string; // Added for lazy loading identification
+}
+
+function pageActionButton(label: string, iconClass: string): HTMLButtonElement {
+  return createShiftActionButton(document, {
+    label,
+    iconClass,
+    action: 'extra',
+  });
+}
+
+function setPageSelectIcon(button: HTMLElement, selected: boolean): void {
+  const icon = button.querySelector('i');
+  if (!icon) return;
+  icon.className = selected ? 'ph ph-check-square' : 'ph ph-square';
+  button.setAttribute('aria-pressed', String(selected));
 }
 
 function generateId(): string {
@@ -634,8 +652,7 @@ function createPageElement(
   }
 
   const card = document.createElement('div');
-  card.className =
-    'bg-gray-800 rounded-lg border-2 border-gray-700 p-2 relative group cursor-move';
+  card.className = 'shift-page-card';
   card.dataset.pageIndex = index.toString();
   card.dataset.pageId = pageData.id; // Set ID for reconciliation
 
@@ -648,138 +665,99 @@ function createPageElement(
     card.dataset.lazyLoad = 'true';
   }
 
-  if (selectedPages.has(index)) {
-    card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
-  }
+  const selected = selectedPages.has(index);
+  setShiftBrowserItemState(card, { selected });
 
-  const preview = document.createElement('div');
-  preview.className =
-    'bg-white rounded mb-2 overflow-hidden w-full flex items-center justify-center relative h-36 sm:h-64';
+  const preview = createShiftFilePreview(document, {
+    size: 'card',
+    empty: !canvas,
+    canvas: canvas ?? undefined,
+    selected,
+  });
+  preview.dataset.shiftPagePreview = '';
 
   if (canvas) {
-    const previewCanvas = canvas;
-    previewCanvas.className = 'max-w-full max-h-full object-contain';
-
-    previewCanvas.style.transform = `rotate(${pageData.visualRotation}deg)`;
-    previewCanvas.style.transition = 'transform 0.2s ease';
-    preview.appendChild(previewCanvas);
+    canvas.style.transform = `rotate(${pageData.visualRotation}deg)`;
+    canvas.style.transition = 'transform 0.2s ease';
   } else {
-    // Show loading placeholder if canvas is null
-    const loading = document.createElement('div');
-    loading.className =
-      'flex flex-col items-center justify-center text-gray-400';
-    const loadingIcon = document.createElement('i');
-    loadingIcon.dataset.lucide = 'loader';
-    loadingIcon.className = 'w-8 h-8 animate-spin mb-2';
-    const loadingLabel = document.createElement('span');
-    loadingLabel.className = 'text-xs';
-    loadingLabel.textContent = t('common.loading');
-    loading.append(loadingIcon, loadingLabel);
-    preview.appendChild(loading);
-    preview.classList.add('bg-gray-700'); // Darker background for loading
+    const loading = document.createElement('span');
+    loading.className = 'shift-page-card-loading';
+    loading.textContent = t('common.loading');
+    preview.append(loading);
   }
 
-  // Page info
   const info = document.createElement('div');
-  info.className = 'text-xs text-gray-400 text-center mb-2';
+  info.className = 'shift-page-card-info';
+  info.dataset.shiftPageInfo = '';
   info.textContent = `${t('common.page')} ${index + 1}`;
 
-  // Actions toolbar
   const actions = document.createElement('div');
-  actions.className =
-    'flex items-center justify-center gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-2 left-0 right-0';
+  actions.className = 'shift-action-row';
+  actions.dataset.shiftPageActions = '';
+  actions.setAttribute('role', 'toolbar');
+  actions.setAttribute('aria-label', `Page ${index + 1} actions`);
 
-  const actionsInner = document.createElement('div');
-  actionsInner.className =
-    'flex items-center gap-1 bg-gray-900/90 rounded px-2 py-1';
-  actions.appendChild(actionsInner);
-
-  // Select checkbox
-  const selectBtn = document.createElement('button');
-  selectBtn.className =
-    'absolute top-2 right-2 p-1 rounded bg-gray-900/70 hover:bg-gray-800 z-10';
-  const selectIcon = document.createElement('i');
-  if (selectedPages.has(index)) {
-    selectIcon.dataset.lucide = 'check-square';
-    selectIcon.className = 'w-4 h-4 text-indigo-400';
-  } else {
-    selectIcon.dataset.lucide = 'square';
-    selectIcon.className = 'w-4 h-4 text-gray-200';
-  }
-  selectBtn.appendChild(selectIcon);
+  const selectBtn = pageActionButton('Select page', 'ph-square');
+  selectBtn.classList.add('shift-page-card-select');
+  selectBtn.dataset.shiftPageSelect = '';
+  setPageSelectIcon(selectBtn, selected);
   selectBtn.onclick = (e) => {
     e.stopPropagation();
     toggleSelectOptimized(index);
   };
 
-  // Rotate button
-  const rotateBtn = document.createElement('button');
-  rotateBtn.className = 'p-1 rounded hover:bg-gray-700';
-  rotateBtn.innerHTML =
-    '<i data-lucide="rotate-cw" class="w-4 h-4 text-gray-300"></i>';
-  rotateBtn.onclick = (e) => {
-    e.stopPropagation();
-    rotatePage(index, 90);
-  };
-  const rotateLeftBtn = document.createElement('button');
-  rotateLeftBtn.className = 'p-1 rounded hover:bg-gray-700';
-  rotateLeftBtn.innerHTML =
-    '<i data-lucide="rotate-ccw" class="w-4 h-4 text-gray-300"></i>';
+  const rotateLeftBtn = pageActionButton(
+    'Rotate left',
+    'ph-arrow-counter-clockwise'
+  );
   rotateLeftBtn.onclick = (e) => {
     e.stopPropagation();
     rotatePage(index, -90);
   };
-
-  // Duplicate button
-  const duplicateBtn = document.createElement('button');
-  duplicateBtn.className = 'p-1 rounded hover:bg-gray-700';
-  duplicateBtn.innerHTML =
-    '<i data-lucide="copy" class="w-4 h-4 text-gray-300"></i>';
-  duplicateBtn.title = t('multiTool.actions.duplicatePage');
+  const rotateBtn = pageActionButton('Rotate right', 'ph-arrow-clockwise');
+  rotateBtn.onclick = (e) => {
+    e.stopPropagation();
+    rotatePage(index, 90);
+  };
+  const duplicateBtn = pageActionButton(
+    t('multiTool.actions.duplicatePage'),
+    'ph-copy'
+  );
   duplicateBtn.onclick = (e) => {
     e.stopPropagation();
     snapshot();
     duplicatePage(index);
   };
-
-  // Delete button
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'p-1 rounded hover:bg-gray-700';
-  deleteBtn.innerHTML =
-    '<i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>';
-  deleteBtn.title = t('multiTool.actions.deletePage');
-  deleteBtn.onclick = (e) => {
-    e.stopPropagation();
-    snapshot();
-    deletePage(index);
-  };
-
-  // Insert PDF button
-  const insertBtn = document.createElement('button');
-  insertBtn.className = 'p-1 rounded hover:bg-gray-700';
-  insertBtn.innerHTML =
-    '<i data-lucide="file-plus" class="w-4 h-4 text-gray-300"></i>';
-  insertBtn.title = t('multiTool.actions.insertPdf');
+  const insertBtn = pageActionButton(
+    t('multiTool.actions.insertPdf'),
+    'ph-file-plus'
+  );
   insertBtn.onclick = (e) => {
     e.stopPropagation();
     snapshot();
     insertPdfAfter(index);
   };
-
-  // Split button
-  const splitBtn = document.createElement('button');
-  splitBtn.className = 'p-1 rounded hover:bg-gray-700';
-  splitBtn.innerHTML =
-    '<i data-lucide="scissors" class="w-4 h-4 text-gray-300"></i>';
-  splitBtn.title = t('multiTool.actions.toggleSplit');
+  const splitBtn = pageActionButton(
+    t('multiTool.actions.toggleSplit'),
+    'ph-scissors'
+  );
   splitBtn.onclick = (e) => {
     e.stopPropagation();
     snapshot();
     toggleSplitMarker(index);
     renderSplitMarkers();
   };
+  const deleteBtn = pageActionButton(
+    t('multiTool.actions.deletePage'),
+    'ph-trash'
+  );
+  deleteBtn.onclick = (e) => {
+    e.stopPropagation();
+    snapshot();
+    deletePage(index);
+  };
 
-  actionsInner.append(
+  actions.append(
     rotateLeftBtn,
     rotateBtn,
     duplicateBtn,
@@ -847,20 +825,12 @@ function toggleSelectOptimized(index: number) {
   const card = pagesContainer.children[index] as HTMLElement;
   if (!card) return;
 
-  const selectBtn = card.querySelector(
-    'button[class*="absolute top-2 right-2"]'
-  );
+  const selectBtn = card.querySelector<HTMLElement>('[data-shift-page-select]');
   if (!selectBtn) return;
 
-  if (selectedPages.has(index)) {
-    card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
-    selectBtn.innerHTML =
-      '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>';
-  } else {
-    card.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500');
-    selectBtn.innerHTML =
-      '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
-  }
+  const selected = selectedPages.has(index);
+  setShiftBrowserItemState(card, { selected });
+  setPageSelectIcon(selectBtn, selected);
 
   createIcons({ icons });
 }
@@ -890,7 +860,7 @@ function rotatePage(index: number, delta: number) {
   if (!card) return;
 
   const canvas = card.querySelector('canvas');
-  const preview = card.querySelector('.bg-white');
+  const preview = card.querySelector('[data-shift-page-preview]');
 
   if (canvas && preview) {
     canvas.style.transform = `rotate(${pageData.visualRotation}deg)`;
@@ -1006,17 +976,14 @@ async function handleInsertPdf(e: Event) {
           `div[data-page-index="${globalIndex}"]`
         );
         if (card) {
-          const preview =
-            card.querySelector('.bg-gray-700') ||
-            card.querySelector('.bg-white');
+          const preview = card.querySelector<HTMLElement>(
+            '[data-shift-page-preview]'
+          );
           if (preview) {
-            // Re-create the preview content
-            preview.innerHTML = '';
-            preview.className =
-              'bg-white rounded mb-2 overflow-hidden w-full flex items-center justify-center relative h-36 sm:h-64';
-
+            preview.classList.remove('is-empty');
+            preview.querySelector('.shift-page-card-loading')?.remove();
             const previewCanvas = canvas;
-            previewCanvas.className = 'max-w-full max-h-full object-contain';
+            previewCanvas.classList.add('shift-file-preview-canvas');
             previewCanvas.style.transform = `rotate(${allPages[globalIndex].visualRotation}deg)`;
             previewCanvas.style.transition = 'transform 0.2s ease';
             preview.appendChild(previewCanvas);
@@ -1399,29 +1366,17 @@ function updatePageDisplay() {
 
       // Update index-dependent attributes
       card.dataset.pageIndex = index.toString();
-      const info = card.querySelector(
-        '.text-xs.text-gray-400.text-center.mb-2'
-      );
+      const info = card.querySelector('[data-shift-page-info]');
       if (info) info.textContent = `Page ${index + 1} `;
 
       // Update selection state
-      const selectBtn = card.querySelector(
-        'button[class*="absolute top-2 right-2"]'
+      const selectBtn = card.querySelector<HTMLElement>(
+        '[data-shift-page-select]'
       );
       if (selectBtn) {
-        if (selectedPages.has(index)) {
-          card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
-          selectBtn.innerHTML =
-            '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>';
-        } else {
-          card.classList.remove(
-            'border-indigo-500',
-            'ring-2',
-            'ring-indigo-500'
-          );
-          selectBtn.innerHTML =
-            '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
-        }
+        const selected = selectedPages.has(index);
+        setShiftBrowserItemState(card, { selected });
+        setPageSelectIcon(selectBtn, selected);
         // Update click handler to use new index
         (selectBtn as HTMLElement).onclick = (e) => {
           e.stopPropagation();
@@ -1436,9 +1391,7 @@ function updatePageDisplay() {
       }
 
       // Update action buttons
-      const actionsInner = card.querySelector(
-        '.flex.items-center.gap-1.bg-gray-900\\/90'
-      );
+      const actionsInner = card.querySelector('[data-shift-page-actions]');
       if (actionsInner) {
         const buttons = actionsInner.querySelectorAll('button');
         if (buttons[0])
@@ -1508,7 +1461,7 @@ function updatePageNumbers() {
     card.dataset.pageIndex = index.toString();
 
     // Update visible page number text
-    const info = card.querySelector('.text-xs.text-gray-400.text-center.mb-2');
+    const info = card.querySelector('[data-shift-page-info]');
     if (info) {
       info.textContent = `Page ${index + 1} `;
     }
@@ -1518,7 +1471,7 @@ function updatePageNumbers() {
     // This is necessary because the original handlers captured the old index
 
     const selectBtn = card.querySelector(
-      'button[class*="absolute top-2 right-2"]'
+      '[data-shift-page-select]'
     ) as HTMLButtonElement;
     if (selectBtn) {
       selectBtn.onclick = (e) => {
@@ -1527,9 +1480,7 @@ function updatePageNumbers() {
       };
     }
 
-    const actionsInner = card.querySelector(
-      '.flex.items-center.gap-1.bg-gray-900\\/90'
-    );
+    const actionsInner = card.querySelector('[data-shift-page-actions]');
     if (actionsInner) {
       const buttons = actionsInner.querySelectorAll('button');
       // Order: Rotate Left, Rotate Right, Duplicate, Insert, Split, Delete

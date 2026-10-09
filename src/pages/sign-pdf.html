@@ -88,25 +88,15 @@
         </div>
 
         <div
-          class="shift-pdf-viewer-actions"
+          class="shift-pdf-viewer-actions shift-action-row"
           data-shift-viewer-actions
           role="toolbar"
           aria-label="PDF actions"
         >
-          <button
-            id="shift-sign-add"
-            class="shift-pdf-viewer-action"
-            type="button"
-            data-viewer-chrome="sign"
-            hidden
-            aria-label="Add signature"
-          >
-            <i class="ph ph-pen-nib" aria-hidden="true"></i>
-            <span>Sign</span>
-          </button>
           <label
             class="shift-pdf-viewer-flatten"
             data-viewer-chrome="flatten"
+            data-shift-action="flatten"
             hidden
             title="Flattened output visibly burns signatures into pages and removes their edit controls."
             data-i18n-title="tools:signPdf.flattenHint"
@@ -120,13 +110,22 @@
               >Flatten signatures into page content</span
             >
           </label>
+          <button
+            id="shift-sign-add"
+            class="shift-pdf-viewer-action shift-action-button"
+            type="button"
+            data-viewer-chrome="sign"
+            data-shift-action="sign"
+            hidden
+            aria-label="Add signature"
+          >
+            <i class="ph ph-pen-nib" aria-hidden="true"></i>
+            <span>Sign</span>
+          </button>
         </div>
       </header>
 
-      <section
-        class="shift-pdf-viewer-stage"
-        aria-label="Signature editor"
-      >
+      <section class="shift-pdf-viewer-stage" aria-label="Signature editor">
         <div id="signature-editor" class="hidden">
           <div id="canvas-container-sign" class="shift-pdf-viewer-frame">
             <!-- PDF.js viewer iframe will be loaded here -->
@@ -157,11 +156,7 @@
               Signatures and PDFs stay in this browser session and are not saved
               for later use.
             </p>
-            <input
-              id="file-input"
-              type="file"
-              accept="application/pdf"
-            />
+            <input id="file-input" type="file" accept="application/pdf" />
           </div>
           <div id="file-display-area"></div>
         </div>

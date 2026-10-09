@@ -313,11 +313,14 @@
       row.setAttribute('aria-hidden', 'true');
 
       var preview = document.createElement('span');
-      preview.className = 'shift-nav-icon shift-open-file-preview is-empty';
+      preview.className =
+        'shift-nav-icon shift-open-file-preview shift-file-preview is-empty';
+      preview.setAttribute('data-shift-preview-size', 'rail');
       preview.setAttribute('aria-hidden', 'true');
 
       var canvas = document.createElement('canvas');
-      canvas.className = 'shift-open-file-preview-canvas';
+      canvas.className =
+        'shift-open-file-preview-canvas shift-file-preview-canvas';
       preview.appendChild(canvas);
 
       var thumbnail = readThumbnail(entry);
@@ -363,6 +366,8 @@
 
       var list = document.getElementById('shift-open-files-list');
       if (!list) return false;
+      list.classList.add('shift-file-browser');
+      list.setAttribute('data-shift-file-browser', 'list');
       openFilePass.sidebarPainted = true;
       if (list.childElementCount > 0) return true;
 
