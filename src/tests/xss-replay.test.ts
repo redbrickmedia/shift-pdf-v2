@@ -412,4 +412,143 @@ describe('XSS replay — PDF signature cryptographic verification', () => {
     expect(result.usesInsecureDigest).toBe(true);
     expect(result.isValid).toBe(false);
   });
+
+  it('rejects an RSA signature whose DigestInfo has an extra nested algorithm', async () => {
+    const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = keys.publicKey;
+    cert.serialNumber = '01';
+    const attrs = [
+      { name: 'commonName', value: 'Test Signer' },
+      { name: 'countryName', value: 'US' },
+    ];
+    cert.setSubject(attrs);
+    cert.setIssuer(attrs);
+    cert.validity.notBefore = new Date(Date.now() - 86400000);
+    cert.validity.notAfter = new Date(Date.now() + 365 * 86400000);
+    cert.sign(keys.privateKey, forge.md.sha256.create());
+
+    const contentBefore = '%PDF-1.4\nsigned content A\n';
+    const contentAfter = '\nsigned content B\n%%EOF\n';
+    const signedContent = new TextEncoder().encode(
+      contentBefore + contentAfter
+    );
+    const p7 = forge.pkcs7.createSignedData();
+    p7.content = forge.util.createBuffer(String.fromCharCode(...signedContent));
+    p7.addCertificate(cert);
+    p7.addSigner({
+      key: keys.privateKey,
+      certificate: cert,
+      digestAlgorithm: forge.pki.oids.sha256,
+      authenticatedAttributes: [
+        { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
+        { type: forge.pki.oids.messageDigest },
+        // @ts-expect-error runtime accepts Date, type defs say string
+        { type: forge.pki.oids.signingTime, value: new Date() },
+      ],
+    });
+    p7.sign({ detached: true });
+
+    const signer = (
+      p7 as forge.pkcs7.PkcsSignedData & {
+        signers: Array<{
+          md: { digest: () => { getBytes: () => string } };
+          signature: string;
+        }>;
+      }
+    ).signers[0];
+    const digestBytes = signer.md.digest().getBytes();
+    const oidBytes = forge.asn1.oidToDer(forge.pki.oids.sha256).getBytes();
+    const nestedAlgorithm = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.SEQUENCE,
+      true,
+      [
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.OID,
+          false,
+          oidBytes
+        ),
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.NULL,
+          false,
+          ''
+        ),
+      ]
+    );
+    const digestAlgorithm = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.SEQUENCE,
+      true,
+      [
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.OID,
+          false,
+          oidBytes
+        ),
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.NULL,
+          false,
+          ''
+        ),
+        nestedAlgorithm,
+      ]
+    );
+    const digestInfo = forge.asn1.create(
+      forge.asn1.Class.UNIVERSAL,
+      forge.asn1.Type.SEQUENCE,
+      true,
+      [
+        digestAlgorithm,
+        forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.OCTETSTRING,
+          false,
+          digestBytes
+        ),
+      ]
+    );
+    const malformedSignature = (
+      forge.pki.rsa as typeof forge.pki.rsa & {
+        encrypt: (
+          data: string,
+          key: forge.pki.rsa.PrivateKey,
+          scheme: number
+        ) => string;
+      }
+    ).encrypt(forge.asn1.toDer(digestInfo).getBytes(), keys.privateKey, 0x01);
+    expect(keys.publicKey.verify(digestBytes, malformedSignature)).toBe(true);
+
+    const signedDer = forge.asn1.toDer(p7.toAsn1()).getBytes();
+    const replaced = signedDer.split(signer.signature).join(malformedSignature);
+    expect(replaced).not.toBe(signedDer);
+    const p7Bytes = new Uint8Array(replaced.length);
+    for (let i = 0; i < replaced.length; i++)
+      p7Bytes[i] = replaced.charCodeAt(i);
+
+    const beforeBytes = new TextEncoder().encode(contentBefore);
+    const afterBytes = new TextEncoder().encode(contentAfter);
+    const pdfBytes = new Uint8Array(beforeBytes.length + afterBytes.length);
+    pdfBytes.set(beforeBytes, 0);
+    pdfBytes.set(afterBytes, beforeBytes.length);
+    const result = await validateSignature(
+      {
+        index: 0,
+        contents: p7Bytes,
+        byteRange: [
+          0,
+          beforeBytes.length,
+          beforeBytes.length,
+          afterBytes.length,
+        ],
+      },
+      pdfBytes
+    );
+    expect(result.cryptoVerified).toBe(false);
+    expect(result.isValid).toBe(false);
+  });
 });
