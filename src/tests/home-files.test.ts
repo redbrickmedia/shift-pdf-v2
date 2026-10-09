@@ -12,6 +12,7 @@ import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import {
   addPdfToLibrary,
   clearPdfLibrary,
+  readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import {
   clearWorkspaceOpenFile,
@@ -69,6 +70,7 @@ afterEach(async () => {
   document.body.className = '';
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -103,6 +105,33 @@ describe('home files', () => {
     expect(document.getElementById('shift-my-pdfs')).toBeNull();
   });
 
+  it('keeps a dropped PDF when the file handle is not available', async () => {
+    mountHome();
+    initHomeFiles();
+    const pdf = new File(['%PDF'], 'dropped.pdf', { type: 'application/pdf' });
+    let dragDataReleased = false;
+    const item = {
+      kind: 'file' as const,
+      getAsFile: () => (dragDataReleased ? null : pdf),
+      getAsFileSystemHandle: () =>
+        Promise.resolve(null).then((handle) => {
+          dragDataReleased = true;
+          return handle;
+        }),
+    };
+    const dropZone = document.getElementById('drop-zone');
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', {
+      value: { files: [pdf], items: [item] },
+    });
+
+    dropZone?.dispatchEvent(event);
+
+    await vi.waitFor(() => {
+      expect(getWorkspaceFiles()).toMatchObject([{ name: 'dropped.pdf' }]);
+    });
+  });
+
   it('lists a dropped PDF in the home Open file section', () => {
     mountHome();
     initHomeFiles();
@@ -123,6 +152,39 @@ describe('home files', () => {
     expect(
       document.querySelector('#shift-my-pdfs-body tr')?.textContent
     ).toContain('briefing.pdf');
+  });
+
+  it('uses file handles when the host picker is available', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    const file = new File(['%PDF'], 'handled.pdf', {
+      type: 'application/pdf',
+    });
+    const handle = {
+      getFile: vi.fn().mockResolvedValue(file),
+      isSameEntry: vi.fn(),
+      kind: 'file',
+      name: file.name,
+    } as unknown as FileSystemFileHandle;
+    const showOpenFilePicker = vi.fn().mockResolvedValue([handle]);
+    vi.stubGlobal('showOpenFilePicker', showOpenFilePicker);
+    mountHome();
+    initHomeFiles();
+
+    document.getElementById('drop-zone')?.click();
+
+    await vi.waitFor(() => {
+      expect(showOpenFilePicker).toHaveBeenCalledOnce();
+      expect(getWorkspaceFiles()[0]).toMatchObject({
+        name: 'handled.pdf',
+        handle,
+      });
+    });
+    await expect(readPdfLibrary()).resolves.toEqual([
+      expect.objectContaining({
+        name: 'handled.pdf',
+        handle,
+      }),
+    ]);
   });
 
   it('shows a dropped PDF in the all-tools sidebar file list', async () => {

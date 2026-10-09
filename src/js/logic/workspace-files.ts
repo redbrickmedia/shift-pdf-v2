@@ -1,12 +1,16 @@
 import { state } from '../state.js';
 import { renderPdfFirstPage } from '../utils/pdf-thumbnail.js';
 import { runAsyncRenderQueue } from '../utils/async-render-queue.js';
-import { confirmAction } from './confirm-dialog.js';
+import { confirmAction, promptFilename } from './confirm-dialog.js';
+import { renamePdfHandle } from './pdf-file-handle.js';
 import {
   addPdfToLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
+  restoreLibraryEntryAccess,
+  updatePdfInLibrary,
 } from './pdf-library-store.js';
+import type { PdfLibraryAvailability } from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
   hasOpenFileFlag,
@@ -72,6 +76,8 @@ export type WorkspaceFileInfo = {
   source: WorkspaceFileSource;
   addedAt?: number;
   blob?: File;
+  handle?: FileSystemFileHandle;
+  availability?: PdfLibraryAvailability;
 };
 
 export type HomeOpenFileView = 'list' | 'thumbnail';
@@ -198,6 +204,8 @@ export async function syncHomeLibraryFromStore(
       source: entry.source,
       addedAt: entry.addedAt,
       blob: entry.file,
+      handle: entry.handle,
+      availability: entry.availability,
     })),
     root,
     epoch
@@ -241,7 +249,9 @@ function adoptSelectionIntoLibrary(root: Document): void {
   const epoch = homeLibraryEpoch;
   void (async () => {
     for (const file of pending) {
-      const saved = await addPdfToLibrary(file.blob, file.source);
+      const saved = await addPdfToLibrary(file.blob, file.source, {
+        handle: file.handle,
+      });
       // Delete bumps the epoch. Only roll back this write when the PDF is
       // gone from both the grid and the selection — a sibling that is still
       // selected must stay, or deleting one in-flight file would abandon the
@@ -255,6 +265,11 @@ function adoptSelectionIntoLibrary(root: Document): void {
         isSameLibraryFile(entry, file)
       );
       if (selected) selected.id = saved.id;
+    }
+    for (const file of currentFiles) {
+      if (!file.handle || !(file.blob instanceof File)) continue;
+      if (pending.some((entry) => entry.blob === file.blob)) continue;
+      await addPdfToLibrary(file.blob, file.source, { handle: file.handle });
     }
     // Always refresh against the live epoch so remaining files paint after a
     // sibling was deleted; a captured epoch would no-op and leave them only
@@ -305,12 +320,48 @@ export function persistWorkspaceOpenFile(): Promise<void> {
   return persistCurrentOpenFile();
 }
 
+async function withRestoredLibraryAccess(
+  file: WorkspaceFileInfo
+): Promise<WorkspaceFileInfo> {
+  if (!file.id || !file.availability || file.availability === 'ready') {
+    return file;
+  }
+  const restored = await restoreLibraryEntryAccess(file.id);
+  if (!restored || restored.availability !== 'ready') return file;
+  return {
+    ...file,
+    name: restored.name,
+    size: restored.size,
+    blob: restored.file,
+    handle: restored.handle,
+    availability: restored.availability,
+  };
+}
+
 export async function openLibraryFileInViewer(
   file: WorkspaceFileInfo,
   root: Document = document,
   assignLocation: (href: string) => void = (href) =>
     window.location.assign(href)
 ): Promise<boolean> {
+  const readable =
+    file.availability && file.availability !== 'ready'
+      ? await withRestoredLibraryAccess(file)
+      : file;
+  if (readable.availability && readable.availability !== 'ready') {
+    await confirmAction({
+      root,
+      title: 'Could not open this PDF',
+      message:
+        readable.availability === 'unavailable'
+          ? 'This PDF is no longer available on disk.'
+          : 'Shift needs permission to open this PDF.',
+      confirmLabel: 'OK',
+      cancelLabel: 'Close',
+    });
+    return false;
+  }
+  file = readable;
   const href = viewPdfHref(root, file);
   if (!href) return false;
   assignLocation(href);
@@ -1693,6 +1744,8 @@ function toFileInfo(
     source: file.source ?? 'upload',
     addedAt: file.addedAt ?? existing?.addedAt ?? Date.now(),
     blob: file.blob ?? existing?.blob,
+    handle: file.handle ?? existing?.handle,
+    availability: file.availability ?? existing?.availability,
   };
 }
 
@@ -2197,9 +2250,12 @@ function createHomeFileRow(
   actionLayout.className = 'shift-my-pdfs-action-layout';
   actionLayout.append(
     createHomeFileViewButton(file, root),
-    createHomeFileDownloadButton(file, root),
-    createHomeFileDeleteButton(file, root)
+    createHomeFileDownloadButton(file, root)
   );
+  if (file.handle) {
+    actionLayout.appendChild(createHomeFileRenameButton(file, root));
+  }
+  actionLayout.appendChild(createHomeFileDeleteButton(file, root));
   actionCell.appendChild(actionLayout);
 
   row.append(selectCell, nameCell, dateCell, sizeCell, actionCell);
@@ -2278,9 +2334,12 @@ function createHomeFileThumb(
   actions.className = 'shift-my-pdfs-action-layout shift-my-pdfs-thumb-actions';
   actions.append(
     createHomeFileViewButton(file, root),
-    createHomeFileDownloadButton(file, root),
-    createHomeFileDeleteButton(file, root)
+    createHomeFileDownloadButton(file, root)
   );
+  if (file.handle) {
+    actions.appendChild(createHomeFileRenameButton(file, root));
+  }
+  actions.appendChild(createHomeFileDeleteButton(file, root));
   item.append(card, actions);
   return item;
 }
@@ -2318,10 +2377,104 @@ function createHomeFileDownloadButton(
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     hideShiftTooltip();
+    if (file.availability && file.availability !== 'ready') {
+      void withRestoredLibraryAccess(file).then((readable) => {
+        if (!readable.blob || readable.blob.size === 0) return;
+        downloadBlob(readable.blob, readable.name);
+      });
+      return;
+    }
     if (!file.blob) return;
     downloadBlob(file.blob, file.name);
   });
   return button;
+}
+
+function createHomeFileRenameButton(
+  file: WorkspaceFileInfo,
+  root: Document
+): HTMLButtonElement {
+  const namespace = 'http://www.w3.org/2000/svg';
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'shift-my-pdfs-rename';
+  button.dataset.fileName = file.name;
+  button.setAttribute('aria-label', `Rename ${file.name}`);
+
+  const svg = root.createElementNS(namespace, 'svg');
+  svg.setAttribute('class', 'shift-my-pdfs-rename-icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = root.createElementNS(namespace, 'path');
+  path.setAttribute('d', 'M4 20h4l10.5-10.5-4-4L4 16v4ZM14.5 5.5l4 4');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  button.appendChild(svg);
+
+  attachShiftTooltip(button, { placement: 'bottom', text: 'Rename PDF' });
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    hideShiftTooltip();
+    void renameHomeLibraryFile(file, root);
+  });
+
+  return button;
+}
+
+async function renameHomeLibraryFile(
+  file: WorkspaceFileInfo,
+  root: Document
+): Promise<void> {
+  if (!file.id || !file.handle) return;
+
+  const nextName = await promptFilename({
+    root,
+    title: 'Rename this PDF?',
+    message: 'This updates the file name on disk.',
+    initialValue: file.name,
+  });
+  if (nextName === null) return;
+
+  try {
+    const renamed = await renamePdfHandle(file.handle, nextName);
+    const blob = file.blob
+      ? new File([file.blob], renamed, {
+          type: file.blob.type || 'application/pdf',
+        })
+      : undefined;
+    await updatePdfInLibrary(file.id, {
+      name: renamed,
+      file: blob,
+      handle: file.handle,
+    });
+    homeLibraryFiles = homeLibraryFiles.map((entry) =>
+      entry.id === file.id
+        ? { ...entry, name: renamed, blob: blob ?? entry.blob }
+        : entry
+    );
+    currentFiles = currentFiles.map((entry) =>
+      entry.id === file.id || isSameLibraryFile(entry, file)
+        ? { ...entry, name: renamed, blob: blob ?? entry.blob }
+        : entry
+    );
+    lastRenderedHomeFiles = [];
+    renderWorkspaceFiles(root);
+  } catch (error) {
+    await confirmAction({
+      root,
+      title: 'Could not rename this PDF',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Shift could not rename this PDF.',
+      confirmLabel: 'OK',
+      cancelLabel: 'Close',
+    });
+  }
 }
 
 function createHomeFileDeleteButton(
@@ -2468,29 +2621,46 @@ function activateHomeLibraryFile(
     return;
   }
 
-  fileOrigins.set(file.blob, file.source);
-  if (file.id) markFileLibraryId(file.blob, file.id);
-  setWorkspaceFiles(
-    [
-      ...currentFiles.map((current) => ({
-        id: current.id,
-        name: current.name,
-        size: current.size,
-        source: current.source,
-        addedAt: current.addedAt,
-        blob: current.blob,
-      })),
-      {
-        id: file.id,
-        name: file.name,
-        size: file.size,
-        source: file.source,
-        addedAt: file.addedAt,
-        blob: file.blob,
-      },
-    ],
-    root
-  );
+  const choose = (next: WorkspaceFileInfo) => {
+    if (!next.blob) return;
+    fileOrigins.set(next.blob, next.source);
+    if (next.id) markFileLibraryId(next.blob, next.id);
+    setWorkspaceFiles(
+      [
+        ...currentFiles.map((current) => ({
+          id: current.id,
+          name: current.name,
+          size: current.size,
+          source: current.source,
+          addedAt: current.addedAt,
+          blob: current.blob,
+          handle: current.handle,
+          availability: current.availability,
+        })),
+        {
+          id: next.id,
+          name: next.name,
+          size: next.size,
+          source: next.source,
+          addedAt: next.addedAt,
+          blob: next.blob,
+          handle: next.handle,
+          availability: next.availability,
+        },
+      ],
+      root
+    );
+  };
+
+  if (file.availability && file.availability !== 'ready') {
+    void withRestoredLibraryAccess(file).then((readable) => {
+      if (readable.availability && readable.availability !== 'ready') return;
+      choose(readable);
+    });
+    return;
+  }
+
+  choose(file);
 }
 
 function isHomeLibraryFileSelected(file: WorkspaceFileInfo): boolean {

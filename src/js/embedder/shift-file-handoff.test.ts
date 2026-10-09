@@ -28,6 +28,7 @@ describe('listenForShiftFileHandoff', () => {
   afterEach(async () => {
     window.history.replaceState({}, '', `/${originalSearch}`);
     await clearPdfLibrary();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -109,6 +110,57 @@ describe('listenForShiftFileHandoff', () => {
         }),
       ]);
     });
+    expect(source.postMessage).toHaveBeenLastCalledWith(
+      {
+        channel: 'shift-file-handoff-accepted',
+        handoffId: HANDOFF_ID,
+        version: 1,
+      },
+      SHIFT_ORIGIN
+    );
+  });
+
+  it('accepts a file handle and retains it with the library entry', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      `/merge-pdf.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    vi.stubGlobal('indexedDB', undefined);
+    const onFile = vi.fn().mockResolvedValue(undefined);
+    const source = { postMessage: vi.fn() };
+    const handle = {
+      getFile: vi
+        .fn()
+        .mockResolvedValue(
+          new File(['%PDF'], 'Report.pdf', { type: 'application/pdf' })
+        ),
+      kind: 'file',
+      name: 'Report.pdf',
+    } as unknown as FileSystemFileHandle;
+
+    listenForShiftFileHandoff({ onFile });
+    dispatchMessage({
+      data: {
+        channel: 'shift-file-handoff-payload',
+        filename: 'Report.pdf',
+        handle,
+        handoffId: HANDOFF_ID,
+        mimeType: 'application/pdf',
+        mode: 'handle',
+        version: 1,
+      },
+      source,
+    });
+
+    await vi.waitFor(() => expect(onFile).toHaveBeenCalledOnce());
+    await expect(readPdfLibrary()).resolves.toEqual([
+      expect.objectContaining({
+        handle,
+        name: 'Report.pdf',
+        source: 'handoff',
+      }),
+    ]);
     expect(source.postMessage).toHaveBeenLastCalledWith(
       {
         channel: 'shift-file-handoff-accepted',

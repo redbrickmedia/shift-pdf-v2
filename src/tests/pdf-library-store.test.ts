@@ -1,10 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addPdfToLibrary,
+  classifyHandleFailure,
   clearPdfLibrary,
   readPdfLibrary,
   removePdfFromLibrary,
   replacePdfInLibrary,
+  restoreLibraryEntryAccess,
+  updatePdfInLibrary,
 } from '../js/logic/pdf-library-store';
 
 afterEach(async () => {
@@ -146,4 +149,166 @@ describe('PDF library store', () => {
       )
     ).resolves.toBeNull();
   });
+
+  it('updates a stored PDF snapshot and name', async () => {
+    const saved = await addPdfToLibrary(
+      new File(['before'], 'saved.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    await updatePdfInLibrary(saved.id, {
+      name: 'renamed.pdf',
+      file: new File(['after'], 'renamed.pdf', { type: 'application/pdf' }),
+    });
+
+    const [updated] = await readPdfLibrary();
+    expect(updated).toMatchObject({
+      id: saved.id,
+      name: 'renamed.pdf',
+    });
+    await expect(updated?.file.text()).resolves.toBe('after');
+  });
+
+  it('treats a revoked grant as recoverable and a missing file as not', () => {
+    expect(
+      classifyHandleFailure(new DOMException('nope', 'NotAllowedError'))
+    ).toBe('needs-permission');
+    expect(
+      classifyHandleFailure(new DOMException('nope', 'SecurityError'))
+    ).toBe('needs-permission');
+    expect(
+      classifyHandleFailure(new DOMException('gone', 'NotFoundError'))
+    ).toBe('unavailable');
+    expect(
+      classifyHandleFailure(new DOMException('offline', 'NotReadableError'))
+    ).toBe('unavailable');
+  });
+
+  it('does not hydrate a locked handle as an empty PDF', async () => {
+    const file = new File(['pdf-bytes'], 'kept.pdf', {
+      type: 'application/pdf',
+    });
+    const handle = {
+      kind: 'file',
+      getFile: vi
+        .fn()
+        .mockRejectedValue(new DOMException('nope', 'NotAllowedError')),
+      queryPermission: vi.fn().mockResolvedValue('prompt'),
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+    } as unknown as FileSystemFileHandle;
+    const stored = [
+      {
+        id: 'kept-id',
+        filename: 'kept.pdf',
+        dateAddedTimestamp: Date.now(),
+        folderId: '',
+        pageCount: 0,
+        sizeInBytes: file.size,
+        source: 'handoff',
+        handle,
+      },
+    ];
+    vi.stubGlobal('indexedDB', {
+      open: (): unknown => {
+        const request = {
+          result: {
+            objectStoreNames: { contains: (): boolean => true },
+            close: (): void => undefined,
+            transaction: (): {
+              objectStore: () => {
+                getAll: () => ReturnType<typeof settle<typeof stored>>;
+                get: () => ReturnType<typeof settle<(typeof stored)[number] | undefined>>;
+                put: () => ReturnType<typeof settle<undefined>>;
+                delete: () => ReturnType<typeof settle<undefined>>;
+                clear: () => ReturnType<typeof settle<undefined>>;
+              };
+            } => ({
+              objectStore: () => ({
+                getAll: () => settle(stored),
+                get: () => settle(stored[0]),
+                put: () => settle(undefined),
+                delete: () => settle(undefined),
+                clear: () => settle(undefined),
+              }),
+            }),
+          },
+          onsuccess: null as null | (() => void),
+          onerror: null as null | (() => void),
+          onupgradeneeded: null as null | (() => void),
+        };
+        queueMicrotask(() => request.onsuccess?.());
+        return request;
+      },
+    });
+
+    try {
+      const [locked] = await readPdfLibrary();
+      expect(locked).toMatchObject({
+        name: 'kept.pdf',
+        availability: 'needs-permission',
+      });
+      expect(locked?.file.size).toBe(0);
+
+      (handle.getFile as ReturnType<typeof vi.fn>).mockResolvedValue(file);
+      const restored = await restoreLibraryEntryAccess(locked?.id ?? '');
+      expect(restored?.availability).toBe('ready');
+      await expect(restored?.file.text()).resolves.toBe('pdf-bytes');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('re-persists the handle after a rename so the entry stays readable', async () => {
+    const before = movableHandle('before.pdf');
+    const saved = await addPdfToLibrary(
+      new File(['doc'], 'before.pdf', { type: 'application/pdf' }),
+      'upload',
+      { handle: before }
+    );
+
+    await before.move('after.pdf');
+    await updatePdfInLibrary(saved.id, { name: 'after.pdf', handle: before });
+
+    const [entry] = await readPdfLibrary();
+    expect(entry).toMatchObject({
+      id: saved.id,
+      name: 'after.pdf',
+      availability: 'ready',
+    });
+  });
 });
+
+function settle<T>(result: T): {
+  result: T;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+} {
+  const operation = {
+    result,
+    onsuccess: null as (() => void) | null,
+    onerror: null as (() => void) | null,
+  };
+  queueMicrotask(() => operation.onsuccess?.());
+  return operation;
+}
+
+function movableHandle(
+  name: string
+): FileSystemFileHandle & { move: (next: string) => Promise<void> } {
+  const handle = {
+    kind: 'file',
+    name,
+    getFile: () =>
+      Promise.resolve(
+        new File(['doc'], handle.name, { type: 'application/pdf' })
+      ),
+    isSameEntry: (other: FileSystemFileHandle) =>
+      Promise.resolve(other === (handle as unknown as FileSystemFileHandle)),
+    move: (next: string) => {
+      handle.name = next;
+      return Promise.resolve();
+    },
+  };
+  return handle as unknown as FileSystemFileHandle & {
+    move: (next: string) => Promise<void>;
+  };
+}
