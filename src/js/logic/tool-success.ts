@@ -1,4 +1,5 @@
 import { downloadBlob, PDF_OUTPUT_READY_EVENT } from '../utils/helpers.js';
+import { findWritableLibraryEntry } from './pdf-library-store.js';
 import { isPdfOutput, saveToShiftPdf } from './shift-pdf-save.js';
 import { getWorkspaceFiles } from './workspace-files.js';
 
@@ -34,7 +35,7 @@ async function pdfsInsideZip(blob: Blob): Promise<File[]> {
   const entries = Object.values(zip.files);
   for (const entry of entries) {
     if (entry.dir || !entry.name.toLowerCase().endsWith('.pdf')) continue;
-    const bytes = await entry.async('uint8array');
+    const bytes = await entry.async('arraybuffer');
     files.push(
       new File([bytes], filenameOf(entry.name), { type: 'application/pdf' })
     );
@@ -61,6 +62,22 @@ async function libraryFiles(output: ToolOutput): Promise<File[]> {
   }
 }
 
+const returnFocus = new WeakMap<HTMLElement, HTMLElement>();
+
+function isOpen(dialog: HTMLElement): boolean {
+  return !dialog.classList.contains('hidden') && !dialog.hidden;
+}
+
+function focusableControls(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(
+    dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')
+  ).filter((element) => {
+    if (element.hidden || element.closest('[hidden]')) return false;
+    if (element.getAttribute('aria-hidden') === 'true') return false;
+    return true;
+  });
+}
+
 function ensureDialog(root: Document): HTMLElement {
   const existing = root.getElementById(TOOL_SUCCESS_ID);
   if (existing) return existing;
@@ -68,9 +85,12 @@ function ensureDialog(root: Document): HTMLElement {
   const dialog = root.createElement('div');
   dialog.id = TOOL_SUCCESS_ID;
   dialog.className = 'shift-tool-success hidden';
+  dialog.hidden = true;
+  dialog.inert = true;
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'shift-tool-success-title');
+  dialog.setAttribute('aria-describedby', 'shift-tool-success-message');
   dialog.innerHTML = `
     <div class="shift-tool-success-card">
       <h2 id="shift-tool-success-title">Your file is ready</h2>
@@ -88,17 +108,57 @@ function ensureDialog(root: Document): HTMLElement {
   dialog
     .querySelector('#shift-tool-success-close')
     ?.addEventListener('click', () => hideToolSuccess(root));
-  root.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !dialog.classList.contains('hidden')) {
-      hideToolSuccess(root);
-    }
-  });
   root.body.appendChild(dialog);
   return dialog;
 }
 
+function onDialogKeydown(event: KeyboardEvent, root: Document): void {
+  const dialog = root.getElementById(TOOL_SUCCESS_ID);
+  if (!(dialog instanceof HTMLElement) || !isOpen(dialog)) return;
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    hideToolSuccess(root);
+    return;
+  }
+  if (event.key !== 'Tab') return;
+
+  const focusables = focusableControls(dialog);
+  if (focusables.length === 0) return;
+
+  const active =
+    root.activeElement instanceof HTMLElement ? root.activeElement : null;
+  const index = active ? focusables.indexOf(active) : -1;
+  const next =
+    index === -1
+      ? focusables[event.shiftKey ? focusables.length - 1 : 0]
+      : focusables[
+          (index + (event.shiftKey ? -1 : 1) + focusables.length) %
+            focusables.length
+        ];
+  event.preventDefault();
+  event.stopPropagation();
+  next.focus();
+}
+
 export function hideToolSuccess(root: Document = document): void {
-  root.getElementById(TOOL_SUCCESS_ID)?.classList.add('hidden');
+  const dialog = root.getElementById(TOOL_SUCCESS_ID);
+  if (!(dialog instanceof HTMLElement) || !isOpen(dialog)) return;
+
+  const restore = returnFocus.get(dialog) ?? null;
+  returnFocus.delete(dialog);
+  if (restore?.isConnected && !dialog.contains(restore)) {
+    restore.focus();
+  } else if (
+    root.activeElement instanceof HTMLElement &&
+    dialog.contains(root.activeElement)
+  ) {
+    root.activeElement.blur();
+  }
+  dialog.classList.add('hidden');
+  dialog.hidden = true;
+  dialog.inert = true;
 }
 
 function showDialog(
@@ -131,29 +191,58 @@ function showDialog(
   const ready = saved || `${output.filename} is ready to download.`;
   message.textContent = output.summary ? `${ready} ${output.summary}` : ready;
   library.hidden = addedNames.length === 0;
+  root.getElementById('completion-panel')?.classList.add('hidden');
   download.onclick = () => {
     downloadBlob(output.blob, output.filename);
+    if (isOpen(dialog)) download.focus();
   };
+
+  const active = root.activeElement;
+  if (
+    !isOpen(dialog) &&
+    active instanceof HTMLElement &&
+    !dialog.contains(active)
+  ) {
+    returnFocus.set(dialog, active);
+  }
+  dialog.hidden = false;
+  dialog.inert = false;
   dialog.classList.remove('hidden');
   download.focus();
 }
 
-function claimedByOpenHandle(output: ToolOutput): boolean {
+/** In-place save already confirms; skip the success dialog so only one UI shows. */
+async function claimedByOpenHandle(output: ToolOutput): Promise<boolean> {
   if (!isPdfOutput(output.blob, output.filename)) return false;
   const selected = getWorkspaceFiles();
-  return selected.length === 1 && Boolean(selected[0]?.handle);
+  if (selected.length !== 1 || !selected[0]) return false;
+  if (selected[0].handle) return true;
+  try {
+    const entry = await findWritableLibraryEntry(selected[0]);
+    return Boolean(entry?.handle);
+  } catch {
+    return false;
+  }
 }
 
 async function presentBatch(batch: ToolOutput[], root: Document): Promise<void> {
-  const pending = batch.filter((output) => !claimedByOpenHandle(output));
+  const pending: ToolOutput[] = [];
+  for (const output of batch) {
+    if (await claimedByOpenHandle(output)) continue;
+    pending.push(output);
+  }
   const latest = pending[pending.length - 1];
   if (!latest) return;
   const added: string[] = [];
   for (const output of pending) {
     const files = await libraryFiles(output);
     for (const file of files) {
-      const result = await saveToShiftPdf(file, file.name, root);
-      if (result === 'added') added.push(file.name);
+      try {
+        const result = await saveToShiftPdf(file, file.name, root);
+        if (result === 'added') added.push(file.name);
+      } catch {
+        // A library failure must not block the download dialog.
+      }
     }
   }
   showDialog(root, latest, added);
@@ -178,7 +267,18 @@ export function enqueueToolSuccess(
   scheduleFlush(root);
 }
 
+const boundRoots = new WeakSet<Document>();
+
 export function initToolSuccess(root: Document = document): void {
+  if (boundRoots.has(root)) return;
+  boundRoots.add(root);
+  root.addEventListener(
+    'keydown',
+    (event) => {
+      if (event instanceof KeyboardEvent) onDialogKeydown(event, root);
+    },
+    true
+  );
   root.addEventListener(PDF_OUTPUT_READY_EVENT, (event) => {
     const detail = (event as CustomEvent<ToolOutput>).detail;
     if (

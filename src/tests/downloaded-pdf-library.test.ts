@@ -7,7 +7,7 @@ import {
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { TOOL_SUCCESS_ID } from '../js/logic/tool-success';
-import { downloadFile } from '../js/utils/helpers';
+import { downloadFile, PDF_OUTPUT_READY_EVENT } from '../js/utils/helpers';
 import {
   resetWorkspaceFileIndicator,
   setWorkspaceFiles,
@@ -51,10 +51,33 @@ function confirmSaveToDisk(): void {
 afterEach(async () => {
   resetWorkspaceFileIndicator();
   document.getElementById(TOOL_SUCCESS_ID)?.remove();
+  document.getElementById('tool-success-opener')?.remove();
+  document.getElementById('completion-panel')?.remove();
   await clearPdfLibrary();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+
+function pressKey(key: string, shiftKey = false): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', {
+    key,
+    shiftKey,
+    bubbles: true,
+    cancelable: true,
+  });
+  document.dispatchEvent(event);
+  return event;
+}
+
+function focusOpener(): HTMLButtonElement {
+  const opener = document.createElement('button');
+  opener.id = 'tool-success-opener';
+  opener.type = 'button';
+  opener.textContent = 'Process';
+  document.body.appendChild(opener);
+  opener.focus();
+  return opener;
+}
 
 function successMessage(): string {
   return (
@@ -176,6 +199,11 @@ describe('tool success', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
     });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      document.getElementById(TOOL_SUCCESS_ID)?.classList.contains('hidden') ??
+        true
+    ).toBe(true);
     confirmSaveToDisk();
 
     await vi.waitFor(async () => {
@@ -213,6 +241,11 @@ describe('tool success', () => {
     await vi.waitFor(() => {
       expect(document.querySelector('.shift-confirm-accept')).not.toBeNull();
     });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      document.getElementById(TOOL_SUCCESS_ID)?.classList.contains('hidden') ??
+        true
+    ).toBe(true);
     confirmSaveToDisk();
 
     await vi.waitFor(async () => {
@@ -346,5 +379,99 @@ describe('tool success', () => {
       expect(writable.write).toHaveBeenCalledOnce();
     });
     expect(click).not.toHaveBeenCalled();
+  });
+
+  it('keeps one labelled dialog, moves focus to Download, and releases it on dismiss', async () => {
+    const opener = focusOpener();
+    const panel = document.createElement('section');
+    panel.id = 'completion-panel';
+    document.body.appendChild(panel);
+    initDownloadedPdfLibrary();
+    initDownloadedPdfLibrary();
+
+    let readyEvents = 0;
+    const countReady = () => {
+      readyEvents += 1;
+    };
+    document.addEventListener(PDF_OUTPUT_READY_EVENT, countReady);
+    downloadFile(
+      new Blob(['generated'], { type: 'application/pdf' }),
+      'once.pdf',
+      'Combined 2 files.'
+    );
+
+    await vi.waitFor(() => {
+      expect(successMessage()).toContain('once.pdf was added to My PDFs.');
+    });
+    expect(successMessage()).not.toContain('files were added');
+    expect(document.querySelectorAll(`#${TOOL_SUCCESS_ID}`)).toHaveLength(1);
+    expect(panel.classList.contains('hidden')).toBe(true);
+    expect(readyEvents).toBe(1);
+    await expect(readPdfLibrary()).resolves.toHaveLength(1);
+
+    const dialog = document.getElementById(TOOL_SUCCESS_ID);
+    const download = document.getElementById('shift-tool-success-download');
+    const library = document.getElementById('shift-tool-success-library');
+    const close = document.getElementById('shift-tool-success-close');
+    expect(dialog?.getAttribute('role')).toBe('dialog');
+    expect(dialog?.getAttribute('aria-modal')).toBe('true');
+    expect(dialog?.getAttribute('aria-labelledby')).toBe(
+      'shift-tool-success-title'
+    );
+    expect(dialog?.getAttribute('aria-describedby')).toBe(
+      'shift-tool-success-message'
+    );
+    expect(document.getElementById('shift-tool-success-title')?.textContent).toBe(
+      'Your file is ready'
+    );
+    expect(download?.tagName).toBe('BUTTON');
+    expect((download as HTMLButtonElement).type).toBe('button');
+    expect(document.activeElement).toBe(download);
+
+    expect(pressKey('Tab').defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(library);
+    expect(pressKey('Tab').defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
+    expect(pressKey('Tab', true).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(library);
+    pressKey('Tab', true);
+    expect(document.activeElement).toBe(download);
+
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    (download as HTMLButtonElement).click();
+    expect(click).toHaveBeenCalledOnce();
+    expect(readyEvents).toBe(1);
+    expect(document.activeElement).toBe(download);
+
+    pressKey('Escape');
+    expect(dialog?.classList.contains('hidden')).toBe(true);
+    expect(dialog?.hidden).toBe(true);
+    expect(document.activeElement).toBe(opener);
+    expect(pressKey('Tab').defaultPrevented).toBe(false);
+    expect(pressKey('Escape').defaultPrevented).toBe(false);
+
+    downloadFile(new Blob(['png'], { type: 'image/png' }), 'page.png');
+    await vi.waitFor(() => {
+      expect(successMessage()).toContain('page.png is ready to download.');
+    });
+    expect(
+      (document.getElementById('shift-tool-success-library') as HTMLElement)
+        .hidden
+    ).toBe(true);
+    const pngDownload = document.getElementById('shift-tool-success-download');
+    const pngClose = document.getElementById('shift-tool-success-close');
+    expect(document.activeElement).toBe(pngDownload);
+    pressKey('Tab');
+    expect(document.activeElement).toBe(pngClose);
+    pressKey('Tab');
+    expect(document.activeElement).toBe(pngDownload);
+    (pngClose as HTMLButtonElement).click();
+    expect(document.getElementById(TOOL_SUCCESS_ID)?.classList.contains('hidden')).toBe(
+      true
+    );
+    expect(document.activeElement).toBe(opener);
+    document.removeEventListener(PDF_OUTPUT_READY_EVENT, countReady);
   });
 });

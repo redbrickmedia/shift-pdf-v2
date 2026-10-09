@@ -1334,6 +1334,11 @@ body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   display: none;
 }
 
+/* Author display on .shift-button must not keep a hidden action on screen. */
+.shift-tool-success [hidden] {
+  display: none !important;
+}
+
 .shift-tool-success-card {
   width: min(440px, 100%);
   padding: 24px;
