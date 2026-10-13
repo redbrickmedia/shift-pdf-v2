@@ -1,3 +1,4 @@
+import { endToolUse } from '../host/analytics.js';
 import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
@@ -187,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e: unknown) {
       hideLoader();
       if (isConversionCancelled(e)) {
+        endToolUse('cancelled');
         showAlert('Cancelled', 'Excel to PDF was cancelled.');
         return;
       }

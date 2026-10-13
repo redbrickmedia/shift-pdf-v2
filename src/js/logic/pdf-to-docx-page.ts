@@ -1,4 +1,5 @@
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
+import { endToolUse } from '../host/analytics.js';
 import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
@@ -209,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e: unknown) {
       hideLoader();
       if (isConversionCancelled(e)) {
+        endToolUse('cancelled');
         showAlert('Cancelled', 'PDF to Word was cancelled.');
         return;
       }

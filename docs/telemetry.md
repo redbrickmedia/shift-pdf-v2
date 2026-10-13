@@ -168,6 +168,21 @@ A failed process job emits this event and `PdfEngine_ToolUsed` with `result` `er
 | `rejection_reason` | `unknown_event`, `unknown_property`, `invalid_value`, `missing_property`, `forbidden_value` |
 | `step`             | `telemetry`                                                                                 |
 
+### `PdfOnboarding_Action`
+
+|                  |                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| When             | The My PDFs onboarding banner is shown, or the visitor chooses upload or dismiss. Not a process job.                                        |
+| Question         | Was the walkthrough shown, and did the visitor upload or dismiss it?                                                                        |
+| `schema_version` | `1`                                                                                                                                         |
+| `app_version`    | Package version                                                                                                                             |
+| `event_type`     | `state-change` when `action` is `shown`. `user-interaction` when `action` is `upload-selected` or `dismissed`. A caller cannot override it. |
+| `tool_id`        | `home` or `my-pdfs`                                                                                                                         |
+| `action`         | `shown`, `upload-selected`, or `dismissed`                                                                                                  |
+| `trigger`        | `system`, `upload-button-pressed`, or `dismiss-button-pressed`                                                                              |
+| `surface_id`     | `my-pdfs-walkthrough`                                                                                                                       |
+| `route`          | `home` or `my-pdfs`                                                                                                                         |
+
 ## Delivery gap
 
 Mixpanel receives these events only after an allowlisted integrated-app origin loads a build with `VITE_HOST_API_ROOT=chrome.shift`. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.

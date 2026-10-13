@@ -10,23 +10,29 @@ import {
   getTelemetryRejectedCount,
   getToolIdFromPath,
   listenForFeatureUse,
+  listenForToolJobs,
   noteProcessAlert,
   PDF_ENGINE_EVENTS,
   resetToolUseForTests,
   SCHEMA_VERSION,
   track,
+  trackOnboardingAction,
 } from '../js/host/analytics';
 import {
   inspectPdfBytes,
   memoryBucket,
   sizeBucket,
 } from '../js/host/pdf-signals';
-import { EVENT_CATALOG } from '../js/host/telemetry-schema';
+import {
+  EVENT_CATALOG,
+  PDF_ONBOARDING_EVENTS,
+} from '../js/host/telemetry-schema';
 import {
   recordDocumentLoad,
   recordPerformance,
   reportHandoff,
 } from '../js/host/telemetry';
+import { downloadFile } from '../js/utils/helpers';
 
 const SHIFT_ORIGIN = 'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna';
 const HANDOFF_ID = 'c56a4180-65aa-42ec-a945-5fd21dec0538';
@@ -397,6 +403,151 @@ describe('pdf telemetry', () => {
     expect(inspectPdfBytes(new TextEncoder().encode('%PDF-1.7')).pdf_kind).toBe(
       'unknown'
     );
+  });
+
+  it('emits one success from downloadFile and ignores a later pagehide', () => {
+    document.body.innerHTML =
+      '<button id="process-btn" type="button"></button>';
+    listenForToolJobs();
+    document.getElementById('process-btn')?.click();
+    downloadFile(new Blob(['pdf']), 'out.pdf');
+    window.dispatchEvent(new Event('pagehide'));
+    downloadFile(new Blob(['pdf']), 'out.pdf');
+
+    const terminal = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+    expect(terminal).toHaveLength(1);
+    expect(terminal[0][1]).toMatchObject({
+      result: 'success',
+      tool_id: 'merge-pdf',
+    });
+    expect(terminal[0][1].duration_ms).toEqual(expect.any(Number));
+    expect(terminal.map((call) => call[1].result)).not.toContain('cancelled');
+
+    document.getElementById('process-btn')?.click();
+    downloadFile(new Blob(['pdf']), 'out.pdf');
+    const reset = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+    expect(reset).toHaveLength(2);
+    expect(reset[1][1]).toMatchObject({
+      result: 'success',
+      tool_id: 'merge-pdf',
+    });
+  });
+
+  it.each(['compress-pdf', 'pdf-to-docx', 'sign-pdf'])(
+    'emits one terminal ToolUsed for %s',
+    (toolId) => {
+      resetToolUseForTests();
+      trackFn.mockClear();
+      window.history.replaceState({}, '', `/${toolId}.html`);
+      document.body.innerHTML =
+        '<button id="process-btn" type="button"></button>';
+      listenForToolJobs();
+      document.getElementById('process-btn')?.click();
+      downloadFile(new Blob(['pdf']), 'out.pdf');
+      window.dispatchEvent(new Event('pagehide'));
+      downloadFile(new Blob(['pdf']), 'out.pdf');
+
+      const terminal = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+      expect(terminal).toHaveLength(1);
+      expect(terminal[0][1]).toMatchObject({
+        result: 'success',
+        tool_id: toolId,
+      });
+      expect(terminal[0][1].duration_ms).toEqual(expect.any(Number));
+      expect(eventsNamed(trackFn, PDF_ENGINE_EVENTS.error)).toHaveLength(0);
+
+      document.getElementById('process-btn')?.click();
+      downloadFile(new Blob(['pdf']), 'out.pdf');
+      const reset = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+      expect(reset).toHaveLength(2);
+      expect(reset[1][1]).toMatchObject({
+        result: 'success',
+        tool_id: toolId,
+      });
+    }
+  );
+
+  it('rejects experiment_variant on ExperienceStarted', () => {
+    track(PDF_ENGINE_EVENTS.experienceStarted, {
+      experiment_variant: 'variation',
+    });
+
+    expect(trackFn).toHaveBeenCalledTimes(1);
+    expect(trackFn.mock.calls[0][0]).toBe(PDF_ENGINE_EVENTS.telemetryRejected);
+    expect(trackFn.mock.calls[0][1]).toMatchObject({
+      rejected_event: PDF_ENGINE_EVENTS.experienceStarted,
+      rejection_reason: 'unknown_property',
+    });
+    expect(JSON.stringify(trackFn.mock.calls)).not.toContain(
+      'experiment_variant'
+    );
+  });
+
+  it('records walkthrough actions and drops unsafe values', () => {
+    window.history.replaceState({}, '', '/');
+    trackOnboardingAction('shown');
+    window.history.replaceState({}, '', '/my-pdfs.html');
+    trackOnboardingAction('upload-selected');
+    trackOnboardingAction('dismissed');
+    track(PDF_ONBOARDING_EVENTS.action, {
+      action: 'shown',
+      event_type: 'user-interaction',
+      route: 'home',
+      surface_id: 'my-pdfs-walkthrough',
+      trigger: 'system',
+    });
+
+    const actions = eventsNamed(trackFn, PDF_ONBOARDING_EVENTS.action);
+    expect(actions.map((call) => [call[1].action, call[1].event_type])).toEqual(
+      [
+        ['shown', 'state-change'],
+        ['upload-selected', 'user-interaction'],
+        ['dismissed', 'user-interaction'],
+        ['shown', 'state-change'],
+      ]
+    );
+    expect(actions[0][1]).toMatchObject({
+      route: 'home',
+      surface_id: 'my-pdfs-walkthrough',
+      tool_id: 'home',
+      trigger: 'system',
+    });
+    expect(actions[1][1]).toMatchObject({
+      route: 'my-pdfs',
+      tool_id: 'my-pdfs',
+      trigger: 'upload-button-pressed',
+    });
+    expect(actions[2][1]).toMatchObject({
+      trigger: 'dismiss-button-pressed',
+    });
+
+    const unsafeCases = [
+      { route: 'secret.pdf' },
+      { trigger: 'C:\\Users\\a\\secret.pdf' },
+      { action: 'user@example.com' },
+    ];
+    for (const unsafe of unsafeCases) {
+      trackFn.mockClear();
+      track(PDF_ONBOARDING_EVENTS.action, {
+        action: 'shown',
+        route: 'home',
+        surface_id: 'my-pdfs-walkthrough',
+        trigger: 'system',
+        ...unsafe,
+      });
+      expect(trackFn).toHaveBeenCalledTimes(1);
+      expect(trackFn.mock.calls[0][0]).toBe(
+        PDF_ENGINE_EVENTS.telemetryRejected
+      );
+      expect(trackFn.mock.calls[0][1]).toMatchObject({
+        rejected_event: PDF_ONBOARDING_EVENTS.action,
+        rejection_reason: 'forbidden_value',
+      });
+      const payload = JSON.stringify(trackFn.mock.calls);
+      expect(payload).not.toContain('secret.pdf');
+      expect(payload).not.toContain('Users');
+      expect(payload).not.toContain('user@example.com');
+    }
   });
 
   it('keeps the markdown catalog aligned with the runtime schema', () => {

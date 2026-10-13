@@ -1,3 +1,4 @@
+import { trackOnboardingAction } from '../host/analytics.js';
 import { isPdfFile } from '../utils/pdf-file.js';
 import {
   markOpenFilePresent,
@@ -216,6 +217,7 @@ export function initHomeFiles(root: Document = document): void {
 
   // Onboarding CTA opens the same library picker as the drop zone / Choose files.
   root.getElementById('shift-promise-upload')?.addEventListener('click', () => {
+    trackOnboardingAction('upload-selected');
     input?.click();
   });
 
