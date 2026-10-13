@@ -74,6 +74,7 @@ describe('pdf decrypt', () => {
     expect(result).toEqual({
       bytes: new Uint8Array([4, 5, 6]),
       engine: 'cpdf',
+      wasEncrypted: true,
     });
     expect(infoSpy).toHaveBeenCalledWith(
       '[PDF Decrypt] Decryption succeeded with CoherentPDF'
@@ -115,6 +116,7 @@ describe('pdf decrypt', () => {
     expect(result).toEqual({
       bytes: new Uint8Array([7, 8, 9]),
       engine: 'pymupdf',
+      wasEncrypted: true,
     });
     expect(warnSpy).toHaveBeenCalledWith(
       '[PDF Decrypt] Decryption with CoherentPDF failed. Falling back to PyMuPDF. Reason: cpdf failed'
@@ -198,12 +200,43 @@ describe('pdf decrypt', () => {
     expect(pymupdfDocument.close).toHaveBeenCalledTimes(1);
   });
 
+  it('reports an unencrypted PDF instead of a successful decrypt', async () => {
+    const original = new Uint8Array([9, 8, 7]);
+    const cpdf = {
+      setSlow: vi.fn(),
+      fromMemory: vi.fn().mockReturnValue({ pdf: true }),
+      isEncrypted: vi.fn().mockReturnValue(false),
+      decryptPdf: vi.fn(),
+      decryptPdfOwner: vi.fn(),
+      toMemory: vi.fn().mockReturnValue(new Uint8Array([4, 5, 6])),
+      deletePdf: vi.fn(),
+    };
+    mockGetCpdf.mockResolvedValue(cpdf);
+
+    const result = await pdfDecryptModule.decryptPdfBytes(original, 'test');
+
+    expect(result).toEqual({
+      bytes: new Uint8Array([4, 5, 6]),
+      engine: 'cpdf',
+      wasEncrypted: false,
+    });
+    expect(cpdf.isEncrypted).toHaveBeenCalledWith({ pdf: true });
+    expect(cpdf.decryptPdf).not.toHaveBeenCalled();
+    expect(cpdf.decryptPdfOwner).not.toHaveBeenCalled();
+    expect(mockLoadPyMuPDF).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledWith('[PDF Decrypt] PDF is not encrypted');
+    expect(infoSpy).not.toHaveBeenCalledWith(
+      '[PDF Decrypt] Decryption succeeded with CoherentPDF'
+    );
+  });
+
   it('uses the shared decrypt helper in the workflow decrypt node', async () => {
     const decryptSpy = vi
       .spyOn(pdfDecryptModule, 'decryptPdfBytes')
       .mockResolvedValue({
         bytes: new Uint8Array([8, 8, 8]),
         engine: 'cpdf',
+        wasEncrypted: true,
       });
 
     const { DecryptNode } = await import('../js/workflow/nodes/decrypt-node');
@@ -248,6 +281,7 @@ describe('pdf decrypt', () => {
       .mockResolvedValue({
         bytes: new Uint8Array([6, 6, 6]),
         engine: 'cpdf',
+        wasEncrypted: true,
       });
 
     const { PDFInputNode } =

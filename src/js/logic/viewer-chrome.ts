@@ -1,8 +1,9 @@
 /**
  * One header + action row for View PDF and every in-page viewer tool.
  * Pages pick a preset, then hide or show features without restyling a
- * second header.
+ * second header. Button order lives in the shared action row.
  */
+import { arrangeShiftActionRow } from './shift-action-row.js';
 export const VIEWER_CHROME_HEADER_CLASS = 'shift-pdf-viewer-header';
 export const VIEWER_CHROME_HEADING_CLASS = 'shift-pdf-viewer-heading';
 export const VIEWER_CHROME_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
@@ -60,8 +61,8 @@ export const VIEWER_CHROME_PRESETS: Record<
     back: false,
     subtitle: true,
     launchers: false,
-    print: false,
-    download: false,
+    print: true,
+    download: true,
     undo: true,
     redo: true,
     reset: true,
@@ -86,10 +87,16 @@ export function resolveViewerChromeFeatures(
     ...VIEWER_CHROME_PRESETS[preset],
     ...options.features,
   };
-  if (options.features?.flatten === undefined && hasAuthoredFeature(root, 'flatten')) {
+  if (
+    options.features?.flatten === undefined &&
+    hasAuthoredFeature(root, 'flatten')
+  ) {
     features.flatten = isToolViewerShowing(root);
   }
-  if (options.features?.sign === undefined && hasAuthoredFeature(root, 'sign')) {
+  if (
+    options.features?.sign === undefined &&
+    hasAuthoredFeature(root, 'sign')
+  ) {
     features.sign = isToolViewerShowing(root);
   }
   return features;
@@ -141,6 +148,7 @@ export function mountViewerChrome(
     header.querySelector<HTMLElement>(`.${VIEWER_CHROME_ACTIONS_CLASS}`);
   if (!actions) return null;
 
+  arrangeShiftActionRow(actions);
   applyViewerChromeFeatures(header, features);
   return { header, heading, actions, features };
 }

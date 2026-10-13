@@ -157,9 +157,9 @@ describe('tool favorites', () => {
         2
       )
     ).toEqual(['merge-pdf', 'pdf-converter', 'compress-pdf']);
-    expect(
-      reorderFavoriteToolIds(['compress-pdf', 'merge-pdf'], 1, 1)
-    ).toEqual(['compress-pdf', 'merge-pdf']);
+    expect(reorderFavoriteToolIds(['compress-pdf', 'merge-pdf'], 1, 1)).toEqual(
+      ['compress-pdf', 'merge-pdf']
+    );
   });
 
   it('does not re-seed after a former prepinned tool is unpinned', () => {
@@ -427,16 +427,20 @@ describe('sidebar pinned tools', () => {
     expect(library?.hasAttribute('hidden')).toBe(false);
   });
 
-  it('ends the Tools rail with an Add tool action that opens the catalog', () => {
+  it('keeps All tools as the only catalog link and omits Add tool', () => {
     const toolsNav = sidebar().querySelector('.shift-tools-nav');
-    const addTool = toolsNav?.querySelector('a.shift-add-tool-link');
-    const last = toolsNav?.lastElementChild;
+    const links = Array.from(
+      toolsNav?.querySelectorAll('a.shift-nav-link') ?? []
+    );
+    const allTools = toolsNav?.querySelector('a[data-nav="home"]');
 
-    expect(addTool).not.toBeNull();
-    expect(last).toBe(addTool);
-    expect(addTool?.getAttribute('href')).toContain('all-tools.html');
-    expect(addTool?.textContent).toMatch(/Add tool/);
-    expect(addTool?.hasAttribute('data-nav')).toBe(false);
+    expect(toolsNav?.querySelector('a.shift-add-tool-link')).toBeNull();
+    expect(toolsNav?.textContent).not.toMatch(/Add tool/);
+    expect(links).toHaveLength(1);
+    expect(links[0]).toBe(allTools);
+    expect(allTools?.getAttribute('href')).toContain('all-tools.html');
+    expect(allTools?.textContent).toMatch(/All tools/);
+    expect(toolsNav?.lastElementChild?.id).toBe('shift-favorite-tools');
   });
 
   it('does not hardcode former prepinned tools in the Tools markup', () => {

@@ -15,6 +15,10 @@ import {
 } from './shift-pdf-save.js';
 import { isViewerToolDocument } from './tool-viewer-layout.js';
 import {
+  createShiftActionButton,
+  arrangeShiftActionRow,
+} from './shift-action-row.js';
+import {
   VIEWER_CHROME_FEATURE_ATTR,
   applyViewerChromeFeatures,
   mountViewerChrome,
@@ -54,7 +58,6 @@ let boundRoot: Document | null = null;
 let session: ToolOutputSession | null = null;
 let saveInFlight = false;
 let observer: MutationObserver | null = null;
-let saveMenuHideTimer: number | null = null;
 
 export function initToolOutputToolbar(root: Document = document): void {
   if (isNonToolPage(root)) return;
@@ -156,7 +159,9 @@ export function syncToolOutputToolbar(root: Document = document): void {
     setButtonDisabled(save, saveInFlight || !canSaveOutput());
   }
   if (overwrite) {
-    setButtonDisabled(overwrite, saveInFlight || !canOverwriteOutput());
+    const canOverwrite = canOverwriteOutput();
+    overwrite.hidden = !canOverwrite;
+    setButtonDisabled(overwrite, saveInFlight || !canOverwrite);
   }
   if (download) {
     setButtonDisabled(download, saveInFlight || !canDownloadOutput());
@@ -180,7 +185,7 @@ function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
     menu.classList.toggle('is-ready', canDisclose);
   }
   if (!canDisclose) {
-    closeViewerSaveMenu(menu);
+    menu.classList.remove('is-open');
     if (menu instanceof HTMLDetailsElement && menu.open) menu.open = false;
   }
 }
@@ -225,6 +230,7 @@ function ensureViewerHeaderActions(
   const host = root.querySelector<HTMLElement>('[data-shift-viewer-actions]');
   if (!host) return null;
   if (root.getElementById(TOOL_OUTPUT_UNDO_ID)) {
+    arrangeShiftActionRow(host);
     if (header) {
       applyViewerChromeFeatures(
         header,
@@ -259,6 +265,7 @@ function ensureViewerHeaderActions(
   saveGroup.id = TOOL_OUTPUT_MENU_ID;
   saveGroup.className = 'shift-tool-viewer-save';
   saveGroup.setAttribute(VIEWER_CHROME_FEATURE_ATTR, 'save');
+  saveGroup.setAttribute('data-shift-action', 'save');
   const save = createViewerActionButton(
     root,
     TOOL_OUTPUT_SAVE_ID,
@@ -266,38 +273,32 @@ function ensureViewerHeaderActions(
     'ph-floppy-disk',
     'save'
   );
-  const menu = root.createElement('div');
-  menu.className = 'shift-tool-viewer-save-menu';
-  const surface = root.createElement('div');
-  surface.className = 'shift-tool-viewer-save-menu-surface';
-  surface.setAttribute('role', 'menu');
-  surface.setAttribute('aria-label', 'More save options');
   const overwrite = createViewerActionButton(
     root,
     TOOL_OUTPUT_OVERWRITE_ID,
     'Overwrite',
-    'ph-file'
+    'ph-file',
+    undefined,
+    'overwrite'
   );
+  overwrite.hidden = true;
   const download = createViewerActionButton(
     root,
     TOOL_OUTPUT_DOWNLOAD_ID,
     'Download',
-    'ph-download-simple'
+    'ph-download-simple',
+    'download'
   );
   const print = createViewerActionButton(
     root,
     TOOL_OUTPUT_PRINT_ID,
     'Print',
-    'ph-printer'
+    'ph-printer',
+    'print'
   );
-  overwrite.setAttribute('role', 'menuitem');
-  download.setAttribute('role', 'menuitem');
-  print.setAttribute('role', 'menuitem');
-  surface.append(overwrite, download, print);
-  menu.append(surface);
-  saveGroup.append(save, menu);
-  bindViewerSaveHover(saveGroup);
-  host.prepend(undo, redo, reset, saveGroup);
+  saveGroup.append(save, overwrite);
+  host.append(undo, redo, reset, saveGroup, download, print);
+  arrangeShiftActionRow(host);
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
   overwrite.addEventListener('click', () => void overwriteOutput(root));
@@ -340,21 +341,16 @@ function createViewerActionButton(
   id: string,
   label: string,
   phosphorIcon: string,
-  feature?: ViewerChromeFeature
+  feature?: ViewerChromeFeature,
+  action: string = feature ?? id
 ): HTMLButtonElement {
-  const button = root.createElement('button');
-  button.id = id;
-  button.type = 'button';
-  button.className = 'shift-pdf-viewer-action';
-  button.setAttribute('aria-label', label);
-  if (feature) button.setAttribute(VIEWER_CHROME_FEATURE_ATTR, feature);
-  const icon = root.createElement('i');
-  icon.className = `ph ${phosphorIcon}`;
-  icon.setAttribute('aria-hidden', 'true');
-  const text = root.createElement('span');
-  text.textContent = label;
-  button.append(icon, text);
-  return button;
+  return createShiftActionButton(root, {
+    id,
+    label,
+    iconClass: phosphorIcon,
+    action,
+    feature,
+  });
 }
 
 async function saveOutput(root: Document): Promise<void> {
@@ -389,7 +385,11 @@ export async function overwriteOutput(
     const output = getLatestPdfOutput();
     if (!output || !canSaveToShiftPdf(output)) return;
     const target = getPrimaryLibrarySaveTarget();
-    const result = await overwriteToShiftPdf(output.blob, output.filename, root);
+    const result = await overwriteToShiftPdf(
+      output.blob,
+      output.filename,
+      root
+    );
     if (result === 'replaced') {
       if (
         target &&
@@ -503,44 +503,10 @@ function hideEmbeddedViewerPrintControls(root: Document): void {
   }
 }
 
-function bindViewerSaveHover(saveGroup: HTMLElement): void {
-  saveGroup.addEventListener('pointerenter', () => {
-    if (!saveGroup.classList.contains('is-ready')) return;
-    openViewerSaveMenu(saveGroup);
-  });
-  saveGroup.addEventListener('pointerleave', () => {
-    scheduleViewerSaveMenuHide(saveGroup);
-  });
-}
-
-function openViewerSaveMenu(saveGroup: HTMLElement): void {
-  if (saveMenuHideTimer !== null) {
-    window.clearTimeout(saveMenuHideTimer);
-    saveMenuHideTimer = null;
-  }
-  saveGroup.classList.add('is-open');
-}
-
-function scheduleViewerSaveMenuHide(saveGroup: HTMLElement): void {
-  if (saveMenuHideTimer !== null) window.clearTimeout(saveMenuHideTimer);
-  saveMenuHideTimer = window.setTimeout(() => {
-    saveMenuHideTimer = null;
-    closeViewerSaveMenu(saveGroup);
-  }, TOOL_OUTPUT_SAVE_MENU_HIDE_MS);
-}
-
-function closeViewerSaveMenu(saveGroup: HTMLElement): void {
-  if (saveMenuHideTimer !== null) {
-    window.clearTimeout(saveMenuHideTimer);
-    saveMenuHideTimer = null;
-  }
-  saveGroup.classList.remove('is-open');
-}
-
 function closeOutputMenu(root: Document): void {
   const menu = root.getElementById(TOOL_OUTPUT_MENU_ID);
   if (menu instanceof HTMLDetailsElement) menu.open = false;
-  if (menu) closeViewerSaveMenu(menu);
+  menu?.classList.remove('is-open');
 }
 
 async function resetOutput(root: Document): Promise<void> {
@@ -611,6 +577,11 @@ function hideLegacyOutputActions(root: Document): void {
   for (const id of ids) {
     const control = root.getElementById(id);
     if (control instanceof HTMLElement) {
+      // A page that already presents these controls in the shared action row
+      // (the bookmark editor, for example) keeps that row. Hiding them would
+      // remove the only visible Undo once the upload card is gone.
+      const row = control.closest('.shift-action-row');
+      if (row && !row.hasAttribute('data-shift-viewer-actions')) continue;
       if (!control.hidden) control.hidden = true;
       if (control.getAttribute('aria-hidden') !== 'true') {
         control.setAttribute('aria-hidden', 'true');
@@ -642,4 +613,3 @@ function getLegacyHistoryButton(
   }
   return null;
 }
-

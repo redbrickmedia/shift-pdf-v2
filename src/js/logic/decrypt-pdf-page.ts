@@ -100,6 +100,15 @@ function handleFileSelect(files: FileList | null) {
   }
 }
 
+function showNotEncryptedAlert(fileCount = 1) {
+  showAlert(
+    'Not Encrypted',
+    fileCount === 1
+      ? 'This PDF is not encrypted.'
+      : 'These PDFs are not encrypted.'
+  );
+}
+
 async function decryptPdf() {
   if (pageState.files.length === 0) {
     showAlert('No File', 'Please upload at least one PDF file.');
@@ -126,10 +135,15 @@ async function decryptPdf() {
       const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
 
       showLoader('Decrypting PDF...');
-      const { bytes: decryptedBytes } = await decryptPdfBytes(
+      const { bytes: decryptedBytes, wasEncrypted } = await decryptPdfBytes(
         uint8Array,
         password
       );
+
+      if (!wasEncrypted) {
+        showNotEncryptedAlert();
+        return;
+      }
 
       showLoader('Preparing download...');
       const blob = new Blob([decryptedBytes.slice().buffer], {
@@ -151,6 +165,7 @@ async function decryptPdf() {
       const zip = new JSZip();
       let successCount = 0;
       let errorCount = 0;
+      let notEncryptedCount = 0;
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
@@ -162,10 +177,15 @@ async function decryptPdf() {
         try {
           const fileBuffer = await readFileAsArrayBuffer(file);
           const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
-          const { bytes: decryptedBytes } = await decryptPdfBytes(
+          const { bytes: decryptedBytes, wasEncrypted } = await decryptPdfBytes(
             uint8Array,
             password
           );
+
+          if (!wasEncrypted) {
+            notEncryptedCount++;
+            continue;
+          }
 
           zip.file(file.name, decryptedBytes, { binary: true });
           successCount++;
@@ -176,6 +196,11 @@ async function decryptPdf() {
       }
 
       if (successCount === 0) {
+        if (notEncryptedCount > 0 && errorCount === 0) {
+          showNotEncryptedAlert(notEncryptedCount);
+          return;
+        }
+
         throw new Error(
           'No PDF files could be decrypted. The password may be incorrect.'
         );
@@ -186,6 +211,9 @@ async function decryptPdf() {
       downloadFile(zipBlob, 'decrypted-pdfs.zip');
 
       let alertMessage = `${successCount} PDF(s) decrypted successfully.`;
+      if (notEncryptedCount > 0) {
+        alertMessage += ` ${notEncryptedCount} file(s) were not encrypted.`;
+      }
       if (errorCount > 0) {
         alertMessage += ` ${errorCount} file(s) failed.`;
       }

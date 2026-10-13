@@ -164,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (validFiles.length > 0) {
         state.files = [...state.files, ...validFiles];
         updateUI();
+      } else {
+        showAlert('Invalid Files', 'Please choose an Apple Pages file.');
       }
     }
   };
