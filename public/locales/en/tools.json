@@ -983,6 +983,10 @@
     "name": "PDF to Word",
     "subtitle": "Convert PDF files to editable Word documents."
   },
+  "pdfToPptx": {
+    "name": "PDF to PowerPoint",
+    "subtitle": "Convert PDF files to editable PowerPoint slides."
+  },
   "extractImages": {
     "name": "Extract Images",
     "subtitle": "Extract all embedded images from your PDF files."

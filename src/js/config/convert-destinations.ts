@@ -19,6 +19,7 @@ export type ConvertSourceKind = 'pdf' | 'to-pdf' | 'unsupported';
 const PRIMARY_PDF_DESTINATION_IDS = [
   'pdf-to-docx',
   'pdf-to-excel',
+  'pdf-to-pptx',
   'pdf-to-jpg',
   'pdf-to-png',
 ] as const;
