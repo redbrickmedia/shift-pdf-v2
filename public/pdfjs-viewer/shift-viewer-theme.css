@@ -69,6 +69,7 @@ html[data-shift-viewer] {
   --brand-500: #3b82f6;
   --brand-600: #2563eb;
   --brand-700: #1d4ed8;
+  --brand-900: #1e3a8a;
 }
 
 /* ---- Design-system semantic tokens, light mode ---- */
@@ -127,6 +128,11 @@ html[data-shift-viewer].dark {
   /* Dark pages need no separation from the workspace — the paper provides it —
      so this takes the rail colour and matches shift-pdf's own viewer. */
   --shift-viewer-workspace: var(--background-bar-primary);
+
+  /* brand-50 stays the pale wash the host injected. These outrank the
+     mode-independent mapping below, so a toggled tool is a deep tint. */
+  --toggled-btn-bg-color: var(--brand-900);
+  --toggled-hover-active-btn-color: var(--brand-900);
 }
 
 /* ---- PDF.js chrome, mapped onto the tokens above ----
@@ -256,6 +262,10 @@ html[data-shift-viewer] #editorUndoBar {
 
   border-radius: var(--radius-8);
   box-shadow: 0 8px 24px rgb(var(--shift-chrome-shadow-rgb) / 0.12);
+}
+
+html[data-shift-viewer].dark #editorUndoBar {
+  --message-bar-bg-color: var(--brand-900);
 }
 
 html[data-shift-viewer] #editorUndoBar #editorUndoBarUndoButton {

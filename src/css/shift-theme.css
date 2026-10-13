@@ -2201,6 +2201,14 @@ body.shift-tool-viewer
   --radius-2xl: var(--radius-12);
 }
 
+/* brand-50 stays the pale wash. On a dark page these tints need the deep stop
+   or the editor paints a light blob for a selected control. */
+html.dark #embed-pdf-container embedpdf-container {
+  --ep-accent-primary-light: var(--brand-900);
+  --ep-interactive-selected: var(--brand-900);
+  --ep-state-info-light: var(--brand-900);
+}
+
 /* ---- Viewer layout before the blob lands ----
  * Everything above keys off `shift-tool-viewer`, which tool-viewer-layout.ts
  * could only add once the module had run and the file had resolved — about
@@ -2813,6 +2821,10 @@ a.tool-card:focus-visible {
   text-align: center;
   border-radius: 999px;
   background: var(--brand-50);
+}
+
+html.dark .shift-favorites-count {
+  background: var(--brand-900);
 }
 
 .shift-favorites-empty {
@@ -3567,6 +3579,10 @@ html.dark {
   --action-text-neutral-active: var(--dark-100); /* dark-100 */
   --action-text-neutral-selected: var(--dark-50); /* dark-50 */
   --action-text-neutral-disabled: var(--dark-500); /* dark-500 */
+  /* Tint surfaces (favourites pill, indigo panels, selected fields) used to
+     read --brand-50 after this block painted that stop as brand-900. The
+     palette stop stays the host's pale wash. The utility takes the deep stop. */
+  --color-indigo-50: var(--brand-900);
   /* Dark pages need no separation from the workspace — the paper provides it —
      so this takes the rail colour, matching the PDF.js copy. */
   --shift-viewer-workspace: var(--background-bar-primary);
@@ -3662,6 +3678,10 @@ html.dark :is(.bg-green-900, [class*='bg-green-900/']) {
 
 html.dark :is(.bg-blue-900, [class*='bg-blue-900/']) {
   background-color: #1e3a8a !important;
+}
+
+html.dark :is(.bg-indigo-900, [class*='bg-indigo-900/']) {
+  background-color: var(--brand-900) !important;
 }
 
 /* The chip row lays itself out; without this the chips render as bare inline

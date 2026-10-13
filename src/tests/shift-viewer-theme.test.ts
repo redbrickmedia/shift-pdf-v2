@@ -117,6 +117,7 @@ describe('Shift theme for the PDF.js viewer', () => {
     document.documentElement.classList.add('dark');
     document.documentElement.setAttribute('data-theme', 'amber');
     document.documentElement.style.setProperty('--brand-600', '#90491e');
+    document.documentElement.style.setProperty('--brand-900', '#3e1f0d');
 
     const source = await readText('public/pdfjs-viewer/shift-viewer-theme.js');
     // `Function` is on the window object at runtime. lib.dom does not declare
@@ -131,10 +132,28 @@ describe('Shift theme for the PDF.js viewer', () => {
     expect(childRoot!.classList.contains('dark')).toBe(true);
     expect(childRoot!.getAttribute('data-theme')).toBe('amber');
     expect(childRoot!.style.getPropertyValue('--brand-600')).toBe('#90491e');
+    expect(childRoot!.style.getPropertyValue('--brand-900')).toBe('#3e1f0d');
 
     iframe.remove();
     document.documentElement.classList.remove('dark');
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.style.removeProperty('--brand-600');
+    document.documentElement.style.removeProperty('--brand-900');
+  });
+
+  it('paints dark toggled tools and the undo toast with the deep brand stop', async () => {
+    const theme = await readText('public/pdfjs-viewer/shift-viewer-theme.css');
+    const darkStart = theme.indexOf('html[data-shift-viewer].dark {');
+    const dark = theme.slice(darkStart, theme.indexOf('\n}', darkStart));
+
+    expect(dark).toContain('--toggled-btn-bg-color: var(--brand-900)');
+    expect(dark).toContain(
+      '--toggled-hover-active-btn-color: var(--brand-900)'
+    );
+    expect(dark).not.toMatch(/--brand-\d+:\s*#/);
+    expect(theme).toMatch(
+      /html\[data-shift-viewer\]\.dark #editorUndoBar\s*\{[^}]*--message-bar-bg-color:\s*var\(--brand-900\)/s
+    );
+    expect(theme).toContain('--toggled-btn-bg-color: var(--brand-50)');
   });
 });

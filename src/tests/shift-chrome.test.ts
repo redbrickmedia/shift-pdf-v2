@@ -125,6 +125,21 @@ describe('shared chrome', () => {
     expect(css).toContain('var(--radius-8)');
   });
 
+  it('keeps card previews on a portrait page ratio', () => {
+    const css = readFileSync(
+      resolve(process.cwd(), 'src/css/shift-chrome.css'),
+      'utf8'
+    );
+    const start = css.indexOf(
+      ".shift-file-preview[data-shift-preview-size='card'] {"
+    );
+    const rule = css.slice(start, css.indexOf('\n}', start));
+
+    expect(rule).toMatch(/aspect-ratio:\s*8\.5\s*\/\s*11/);
+    expect(rule).not.toMatch(/height:\s*154px/);
+    expect(rule).toMatch(/width:\s*100%/);
+  });
+
   it('routes the multi-tool page through the shared action row', () => {
     const page = readFileSync(
       resolve(process.cwd(), 'src/pages/pdf-multi-tool.html'),

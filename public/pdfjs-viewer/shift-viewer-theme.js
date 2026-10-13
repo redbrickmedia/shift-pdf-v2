@@ -85,6 +85,7 @@
     '--brand-500',
     '--brand-600',
     '--brand-700',
+    '--brand-900',
   ];
 
   function copyHostPalette(host) {

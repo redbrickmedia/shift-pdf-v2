@@ -83,9 +83,11 @@ html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible {
   height: 24px;
 }
 
+/* Portrait page slot. A fixed height plus width: 100% drops the 8.5/11 ratio
+   and letterboxes the page into a wide strip. */
 .shift-file-preview[data-shift-preview-size='card'] {
   width: 100%;
-  height: 154px;
+  aspect-ratio: 8.5 / 11;
   border-radius: var(--radius-8);
 }
 

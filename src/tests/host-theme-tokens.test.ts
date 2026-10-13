@@ -33,6 +33,7 @@ describe('Shift theme palette aliases', () => {
     expect(dark).toContain('--background-bar-primary: var(--dark-700);');
     expect(dark).toContain('--background-secondary: var(--dark-800);');
     expect(dark).toContain('--text-primary: var(--dark-50);');
+    expect(dark).toContain('--color-indigo-50: var(--brand-900);');
     expect(dark).not.toMatch(/--brand-\d+:\s*#/);
     expect(dark).not.toMatch(/--light-\d+:\s*#/);
     expect(dark).not.toMatch(/--dark-\d+:\s*#/);
