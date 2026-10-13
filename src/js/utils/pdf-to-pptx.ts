@@ -17,6 +17,10 @@ export interface PptxRun {
   text: string;
   fontSizePt: number;
   color?: string;
+  font?: string;
+  bold?: boolean;
+  italic?: boolean;
+  link?: string;
 }
 
 export interface PptxParagraph {
@@ -33,13 +37,26 @@ export interface PptxTextBox {
 
 export interface PptxPicture {
   bytes: Uint8Array;
-  ext: 'png' | 'jpeg';
+  ext: 'png' | 'jpeg' | 'gif';
+  /** PDF points. Omitted coordinates fill the slide (scanned-page fallback). */
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface PptxLink {
+  uri: string;
+  bbox: number[];
 }
 
 export interface PptxSlide {
   widthPt: number;
   heightPt: number;
   textBoxes: PptxTextBox[];
+  /** Positioned images drawn behind the text. */
+  pictures?: PptxPicture[];
+  /** Full-page picture used only when the page has no text and no images. */
   picture?: PptxPicture;
 }
 
@@ -58,6 +75,14 @@ export interface PyMuPdfSlidePage {
     toBlob(format: string, quality?: number): Blob;
   };
   toImage?(options?: { dpi?: number }): Promise<Uint8Array> | Uint8Array;
+  /**
+   * CDN page objects expose these. `getText("dict")` cannot be serialized
+   * once a page contains image bytes, so the rich path reads text and
+   * images through Python instead.
+   */
+  runPython?(code: string): unknown;
+  docVar?: string;
+  pageNumber?: number;
 }
 
 export async function pdfToPptx(file: Blob): Promise<Blob> {
@@ -80,6 +105,26 @@ export async function pdfToPptx(file: Blob): Promise<Blob> {
 export async function slideFromPyMuPdfPage(
   page: PyMuPdfSlidePage
 ): Promise<PptxSlide | null> {
+  const rich = readRichPage(page);
+  if (rich) {
+    const size = pageSize(page, rich);
+    const textBoxes = textBoxesFromPageText(
+      { width: rich.width, height: rich.height, blocks: rich.blocks },
+      size.width,
+      size.height,
+      rich.links
+    );
+    const pictures = picturesFromRich(rich);
+    if (textBoxes.length > 0 || pictures.length > 0) {
+      return {
+        widthPt: size.width,
+        heightPt: size.height,
+        textBoxes,
+        pictures,
+      };
+    }
+  }
+
   const textValue = readPageText(page);
   const size = pageSize(page, textValue);
   let textBoxes = textBoxesFromPageText(textValue, size.width, size.height);
@@ -107,17 +152,18 @@ export async function slideFromPyMuPdfPage(
 }
 
 /**
- * Locked layout from the PyMuPDF wrapper:
- * dict blocks with bounding boxes become one text box each;
- * a plain string becomes one text frame.
+ * Dict blocks become one text box per visual run when spans carry their own
+ * boxes. A block without span boxes stays one text box. A plain string
+ * becomes one text frame.
  */
 export function textBoxesFromPageText(
   value: unknown,
   pageWidthPt: number,
-  pageHeightPt: number
+  pageHeightPt: number,
+  links: PptxLink[] = []
 ): PptxTextBox[] {
   const parsed = parseTextValue(value);
-  const dictBoxes = boxesFromDict(parsed, pageWidthPt, pageHeightPt);
+  const dictBoxes = boxesFromDict(parsed, pageWidthPt, pageHeightPt, links);
   if (dictBoxes) return dictBoxes;
 
   const blockBoxes = boxesFromBlockTuples(parsed, pageWidthPt, pageHeightPt);
@@ -137,10 +183,10 @@ export async function buildPptx(slides: PptxSlide[]): Promise<Blob> {
 
   const slideWidth = Math.max(...slides.map((slide) => slide.widthPt));
   const slideHeight = Math.max(...slides.map((slide) => slide.heightPt));
-  const pictures = collectPictures(slides);
+  const assets = collectSlideAssets(slides);
   const zip = new JSZip();
 
-  zip.file('[Content_Types].xml', contentTypesXml(slides.length, pictures));
+  zip.file('[Content_Types].xml', contentTypesXml(slides.length, assets));
   zip.file('_rels/.rels', rootRelsXml());
   zip.file('docProps/core.xml', corePropsXml());
   zip.file('docProps/app.xml', appPropsXml(slides.length));
@@ -167,25 +213,35 @@ export async function buildPptx(slides: PptxSlide[]): Promise<Blob> {
 
   slides.forEach((slide, index) => {
     const slideNumber = index + 1;
-    const picture = pictures.get(index);
+    const slideAssets = assets[index];
     zip.file(
       `ppt/slides/slide${slideNumber}.xml`,
-      slideXml(slide, picture?.id)
+      slideXml(slide, slideAssets)
     );
     zip.file(
       `ppt/slides/_rels/slide${slideNumber}.xml.rels`,
-      slideRelsXml(picture)
+      slideRelsXml(slideAssets)
     );
   });
 
-  for (const picture of pictures.values()) {
-    zip.file(`ppt/media/${picture.name}`, picture.bytes, { binary: true });
+  for (const slideAssets of assets) {
+    for (const picture of slideAssets.pictures) {
+      zip.file(`ppt/media/${picture.name}`, picture.bytes, { binary: true });
+    }
   }
 
   return zip.generateAsync({
     type: 'blob',
     mimeType: PPTX_MIME,
   });
+}
+
+interface RichPage {
+  width?: number;
+  height?: number;
+  blocks: unknown[];
+  images: unknown[];
+  links: PptxLink[];
 }
 
 function readPageText(page: PyMuPdfSlidePage): unknown {
@@ -202,6 +258,212 @@ function readPageText(page: PyMuPdfSlidePage): unknown {
       }
     }
   }
+}
+
+/**
+ * `getText("dict")` JSON-dumps image bytes and throws. This script keeps the
+ * span geometry and returns image bytes as base64 instead.
+ */
+function readRichPage(page: PyMuPdfSlidePage): RichPage | null {
+  if (
+    typeof page.runPython !== 'function' ||
+    typeof page.docVar !== 'string' ||
+    !/^[A-Za-z_][A-Za-z0-9_]*$/.test(page.docVar) ||
+    typeof page.pageNumber !== 'number' ||
+    !Number.isInteger(page.pageNumber) ||
+    page.pageNumber < 0
+  ) {
+    return null;
+  }
+
+  try {
+    const result = page.runPython(richPagePython(page.docVar, page.pageNumber));
+    return parseRichPage(result);
+  } catch {
+    return null;
+  }
+}
+
+function richPagePython(docVar: string, pageNumber: number): string {
+  return `
+import json, base64
+page = ${docVar}[${pageNumber}]
+
+def _num(value, fallback=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return float(fallback)
+
+def _bbox(value):
+    if not value or len(value) < 4:
+        return [0.0, 0.0, 0.0, 0.0]
+    return [_num(value[0]), _num(value[1]), _num(value[2]), _num(value[3])]
+
+raw = page.get_text("dict")
+blocks = []
+for block in raw.get("blocks", []):
+    if block.get("type", 0) != 0:
+        continue
+    lines = []
+    for line in block.get("lines", []):
+        spans = []
+        for span in line.get("spans", []):
+            text = span.get("text") or ""
+            if not text:
+                continue
+            origin = span.get("origin") or [0, 0]
+            spans.append({
+                "text": text,
+                "bbox": _bbox(span.get("bbox")),
+                "size": _num(span.get("size"), 12),
+                "font": span.get("font") or "",
+                "color": int(_num(span.get("color"), 0)),
+                "flags": int(_num(span.get("flags"), 0)),
+                "origin": [_num(origin[0]), _num(origin[1])],
+            })
+        if spans:
+            lines.append({"bbox": _bbox(line.get("bbox")), "spans": spans})
+    if lines:
+        blocks.append({"type": 0, "bbox": _bbox(block.get("bbox")), "lines": lines})
+
+images = []
+seen = set()
+
+def _add_image(bbox, ext, data):
+    if not data:
+        return
+    x0, y0, x1, y1 = bbox
+    if (x1 - x0) < 2 or (y1 - y0) < 2:
+        return
+    key = (round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1))
+    if key in seen:
+        return
+    seen.add(key)
+    images.append({
+        "bbox": [x0, y0, x1, y1],
+        "ext": ext or "png",
+        "data": data,
+    })
+
+try:
+    infos = page.get_image_info(xrefs=True)
+except Exception:
+    infos = []
+for info in infos:
+    bbox = _bbox(info.get("bbox"))
+    xref = int(_num(info.get("xref"), 0))
+    data = ""
+    ext = "png"
+    if xref:
+        try:
+            img = page.parent.extract_image(xref)
+            if img and img.get("image"):
+                data = base64.b64encode(img["image"]).decode("ascii")
+                ext = img.get("ext") or "png"
+        except Exception:
+            data = ""
+    _add_image(bbox, ext, data)
+
+if not images:
+    for block in raw.get("blocks", []):
+        if block.get("type") != 1:
+            continue
+        raw_img = block.get("image")
+        if not isinstance(raw_img, (bytes, bytearray)) or not raw_img:
+            continue
+        _add_image(
+            _bbox(block.get("bbox")),
+            block.get("ext") or "png",
+            base64.b64encode(bytes(raw_img)).decode("ascii"),
+        )
+
+links = []
+try:
+    for link in page.get_links():
+        uri = link.get("uri")
+        rect = link.get("from")
+        if not uri or rect is None:
+            continue
+        links.append({
+            "uri": uri,
+            "bbox": [float(rect.x0), float(rect.y0), float(rect.x1), float(rect.y1)],
+        })
+except Exception:
+    links = []
+
+json.dumps({
+    "width": float(page.rect.width),
+    "height": float(page.rect.height),
+    "blocks": blocks,
+    "images": images,
+    "links": links,
+})
+`;
+}
+
+function parseRichPage(result: unknown): RichPage | null {
+  let value = result;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as {
+    width?: unknown;
+    height?: unknown;
+    blocks?: unknown;
+    images?: unknown;
+    links?: unknown;
+  };
+  if (!Array.isArray(record.blocks) && !Array.isArray(record.images)) {
+    return null;
+  }
+  const links: PptxLink[] = [];
+  if (Array.isArray(record.links)) {
+    for (const link of record.links) {
+      if (!link || typeof link !== 'object') continue;
+      const uri = (link as { uri?: unknown }).uri;
+      const bbox = numberTuple((link as { bbox?: unknown }).bbox, 4);
+      if (typeof uri !== 'string' || !uri || !bbox) continue;
+      links.push({ uri, bbox });
+    }
+  }
+  return {
+    width: asNumber(record.width),
+    height: asNumber(record.height),
+    blocks: Array.isArray(record.blocks) ? record.blocks : [],
+    images: Array.isArray(record.images) ? record.images : [],
+    links,
+  };
+}
+
+function picturesFromRich(rich: RichPage): PptxPicture[] {
+  const pictures: PptxPicture[] = [];
+  for (const image of rich.images) {
+    if (!image || typeof image !== 'object') continue;
+    const record = image as { bbox?: unknown; ext?: unknown; data?: unknown };
+    const bbox = numberTuple(record.bbox, 4);
+    const ext = normalizeExt(typeof record.ext === 'string' ? record.ext : '');
+    if (!bbox || !ext || typeof record.data !== 'string' || !record.data) {
+      continue;
+    }
+    const width = bbox[2] - bbox[0];
+    const height = bbox[3] - bbox[1];
+    if (width < 2 || height < 2) continue;
+    const bytes = decodeBase64(record.data);
+    if (!bytes || bytes.length === 0) continue;
+    pictures.push({ bytes, ext, x: bbox[0], y: bbox[1], width, height });
+  }
+  pictures.sort(
+    (left, right) =>
+      (right.width ?? 0) * (right.height ?? 0) -
+      (left.width ?? 0) * (left.height ?? 0)
+  );
+  return pictures;
 }
 
 function textBoxesFromCall(
@@ -234,7 +496,8 @@ function parseTextValue(value: unknown): unknown {
 function boxesFromDict(
   value: unknown,
   pageWidthPt: number,
-  pageHeightPt: number
+  pageHeightPt: number,
+  links: PptxLink[]
 ): PptxTextBox[] | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const blocks = (value as { blocks?: unknown }).blocks;
@@ -249,6 +512,12 @@ function boxesFromDict(
       lines?: unknown;
     };
     if (record.type === 1) continue;
+    if (blockHasSpanBoxes(record.lines)) {
+      boxes.push(
+        ...boxesFromSpanLines(record.lines, pageWidthPt, pageHeightPt, links)
+      );
+      continue;
+    }
     const bbox = numberTuple(record.bbox, 4);
     if (!bbox) continue;
     const paragraphs = paragraphsFromLines(record.lines);
@@ -265,6 +534,154 @@ function boxesFromDict(
     boxes.push({ ...placed, paragraphs });
   }
   return boxes;
+}
+
+interface LayoutSpan {
+  text: string;
+  bbox: number[];
+  size: number;
+  color?: string;
+  font?: string;
+  bold: boolean;
+  italic: boolean;
+}
+
+function blockHasSpanBoxes(lines: unknown): boolean {
+  if (!Array.isArray(lines)) return false;
+  return lines.some((line) => spansFromLine(line).length > 0);
+}
+
+function boxesFromSpanLines(
+  lines: unknown,
+  pageWidthPt: number,
+  pageHeightPt: number,
+  links: PptxLink[]
+): PptxTextBox[] {
+  if (!Array.isArray(lines)) return [];
+  const boxes: PptxTextBox[] = [];
+  for (const line of lines) {
+    const spans = spansFromLine(line).sort(
+      (left, right) => left.bbox[0] - right.bbox[0]
+    );
+    let group: LayoutSpan[] = [];
+    const flush = () => {
+      const box = boxFromSpans(group, pageWidthPt, pageHeightPt, links);
+      if (box) boxes.push(box);
+      group = [];
+    };
+    for (const span of spans) {
+      if (group.length === 0) {
+        group.push(span);
+        continue;
+      }
+      const previous = group[group.length - 1];
+      const gap = span.bbox[0] - previous.bbox[2];
+      const em = Math.max(span.size, previous.size, 1);
+      if (gap <= em * 0.8) group.push(span);
+      else {
+        flush();
+        group.push(span);
+      }
+    }
+    flush();
+  }
+  return boxes;
+}
+
+function spansFromLine(line: unknown): LayoutSpan[] {
+  if (!line || typeof line !== 'object') return [];
+  const spans = (line as { spans?: unknown }).spans;
+  if (!Array.isArray(spans)) return [];
+  const result: LayoutSpan[] = [];
+  for (const span of spans) {
+    if (!span || typeof span !== 'object') continue;
+    const record = span as {
+      text?: unknown;
+      bbox?: unknown;
+      size?: unknown;
+      color?: unknown;
+      font?: unknown;
+      flags?: unknown;
+    };
+    if (typeof record.text !== 'string' || record.text.length === 0) continue;
+    const bbox = numberTuple(record.bbox, 4);
+    if (!bbox) continue;
+    const font = typeof record.font === 'string' ? record.font : undefined;
+    const flags = asNumber(record.flags) ?? 0;
+    result.push({
+      text: record.text,
+      bbox,
+      size: clampFont(asNumber(record.size) ?? 12),
+      color: colorToHex(record.color),
+      font: font ? pdfFontFamily(font) : undefined,
+      bold: isBold(font, flags),
+      italic: isItalic(font, flags),
+    });
+  }
+  return result;
+}
+
+function boxFromSpans(
+  spans: LayoutSpan[],
+  pageWidthPt: number,
+  pageHeightPt: number,
+  links: PptxLink[]
+): PptxTextBox | null {
+  if (spans.length === 0 || spans.every((span) => span.text.trim() === '')) {
+    return null;
+  }
+  const x0 = Math.min(...spans.map((span) => span.bbox[0]));
+  const y0 = Math.min(...spans.map((span) => span.bbox[1]));
+  const x1 = Math.max(...spans.map((span) => span.bbox[2]));
+  const y1 = Math.max(...spans.map((span) => span.bbox[3]));
+  const fontSize = Math.max(...spans.map((span) => span.size));
+  const placed = placeBox(
+    x0,
+    y0,
+    Math.max(x1 - x0 + 4, fontSize),
+    Math.max(y1 - y0 + 2, fontSize * 1.3),
+    pageWidthPt,
+    pageHeightPt
+  );
+  if (!placed) return null;
+  return { ...placed, paragraphs: [{ runs: runsFromSpans(spans, links) }] };
+}
+
+function runsFromSpans(spans: LayoutSpan[], links: PptxLink[]): PptxRun[] {
+  const runs: PptxRun[] = [];
+  spans.forEach((span, index) => {
+    let text = span.text;
+    if (index > 0) {
+      const previous = spans[index - 1];
+      const gap = span.bbox[0] - previous.bbox[2];
+      const em = Math.max(span.size, previous.size, 1);
+      const needsSpace =
+        gap > em * 0.15 && !/\s$/.test(previous.text) && !/^\s/.test(span.text);
+      if (needsSpace) text = ` ${text}`;
+    }
+    if (text.length === 0) return;
+    const run: PptxRun = { text, fontSizePt: span.size };
+    if (span.color) run.color = span.color;
+    if (span.font) run.font = span.font;
+    if (span.bold) run.bold = true;
+    if (span.italic) run.italic = true;
+    const link = linkForSpan(span.bbox, links);
+    if (link) run.link = link;
+    runs.push(run);
+  });
+  return runs;
+}
+
+function linkForSpan(bbox: number[], links: PptxLink[]): string | undefined {
+  const centerX = (bbox[0] + bbox[2]) / 2;
+  const centerY = (bbox[1] + bbox[3]) / 2;
+  return links.find(
+    (link) =>
+      centerX >= link.bbox[0] &&
+      centerX <= link.bbox[2] &&
+      centerY >= link.bbox[1] &&
+      centerY <= link.bbox[3]
+  )?.uri;
 }
 
 function boxesFromBlockTuples(
@@ -292,7 +709,10 @@ function boxesFromBlockTuples(
     ) {
       continue;
     }
-    const paragraphs = paragraphsFromPlain(text, Math.max(8, (y1 - y0) * 0.7));
+    const paragraphs = paragraphsFromPlain(
+      text,
+      Math.min(18, Math.max(8, (y1 - y0) * 0.6))
+    );
     if (paragraphs.length === 0) continue;
     const placed = placeBox(
       x0,
@@ -341,13 +761,21 @@ function paragraphsFromLines(lines: unknown): PptxParagraph[] {
         text?: unknown;
         size?: unknown;
         color?: unknown;
+        font?: unknown;
+        flags?: unknown;
       };
       if (typeof record.text !== 'string' || record.text.length === 0) continue;
-      runs.push({
+      const font = typeof record.font === 'string' ? record.font : undefined;
+      const flags = asNumber(record.flags) ?? 0;
+      const run: PptxRun = {
         text: record.text,
         fontSizePt: clampFont(asNumber(record.size) ?? 12),
         color: colorToHex(record.color),
-      });
+      };
+      if (font) run.font = pdfFontFamily(font);
+      if (isBold(font, flags)) run.bold = true;
+      if (isItalic(font, flags)) run.italic = true;
+      runs.push(run);
     }
     if (runs.length > 0) paragraphs.push({ runs });
   }
@@ -437,30 +865,78 @@ interface StoredPicture {
   id: string;
   name: string;
   bytes: Uint8Array;
-  ext: 'png' | 'jpeg';
+  ext: 'png' | 'jpeg' | 'gif';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-function collectPictures(slides: PptxSlide[]): Map<number, StoredPicture> {
-  const pictures = new Map<number, StoredPicture>();
-  let count = 0;
-  slides.forEach((slide, index) => {
-    if (!slide.picture || slide.picture.bytes.length === 0) return;
-    count += 1;
-    const extension = slide.picture.ext === 'jpeg' ? 'jpeg' : 'png';
-    pictures.set(index, {
-      id: 'rId2',
-      name: `image${count}.${extension}`,
-      bytes: slide.picture.bytes,
-      ext: extension,
+interface StoredLink {
+  id: string;
+  uri: string;
+}
+
+interface SlideAssets {
+  pictures: StoredPicture[];
+  links: StoredLink[];
+}
+
+function slidePictureList(slide: PptxSlide): PptxPicture[] {
+  const positioned = (slide.pictures ?? []).filter(
+    (picture) => picture.bytes.length > 0
+  );
+  if (positioned.length > 0) return positioned;
+  if (slide.picture && slide.picture.bytes.length > 0) return [slide.picture];
+  return [];
+}
+
+function collectSlideAssets(slides: PptxSlide[]): SlideAssets[] {
+  let imageCount = 0;
+  return slides.map((slide) => {
+    const pictures = slidePictureList(slide).map((picture) => {
+      imageCount += 1;
+      const ext = normalizeExt(picture.ext) ?? 'png';
+      return {
+        id: '',
+        name: `image${imageCount}.${ext}`,
+        bytes: picture.bytes,
+        ext,
+        x: picture.x ?? 0,
+        y: picture.y ?? 0,
+        width:
+          picture.width !== undefined && picture.width > 0
+            ? picture.width
+            : slide.widthPt,
+        height:
+          picture.height !== undefined && picture.height > 0
+            ? picture.height
+            : slide.heightPt,
+      };
     });
+    const uris: string[] = [];
+    for (const box of slide.textBoxes) {
+      for (const paragraph of box.paragraphs) {
+        for (const run of paragraph.runs) {
+          if (run.link && !uris.includes(run.link)) uris.push(run.link);
+        }
+      }
+    }
+    let relationship = 2;
+    for (const picture of pictures) {
+      picture.id = `rId${relationship}`;
+      relationship += 1;
+    }
+    const links = uris.map((uri) => {
+      const link = { id: `rId${relationship}`, uri };
+      relationship += 1;
+      return link;
+    });
+    return { pictures, links };
   });
-  return pictures;
 }
 
-function contentTypesXml(
-  slideCount: number,
-  pictures: Map<number, StoredPicture>
-): string {
+function contentTypesXml(slideCount: number, assets: SlideAssets[]): string {
   const slideOverrides = Array.from({ length: slideCount }, (_, index) =>
     override(
       `/ppt/slides/slide${index + 1}.xml`,
@@ -468,12 +944,14 @@ function contentTypesXml(
     )
   ).join('');
   const extensions = new Set<string>(['png', 'jpeg']);
-  for (const picture of pictures.values()) extensions.add(picture.ext);
+  for (const asset of assets) {
+    for (const picture of asset.pictures) extensions.add(picture.ext);
+  }
   const defaults = [...extensions]
     .sort()
     .map(
       (extension) =>
-        `<Default Extension="${extension}" ContentType="${extension === 'jpeg' ? 'image/jpeg' : 'image/png'}"/>`
+        `<Default Extension="${extension}" ContentType="${imageContentType(extension)}"/>`
     )
     .join('');
 
@@ -491,6 +969,12 @@ function contentTypesXml(
   ${override('/docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml')}
   ${override('/docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml')}
 </Types>`;
+}
+
+function imageContentType(extension: string): string {
+  if (extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'gif') return 'image/gif';
+  return 'image/png';
 }
 
 function override(partName: string, contentType: string): string {
@@ -617,21 +1101,18 @@ function slideLayoutRelsXml(): string {
 </Relationships>`;
 }
 
-function slideXml(slide: PptxSlide, pictureId?: string): string {
+function slideXml(slide: PptxSlide, assets: SlideAssets): string {
   const shapes: string[] = [];
-  if (slide.picture && pictureId) {
-    shapes.push(
-      pictureXml(
-        pictureId,
-        slide.textBoxes.length + 2,
-        slide.widthPt,
-        slide.heightPt
-      )
-    );
+  const linkIds = new Map(assets.links.map((link) => [link.uri, link.id]));
+  let nextId = 2;
+  for (const picture of assets.pictures) {
+    shapes.push(pictureXml(picture, nextId));
+    nextId += 1;
   }
-  slide.textBoxes.forEach((box, index) => {
-    shapes.push(textBoxXml(box, index + 2));
-  });
+  for (const box of slide.textBoxes) {
+    shapes.push(textBoxXml(box, nextId, linkIds));
+    nextId += 1;
+  }
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
   <p:cSld>
@@ -645,51 +1126,64 @@ function slideXml(slide: PptxSlide, pictureId?: string): string {
 </p:sld>`;
 }
 
-function slideRelsXml(picture?: StoredPicture): string {
-  const imageRel = picture
-    ? relationship(
+function slideRelsXml(assets: SlideAssets): string {
+  const imageRels = assets.pictures
+    .map((picture) =>
+      relationship(
         picture.id,
         'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
         `../media/${picture.name}`
       )
-    : '';
+    )
+    .join('');
+  const linkRels = assets.links
+    .map(
+      (link) =>
+        `<Relationship Id="${link.id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(link.uri)}" TargetMode="External"/>`
+    )
+    .join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   ${relationship('rId1', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout', '../slideLayouts/slideLayout1.xml')}
-  ${imageRel}
+  ${imageRels}
+  ${linkRels}
 </Relationships>`;
 }
 
-function pictureXml(
-  relationshipId: string,
-  shapeId: number,
-  widthPt: number,
-  heightPt: number
-): string {
+function pictureXml(picture: StoredPicture, shapeId: number): string {
   return `<p:pic>
     <p:nvPicPr>
-      <p:cNvPr id="${shapeId}" name="Page"/>
+      <p:cNvPr id="${shapeId}" name="Image ${shapeId}"/>
       <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>
       <p:nvPr/>
     </p:nvPicPr>
     <p:blipFill>
-      <a:blip r:embed="${relationshipId}"/>
+      <a:blip r:embed="${picture.id}" cstate="print"/>
       <a:stretch><a:fillRect/></a:stretch>
     </p:blipFill>
     <p:spPr>
-      <a:xfrm><a:off x="0" y="0"/><a:ext cx="${emu(widthPt)}" cy="${emu(heightPt)}"/></a:xfrm>
+      <a:xfrm><a:off x="${emu(picture.x)}" y="${emu(picture.y)}"/><a:ext cx="${emu(picture.width)}" cy="${emu(picture.height)}"/></a:xfrm>
       <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
     </p:spPr>
   </p:pic>`;
 }
 
-function textBoxXml(box: PptxTextBox, id: number): string {
+function textBoxXml(
+  box: PptxTextBox,
+  id: number,
+  linkIds: Map<string, string>
+): string {
   const paragraphs = box.paragraphs
     .map((paragraph) => {
       const runs = paragraph.runs
         .map((run) => {
           const color = run.color ?? '000000';
-          return `<a:r><a:rPr lang="en-US" sz="${Math.round(clampFont(run.fontSizePt) * 100)}" dirty="0"><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="Calibri"/></a:rPr><a:t xml:space="preserve">${escapeXml(run.text)}</a:t></a:r>`;
+          const font = escapeXml(run.font || 'Calibri');
+          const bold = run.bold ? ' b="1"' : '';
+          const italic = run.italic ? ' i="1"' : '';
+          const linkId = run.link ? linkIds.get(run.link) : undefined;
+          const link = linkId ? `<a:hlinkClick r:id="${linkId}"/>` : '';
+          return `<a:r><a:rPr lang="en-US" sz="${Math.round(clampFont(run.fontSizePt) * 100)}" dirty="0"${bold}${italic}><a:solidFill><a:srgbClr val="${color}"/></a:solidFill><a:latin typeface="${font}"/><a:cs typeface="${font}"/>${link}</a:rPr><a:t xml:space="preserve">${escapeXml(run.text)}</a:t></a:r>`;
         })
         .join('');
       return `<a:p>${runs}</a:p>`;
@@ -707,7 +1201,7 @@ function textBoxXml(box: PptxTextBox, id: number): string {
       <a:noFill/>
     </p:spPr>
     <p:txBody>
-      <a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="t"/>
+      <a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="t"><a:spAutoFit/></a:bodyPr>
       <a:lstStyle/>
       ${paragraphs}
     </p:txBody>
@@ -768,12 +1262,11 @@ function placeBox(
   ) {
     return null;
   }
-  const left = Math.max(0, x);
-  const top = Math.max(0, y);
-  const boxWidth = Math.min(width, pageWidthPt - left);
-  const boxHeight = Math.min(height, pageHeightPt - top);
-  if (boxWidth < 1 || boxHeight < 1) return null;
-  return { x: left, y: top, width: boxWidth, height: boxHeight };
+  if (width < 1 || height < 1) return null;
+  // Header runs in printed mail sit a few points above the page.
+  if (x >= pageWidthPt || y >= pageHeightPt) return null;
+  if (x + width <= -72 || y + height <= -72) return null;
+  return { x, y, width, height };
 }
 
 function emu(points: number): number {
@@ -808,6 +1301,61 @@ function finitePositive(value: number | undefined): number | undefined {
   return value !== undefined && Number.isFinite(value) && value > 0
     ? value
     : undefined;
+}
+
+function normalizeExt(ext: string): 'png' | 'jpeg' | 'gif' | null {
+  const normalized = ext.toLowerCase().replace(/^\./, '');
+  if (normalized === 'jpg' || normalized === 'jpeg') return 'jpeg';
+  if (normalized === 'png') return 'png';
+  if (normalized === 'gif') return 'gif';
+  return null;
+}
+
+function decodeBase64(data: string): Uint8Array | null {
+  try {
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function pdfFontFamily(raw: string): string {
+  const stripped = raw.replace(/^[A-Z]{6}\+/, '');
+  const withoutStyle = stripped
+    .replace(
+      /[-,]?(BoldItalic|Bold|Italic|Oblique|Regular|Roman|PSMT|BoldMT|ItalicMT|MT)$/i,
+      ''
+    )
+    .replace(/[-,]/g, ' ');
+  const spaced = withoutStyle
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const compact = spaced.replace(/\s+/g, '').toLowerCase();
+  if (compact.includes('times')) return 'Times New Roman';
+  if (compact.includes('helvetica') || compact.includes('arial'))
+    return 'Arial';
+  if (compact.includes('courier')) return 'Courier New';
+  if (compact.includes('calibri')) return 'Calibri';
+  if (compact.includes('verdana')) return 'Verdana';
+  if (compact.includes('georgia')) return 'Georgia';
+  if (compact.includes('trebuchet')) return 'Trebuchet MS';
+  if (compact.includes('cambria')) return 'Cambria';
+  return spaced || 'Calibri';
+}
+
+function isBold(font: string | undefined, flags: number): boolean {
+  return (flags & 16) !== 0 || /bold/i.test(font ?? '');
+}
+
+function isItalic(font: string | undefined, flags: number): boolean {
+  return (flags & 2) !== 0 || /italic|oblique/i.test(font ?? '');
 }
 
 function escapeXml(value: string): string {

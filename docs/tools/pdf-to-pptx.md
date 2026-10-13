@@ -15,7 +15,7 @@ Converts PDF files to editable PowerPoint (`.pptx`) presentations. Each PDF page
 
 ## Options
 
-This tool has no configurable options. Each PDF page becomes one slide. Text blocks keep their position when PyMuPDF can read them. A page with no text layer is placed on the slide as a picture.
+This tool has no configurable options. Each PDF page becomes one slide. Text is placed at its PDF position using the PDF font size. Images are embedded at their PDF positions, behind the text. A page with no text and no images is placed on the slide as a picture.
 
 ## Output Format
 
@@ -30,7 +30,8 @@ This tool has no configurable options. Each PDF page becomes one slide. Text blo
 
 ## Tips
 
-- Complex layouts, multi-column text, and heavy graphics may not land in the same places as the PDF. Review the slides and adjust them in your presentation app.
+- Pages that mix text and pictures keep both. Pictures sit where they were in the PDF, with the text on top.
+- Complex layouts and multi-column text can still need a nudge. Review the slides and adjust them in your presentation app.
 - Scanned PDFs have no text layer, so each page becomes a picture on a slide. Run OCR first if you need editable text.
 - The whole presentation uses one slide size, taken from the largest page. Mixed page sizes stay in the top-left of that slide.
 
