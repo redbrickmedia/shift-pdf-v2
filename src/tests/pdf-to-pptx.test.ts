@@ -391,6 +391,135 @@ describe('slideFromPyMuPdfPage', () => {
     expect(rels).toContain('../media/image1.jpeg');
   });
 
+  it('rasterizes a mixed page when image encodings cannot be embedded', async () => {
+    const payload = {
+      width: 200,
+      height: 100,
+      blocks: [
+        {
+          type: 0,
+          bbox: [10, 20, 120, 40],
+          lines: [
+            {
+              spans: [
+                {
+                  text: 'Caption',
+                  bbox: [10, 22, 80, 36],
+                  size: 12,
+                  font: 'Helvetica',
+                  color: 0,
+                  flags: 0,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      images: [
+        {
+          bbox: [10, 40, 90, 90],
+          ext: 'jp2',
+          data: toBase64(Uint8Array.from([0, 0, 0, 12])),
+        },
+      ],
+      unplacedImages: true,
+      links: [] as { uri: string; bbox: number[] }[],
+    };
+    const toImage = vi.fn(async () => PNG);
+    let script = '';
+    const page: PyMuPdfSlidePage = {
+      width: 200,
+      height: 100,
+      docVar: 'doc_1',
+      pageNumber: 0,
+      runPython: (code) => {
+        script = code;
+        return JSON.stringify(payload);
+      },
+      getText() {
+        throw new Error('dict serialization should not be required');
+      },
+      toImage,
+    };
+
+    const slide = await slideFromPyMuPdfPage(page);
+
+    expect(toImage).toHaveBeenCalledOnce();
+    expect(slide?.textBoxes[0].paragraphs[0].runs[0].text).toBe('Caption');
+    expect(slide?.pictures).toEqual([]);
+    expect(slide?.picture?.bytes).toEqual(PNG);
+    expect(script).toContain('smask');
+    expect(script).toContain('tobytes("png")');
+    expect(script).toContain('unplacedImages');
+    expect(script).not.toContain('if not images:');
+  });
+
+  it('rotates and flips pictures instead of stretching them into the bbox', async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+    // 100x40 image, 90 degrees clockwise around (150, 200).
+    // Unit-square map: (0,0) -> (170, 150), (1,0) -> (170, 250), (0,1) -> (130, 150).
+    const rotated = {
+      bbox: [130, 150, 170, 250],
+      ext: 'jpeg',
+      data: toBase64(jpeg),
+      transform: [0, 100, -40, 0, 170, 150],
+    };
+    // Horizontal mirror of an 80x30 image at (10, 20).
+    const flipped = {
+      bbox: [10, 20, 90, 50],
+      ext: 'png',
+      data: toBase64(PNG),
+      transform: [-80, 0, 0, 30, 90, 20],
+    };
+    const payload = {
+      width: 400,
+      height: 400,
+      blocks: [] as unknown[],
+      images: [rotated, flipped],
+      links: [] as { uri: string; bbox: number[] }[],
+    };
+    const page: PyMuPdfSlidePage = {
+      width: 400,
+      height: 400,
+      docVar: 'doc_1',
+      pageNumber: 0,
+      runPython: () => JSON.stringify(payload),
+      getText() {
+        throw new Error('unused');
+      },
+    };
+
+    const slide = await slideFromPyMuPdfPage(page);
+    const pictures = slide?.pictures ?? [];
+    const rotatedPicture = pictures.find((picture) => picture.ext === 'jpeg');
+    const flippedPicture = pictures.find((picture) => picture.ext === 'png');
+
+    expect(rotatedPicture).toMatchObject({
+      x: 100,
+      y: 180,
+      width: 100,
+      height: 40,
+      rotationDeg: 90,
+    });
+    expect(rotatedPicture?.flipH).toBeUndefined();
+    expect(flippedPicture).toMatchObject({
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 30,
+      flipH: true,
+    });
+    expect(flippedPicture?.rotationDeg).toBeUndefined();
+
+    const blob = await buildPptx([slide!]);
+    const xml = await slideXml(blob, 'ppt/slides/slide1.xml');
+    expect(xml).toContain('rot="5400000"');
+    expect(xml).toContain('flipH="1"');
+    expect(xml).toContain(`cx="${100 * 12700}"`);
+    expect(xml).toContain(`cy="${40 * 12700}"`);
+    expect(xml).not.toContain(`cx="${40 * 12700}"`);
+  });
+
   it('returns null when a page has no text and no picture', async () => {
     const page: PyMuPdfSlidePage = {
       getText: () => '',

@@ -43,6 +43,10 @@ export interface PptxPicture {
   y?: number;
   width?: number;
   height?: number;
+  /** Clockwise degrees around the picture center. Omitted when the image is upright. */
+  rotationDeg?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 export interface PptxLink {
@@ -116,11 +120,22 @@ export async function slideFromPyMuPdfPage(
     );
     const pictures = picturesFromRich(rich);
     if (textBoxes.length > 0 || pictures.length > 0) {
+      // A non-empty extract list used to hide every picture we cannot embed
+      // (JPEG 2000, TIFF, CCITT) and skip the scanned-page fallback.
+      let picture: PptxPicture | undefined;
+      if (
+        pictures.length === 0 &&
+        textBoxes.length > 0 &&
+        (rich.unplacedImages || rich.images.length > 0)
+      ) {
+        picture = await renderPagePicture(page);
+      }
       return {
         widthPt: size.width,
         heightPt: size.height,
         textBoxes,
         pictures,
+        picture,
       };
     }
   }
@@ -242,6 +257,8 @@ interface RichPage {
   blocks: unknown[];
   images: unknown[];
   links: PptxLink[];
+  /** True when a visible image could not be turned into PNG, JPEG, or GIF. */
+  unplacedImages?: boolean;
 }
 
 function readPageText(page: PyMuPdfSlidePage): unknown {
@@ -329,22 +346,90 @@ for block in raw.get("blocks", []):
 
 images = []
 seen = set()
+missed = set()
 
-def _add_image(bbox, ext, data):
-    if not data:
-        return
+def _transform(value):
+    if value is None:
+        return None
+    try:
+        seq = [value[i] for i in range(6)]
+    except Exception:
+        try:
+            seq = [value.a, value.b, value.c, value.d, value.e, value.f]
+        except Exception:
+            return None
+    return [_num(item) for item in seq]
+
+def _key(bbox):
     x0, y0, x1, y1 = bbox
-    if (x1 - x0) < 2 or (y1 - y0) < 2:
-        return
-    key = (round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1))
+    return (round(x0, 1), round(y0, 1), round(x1, 1), round(y1, 1))
+
+def _visible(bbox):
+    x0, y0, x1, y1 = bbox
+    return (x1 - x0) >= 2 and (y1 - y0) >= 2
+
+def _supported(ext):
+    token = (ext or "").lower().lstrip(".")
+    return token in ("png", "jpg", "jpeg", "gif")
+
+def _add_image(bbox, ext, data, transform):
+    if not data or not _supported(ext):
+        return False
+    if not _visible(bbox):
+        return True
+    key = _key(bbox)
     if key in seen:
-        return
+        return True
     seen.add(key)
+    missed.discard(key)
+    x0, y0, x1, y1 = bbox
     images.append({
         "bbox": [x0, y0, x1, y1],
         "ext": ext or "png",
         "data": data,
+        "transform": transform,
     })
+    return True
+
+def _fitz():
+    try:
+        import pymupdf as fitz
+        return fitz
+    except Exception:
+        pass
+    try:
+        import fitz
+        return fitz
+    except Exception:
+        return None
+
+def _rgb(fitz, pix):
+    alpha = getattr(pix, "alpha", 0) or 0
+    components = getattr(pix, "n", 0) - alpha
+    if getattr(pix, "colorspace", None) is not None and components > 3:
+        return fitz.Pixmap(fitz.csRGB, pix)
+    return pix
+
+def _to_png(doc, xref, smask):
+    fitz = _fitz()
+    if fitz is None:
+        raise RuntimeError("pixmap unavailable")
+    pix = None
+    try:
+        extracted = doc.extract_image(xref)
+        raw = extracted.get("image") if extracted else None
+        if raw:
+            pix = fitz.Pixmap(raw)
+    except Exception:
+        pix = None
+    if pix is None:
+        pix = fitz.Pixmap(doc, xref)
+    if smask:
+        if getattr(pix, "alpha", 0):
+            pix = fitz.Pixmap(pix, 0)
+        mask = fitz.Pixmap(doc.extract_image(smask)["image"])
+        pix = fitz.Pixmap(pix, mask)
+    return _rgb(fitz, pix).tobytes("png")
 
 try:
     infos = page.get_image_info(xrefs=True)
@@ -353,30 +438,74 @@ except Exception:
 for info in infos:
     bbox = _bbox(info.get("bbox"))
     xref = int(_num(info.get("xref"), 0))
-    data = ""
-    ext = "png"
+    transform = _transform(info.get("transform"))
+    placed = False
     if xref:
         try:
             img = page.parent.extract_image(xref)
-            if img and img.get("image"):
-                data = base64.b64encode(img["image"]).decode("ascii")
-                ext = img.get("ext") or "png"
         except Exception:
-            data = ""
-    _add_image(bbox, ext, data)
+            img = None
+        if img and img.get("image"):
+            smask = int(_num(img.get("smask"), 0))
+            ext = img.get("ext") or ""
+            try:
+                if smask or not _supported(ext):
+                    png = _to_png(page.parent, xref, smask)
+                    placed = _add_image(
+                        bbox,
+                        "png",
+                        base64.b64encode(png).decode("ascii"),
+                        transform,
+                    )
+                else:
+                    placed = _add_image(
+                        bbox,
+                        ext,
+                        base64.b64encode(img["image"]).decode("ascii"),
+                        transform,
+                    )
+            except Exception:
+                placed = False
+    if not placed and _visible(bbox):
+        missed.add(_key(bbox))
 
-if not images:
-    for block in raw.get("blocks", []):
-        if block.get("type") != 1:
-            continue
-        raw_img = block.get("image")
-        if not isinstance(raw_img, (bytes, bytearray)) or not raw_img:
-            continue
-        _add_image(
-            _bbox(block.get("bbox")),
-            block.get("ext") or "png",
-            base64.b64encode(bytes(raw_img)).decode("ascii"),
+for block in raw.get("blocks", []):
+    if block.get("type") != 1:
+        continue
+    bbox = _bbox(block.get("bbox"))
+    key = _key(bbox)
+    if key in seen:
+        continue
+    # Only fill images the xref path failed to embed. A second copy of an
+    # already placed picture would stack on the slide.
+    if infos and key not in missed:
+        continue
+    raw_img = block.get("image")
+    transform = _transform(block.get("transform"))
+    if not isinstance(raw_img, (bytes, bytearray)) or not raw_img:
+        if _visible(bbox):
+            missed.add(key)
+        continue
+    ext = block.get("ext") or "png"
+    data = bytes(raw_img)
+    try:
+        if not _supported(ext):
+            fitz = _fitz()
+            if fitz is None:
+                raise RuntimeError("pixmap unavailable")
+            pix = _rgb(fitz, fitz.Pixmap(data))
+            data = pix.tobytes("png")
+            ext = "png"
+        placed = _add_image(
+            bbox,
+            ext,
+            base64.b64encode(data).decode("ascii"),
+            transform,
         )
+    except Exception:
+        placed = False
+    if not placed and _visible(bbox):
+        missed.add(key)
 
 links = []
 try:
@@ -398,6 +527,7 @@ json.dumps({
     "blocks": blocks,
     "images": images,
     "links": links,
+    "unplacedImages": len(missed) > 0,
 })
 `;
 }
@@ -418,6 +548,7 @@ function parseRichPage(result: unknown): RichPage | null {
     blocks?: unknown;
     images?: unknown;
     links?: unknown;
+    unplacedImages?: unknown;
   };
   if (!Array.isArray(record.blocks) && !Array.isArray(record.images)) {
     return null;
@@ -438,6 +569,7 @@ function parseRichPage(result: unknown): RichPage | null {
     blocks: Array.isArray(record.blocks) ? record.blocks : [],
     images: Array.isArray(record.images) ? record.images : [],
     links,
+    unplacedImages: record.unplacedImages === true,
   };
 }
 
@@ -445,18 +577,32 @@ function picturesFromRich(rich: RichPage): PptxPicture[] {
   const pictures: PptxPicture[] = [];
   for (const image of rich.images) {
     if (!image || typeof image !== 'object') continue;
-    const record = image as { bbox?: unknown; ext?: unknown; data?: unknown };
+    const record = image as {
+      bbox?: unknown;
+      ext?: unknown;
+      data?: unknown;
+      transform?: unknown;
+    };
     const bbox = numberTuple(record.bbox, 4);
     const ext = normalizeExt(typeof record.ext === 'string' ? record.ext : '');
     if (!bbox || !ext || typeof record.data !== 'string' || !record.data) {
       continue;
     }
-    const width = bbox[2] - bbox[0];
-    const height = bbox[3] - bbox[1];
-    if (width < 2 || height < 2) continue;
+    const frame = pictureFrame(bbox, numberTuple(record.transform, 6));
+    if (frame.width < 2 || frame.height < 2) continue;
     const bytes = decodeBase64(record.data);
     if (!bytes || bytes.length === 0) continue;
-    pictures.push({ bytes, ext, x: bbox[0], y: bbox[1], width, height });
+    pictures.push({
+      bytes,
+      ext,
+      x: frame.x,
+      y: frame.y,
+      width: frame.width,
+      height: frame.height,
+      ...(frame.rotationDeg ? { rotationDeg: frame.rotationDeg } : {}),
+      ...(frame.flipH ? { flipH: true } : {}),
+      ...(frame.flipV ? { flipV: true } : {}),
+    });
   }
   pictures.sort(
     (left, right) =>
@@ -464,6 +610,131 @@ function picturesFromRich(rich: RichPage): PptxPicture[] {
       (left.width ?? 0) * (left.height ?? 0)
   );
   return pictures;
+}
+
+interface PictureFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotationDeg: number;
+  flipH: boolean;
+  flipV: boolean;
+}
+
+/**
+ * `transform` maps the unit image square onto the page (y down). PowerPoint
+ * rotates and flips around the center of the unrotated box, so a tilted
+ * picture keeps its edge lengths instead of stretching into the bbox.
+ * Skewed placements stay on the bbox; DrawingML has no picture shear.
+ */
+function pictureFrame(
+  bbox: number[],
+  transform: number[] | null
+): PictureFrame {
+  const upright: PictureFrame = {
+    x: bbox[0],
+    y: bbox[1],
+    width: bbox[2] - bbox[0],
+    height: bbox[3] - bbox[1],
+    rotationDeg: 0,
+    flipH: false,
+    flipV: false,
+  };
+  if (!transform) return upright;
+  const placed = decomposeImageTransform(transform);
+  if (!placed) return upright;
+  const uprightEnough =
+    !placed.flipH &&
+    !placed.flipV &&
+    Math.abs(placed.rotationDeg) < 0.05 &&
+    Math.abs(placed.width - upright.width) < 0.5 &&
+    Math.abs(placed.height - upright.height) < 0.5;
+  return uprightEnough ? upright : placed;
+}
+
+function decomposeImageTransform(transform: number[]): PictureFrame | null {
+  const [a, b, c, d, e, f] = transform;
+  if (![a, b, c, d, e, f].every(Number.isFinite)) return null;
+  const sideW = Math.hypot(a, b);
+  const sideH = Math.hypot(c, d);
+  if (sideW < 1 || sideH < 1) return null;
+
+  const options = [
+    { flipH: false, flipV: false, theta: Math.atan2(b, a) },
+    { flipH: false, flipV: true, theta: Math.atan2(b, a) },
+    { flipH: true, flipV: false, theta: Math.atan2(-b, -a) },
+  ];
+  let best: {
+    flipH: boolean;
+    flipV: boolean;
+    theta: number;
+    error: number;
+  } | null = null;
+  for (const option of options) {
+    const predicted = imageLinearMap(
+      sideW,
+      sideH,
+      option.theta,
+      option.flipH,
+      option.flipV
+    );
+    const error =
+      Math.abs(predicted.a - a) / sideW +
+      Math.abs(predicted.b - b) / sideW +
+      Math.abs(predicted.c - c) / sideH +
+      Math.abs(predicted.d - d) / sideH;
+    const flipCount = (option.flipH ? 1 : 0) + (option.flipV ? 1 : 0);
+    const bestFlip = best ? (best.flipH ? 1 : 0) + (best.flipV ? 1 : 0) : 0;
+    const closer =
+      !best ||
+      error < best.error - 1e-6 ||
+      (Math.abs(error - best.error) <= 1e-6 &&
+        (flipCount < bestFlip ||
+          (flipCount === bestFlip &&
+            Math.abs(option.theta) < Math.abs(best.theta))));
+    if (closer) best = { ...option, error };
+  }
+  // Orthogonal rotation and flips match exactly. Shear does not.
+  if (!best || best.error > 0.08) return null;
+
+  let rotationDeg = (best.theta * 180) / Math.PI;
+  rotationDeg = ((((rotationDeg + 180) % 360) + 360) % 360) - 180;
+  if (Math.abs(rotationDeg) < 0.05) rotationDeg = 0;
+  if (Math.abs(Math.abs(rotationDeg) - 180) < 0.05) {
+    rotationDeg = rotationDeg < 0 ? -180 : 180;
+  }
+
+  const cx = e + (a + c) / 2;
+  const cy = f + (b + d) / 2;
+  return {
+    x: cx - sideW / 2,
+    y: cy - sideH / 2,
+    width: sideW,
+    height: sideH,
+    rotationDeg,
+    flipH: best.flipH,
+    flipV: best.flipV,
+  };
+}
+
+function imageLinearMap(
+  width: number,
+  height: number,
+  theta: number,
+  flipH: boolean,
+  flipV: boolean
+): { a: number; b: number; c: number; d: number } {
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const ux = flipH ? -width : width;
+  const vy = flipV ? -height : height;
+  return {
+    a: ux * cos,
+    b: ux * sin,
+    c: -vy * sin,
+    d: vy * cos,
+  };
 }
 
 function textBoxesFromCall(
@@ -870,6 +1141,9 @@ interface StoredPicture {
   y: number;
   width: number;
   height: number;
+  rotationDeg?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 interface StoredLink {
@@ -912,6 +1186,9 @@ function collectSlideAssets(slides: PptxSlide[]): SlideAssets[] {
           picture.height !== undefined && picture.height > 0
             ? picture.height
             : slide.heightPt,
+        rotationDeg: picture.rotationDeg,
+        flipH: picture.flipH,
+        flipV: picture.flipV,
       };
     });
     const uris: string[] = [];
@@ -1150,6 +1427,17 @@ function slideRelsXml(assets: SlideAssets): string {
 </Relationships>`;
 }
 
+function pictureXfrm(picture: StoredPicture): string {
+  const attrs: string[] = [];
+  if (picture.flipH) attrs.push('flipH="1"');
+  if (picture.flipV) attrs.push('flipV="1"');
+  if (picture.rotationDeg) {
+    attrs.push(`rot="${Math.round(picture.rotationDeg * 60000)}"`);
+  }
+  const suffix = attrs.length > 0 ? ` ${attrs.join(' ')}` : '';
+  return `<a:xfrm${suffix}><a:off x="${emu(picture.x)}" y="${emu(picture.y)}"/><a:ext cx="${emu(picture.width)}" cy="${emu(picture.height)}"/></a:xfrm>`;
+}
+
 function pictureXml(picture: StoredPicture, shapeId: number): string {
   return `<p:pic>
     <p:nvPicPr>
@@ -1162,7 +1450,7 @@ function pictureXml(picture: StoredPicture, shapeId: number): string {
       <a:stretch><a:fillRect/></a:stretch>
     </p:blipFill>
     <p:spPr>
-      <a:xfrm><a:off x="${emu(picture.x)}" y="${emu(picture.y)}"/><a:ext cx="${emu(picture.width)}" cy="${emu(picture.height)}"/></a:xfrm>
+      ${pictureXfrm(picture)}
       <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
     </p:spPr>
   </p:pic>`;
