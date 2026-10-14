@@ -76,7 +76,9 @@ describe('viewer tool output sessions', () => {
 
     const edit = readSrc('src/js/logic/edit-pdf-page.ts');
     expect(edit).toContain('canSave: () => editorHasEdits()');
-    expect(edit).toContain("getRegistryPlugin<HistoryPlugin>(registry, 'history')");
+    expect(edit).toContain(
+      "getRegistryPlugin<HistoryPlugin>(registry, 'history')"
+    );
     expect(edit).not.toContain('canSave: () => isViewerInitialized');
   });
 
@@ -98,6 +100,8 @@ describe('viewer tool output sessions', () => {
     const compare = readSrc('src/js/logic/compare-pdfs-page.ts');
     expect(compare).toContain('registerToolOutputSession');
     expect(compare).toContain('canSave: () => pageState.pagePairs.length > 0');
-    expect(compare).toContain('apply: () => runCompareExport(getCompareExportMode())');
+    expect(compare).toContain(
+      'apply: () => runCompareExport(getCompareExportMode())'
+    );
   });
 });

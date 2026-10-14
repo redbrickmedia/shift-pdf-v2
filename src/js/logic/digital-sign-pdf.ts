@@ -313,9 +313,11 @@ export async function signPdf(
       },
       pageidx: vs.page,
       imgInfo: undefined as
-        { imgData: ArrayBuffer; imgType: string } | undefined,
+        | { imgData: ArrayBuffer; imgType: string }
+        | undefined,
       textInfo: undefined as
-        { text: string; size: number; color: string } | undefined,
+        | { text: string; size: number; color: string }
+        | undefined,
     };
 
     if (vs.imageData && vs.imageType) {

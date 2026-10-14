@@ -3,7 +3,10 @@ import {
   createToolCompletionPanel,
   ToolCompletionStore,
 } from '../js/utils/tool-completion';
-import { clearLatestPdfOutput, getLatestPdfOutput } from '../js/logic/shift-pdf-save';
+import {
+  clearLatestPdfOutput,
+  getLatestPdfOutput,
+} from '../js/logic/shift-pdf-save';
 
 function result(blob: Blob, filename: string) {
   return {

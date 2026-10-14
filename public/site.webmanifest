@@ -1,46 +1,46 @@
 {
-    "name": "Shift PDF",
-    "short_name": "Shift PDF",
-    "description": "Private PDF tools that normally process files in your browser.",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#111827",
-    "theme_color": "#DC2626",
-    "orientation": "portrait-primary",
-    "icons": [
-        {
-            "src": "/images/shift-pdf-logo.svg",
-            "sizes": "any",
-            "type": "image/svg+xml",
-            "purpose": "any"
-        },
-        {
-            "src": "/images/favicon-192x192.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "maskable any"
-        },
-        {
-            "src": "/images/favicon-512x512.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "maskable any"
-        },
-        {
-            "src": "/images/apple-touch-icon.png",
-            "sizes": "180x180",
-            "type": "image/png",
-            "purpose": "any"
-        }
-    ],
-    "categories": [
-        "productivity",
-        "utilities",
-        "privacy",
-        "pdf",
-        "security",
-        "offline",
-        "tools"
-    ],
-    "screenshots": []
+  "name": "Shift PDF",
+  "short_name": "Shift PDF",
+  "description": "Private PDF tools that normally process files in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#DC2626",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/images/shift-pdf-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "productivity",
+    "utilities",
+    "privacy",
+    "pdf",
+    "security",
+    "offline",
+    "tools"
+  ],
+  "screenshots": []
 }

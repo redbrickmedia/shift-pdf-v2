@@ -216,7 +216,9 @@ describe('PDF library store', () => {
             transaction: (): {
               objectStore: () => {
                 getAll: () => ReturnType<typeof settle<typeof stored>>;
-                get: () => ReturnType<typeof settle<(typeof stored)[number] | undefined>>;
+                get: () => ReturnType<
+                  typeof settle<(typeof stored)[number] | undefined>
+                >;
                 put: () => ReturnType<typeof settle<undefined>>;
                 delete: () => ReturnType<typeof settle<undefined>>;
                 clear: () => ReturnType<typeof settle<undefined>>;

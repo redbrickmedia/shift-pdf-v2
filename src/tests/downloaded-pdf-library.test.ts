@@ -100,7 +100,9 @@ describe('tool success', () => {
     });
     expect(successMessage()).toContain('Combined 2 files.');
     expect(
-      document.getElementById('shift-tool-success')?.classList.contains('hidden')
+      document
+        .getElementById('shift-tool-success')
+        ?.classList.contains('hidden')
     ).toBe(false);
     expect(
       (document.getElementById('shift-tool-success-library') as HTMLElement)
@@ -113,9 +115,9 @@ describe('tool success', () => {
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(() => {});
-    document.getElementById('shift-tool-success-download')?.dispatchEvent(
-      new MouseEvent('click', { bubbles: true })
-    );
+    document
+      .getElementById('shift-tool-success-download')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(click).toHaveBeenCalledOnce();
   });
 
@@ -421,9 +423,9 @@ describe('tool success', () => {
     expect(dialog?.getAttribute('aria-describedby')).toBe(
       'shift-tool-success-message'
     );
-    expect(document.getElementById('shift-tool-success-title')?.textContent).toBe(
-      'Your file is ready'
-    );
+    expect(
+      document.getElementById('shift-tool-success-title')?.textContent
+    ).toBe('Your file is ready');
     expect(download?.tagName).toBe('BUTTON');
     expect((download as HTMLButtonElement).type).toBe('button');
     expect(document.activeElement).toBe(download);
@@ -468,9 +470,9 @@ describe('tool success', () => {
     pressKey('Tab');
     expect(document.activeElement).toBe(pngDownload);
     (pngClose as HTMLButtonElement).click();
-    expect(document.getElementById(TOOL_SUCCESS_ID)?.classList.contains('hidden')).toBe(
-      true
-    );
+    expect(
+      document.getElementById(TOOL_SUCCESS_ID)?.classList.contains('hidden')
+    ).toBe(true);
     expect(document.activeElement).toBe(opener);
     document.removeEventListener(PDF_OUTPUT_READY_EVENT, countReady);
   });

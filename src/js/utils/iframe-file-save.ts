@@ -63,10 +63,7 @@ export async function captureIframeFileSave(
     if (isBlobLike(obj)) blobs.set(url, obj);
     return url;
   };
-  doc.createElement = ((
-    tagName: string,
-    options?: ElementCreationOptions
-  ) => {
+  doc.createElement = ((tagName: string, options?: ElementCreationOptions) => {
     const element = origCreateElement(tagName, options);
     if (String(tagName).toLowerCase() === 'a') {
       wrapAnchor(element as HTMLAnchorElement, blobs, (next) => {
