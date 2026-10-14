@@ -78,6 +78,7 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'pdf-to-markdown': 'application/pdf',
   'pdf-to-pdfa': 'application/pdf',
   'pdf-to-png': 'application/pdf',
+  'pdf-to-pptx': 'application/pdf',
   'pdf-to-svg': 'application/pdf',
   'pdf-to-text': 'application/pdf',
   'pdf-to-tiff': 'application/pdf',
