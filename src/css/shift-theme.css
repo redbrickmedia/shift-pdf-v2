@@ -21,6 +21,39 @@
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 
+/*
+ * Inter's @font-face uses font-display: swap, so the first paint is the
+ * system sans and every line moves when Inter arrives. These overrides are
+ * Inter Regular's hhea metrics (ascent 1984, descent -494, unitsPerEm 2048)
+ * from @fontsource/inter, size-adjusted to the a–z advance of an Arial-metric
+ * system sans (Liberation Sans / Arimo, average 1002.58 vs Inter 1098.42).
+ */
+@font-face {
+  font-family: 'Inter Fallback';
+  src:
+    local('Segoe UI'), local('Helvetica Neue'), local('Liberation Sans'),
+    local('Arial');
+  size-adjust: 109.56%;
+  ascent-override: 88.42%;
+  descent-override: 22.02%;
+  line-gap-override: 0%;
+}
+
+/* sidebar-boot.js adds this before paint when the language is not English. */
+html.shift-i18n-pending [data-i18n] {
+  visibility: hidden;
+}
+
+/*
+ * Default full-width preference. The class is on <html> before #tool-uploader
+ * is parsed, so the card does not paint at max-w-2xl and then grow.
+ * Specificity beats the Tailwind max-w-* utility on the element.
+ */
+html.shift-full-width #tool-uploader,
+html.shift-full-width #signature-editor {
+  max-width: none;
+}
+
 :root {
   /* Fallback palette. The host overwrites these as inline styles for a custom
      theme. [data-theme] below overwrites them for a preset. Standalone resolves
@@ -184,7 +217,7 @@
      the current Popular copy). Favorites uses this so the empty state and the
      first starred card stay the same height. */
   --shift-tool-card-row-height: 212px;
-  --shift-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --shift-font: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, sans-serif;
 
   /* ---- Stacking order ----
    * The values were already spread across the file as bare numbers, which is

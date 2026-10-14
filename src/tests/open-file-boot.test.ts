@@ -569,3 +569,90 @@ describe('open file store ordering', () => {
     expect(hasOpenFileFlag()).toBe(false);
   });
 });
+
+describe('sidebar-boot language and full width', () => {
+  const originalLocation = window.location;
+
+  function setPath(pathname: string): void {
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, pathname, search: '', hash: '' },
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  function stubLanguages(languages: string[]): void {
+    Object.defineProperty(window.navigator, 'languages', {
+      value: languages,
+      configurable: true,
+    });
+  }
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
+    document.documentElement.removeAttribute('dir');
+    localStorage.removeItem('i18nextLng');
+    localStorage.removeItem('fullWidthMode');
+  });
+
+  it('hides non-English copy from i18nextLng and sets Arabic direction', () => {
+    setPath('/');
+    stubLanguages(['en-US']);
+    localStorage.setItem('i18nextLng', 'fr');
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(true);
+    expect(document.documentElement.getAttribute('dir')).toBeNull();
+
+    document.documentElement.className = '';
+    document.documentElement.removeAttribute('dir');
+    localStorage.setItem('i18nextLng', 'ar');
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(true);
+    expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+  });
+
+  it('leaves English copy visible', () => {
+    setPath('/');
+    stubLanguages(['en-US']);
+    localStorage.setItem('i18nextLng', 'en');
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(false);
+    expect(document.documentElement.getAttribute('dir')).toBeNull();
+  });
+
+  it('prefers a language prefix in the URL over i18nextLng', () => {
+    setPath('/de/merge-pdf');
+    stubLanguages(['en-US']);
+    localStorage.setItem('i18nextLng', 'en');
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(true);
+  });
+
+  it('adds shift-full-width unless the preference is off', () => {
+    setPath('/');
+    stubLanguages(['en-US']);
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-full-width')
+    ).toBe(true);
+
+    document.documentElement.className = '';
+    localStorage.setItem('fullWidthMode', 'false');
+    runBootScript();
+    expect(
+      document.documentElement.classList.contains('shift-full-width')
+    ).toBe(false);
+  });
+});

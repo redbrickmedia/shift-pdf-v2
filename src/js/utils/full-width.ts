@@ -3,6 +3,7 @@
 
 export function initFullWidthMode() {
   const savedFullWidth = localStorage.getItem('fullWidthMode') !== 'false';
+  document.documentElement.classList.toggle('shift-full-width', savedFullWidth);
 
   if (savedFullWidth) {
     applyFullWidthMode(true);
@@ -10,6 +11,7 @@ export function initFullWidthMode() {
 }
 
 export function applyFullWidthMode(enabled: boolean) {
+  document.documentElement.classList.toggle('shift-full-width', enabled);
   // Apply to all page uploaders
   const pageUploaders = document.querySelectorAll(
     '#tool-uploader, #signature-editor'
