@@ -83,11 +83,14 @@
       class="hidden"
     />
 
-    <div class="min-h-screen flex items-center justify-center p-4 bg-gray-900">
+    <div
+      id="uploader"
+      class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900"
+    >
       <!-- Upload Area (shown initially) -->
       <div
-        id="upload-area"
-        class="bg-gray-800 rounded-xl shadow-xl p-6 max-w-5xl w-full text-gray-200 border border-gray-700"
+        id="tool-uploader"
+        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
       >
         <h1
           class="text-2xl font-bold text-white mb-2"
@@ -100,8 +103,8 @@
         </p>
 
         <div
-          class="relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-700 hover:bg-gray-600 transition-colors duration-300"
-          id="dropZone"
+          id="drop-zone"
+          class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
         >
           <div class="flex flex-col items-center justify-center pt-5 pb-6">
             <i
@@ -126,7 +129,7 @@
           </div>
           <input
             type="file"
-            id="pdfFileInput"
+            id="file-input"
             accept="application/pdf"
             class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
           />
@@ -225,16 +228,6 @@
         id="tool-container"
         class="bg-gray-800 rounded-xl shadow-xl p-6 w-full text-gray-200 border border-gray-700 hidden"
       >
-        <h1
-          class="text-2xl font-bold text-white mb-2"
-          data-i18n="tools:createPdfForm.name"
-        >
-          Create PDF Form
-        </h1>
-        <p class="text-gray-400 mb-6" data-i18n="tools:createPdfForm.subtitle">
-          Create fillable PDF forms with drag-and-drop text fields.
-        </p>
-
         <!-- Main Form Creator Area -->
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- Sidebar with Properties -->

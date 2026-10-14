@@ -76,14 +76,12 @@ const propertiesPanel = document.getElementById(
 const fieldCountDisplay = document.getElementById(
   'fieldCount'
 ) as HTMLSpanElement;
-const uploadArea = document.getElementById('upload-area') as HTMLDivElement;
+const uploadArea = document.getElementById('tool-uploader') as HTMLDivElement;
 const toolContainer = document.getElementById(
   'tool-container'
 ) as HTMLDivElement;
-const dropZone = document.getElementById('dropZone') as HTMLDivElement;
-const pdfFileInput = document.getElementById(
-  'pdfFileInput'
-) as HTMLInputElement;
+const dropZone = document.getElementById('drop-zone') as HTMLDivElement;
+const pdfFileInput = document.getElementById('file-input') as HTMLInputElement;
 const blankPdfBtn = document.getElementById('blankPdfBtn') as HTMLButtonElement;
 const pageSizeSelector = document.getElementById(
   'pageSizeSelector'
@@ -1637,7 +1635,9 @@ function showProperties(field: FormField): void {
 
     propAlignment.addEventListener('change', (e) => {
       field.alignment = (e.target as HTMLSelectElement).value as
-        'left' | 'center' | 'right';
+        | 'left'
+        | 'center'
+        | 'right';
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
         const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;

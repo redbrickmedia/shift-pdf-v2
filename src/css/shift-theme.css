@@ -1486,7 +1486,8 @@ body.shift-open-file-in-tool #convert-destination-step.hidden {
 #drop-zone-2:has(.tool-library-slot-wrap:not([hidden])),
 #base-drop-zone:has(.tool-library-slot-wrap:not([hidden])),
 #overlay-drop-zone:has(.tool-library-slot-wrap:not([hidden])),
-#dropZone:has(.tool-library-slot-wrap:not([hidden])) {
+#dropZone:has(.tool-library-slot-wrap:not([hidden])),
+#upload-area:has(.tool-library-slot-wrap:not([hidden])) {
   height: auto;
   padding-block: var(--spacing-16, 16px);
 }
