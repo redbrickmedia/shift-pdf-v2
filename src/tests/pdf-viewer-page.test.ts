@@ -349,6 +349,17 @@ describe('PDF viewer page', () => {
     expect(assignLocation).toHaveBeenCalledOnce();
     expect(assignLocation.mock.calls[0]?.[0]).toMatch(/\/encrypt-pdf\.html$/);
     expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+    expect(sessionStorage.getItem(OPEN_WITH_SELECTION_KEY)).toBe('1');
+
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+    `;
+    state.files = [];
+
+    await expect(seedToolOpenFile(document)).resolves.toBe(true);
+    expect(state.files[0]?.name).toBe('locked.pdf');
   });
 
   it('records download success and one error when a PDF cannot be opened', () => {
