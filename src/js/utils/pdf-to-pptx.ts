@@ -120,22 +120,13 @@ export async function slideFromPyMuPdfPage(
     );
     const pictures = picturesFromRich(rich);
     if (textBoxes.length > 0 || pictures.length > 0) {
-      // A non-empty extract list used to hide every picture we cannot embed
-      // (JPEG 2000, TIFF, CCITT) and skip the scanned-page fallback.
-      let picture: PptxPicture | undefined;
-      if (
-        pictures.length === 0 &&
-        textBoxes.length > 0 &&
-        (rich.unplacedImages || rich.images.length > 0)
-      ) {
-        picture = await renderPagePicture(page);
-      }
+      // Do not paint a full-page render behind these text boxes. That render
+      // already includes the glyphs, and the boxes have no fill.
       return {
         widthPt: size.width,
         heightPt: size.height,
         textBoxes,
         pictures,
-        picture,
       };
     }
   }
@@ -257,8 +248,6 @@ interface RichPage {
   blocks: unknown[];
   images: unknown[];
   links: PptxLink[];
-  /** True when a visible image could not be turned into PNG, JPEG, or GIF. */
-  unplacedImages?: boolean;
 }
 
 function readPageText(page: PyMuPdfSlidePage): unknown {
@@ -347,6 +336,7 @@ for block in raw.get("blocks", []):
 images = []
 seen = set()
 missed = set()
+raw_fallbacks = {}
 
 def _transform(value):
     if value is None:
@@ -448,6 +438,7 @@ for info in infos:
         if img and img.get("image"):
             smask = int(_num(img.get("smask"), 0))
             ext = img.get("ext") or ""
+            encoded = base64.b64encode(img["image"]).decode("ascii")
             try:
                 if smask or not _supported(ext):
                     png = _to_png(page.parent, xref, smask)
@@ -458,14 +449,11 @@ for info in infos:
                         transform,
                     )
                 else:
-                    placed = _add_image(
-                        bbox,
-                        ext,
-                        base64.b64encode(img["image"]).decode("ascii"),
-                        transform,
-                    )
+                    placed = _add_image(bbox, ext, encoded, transform)
             except Exception:
                 placed = False
+            if not placed and _supported(ext) and _visible(bbox):
+                raw_fallbacks[_key(bbox)] = (bbox, ext, encoded, transform)
     if not placed and _visible(bbox):
         missed.add(_key(bbox))
 
@@ -507,6 +495,12 @@ for block in raw.get("blocks", []):
     if not placed and _visible(bbox):
         missed.add(key)
 
+for key, item in raw_fallbacks.items():
+    if key in seen:
+        continue
+    bbox, ext, data, transform = item
+    _add_image(bbox, ext, data, transform)
+
 links = []
 try:
     for link in page.get_links():
@@ -527,7 +521,6 @@ json.dumps({
     "blocks": blocks,
     "images": images,
     "links": links,
-    "unplacedImages": len(missed) > 0,
 })
 `;
 }
@@ -548,7 +541,6 @@ function parseRichPage(result: unknown): RichPage | null {
     blocks?: unknown;
     images?: unknown;
     links?: unknown;
-    unplacedImages?: unknown;
   };
   if (!Array.isArray(record.blocks) && !Array.isArray(record.images)) {
     return null;
@@ -569,7 +561,6 @@ function parseRichPage(result: unknown): RichPage | null {
     blocks: Array.isArray(record.blocks) ? record.blocks : [],
     images: Array.isArray(record.images) ? record.images : [],
     links,
-    unplacedImages: record.unplacedImages === true,
   };
 }
 

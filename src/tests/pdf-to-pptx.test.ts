@@ -391,7 +391,7 @@ describe('slideFromPyMuPdfPage', () => {
     expect(rels).toContain('../media/image1.jpeg');
   });
 
-  it('rasterizes a mixed page when image encodings cannot be embedded', async () => {
+  it('keeps editable text when an image encoding cannot be embedded', async () => {
     const payload = {
       width: 200,
       height: 100,
@@ -422,7 +422,6 @@ describe('slideFromPyMuPdfPage', () => {
           data: toBase64(Uint8Array.from([0, 0, 0, 12])),
         },
       ],
-      unplacedImages: true,
       links: [] as { uri: string; bbox: number[] }[],
     };
     const toImage = vi.fn(async () => PNG);
@@ -444,13 +443,13 @@ describe('slideFromPyMuPdfPage', () => {
 
     const slide = await slideFromPyMuPdfPage(page);
 
-    expect(toImage).toHaveBeenCalledOnce();
+    expect(toImage).not.toHaveBeenCalled();
     expect(slide?.textBoxes[0].paragraphs[0].runs[0].text).toBe('Caption');
     expect(slide?.pictures).toEqual([]);
-    expect(slide?.picture?.bytes).toEqual(PNG);
+    expect(slide?.picture).toBeUndefined();
     expect(script).toContain('smask');
     expect(script).toContain('tobytes("png")');
-    expect(script).toContain('unplacedImages');
+    expect(script).toContain('raw_fallbacks');
     expect(script).not.toContain('if not images:');
   });
 
