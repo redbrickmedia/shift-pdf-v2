@@ -202,12 +202,15 @@ describe('XSS replay — same-origin engine URL validation', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       body: {
-        getReader: () => ({
-          read: async () => ({ done: true }),
-          cancel: async () => undefined,
+        getReader: (): {
+          read: () => Promise<{ done: boolean }>;
+          cancel: () => Promise<void>;
+        } => ({
+          read: async (): Promise<{ done: boolean }> => ({ done: true }),
+          cancel: async (): Promise<void> => undefined,
         }),
       },
-      headers: { get: () => 'application/javascript' },
+      headers: { get: (): string => 'application/javascript' },
     });
     vi.stubGlobal('fetch', fetchMock);
     vi.resetModules();
