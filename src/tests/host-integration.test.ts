@@ -286,6 +286,8 @@ describe('host analytics', () => {
   it('maps tool pages to stable route identifiers', () => {
     expect(getToolIdFromPath('/en/compress-pdf.html')).toBe('compress-pdf');
     expect(getToolIdFromPath('/')).toBe('home');
+    expect(getToolIdFromPath('/fr/')).toBe('home');
+    expect(getToolIdFromPath('/es/compress-pdf.html')).toBe('compress-pdf');
   });
 
   it('reports one ToolUsed success without the filename', () => {

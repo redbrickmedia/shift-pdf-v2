@@ -20,6 +20,15 @@ export const PDF_ENGINE_EVENTS = {
 export type PdfEngineEventName =
   (typeof PDF_ENGINE_EVENTS)[keyof typeof PDF_ENGINE_EVENTS];
 
+export const PDF_ONBOARDING_EVENTS = {
+  action: 'PdfOnboarding_Action',
+} as const;
+
+export type PdfOnboardingEventName =
+  (typeof PDF_ONBOARDING_EVENTS)[keyof typeof PDF_ONBOARDING_EVENTS];
+
+export type TelemetryEventName = PdfEngineEventName | PdfOnboardingEventName;
+
 export const EVENT_TYPES = {
   [PDF_ENGINE_EVENTS.experienceStarted]: 'state-change',
   [PDF_ENGINE_EVENTS.flowStarted]: 'state-change',
@@ -123,6 +132,31 @@ export const REJECTION_REASONS = [
 ] as const;
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
+export const ONBOARDING_ACTIONS = [
+  'shown',
+  'upload-selected',
+  'dismissed',
+] as const;
+export type OnboardingAction = (typeof ONBOARDING_ACTIONS)[number];
+
+export const ONBOARDING_TRIGGERS = [
+  'system',
+  'upload-button-pressed',
+  'dismiss-button-pressed',
+] as const;
+export type OnboardingTrigger = (typeof ONBOARDING_TRIGGERS)[number];
+
+export const ONBOARDING_ROUTES = ['home', 'my-pdfs'] as const;
+export type OnboardingRoute = (typeof ONBOARDING_ROUTES)[number];
+
+export const ONBOARDING_SURFACE_IDS = ['my-pdfs-walkthrough'] as const;
+
+export const ONBOARDING_EVENT_TYPE_BY_ACTION = {
+  shown: 'state-change',
+  'upload-selected': 'user-interaction',
+  dismissed: 'user-interaction',
+} as const satisfies Record<OnboardingAction, EventType>;
+
 const BASE_PROPERTIES = [
   'schema_version',
   'app_version',
@@ -213,6 +247,19 @@ export const EVENT_CATALOG = [
       'step',
     ],
   },
+  {
+    name: PDF_ONBOARDING_EVENTS.action,
+    when: 'The My PDFs onboarding banner is shown, or the visitor chooses upload or dismiss.',
+    question:
+      'Was the walkthrough shown, and did the visitor upload or dismiss it?',
+    properties: [
+      ...BASE_PROPERTIES,
+      'action',
+      'trigger',
+      'surface_id',
+      'route',
+    ],
+  },
 ] as const;
 
 export const ALLOWED_PROPERTY_KEYS = [
@@ -234,6 +281,10 @@ export const ALLOWED_PROPERTY_KEYS = [
   'channel',
   'rejected_event',
   'rejection_reason',
+  'action',
+  'trigger',
+  'surface_id',
+  'route',
 ] as const;
 
 export type AllowedPropertyKey = (typeof ALLOWED_PROPERTY_KEYS)[number];
@@ -311,7 +362,7 @@ const pdfRules = {
   pdf_kind: rule('enum', false, PDF_KINDS),
 } as const;
 
-const EVENT_RULES: Record<PdfEngineEventName, Record<string, PropRule>> = {
+const EVENT_RULES: Record<TelemetryEventName, Record<string, PropRule>> = {
   [PDF_ENGINE_EVENTS.experienceStarted]: { ...baseRules },
   [PDF_ENGINE_EVENTS.flowStarted]: {
     ...baseRules,
@@ -359,12 +410,19 @@ const EVENT_RULES: Record<PdfEngineEventName, Record<string, PropRule>> = {
     rejection_reason: rule('enum', true, REJECTION_REASONS),
     step: rule('enum', false, STEPS),
   },
+  [PDF_ONBOARDING_EVENTS.action]: {
+    ...baseRules,
+    action: rule('enum', true, ONBOARDING_ACTIONS),
+    trigger: rule('enum', true, ONBOARDING_TRIGGERS),
+    surface_id: rule('enum', true, ONBOARDING_SURFACE_IDS),
+    route: rule('enum', true, ONBOARDING_ROUTES),
+  },
 };
 
 export type TelemetryProperties = Record<string, string | number>;
 
 export type PrepareResult =
-  | { ok: true; name: PdfEngineEventName; properties: TelemetryProperties }
+  | { ok: true; name: TelemetryEventName; properties: TelemetryProperties }
   | { ok: false; rejectedEvent: string; reason: RejectionReason };
 
 export function isForbiddenKey(key: string): boolean {
@@ -424,7 +482,7 @@ export function prepareEvent(
   properties: Record<string, unknown>,
   defaults: { appVersion: string; toolId: string }
 ): PrepareResult {
-  const rules = EVENT_RULES[eventName as PdfEngineEventName];
+  const rules = EVENT_RULES[eventName as TelemetryEventName];
   if (!rules) {
     return {
       ok: false,
@@ -436,7 +494,14 @@ export function prepareEvent(
   const input: Record<string, unknown> = { ...properties };
   input.schema_version = SCHEMA_VERSION;
   input.app_version = defaults.appVersion;
-  input.event_type = EVENT_TYPES[eventName as PdfEngineEventName];
+  if (eventName === PDF_ONBOARDING_EVENTS.action) {
+    const action = input.action;
+    if (typeof action === 'string' && isOnboardingAction(action)) {
+      input.event_type = ONBOARDING_EVENT_TYPE_BY_ACTION[action];
+    }
+  } else {
+    input.event_type = EVENT_TYPES[eventName as PdfEngineEventName];
+  }
   if (input.tool_id === undefined) input.tool_id = defaults.toolId;
 
   const cleaned: TelemetryProperties = {};
@@ -483,7 +548,11 @@ export function prepareEvent(
 
   return {
     ok: true,
-    name: eventName as PdfEngineEventName,
+    name: eventName as TelemetryEventName,
     properties: cleaned,
   };
+}
+
+function isOnboardingAction(value: string): value is OnboardingAction {
+  return (ONBOARDING_ACTIONS as readonly string[]).includes(value);
 }
