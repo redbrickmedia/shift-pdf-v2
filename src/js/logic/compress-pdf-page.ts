@@ -377,10 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const algorithm = (
       document.getElementById('compression-algorithm') as HTMLSelectElement
     ).value;
-    const convertToGrayscale =
-      (document.getElementById('convert-to-grayscale') as HTMLInputElement)
-        ?.checked ?? false;
-
     let customSettings:
       | {
           imageQuality?: number;
@@ -415,6 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const removeThumbnails =
         (document.getElementById('remove-thumbnails') as HTMLInputElement)
           ?.checked ?? true;
+      const convertToGrayscale =
+        (document.getElementById('convert-to-grayscale') as HTMLInputElement)
+          ?.checked ?? false;
 
       customSettings = {
         imageQuality,
@@ -422,11 +421,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dpiThreshold,
         removeMetadata,
         subsetFonts,
-        convertToGrayscale,
         removeThumbnails,
+        convertToGrayscale,
       };
-    } else {
-      customSettings = convertToGrayscale ? { convertToGrayscale } : undefined;
     }
 
     const startedAt = performance.now();

@@ -162,27 +162,6 @@
             </select>
           </div>
 
-          <!-- Grayscale toggle - always visible -->
-          <div
-            class="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700"
-          >
-            <input
-              type="checkbox"
-              id="convert-to-grayscale"
-              class="w-5 h-5 rounded cursor-pointer flex-shrink-0"
-            />
-            <div>
-              <label
-                for="convert-to-grayscale"
-                class="text-sm font-medium text-gray-300 cursor-pointer"
-                >Convert to Grayscale</label
-              >
-              <p class="text-xs text-gray-500 mt-0.5">
-                Reduces file size by removing color information
-              </p>
-            </div>
-          </div>
-
           <div>
             <button
               id="toggle-custom-settings"
@@ -317,6 +296,16 @@
                   />
                   <span class="text-sm text-gray-300"
                     >Remove embedded thumbnails</span
+                  >
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="convert-to-grayscale"
+                    class="w-4 h-4 rounded"
+                  />
+                  <span class="text-sm text-gray-300"
+                    >Convert to Grayscale</span
                   >
                 </label>
               </div>
