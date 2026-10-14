@@ -17,13 +17,13 @@ before the app compiles.
 
 Or connect the GitHub repo in the Cloudflare dashboard:
 
-| Setting                | Value                  |
-| ---------------------- | ---------------------- |
-| Framework preset       | None                   |
-| Build command          | `npm run pages:build`  |
-| Build output directory | `dist`                 |
-| Root directory         | `/`                    |
-| `NODE_VERSION`         | `20`                   |
+| Setting                | Value                 |
+| ---------------------- | --------------------- |
+| Framework preset       | None                  |
+| Build command          | `npm run pages:build` |
+| Build output directory | `dist`                |
+| Root directory         | `/`                   |
+| `NODE_VERSION`         | `20`                  |
 
 ## Environment variables (Pages)
 

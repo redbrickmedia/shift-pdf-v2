@@ -225,7 +225,10 @@ async function claimedByOpenHandle(output: ToolOutput): Promise<boolean> {
   }
 }
 
-async function presentBatch(batch: ToolOutput[], root: Document): Promise<void> {
+async function presentBatch(
+  batch: ToolOutput[],
+  root: Document
+): Promise<void> {
   const pending: ToolOutput[] = [];
   for (const output of batch) {
     if (await claimedByOpenHandle(output)) continue;

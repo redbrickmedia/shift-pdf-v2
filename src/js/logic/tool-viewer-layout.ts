@@ -326,9 +326,7 @@ function markViewerScrollHosts(root: Document, active: boolean): void {
 }
 
 function ensureViewerChrome(root: Document): HTMLElement | null {
-  return (
-    mountViewerChrome(root, { preset: 'tool' })?.actions ?? null
-  );
+  return mountViewerChrome(root, { preset: 'tool' })?.actions ?? null;
 }
 
 function relocateDownloadButtons(root: Document): void {

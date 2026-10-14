@@ -72,7 +72,11 @@ async function readableLibraryEntry(
   if (entry.availability === 'ready' && entry.file.size > 0) return entry;
   if (!entry.handle || entry.availability === 'unavailable') return null;
   const restored = await restoreLibraryEntryAccess(entry.id);
-  if (!restored || restored.availability !== 'ready' || restored.file.size === 0) {
+  if (
+    !restored ||
+    restored.availability !== 'ready' ||
+    restored.file.size === 0
+  ) {
     return null;
   }
   return restored;

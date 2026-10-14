@@ -1637,7 +1637,9 @@ function showProperties(field: FormField): void {
 
     propAlignment.addEventListener('change', (e) => {
       field.alignment = (e.target as HTMLSelectElement).value as
-        'left' | 'center' | 'right';
+        | 'left'
+        | 'center'
+        | 'right';
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
         const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;

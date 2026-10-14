@@ -193,7 +193,9 @@ function initializePage(): void {
         }
         state.sigImageData = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
         state.sigImageType = file.type.replace('image/', '') as
-          'png' | 'jpeg' | 'webp';
+          | 'png'
+          | 'jpeg'
+          | 'webp';
 
         if (sigImageThumb && sigImagePreview) {
           const url = URL.createObjectURL(file);

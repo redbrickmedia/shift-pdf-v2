@@ -2,7 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const distDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
+const distDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../dist'
+);
 const robotsPath = path.join(distDir, 'robots.txt');
 const MAX_PAGES_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -11,10 +14,7 @@ if (!fs.existsSync(distDir)) {
   process.exit(1);
 }
 
-fs.writeFileSync(
-  robotsPath,
-  ['User-agent: *', 'Disallow: /', ''].join('\n')
-);
+fs.writeFileSync(robotsPath, ['User-agent: *', 'Disallow: /', ''].join('\n'));
 console.log(`Wrote noindex robots.txt to ${robotsPath}`);
 
 function walk(dir) {

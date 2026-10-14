@@ -268,7 +268,9 @@ describe('home files', () => {
   });
 
   it('downloads a library card PDF without opening the viewer', async () => {
-    const download = vi.spyOn(helpers, 'downloadBlob').mockImplementation(() => {});
+    const download = vi
+      .spyOn(helpers, 'downloadBlob')
+      .mockImplementation(() => {});
     mountHome();
     initHomeFiles();
     const file = new File(['pdf-bytes'], 'briefing.pdf', {
@@ -278,7 +280,9 @@ describe('home files', () => {
 
     await vi.waitFor(() => {
       expect(
-        document.querySelector('.shift-my-pdfs-download[data-file-name="briefing.pdf"]')
+        document.querySelector(
+          '.shift-my-pdfs-download[data-file-name="briefing.pdf"]'
+        )
       ).not.toBeNull();
     });
 

@@ -573,7 +573,9 @@ class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900" />
       fields.forEach((field) => {
         if (field.type !== 'preview' && field.type !== 'destination') {
           const input = modal.querySelector(`#modal-${field.name}`) as
-            HTMLInputElement | HTMLSelectElement | null;
+            | HTMLInputElement
+            | HTMLSelectElement
+            | null;
           if (input) {
             result[field.name] = input.value;
           }

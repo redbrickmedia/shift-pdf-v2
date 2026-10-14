@@ -1,2 +1,18 @@
 # Handlebars partials with template syntax inside HTML attributes
 src/partials/footer.html
+
+# Signature blanks use asterisks that Prettier rewrites unstably as Markdown.
+CCLA.md
+ICLA.md
+
+# Vendored viewers and engines. Prettier should not restyle upstream builds.
+public/pdfjs-viewer/**
+public/pdfjs-annotation-viewer/**
+public/libreoffice-wasm/**
+
+# Generated VitePress dependency cache
+docs/.vitepress/cache/**
+
+# Helm templates mix Go template syntax that Prettier cannot parse as YAML.
+chart/templates/**/*.yaml
+chart/templates/**/*.yml
