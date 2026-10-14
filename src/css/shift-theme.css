@@ -1576,6 +1576,14 @@ body.shift-pdf-viewer-page .shift-footer {
   min-height: 0;
 }
 
+/* Sign keeps the viewer stage in the page so a file can open into it. Until
+   then the stage would steal the column under the shared empty-state card. */
+body:not(.shift-tool-viewer):not(.shift-tool-viewer-pending)
+  #uploader:has(#signature-editor)
+  > .shift-pdf-viewer-stage {
+  display: none;
+}
+
 #uploader.shift-pdf-viewer-shell #tool-uploader.shift-pdf-viewer-empty {
   max-width: none;
   padding: 24px;
@@ -5458,8 +5466,8 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
 }
 
 .shift-library-picker-panel {
-  width: min(100%, 32rem);
-  max-height: min(80vh, 36rem);
+  width: min(100%, 52rem);
+  max-height: min(80vh, 40rem);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-outer-primary);
@@ -5496,33 +5504,17 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
 }
 
 .shift-library-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  align-items: stretch;
+  gap: var(--spacing-16);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0.5rem;
+  padding: 1rem;
 }
 
 .shift-library-picker-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
-  width: 100%;
-  margin-bottom: 0.5rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid var(--border-divider-secondary);
-  border-radius: var(--radius-8);
-  background: var(--action-controls-surface-primary-default);
-  color: var(--text-primary);
-  font-family: var(--shift-font);
-  text-align: left;
-  cursor: pointer;
-}
-
-.shift-library-picker-row:hover:not(:disabled),
-.shift-library-picker-row:focus-visible:not(:disabled) {
-  border-color: var(--action-button-surface-primary-default);
-  background: var(--action-controls-surface-primary-hover);
-  outline: none;
+  margin: 0;
 }
 
 .shift-library-picker-row:disabled {
@@ -5530,20 +5522,8 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
   cursor: not-allowed;
 }
 
-.shift-library-picker-name {
-  width: 100%;
-  overflow: hidden;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--text-sm--line-height);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.shift-library-picker-meta {
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  line-height: var(--text-xs--line-height);
+.shift-library-picker-row:disabled:hover {
+  background: var(--background-secondary);
 }
 
 .shift-library-picker-empty {

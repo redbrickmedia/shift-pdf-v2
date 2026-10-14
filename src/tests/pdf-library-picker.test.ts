@@ -26,6 +26,10 @@ describe('pdf library picker', () => {
 
     const rows = document.querySelectorAll('.shift-library-picker-row');
     expect(rows).toHaveLength(2);
+    expect(rows[0]?.querySelector('.shift-file-preview canvas')).not.toBeNull();
+    expect(
+      rows[0]?.querySelector('.shift-open-file-thumb-name')?.textContent
+    ).toBeTruthy();
     (rows[1] as HTMLButtonElement).click();
 
     expect(onSelect).toHaveBeenCalledTimes(1);

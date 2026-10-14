@@ -5,7 +5,6 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 }));
 
 import * as helpers from '../js/utils/helpers';
-import { SHIFT_TOOLTIP_SHOW_DELAY_MS } from '../js/logic/shift-tooltip';
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import { initHomeFiles } from '../js/logic/home-files';
 import { writePersistedOpenFile } from '../js/logic/open-file-store';
@@ -184,10 +183,9 @@ describe('home files', () => {
     ]);
   });
 
-  it('shows a dropped PDF in the all-tools sidebar file list', async () => {
+  it('keeps a dropped PDF out of the sidebar and in My PDFs', async () => {
     mountHome();
     initHomeFiles();
-    vi.mocked(renderPdfFirstPage).mockClear();
     const pdf = new File(['%PDF'], 'briefing.pdf', {
       type: 'application/pdf',
     });
@@ -195,16 +193,11 @@ describe('home files', () => {
     dispatchDrop([pdf]);
 
     expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(
-      document.querySelector('.shift-open-file-item .shift-nav-label')
-        ?.textContent
-    ).toBe('briefing.pdf');
-
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector('.shift-open-file-preview:not(.is-empty)')
-      ).not.toBeNull();
-    });
+      document.querySelector('#shift-my-pdfs-body tr')?.textContent
+    ).toContain('briefing.pdf');
   });
 
   it('keeps the My PDFs list chrome and shows an empty-state placeholder when nothing is uploaded', async () => {
@@ -439,25 +432,10 @@ describe('home files', () => {
         .querySelector('.shift-open-file-thumb')
         ?.classList.contains('is-selected')
     ).toBe(true);
-
-    const selectedChip = document.querySelector<HTMLElement>(
-      '.shift-open-file-selected-label'
-    );
-    expect(selectedChip?.textContent).toBe('Selected');
-    expect(selectedChip?.getAttribute('data-shift-tooltip')).toBe(
-      'A selected file is a file that will be used when you click on tools.'
-    );
-    expect(selectedChip?.getAttribute('data-i18n-tooltip')).toBe(
-      'home.activeFileTooltip'
-    );
-
-    vi.useFakeTimers();
-    selectedChip?.dispatchEvent(new PointerEvent('pointerenter'));
-    vi.advanceTimersByTime(SHIFT_TOOLTIP_SHOW_DELAY_MS);
-    expect(document.getElementById('shift-tooltip')?.textContent).toBe(
-      'A selected file is a file that will be used when you click on tools.'
-    );
-    vi.useRealTimers();
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(
+      document.querySelector('.shift-open-file-selected-label')
+    ).toBeNull();
 
     await clearWorkspaceOpenFile();
 

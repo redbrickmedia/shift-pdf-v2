@@ -98,8 +98,11 @@ function collectUploadSlots(root: Document): UploadSlot[] {
   const slots: UploadSlot[] = [];
 
   const dropZone = root.getElementById('drop-zone');
-  const toolUploader = root.getElementById('tool-uploader');
-  if (dropZone && toolUploader) {
+  // Convert authors `#convert-hub` instead of `#tool-uploader`. It is the same
+  // empty card, so it gets the same library CTA.
+  const emptyHost =
+    root.getElementById('tool-uploader') ?? root.getElementById('convert-hub');
+  if (dropZone && emptyHost) {
     slots.push({
       zone: dropZone,
       inputId: null,

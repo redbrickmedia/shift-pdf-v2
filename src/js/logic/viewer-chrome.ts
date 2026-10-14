@@ -182,9 +182,13 @@ function ensureHeader(root: Document): HTMLElement | null {
   const shell = root.querySelector<HTMLElement>(
     '#uploader.shift-pdf-viewer-shell'
   );
-  const authored = shell?.querySelector<HTMLElement>(
-    `:scope > .${VIEWER_CHROME_HEADER_CLASS}`
-  );
+  const authored =
+    shell?.querySelector<HTMLElement>(
+      `:scope > .${VIEWER_CHROME_HEADER_CLASS}`
+    ) ??
+    root.querySelector<HTMLElement>(
+      `#uploader > .${VIEWER_CHROME_HEADER_CLASS}`
+    );
   if (authored) return authored;
 
   const card = root.getElementById('tool-uploader');

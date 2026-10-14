@@ -13,12 +13,9 @@ import {
 import type { PdfLibraryAvailability } from './pdf-library-store.js';
 import {
   clearPersistedOpenFile,
-  hasOpenFileFlag,
   hasOpenFileSkeleton,
   markOpenWithSelection,
   OPEN_FILE_SKELETON_ATTR,
-  PENDING_FILE_ROW_ATTR,
-  readOpenFileSnapshot,
   writePersistedOpenFiles,
 } from './open-file-store.js';
 import { acceptForToolHref } from './tool-input-accept.js';
@@ -45,21 +42,8 @@ import { createShiftFilePreview } from './shift-file-preview.js';
 
 const BODY_CLASS = 'shift-has-open-file';
 const IN_TOOL_CLASS = 'shift-open-file-in-tool';
-const MAX_VISIBLE_FILES = 3;
 const HOME_FILE_VIEW_KEY = 'shiftHomeOpenFileView';
-const SIDEBAR_THUMB_MAX_WIDTH = 48;
-const SIDEBAR_THUMB_STORE_KEY = 'shiftSidebarThumbnails';
-const SIDEBAR_THUMB_CACHE_LIMIT = 8;
-const SIDEBAR_THUMB_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
-const UPLOAD_ICON_PATH =
-  'M7.75 3.75h6.19L17.25 7.06v12.19a1 1 0 0 1-1 1H7.75a1 1 0 0 1-1-1V4.75a1 1 0 0 1 1-1ZM13.75 3.75v3.5h3.5';
-const HANDOFF_ICON_PATH =
-  'M4.75 6.75h5.5L12 8.75h7.25v9.5H4.75V6.75ZM4.75 11.25h14.5';
-const DOWNLOAD_ICON_PATH =
-  'M12 3.75v10.5m0 0 4-4m-4 4-4-4M5.75 16.25v3h12.5v-3';
 const HEADER_TOOLS_ENTER_CLASS = 'shift-enter';
-const SELECTED_FILE_TOOLTIP =
-  'A selected file is a file that will be used when you click on tools.';
 const EMPTY_LIBRARY_HEADING = 'Add a PDF to get started';
 const EMPTY_LIBRARY_MESSAGE =
   'The selected PDF is what tools will use. Files stay on your machine.';
@@ -99,9 +83,6 @@ const fileLibraryIds = new WeakMap<File, string>();
    canvases are kept per document so a rebuild can re-adopt the live node, and
    their bitmaps are mirrored into session storage so the first paint after a
    navigation already carries the thumbnail. */
-const sidebarThumbnailCanvases = new Map<string, HTMLCanvasElement>();
-let sidebarThumbnailDataUrls: Map<string, string> | null = null;
-let sidebarThumbnailsSerializable = true;
 
 /* Blobs already offered to the library, so repeat renders of the same
    selection do not re-hash them. */
@@ -111,13 +92,10 @@ let currentFiles: WorkspaceFileInfo[] = [];
 let homeLibraryFiles: WorkspaceFileInfo[] = [];
 let homeLibraryEpoch = 0;
 let lastRenderedHomeFiles: WorkspaceFileInfo[] = [];
-let lastRenderedSidebarFiles: WorkspaceFileInfo[] = [];
-let lastRenderedSidebarRemaining = 0;
 let displayObserver: MutationObserver | null = null;
 let observedRoot: Document | null = null;
 let homeFileView: HomeOpenFileView = readHomeFileView();
 let thumbnailRenderToken = 0;
-let sidebarThumbnailToken = 0;
 let viewToggleBoundRoot: Document | null = null;
 let myPdfsChromeBoundRoot: Document | null = null;
 const myPdfsSelectionDelegated = new WeakSet<Document>();
@@ -422,12 +400,8 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
   homeLibraryEpoch += 1;
   homeFileView = 'thumbnail';
   thumbnailRenderToken += 1;
-  sidebarThumbnailToken += 1;
   lastRenderedHomeFiles = [];
-  lastRenderedSidebarFiles = [];
-  lastRenderedSidebarRemaining = 0;
   resetMyPdfsSearch();
-  clearSidebarThumbnailCache();
   try {
     localStorage.removeItem(HOME_FILE_VIEW_KEY);
   } catch {
@@ -451,7 +425,7 @@ export function renderWorkspaceFiles(root: Document = document): void {
   ensureMyPdfsPageChrome(root);
   const dropZone = root.getElementById('drop-zone');
   if (dropZone) dropZone.hidden = hidePicker;
-  renderSidebarFiles(root, openFilesForSidebar());
+  renderSidebarFiles(root);
   renderHomeFilesTable(root, visibleHomeLibraryFiles());
   syncMyPdfsSelectionChrome(root);
   syncHomeHeaderToolActions(root);
@@ -1446,142 +1420,16 @@ export function getActiveFileInput(
   return root.querySelector<HTMLInputElement>('input#file-input');
 }
 
-function openFilesForSidebar(): WorkspaceFileInfo[] {
-  return currentFiles;
-}
-
-function selectedFilesHeading(count: number): string {
-  return count === 1 ? 'Selected file' : 'Selected files';
-}
-
-function renderSidebarFiles(root: Document, files: WorkspaceFileInfo[]): void {
+function renderSidebarFiles(root: Document): void {
   const section = root.getElementById('shift-open-files');
   const list = root.getElementById('shift-open-files-list');
   if (!section || !list) return;
 
-  // Selected files are a My PDFs concept. Tool pages ask for their own input.
-  if (!isHomePage(root)) {
-    list.replaceChildren();
-    list.hidden = true;
-    return;
-  }
-
-  const hasFiles = files.length > 0;
-  // The section also holds the My PDFs nav link, so only the file list toggles.
+  // The My PDFs nav link stays. The selected file is local to that page, so
+  // the sidebar list never paints it.
   section.hidden = false;
-  markShiftFileBrowser(list, 'list');
-
-  if (!hasFiles) {
-    renderPendingSidebarFiles(root, list);
-    return;
-  }
-
-  list.hidden = false;
-  list.setAttribute('aria-label', selectedFilesHeading(files.length));
-
-  const visible = files.slice(0, MAX_VISIBLE_FILES);
-  const remaining = files.length - visible.length;
-
-  if (
-    sidebarFilesMatch(lastRenderedSidebarFiles, visible) &&
-    lastRenderedSidebarRemaining === remaining &&
-    sidebarDomMatchesFiles(root, visible, remaining)
-  ) {
-    return;
-  }
-
-  sidebarThumbnailToken += 1;
-  lastRenderedSidebarFiles = visible.map((file) => ({ ...file }));
-  lastRenderedSidebarRemaining = remaining;
   list.replaceChildren();
-
-  for (const file of visible) {
-    list.appendChild(createFileButton(file, root));
-  }
-
-  if (remaining > 0) {
-    list.appendChild(createOverflowButton(remaining, root));
-  }
-
-  void fillSidebarThumbnails(root, visible);
-}
-
-/**
- * Keep the rail showing the selection while the open-file store is still being
- * read.
- *
- * The list ships empty in markup and the blobs arrive tens of milliseconds
- * after the new document is revealed. Clearing it in the meantime is invisible
- * on a plain load but not across a navigation: the view transition carries the
- * previous, populated rail on screen, so the gap reads as the selected file
- * disappearing and coming back. The session snapshot already holds the names
- * and sizes, and sidebar-boot.js paints these same rows before first paint.
- */
-function renderPendingSidebarFiles(root: Document, list: HTMLElement): void {
-  const pending = pendingSidebarFiles().slice(0, MAX_VISIBLE_FILES);
-
-  sidebarThumbnailToken += 1;
-  lastRenderedSidebarFiles = [];
-  lastRenderedSidebarRemaining = 0;
-  list.hidden = pending.length === 0;
-  if (pending.length > 0) {
-    list.setAttribute('aria-label', selectedFilesHeading(pending.length));
-  }
-
-  list.replaceChildren(
-    ...pending.map((file) => {
-      const row = createFileButton(file, root);
-      row.setAttribute(PENDING_FILE_ROW_ATTR, '');
-      return row;
-    })
-  );
-}
-
-function pendingSidebarFiles(): WorkspaceFileInfo[] {
-  if (!hasOpenFileFlag()) return [];
-  return readOpenFileSnapshot().map((entry) => ({
-    name: entry.name,
-    size: entry.size,
-    source: 'upload' as const,
-  }));
-}
-
-function sidebarFilesMatch(
-  previous: WorkspaceFileInfo[],
-  next: WorkspaceFileInfo[]
-): boolean {
-  return (
-    previous.length === next.length &&
-    previous.every(
-      (file, index) =>
-        file.name === next[index]?.name &&
-        file.size === next[index]?.size &&
-        file.source === next[index]?.source &&
-        file.addedAt === next[index]?.addedAt
-    )
-  );
-}
-
-function sidebarDomMatchesFiles(
-  root: Document,
-  files: WorkspaceFileInfo[],
-  remaining: number
-): boolean {
-  const list = root.getElementById('shift-open-files-list');
-  if (!list) return false;
-
-  const items = list.querySelectorAll<HTMLElement>(
-    '.shift-open-file-item:not(.shift-open-files-more)'
-  );
-  if (items.length !== files.length) return false;
-  if (
-    !files.every((file, index) => items[index]?.dataset.fileName === file.name)
-  ) {
-    return false;
-  }
-
-  const more = list.querySelector('.shift-open-files-more');
-  return remaining > 0 ? Boolean(more) : !more;
+  list.hidden = true;
 }
 
 function renderHomeFilesTable(
@@ -2013,29 +1861,6 @@ function viewPdfHref(
   return `${href}?${params.toString()}`;
 }
 
-/**
- * The viewer is the only page with a document of its own, and it names it in
- * the URL. Everywhere else each listed row is simply a selected file, so there
- * is no viewed row to mark.
- */
-function viewedSidebarTarget(root: Document): URLSearchParams | null {
-  const location = root.defaultView?.location;
-  if (!location || !/(^|\/)view-pdf\.html$/.test(location.pathname)) {
-    return null;
-  }
-  return new URLSearchParams(location.search);
-}
-
-function isViewedSidebarFile(file: WorkspaceFileInfo, root: Document): boolean {
-  const target = viewedSidebarTarget(root);
-  if (!target) return false;
-  const id = target.get('file')?.trim();
-  if (id) return file.id === id;
-  // Pending rows reach the viewer by name, before they have a library id.
-  const name = target.get('name')?.trim();
-  return Boolean(name) && file.name === name;
-}
-
 function isSidebarCollapsed(root: Document): boolean {
   return (
     root.body.classList.contains('shift-sidebar-collapsed') ||
@@ -2065,208 +1890,6 @@ export function syncSidebarFileTooltips(root: Document = document): void {
   root
     .querySelectorAll<HTMLElement>('.shift-open-file-item')
     .forEach((link) => applySidebarFileTooltip(link, root));
-}
-
-function createFileButton(
-  file: WorkspaceFileInfo,
-  root: Document
-): HTMLAnchorElement {
-  const viewed = isViewedSidebarFile(file, root);
-  const link = root.createElement('a');
-  link.className = 'shift-nav-link shift-open-file-item is-selected';
-  /* Several selected PDFs can be listed at once, so the row whose viewer is
-     open is the one that reads as current. The others stay plain rows. */
-  link.classList.toggle('is-viewing', viewed);
-  link.href = viewPdfHref(root, file);
-  link.dataset.fileName = file.name;
-  link.dataset.source = file.source;
-  link.setAttribute('aria-label', sidebarFileAriaLabel(file));
-  if (viewed) link.setAttribute('aria-current', 'page');
-  else link.removeAttribute('aria-current');
-  /* Filename first: the collapsed rail is an icon, and the expanded label
-     truncates. Skip data-i18n-tooltip — that path overwrites the whole string
-     and would drop the name. aria-label already names the row for AT. */
-  link.dataset.shiftFileTooltip = sidebarFileTooltip(file);
-  applySidebarFileTooltip(link, root);
-  link.append(
-    createOpenFilePreview(file, root),
-    createLabel(file.name, root),
-    createSelectedFileChip(root, 'shift-open-file-selected-label')
-  );
-  setShiftBrowserItemState(link, { selected: true, viewing: viewed });
-  return link;
-}
-
-/* Name and byte size only: a file restored from the open-file store is rebuilt
-   from its buffer, so timestamps differ on every page load and would defeat the
-   cache exactly where it matters most — navigating between tools. */
-function sidebarThumbnailKey(file: WorkspaceFileInfo): string {
-  return `${file.name}|${file.size ?? file.blob?.size ?? 0}`;
-}
-
-function readSidebarThumbnailStore(): Map<string, string> {
-  if (sidebarThumbnailDataUrls) return sidebarThumbnailDataUrls;
-
-  sidebarThumbnailDataUrls = new Map();
-  try {
-    const raw = sessionStorage.getItem(SIDEBAR_THUMB_STORE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    if (parsed && typeof parsed === 'object') {
-      for (const [key, value] of Object.entries(parsed)) {
-        // Session storage is user-writable, so only adopt values that can be
-        // safely interpolated into a CSS url().
-        if (typeof value === 'string' && SIDEBAR_THUMB_DATA_URL.test(value)) {
-          sidebarThumbnailDataUrls.set(key, value);
-        }
-      }
-    }
-  } catch {
-    // Private mode and corrupt payloads both just mean "no cache".
-  }
-  return sidebarThumbnailDataUrls;
-}
-
-function rememberSidebarThumbnail(
-  key: string,
-  canvas: HTMLCanvasElement
-): void {
-  sidebarThumbnailCanvases.set(key, canvas);
-  pruneOldest(sidebarThumbnailCanvases);
-  if (!sidebarThumbnailsSerializable) return;
-
-  let dataUrl: string;
-  try {
-    dataUrl = canvas.toDataURL('image/png');
-  } catch {
-    sidebarThumbnailsSerializable = false;
-    return;
-  }
-  if (!SIDEBAR_THUMB_DATA_URL.test(dataUrl)) {
-    // Environments without canvas serialization (or a tainted canvas) can still
-    // use the in-memory cache; stop asking them for bitmaps.
-    sidebarThumbnailsSerializable = false;
-    return;
-  }
-
-  const store = readSidebarThumbnailStore();
-  store.set(key, dataUrl);
-  pruneOldest(store);
-  try {
-    sessionStorage.setItem(
-      SIDEBAR_THUMB_STORE_KEY,
-      JSON.stringify(Object.fromEntries(store))
-    );
-  } catch {
-    // Quota or private mode: the in-memory cache still prevents flashing.
-  }
-}
-
-function pruneOldest(cache: Map<string, unknown>): void {
-  while (cache.size > SIDEBAR_THUMB_CACHE_LIMIT) {
-    const oldest = cache.keys().next().value;
-    if (oldest === undefined) return;
-    cache.delete(oldest);
-  }
-}
-
-function clearSidebarThumbnailCache(): void {
-  sidebarThumbnailCanvases.clear();
-  sidebarThumbnailDataUrls = null;
-  try {
-    sessionStorage.removeItem(SIDEBAR_THUMB_STORE_KEY);
-  } catch {
-    // Nothing to clear when storage is unavailable.
-  }
-}
-
-function createOpenFilePreview(
-  file: WorkspaceFileInfo,
-  root: Document
-): HTMLElement {
-  const key = sidebarThumbnailKey(file);
-  const painted = sidebarThumbnailCanvases.get(key);
-  // A detached painted canvas keeps its bitmap, so re-adopting the node shows
-  // the thumbnail in the same frame the button is inserted.
-  const canvas =
-    painted && !painted.isConnected ? painted : root.createElement('canvas');
-
-  const storedDataUrl = readSidebarThumbnailStore().get(key);
-  const icon = createFileIcon(file.source, root);
-  icon.classList.remove('shift-nav-icon');
-  const preview = createShiftFilePreview(root, {
-    size: 'rail',
-    empty: !(canvas === painted || storedDataUrl),
-    canvas,
-    fallback: icon,
-  });
-  if (storedDataUrl) {
-    preview.style.backgroundImage = `url("${storedDataUrl}")`;
-  }
-  return preview;
-}
-
-async function fillSidebarThumbnails(
-  root: Document,
-  files: WorkspaceFileInfo[]
-): Promise<void> {
-  const token = sidebarThumbnailToken;
-  const list = root.getElementById('shift-open-files-list');
-  if (!list) return;
-
-  for (const file of files) {
-    if (token !== sidebarThumbnailToken) return;
-    const button = findSidebarFileButton(list, file.name);
-    const preview = button?.querySelector<HTMLElement>(
-      '.shift-open-file-preview'
-    );
-    const canvas = preview?.querySelector('canvas');
-    if (!preview || !canvas || !file.blob) continue;
-
-    const key = sidebarThumbnailKey(file);
-    if (sidebarThumbnailCanvases.get(key) === canvas) continue;
-
-    try {
-      await renderPdfFirstPage(file.blob, canvas, SIDEBAR_THUMB_MAX_WIDTH);
-      if (token !== sidebarThumbnailToken) return;
-      rememberSidebarThumbnail(key, canvas);
-      preview.classList.remove('is-empty');
-    } catch {
-      if (!preview.style.backgroundImage) preview.classList.add('is-empty');
-    }
-  }
-}
-
-function findSidebarFileButton(
-  list: Element,
-  fileName: string
-): HTMLElement | null {
-  return (
-    Array.from(
-      list.querySelectorAll<HTMLElement>(
-        '.shift-open-file-item:not(.shift-open-files-more)'
-      )
-    ).find((item) => item.dataset.fileName === fileName) ?? null
-  );
-}
-
-function sidebarFileTooltip(file: WorkspaceFileInfo): string {
-  if (file.source === 'handoff') {
-    return `${file.name} · Received from Shift`;
-  }
-  if (file.source === 'download') {
-    return `${file.name} · Downloaded copy`;
-  }
-  return file.name;
-}
-
-function sidebarFileAriaLabel(file: WorkspaceFileInfo): string {
-  if (file.source === 'handoff') {
-    return `Selected: ${file.name}. Received from Shift. Click to open in the viewer.`;
-  }
-  if (file.source === 'download') {
-    return `Selected: ${file.name}. Downloaded copy. Click to open in the viewer.`;
-  }
-  return `Selected: ${file.name}`;
 }
 
 function createHomeFileRow(
@@ -2669,21 +2292,6 @@ function isLibraryFileCurrent(file: WorkspaceFileInfo): boolean {
   );
 }
 
-function createSelectedFileChip(
-  root: Document,
-  className: string
-): HTMLSpanElement {
-  const chip = root.createElement('span');
-  chip.className = className;
-  chip.textContent = 'Selected';
-  chip.setAttribute('data-i18n-tooltip', 'home.activeFileTooltip');
-  attachShiftTooltip(chip, {
-    placement: 'bottom',
-    text: SELECTED_FILE_TOOLTIP,
-  });
-  return chip;
-}
-
 /* My PDFs uses checkbox-like selection: each click toggles only that PDF while
    preserving every other selected file and their selection order. */
 function activateHomeLibraryFile(
@@ -2828,68 +2436,11 @@ function readHomeFileView(): HomeOpenFileView {
   }
 }
 
-function createOverflowButton(
-  remaining: number,
-  root: Document
-): HTMLButtonElement {
-  const button = root.createElement('button');
-  button.type = 'button';
-  button.className =
-    'shift-nav-link shift-open-file-item shift-open-files-more';
-  const label = `${remaining} more`;
-  button.title = label;
-  button.setAttribute('aria-label', `Add files, ${label}`);
-  button.append(createFileIcon('upload', root), createLabel(label, root));
-  button.addEventListener('click', () => openFilePicker(root));
-  return button;
-}
-
-function createLabel(text: string, root: Document): HTMLSpanElement {
-  const label = root.createElement('span');
-  label.className = 'shift-nav-label';
-  label.textContent = text;
-  return label;
-}
-
 function createDownloadedCopyBadge(root: Document): HTMLSpanElement {
   const badge = root.createElement('span');
   badge.className = 'shift-my-pdfs-source-badge';
   badge.textContent = 'Downloaded copy';
   return badge;
-}
-
-function createFileIcon(
-  source: WorkspaceFileSource,
-  root: Document
-): SVGSVGElement {
-  const namespace = 'http://www.w3.org/2000/svg';
-  const svg = root.createElementNS(namespace, 'svg');
-  svg.setAttribute(
-    'class',
-    source === 'handoff'
-      ? 'shift-nav-icon shift-open-file-icon-handoff'
-      : source === 'download'
-        ? 'shift-nav-icon shift-open-file-icon-download'
-        : 'shift-nav-icon shift-open-file-icon-upload'
-  );
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('aria-hidden', 'true');
-  const path = root.createElementNS(namespace, 'path');
-  path.setAttribute(
-    'd',
-    source === 'handoff'
-      ? HANDOFF_ICON_PATH
-      : source === 'download'
-        ? DOWNLOAD_ICON_PATH
-        : UPLOAD_ICON_PATH
-  );
-  path.setAttribute('stroke', 'currentColor');
-  path.setAttribute('stroke-width', '1.5');
-  path.setAttribute('stroke-linecap', 'round');
-  path.setAttribute('stroke-linejoin', 'round');
-  svg.appendChild(path);
-  return svg;
 }
 
 function openFilePicker(root: Document): void {

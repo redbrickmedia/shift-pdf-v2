@@ -230,8 +230,13 @@ describe('viewer chrome', () => {
     expect(viewPdf).toContain('shift-action-row');
     expect(viewPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
 
-    expect(signPdf).toContain('id="uploader" class="shift-pdf-viewer-shell"');
-    expect(signPdf).toContain(`<header class="${VIEWER_CHROME_HEADER_CLASS}">`);
+    expect(signPdf).toContain('id="uploader"');
+    expect(signPdf).not.toContain(
+      'id="uploader" class="shift-pdf-viewer-shell"'
+    );
+    expect(signPdf).toContain(
+      `<header class="${VIEWER_CHROME_HEADER_CLASS}" hidden>`
+    );
     expect(signPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
     expect(signPdf).toContain(VIEWER_CHROME_ACTIONS_CLASS);
     expect(signPdf).toContain('shift-action-row');
@@ -241,15 +246,16 @@ describe('viewer chrome', () => {
     expect(signPdf).toContain('id="flatten-signature-toggle"');
     expect(signPdf).toContain('id="signature-editor"');
     expect(signPdf).toContain('class="shift-pdf-viewer-stage"');
-    expect(signPdf).toContain(
-      'id="tool-uploader" class="shift-pdf-viewer-empty"'
-    );
-    expect(signPdf).toContain('shift-pdf-viewer-page');
-    expect(signPdf).not.toContain('bg-gray-800 rounded-xl');
-    expect(signPdf).not.toMatch(/id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/);
+    expect(signPdf).toContain('id="tool-uploader"');
+    expect(signPdf).toContain('border-dashed');
+    expect(signPdf).toContain('data-lucide="circle-arrow-up"');
+    expect(signPdf).not.toContain('shift-pdf-viewer-empty');
+    expect(signPdf).not.toContain('shift-pdf-viewer-page');
+    expect(signPdf).toContain('bg-gray-800 rounded-xl');
+    expect(signPdf).toMatch(/id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/);
     expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="sign"`);
     expect(signPdf).not.toContain('id="shift-pdf-viewer"');
-    expect(signPdf).not.toContain('{{> footer }}');
+    expect(signPdf).toContain('{{> footer }}');
 
     const signPage = readFileSync(
       resolve(process.cwd(), 'src/js/logic/sign-pdf-page.ts'),

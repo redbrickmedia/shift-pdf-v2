@@ -8,12 +8,9 @@ vi.mock('../js/utils/pdf-thumbnail.js', () => ({
 import { renderPdfFirstPage } from '../js/utils/pdf-thumbnail';
 import { state } from '../js/state';
 import {
-  PENDING_FILE_ROW_ATTR,
   hasOpenFileFlag,
-  markOpenFilePresent,
   readPersistedOpenFile,
   readPersistedOpenFiles,
-  writeOpenFileSnapshot,
   writePersistedOpenFile,
 } from '../js/logic/open-file-store';
 import {
@@ -35,12 +32,10 @@ import {
   markFileLibraryId,
   openLibraryFileInViewer,
   persistWorkspaceOpenFile,
-  renderWorkspaceFiles,
   resetWorkspaceFileIndicator,
   setHomeLibraryFiles,
   setHomeOpenFileView,
   setWorkspaceFiles,
-  syncSidebarFileTooltips,
 } from '../js/logic/workspace-files';
 
 function mountShell(page: 'home' | 'tool' = 'home') {
@@ -148,43 +143,19 @@ describe('workspace files sidebar', () => {
     expect(getWorkspaceFiles()).toEqual([]);
   });
 
-  it('shows the open file in the sidebar and marks the page', () => {
+  it('keeps a selected file out of the sidebar', () => {
     mountShell();
     setWorkspaceFiles([{ name: 'contract.pdf', size: 2048 }]);
 
     const section = document.getElementById('shift-open-files');
     const list = document.getElementById('shift-open-files-list');
     const heading = document.getElementById('shift-open-files-heading');
-    const button = document.querySelector('.shift-open-file-item');
 
     expect(section?.hidden).toBe(false);
-    expect(list?.hidden).toBe(false);
+    expect(list?.hidden).toBe(true);
+    expect(list?.childElementCount).toBe(0);
     expect(heading?.textContent).toBe('My PDFs');
-    expect(list?.getAttribute('aria-label')).toBe('Selected file');
-    expect(button?.textContent).toContain('contract.pdf');
-    expect(button?.hasAttribute('title')).toBe(false);
-    // Expanded rail: the row already shows the name, so no tooltip.
-    expect(button?.getAttribute('data-shift-tooltip')).toBeNull();
-    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
-      'contract.pdf'
-    );
-    expect(button?.getAttribute('aria-label')).toBe('Selected: contract.pdf');
-    expect(button?.hasAttribute('aria-current')).toBe(false);
-    expect(button?.classList.contains('is-selected')).toBe(true);
-    expect(button?.getAttribute('href')).toBe(
-      'view-pdf.html?name=contract.pdf'
-    );
-    expect(
-      button?.querySelector('.shift-open-file-selected-label')?.textContent
-    ).toBe('Selected');
-    expect(button?.getAttribute('data-source')).toBe('upload');
-    expect(button?.getAttribute('data-file-name')).toBe('contract.pdf');
-    expect(
-      button?.querySelector('.shift-open-file-preview.is-empty')
-    ).not.toBeNull();
-    expect(
-      button?.querySelector('.shift-open-file-icon-upload')
-    ).not.toBeNull();
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
@@ -348,7 +319,7 @@ describe('workspace files sidebar', () => {
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
-  it('keeps the My PDFs heading and caps the visible list', () => {
+  it('keeps the My PDFs heading and leaves the sidebar list empty', () => {
     mountShell();
     setWorkspaceFiles([
       { name: 'one.pdf' },
@@ -360,13 +331,11 @@ describe('workspace files sidebar', () => {
 
     const heading = document.getElementById('shift-open-files-heading');
     const list = document.getElementById('shift-open-files-list');
-    const labels = Array.from(
-      document.querySelectorAll('.shift-open-file-item .shift-nav-label')
-    ).map((node) => node.textContent);
 
     expect(heading?.textContent).toBe('My PDFs');
-    expect(list?.getAttribute('aria-label')).toBe('Selected files');
-    expect(labels).toEqual(['one.pdf', 'two.pdf', 'three.pdf', '2 more']);
+    expect(list?.hidden).toBe(true);
+    expect(list?.querySelector('.shift-open-file-item')).toBeNull();
+    expect(getWorkspaceFiles()).toHaveLength(5);
   });
 
   it('formats byte and megabyte sizes in the home table', () => {
@@ -389,44 +358,6 @@ describe('workspace files sidebar', () => {
     expect(
       document.querySelector('.shift-my-pdfs-size-cell')?.textContent
     ).toBe('2.0 MB');
-  });
-
-  it('links the sidebar file row to the viewer without a file picker present', () => {
-    document.body.innerHTML = `
-      <section id="shift-open-files" hidden>
-        <h2 id="shift-open-files-heading">Open file</h2>
-        <div id="shift-open-files-list"></div>
-      </section>
-      <section id="shift-my-pdfs" hidden></section>
-    `;
-    setWorkspaceFiles([{ name: 'report.pdf' }]);
-
-    const item = document.querySelector<HTMLAnchorElement>(
-      '.shift-open-file-item'
-    );
-    expect(item?.tagName).toBe('A');
-    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=report.pdf');
-  });
-
-  it('resolves the sidebar viewer href against the My PDFs nav link', () => {
-    mountShell();
-    document
-      .querySelector('.shift-primary-nav')
-      ?.insertAdjacentHTML(
-        'beforeend',
-        '<a href="../my-pdfs.html" data-nav="my-pdfs" class="shift-nav-link"></a>'
-      );
-    setWorkspaceFiles([{ name: 'report.pdf', size: 512 }]);
-    const input = document.getElementById('file-input') as HTMLInputElement;
-    const click = vi.spyOn(input, 'click').mockImplementation(() => {});
-
-    const item = document.querySelector<HTMLAnchorElement>(
-      '.shift-open-file-item'
-    );
-
-    expect(item?.getAttribute('href')).toBe('../view-pdf.html?name=report.pdf');
-    expect(click).not.toHaveBeenCalled();
-    click.mockRestore();
   });
 
   it('ignores blank names and missing sidebar markup', () => {
@@ -552,282 +483,6 @@ describe('workspace files sidebar', () => {
     });
   });
 
-  it('renders a first-page thumbnail for sidebar files with blobs', async () => {
-    mountShell();
-    const file = new File(['%PDF'], 'briefing.pdf', {
-      type: 'application/pdf',
-    });
-    setWorkspaceFiles([file]);
-
-    await vi.waitFor(() => {
-      expect(vi.mocked(renderPdfFirstPage)).toHaveBeenCalled();
-    });
-
-    const preview = document.querySelector('.shift-open-file-preview');
-    const canvas = preview?.querySelector('canvas');
-    expect(canvas).not.toBeNull();
-    expect(preview?.classList.contains('is-empty')).toBe(false);
-    expect(vi.mocked(renderPdfFirstPage)).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'briefing.pdf' }),
-      canvas,
-      48
-    );
-  });
-
-  it('keeps the generic icon when sidebar thumbnail rendering fails', async () => {
-    mountShell();
-    vi.mocked(renderPdfFirstPage).mockRejectedValueOnce(new Error('bad pdf'));
-    setWorkspaceFiles([
-      new File(['x'], 'broken.pdf', { type: 'application/pdf' }),
-    ]);
-
-    await vi.waitFor(() => {
-      expect(vi.mocked(renderPdfFirstPage)).toHaveBeenCalled();
-    });
-
-    const preview = document.querySelector('.shift-open-file-preview');
-    expect(preview?.classList.contains('is-empty')).toBe(true);
-    expect(
-      preview?.querySelector('.shift-open-file-icon-upload')
-    ).not.toBeNull();
-  });
-
-  it('paints a sidebar thumbnail once and reuses it across list rebuilds', async () => {
-    mountShell();
-    vi.mocked(renderPdfFirstPage).mockClear();
-    const active = new File(['%PDF-active'], 'Gus.pdf', {
-      type: 'application/pdf',
-    });
-    const other = new File(['%PDF-other'], 'Other.pdf', {
-      type: 'application/pdf',
-    });
-    const paintsOfActive = () =>
-      vi
-        .mocked(renderPdfFirstPage)
-        .mock.calls.filter(([blob]) => blob === active).length;
-
-    setWorkspaceFiles([active]);
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector('.shift-open-file-preview:not(.is-empty)')
-      ).not.toBeNull();
-    });
-    const canvasBefore = document.querySelector<HTMLCanvasElement>(
-      '.shift-open-file-item canvas'
-    );
-    expect(paintsOfActive()).toBe(1);
-
-    // Each of these forces a genuine rebuild of the list markup.
-    setWorkspaceFiles([active, other]);
-    await vi.waitFor(() => {
-      expect(document.querySelectorAll('.shift-open-file-item')).toHaveLength(
-        2
-      );
-    });
-    setWorkspaceFiles([other, active]);
-    setWorkspaceFiles([active]);
-    renderWorkspaceFiles();
-
-    const preview = document.querySelector('.shift-open-file-preview');
-    expect(document.querySelectorAll('.shift-open-file-item')).toHaveLength(1);
-    expect(
-      document.querySelector<HTMLCanvasElement>('.shift-open-file-item canvas')
-    ).toBe(canvasBefore);
-    expect(preview?.classList.contains('is-empty')).toBe(false);
-    expect(paintsOfActive()).toBe(1);
-  });
-
-  it('shows a stored thumbnail on the first paint after a navigation', () => {
-    const pixel =
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-    sessionStorage.setItem(
-      'shiftSidebarThumbnails',
-      JSON.stringify({ 'Gus.pdf|4': pixel })
-    );
-    mountShell();
-    const file = new File(['%PDF'], 'Gus.pdf', { type: 'application/pdf' });
-
-    setWorkspaceFiles([file]);
-
-    const preview = document.querySelector<HTMLElement>(
-      '.shift-open-file-preview'
-    );
-    expect(preview?.classList.contains('is-empty')).toBe(false);
-    expect(preview?.style.backgroundImage).toBe(`url("${pixel}")`);
-  });
-
-  it('does not rebuild sidebar thumbnails when the open file list is unchanged', async () => {
-    mountShell();
-    const file = new File(['a'], 'stable.pdf', { type: 'application/pdf' });
-    setWorkspaceFiles([file]);
-
-    await vi.waitFor(() => {
-      expect(
-        document.querySelector('.shift-open-file-preview:not(.is-empty)')
-      ).not.toBeNull();
-    });
-
-    const canvasBefore = document.querySelector<HTMLCanvasElement>(
-      '.shift-open-file-item canvas'
-    );
-    vi.mocked(renderPdfFirstPage).mockClear();
-
-    setWorkspaceFiles([file]);
-
-    expect(vi.mocked(renderPdfFirstPage)).not.toHaveBeenCalled();
-    expect(
-      document.querySelector<HTMLCanvasElement>('.shift-open-file-item canvas')
-    ).toBe(canvasBefore);
-    expect(
-      document
-        .querySelector('.shift-open-file-preview')
-        ?.classList.contains('is-empty')
-    ).toBe(false);
-  });
-
-  /**
-   * Opening the viewer no longer collapses the selection, so the rail can list
-   * several PDFs at once and needs to say which one is on screen.
-   */
-  it('marks only the viewed file as current on the viewer page', () => {
-    mountShell();
-    const path = window.location.pathname + window.location.search;
-    history.replaceState({}, '', '/view-pdf.html?file=second-id');
-    try {
-      setWorkspaceFiles([
-        { id: 'first-id', name: 'first.pdf' },
-        { id: 'second-id', name: 'second.pdf' },
-        { id: 'third-id', name: 'third.pdf' },
-      ]);
-
-      const rows = Array.from(
-        document.querySelectorAll<HTMLAnchorElement>('.shift-open-file-item')
-      );
-
-      expect(rows.map((row) => row.dataset.fileName)).toEqual([
-        'first.pdf',
-        'second.pdf',
-        'third.pdf',
-      ]);
-      // Every row stays listed and selected; one of them is the current page.
-      expect(rows.every((row) => row.classList.contains('is-selected'))).toBe(
-        true
-      );
-      expect(
-        rows
-          .filter((row) => row.classList.contains('is-viewing'))
-          .map((row) => row.dataset.fileName)
-      ).toEqual(['second.pdf']);
-      expect(rows.map((row) => row.getAttribute('aria-current'))).toEqual([
-        null,
-        'page',
-        null,
-      ]);
-    } finally {
-      history.replaceState({}, '', path);
-    }
-  });
-
-  it('marks no rail file as viewed away from the viewer page', () => {
-    mountShell();
-    setWorkspaceFiles([
-      { id: 'first-id', name: 'first.pdf' },
-      { id: 'second-id', name: 'second.pdf' },
-    ]);
-
-    expect(
-      document.querySelectorAll('.shift-open-file-item.is-viewing')
-    ).toHaveLength(0);
-    expect(
-      Array.from(document.querySelectorAll('.shift-open-file-item')).map(
-        (row) => row.getAttribute('aria-current')
-      )
-    ).toEqual([null, null]);
-  });
-
-  /**
-   * The expanded row spells the filename out, so the tooltip is redundant
-   * there; the 40px icon rail is the one place it is needed.
-   */
-  it('tooltips rail filenames only while the sidebar is collapsed', () => {
-    mountShell();
-    document.body.classList.add('shift-sidebar-collapsed');
-    setWorkspaceFiles([
-      { name: 'first.pdf' },
-      { name: 'second.pdf', source: 'download' },
-    ]);
-
-    const tooltips = () =>
-      Array.from(
-        document.querySelectorAll<HTMLElement>('.shift-open-file-item')
-      ).map((row) => row.getAttribute('data-shift-tooltip'));
-
-    expect(tooltips()).toEqual(['first.pdf', 'second.pdf · Downloaded copy']);
-
-    document.body.classList.remove('shift-sidebar-collapsed');
-    syncSidebarFileTooltips();
-    expect(tooltips()).toEqual([null, null]);
-
-    document.body.classList.add('shift-sidebar-collapsed');
-    syncSidebarFileTooltips();
-    expect(tooltips()).toEqual(['first.pdf', 'second.pdf · Downloaded copy']);
-  });
-
-  it('tooltips a collapsed pending snapshot row', () => {
-    mountShell();
-    document.body.classList.add('shift-sidebar-collapsed');
-    markOpenFilePresent(true);
-    writeOpenFileSnapshot([{ name: 'pending.pdf', size: 64 }]);
-    renderWorkspaceFiles();
-
-    const item = document.querySelector('.shift-open-file-item');
-    expect(item?.hasAttribute(PENDING_FILE_ROW_ATTR)).toBe(true);
-    expect(item?.getAttribute('data-shift-tooltip')).toBe('pending.pdf');
-    expect(item?.hasAttribute('title')).toBe(false);
-  });
-
-  it('uses a handoff icon for files received from Shift', () => {
-    mountShell();
-    setWorkspaceFiles([
-      { name: 'from-tab.pdf', size: 1024, source: 'handoff' },
-    ]);
-
-    const button = document.querySelector('.shift-open-file-item');
-    expect(button?.getAttribute('data-source')).toBe('handoff');
-    expect(button?.hasAttribute('title')).toBe(false);
-    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
-      'from-tab.pdf · Received from Shift'
-    );
-    expect(button?.getAttribute('aria-label')).toBe(
-      'Selected: from-tab.pdf. Received from Shift. Click to open in the viewer.'
-    );
-    expect(
-      button?.querySelector('.shift-open-file-icon-handoff')
-    ).not.toBeNull();
-    expect(getWorkspaceFiles()[0]).toMatchObject({
-      source: 'handoff',
-    });
-  });
-
-  it('uses a download icon for downloaded copies in the sidebar', () => {
-    mountShell();
-    setWorkspaceFiles([
-      { name: 'compressed.pdf', size: 2048, source: 'download' },
-    ]);
-
-    const button = document.querySelector('.shift-open-file-item');
-    expect(button?.getAttribute('data-source')).toBe('download');
-    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
-      'compressed.pdf · Downloaded copy'
-    );
-    expect(button?.getAttribute('aria-label')).toBe(
-      'Selected: compressed.pdf. Downloaded copy. Click to open in the viewer.'
-    );
-    expect(
-      button?.querySelector('.shift-open-file-icon-download')
-    ).not.toBeNull();
-  });
-
   it('tags a Shift-handoff File as a handoff source', () => {
     mountShell();
     const file = new File([new Uint8Array([1, 2, 3])], 'from-tab.pdf', {
@@ -836,11 +491,8 @@ describe('workspace files sidebar', () => {
     markFileFromHandoff(file);
     setWorkspaceFiles([file]);
 
-    const button = document.querySelector('.shift-open-file-item');
-    expect(button?.getAttribute('data-source')).toBe('handoff');
-    expect(button?.getAttribute('data-shift-file-tooltip')).toBe(
-      'from-tab.pdf · Received from Shift'
-    );
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(getWorkspaceFiles()[0]).toMatchObject({
       name: 'from-tab.pdf',
       source: 'handoff',
@@ -861,125 +513,6 @@ describe('workspace files sidebar', () => {
       name: 'from-tab.pdf',
       source: 'handoff',
     });
-  });
-
-  it('links a handoff sidebar row to the viewer', () => {
-    mountShell();
-    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
-    const input = document.getElementById('file-input') as HTMLInputElement;
-    const click = vi.spyOn(input, 'click').mockImplementation(() => {});
-
-    const item = document.querySelector<HTMLAnchorElement>(
-      '.shift-open-file-item'
-    );
-
-    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=from-tab.pdf');
-    expect(click).not.toHaveBeenCalled();
-    click.mockRestore();
-  });
-
-  it('links sidebar files to the viewer even when a tool is open on home', () => {
-    document.body.innerHTML = `
-      <section id="shift-my-pdfs" hidden></section>
-      <input id="file-input" type="file" accept="application/pdf" />
-      <div id="tool-interface" class="hidden">
-        <input id="file-input" type="file" accept="application/pdf" />
-      </div>
-      <section id="shift-open-files" hidden>
-        <div id="shift-open-files-list"></div>
-      </section>
-    `;
-    setWorkspaceFiles([{ name: 'from-tab.pdf', source: 'handoff' }]);
-    const item = document.querySelector<HTMLAnchorElement>(
-      '.shift-open-file-item'
-    );
-
-    expect(item?.getAttribute('href')).toBe('view-pdf.html?name=from-tab.pdf');
-  });
-
-  it('gives each sidebar file a directly loadable viewer URL by library id', () => {
-    mountShell();
-    const file = new File(['pdf'], 'briefing.pdf', {
-      type: 'application/pdf',
-    });
-    setWorkspaceFiles([
-      {
-        id: 'briefing-id',
-        name: file.name,
-        size: file.size,
-        source: 'upload',
-        blob: file,
-      },
-    ]);
-
-    const item = document.querySelector<HTMLAnchorElement>(
-      '.shift-open-file-item'
-    );
-    expect(item?.getAttribute('href')).toBe('view-pdf.html?file=briefing-id');
-  });
-
-  /* The rail paints these from the session snapshot before IndexedDB resolves,
-     so there is no blob to re-persist and the href has to carry the click. */
-  it('lets a pending sidebar row fall through to the viewer href', () => {
-    const location = Object.getOwnPropertyDescriptor(window, 'location');
-    const assign = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { assign },
-    });
-
-    try {
-      mountShell();
-      setWorkspaceFiles([{ name: 'pending.pdf', size: 128 }]);
-
-      const item = document.querySelector<HTMLAnchorElement>(
-        '.shift-open-file-item'
-      );
-      const event = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-      });
-      item?.dispatchEvent(event);
-
-      expect(event.defaultPrevented).toBe(false);
-      expect(assign).not.toHaveBeenCalled();
-      expect(item?.getAttribute('href')).toBe('view-pdf.html?name=pending.pdf');
-      expect(item?.hasAttribute('title')).toBe(false);
-      expect(item?.getAttribute('data-shift-file-tooltip')).toBe('pending.pdf');
-    } finally {
-      if (location) Object.defineProperty(window, 'location', location);
-    }
-  });
-
-  it('tooltips a pending snapshot row with the full filename', () => {
-    mountShell();
-    markOpenFilePresent(true);
-    writeOpenFileSnapshot([
-      {
-        name: 'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf',
-        size: 2048,
-      },
-    ]);
-    try {
-      renderWorkspaceFiles();
-
-      const item = document.querySelector<HTMLAnchorElement>(
-        '.shift-open-file-item'
-      );
-      expect(item?.hasAttribute(PENDING_FILE_ROW_ATTR)).toBe(true);
-      expect(item?.hasAttribute('title')).toBe(false);
-      expect(item?.getAttribute('href')).toBe(
-        'view-pdf.html?name=Candidate+Sourcing+Pipeline_+Briefing+for+Mark+%282%29+%281%29.pdf'
-      );
-      expect(item?.getAttribute('data-shift-file-tooltip')).toBe(
-        'Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
-      );
-      expect(item?.getAttribute('aria-label')).toBe(
-        'Selected: Candidate Sourcing Pipeline_ Briefing for Mark (2) (1).pdf'
-      );
-    } finally {
-      markOpenFilePresent(false);
-    }
   });
 
   it('keeps the handoff source when the in-page list refreshes the same name', async () => {
@@ -1164,21 +697,11 @@ describe('workspace files sidebar', () => {
     });
 
     expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
-    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(
-      false
-    );
-    expect(
-      document.querySelector('.shift-open-file-item .shift-nav-label')
-        ?.textContent
-    ).toBe('second.pdf');
-    expect(
-      document.querySelector(
-        '.shift-open-file-item .shift-open-file-selected-label'
-      )?.textContent
-    ).toBe('Selected');
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(
       document
-        .querySelector('.shift-open-file-item')
+        .querySelector('.shift-open-file-thumb[data-file-name="second.pdf"]')
         ?.classList.contains('is-selected')
     ).toBe(true);
   });
@@ -1420,9 +943,8 @@ describe('workspace files sidebar', () => {
     await vi.waitFor(() => {
       expect(getWorkspaceFiles()).toMatchObject([{ name: 'first.pdf' }]);
     });
-    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(
-      false
-    );
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
 
     thumbOf('first.pdf')?.click();
     await vi.waitFor(() => {
@@ -1438,10 +960,7 @@ describe('workspace files sidebar', () => {
     });
     expect(thumbOf('second.pdf')?.classList.contains('is-selected')).toBe(true);
     expect(thumbOf('first.pdf')?.classList.contains('is-selected')).toBe(false);
-    expect(
-      document.querySelector('.shift-open-file-item .shift-nav-label')
-        ?.textContent
-    ).toBe('second.pdf');
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
   });
 
   it('clears persisted files on explicit Clear all', async () => {
@@ -1600,7 +1119,7 @@ describe('workspace files sidebar', () => {
     expect(secondCard?.getAttribute('aria-pressed')).toBe('true');
     expect(
       document.querySelectorAll('#shift-open-files-list .shift-open-file-item')
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(document.getElementById('shift-open-file-tools')?.hidden).toBe(
       false
     );

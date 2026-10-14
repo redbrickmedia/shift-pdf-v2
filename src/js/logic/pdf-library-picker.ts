@@ -3,6 +3,8 @@ import {
   isDuplicateMergeFile,
   type MergeFileIdentity,
 } from './merge-file-identity.js';
+import { createShiftFilePreview } from './shift-file-preview.js';
+import { paintFilePreview } from './tool-input-preview.js';
 
 export type PdfLibraryPickerOptions = {
   root?: Document;
@@ -121,19 +123,30 @@ function createLibraryRow(
 ): HTMLButtonElement {
   const row = root.createElement('button');
   row.type = 'button';
-  row.className = 'shift-library-picker-row';
+  row.className = 'shift-library-picker-row shift-open-file-thumb';
   row.disabled = disabled;
   row.setAttribute('aria-label', rowAriaLabel(entry, disabled));
 
+  const preview = createShiftFilePreview(root, { size: 'card', empty: true });
+
+  const meta = root.createElement('div');
+  meta.className = 'shift-open-file-thumb-meta';
+
   const name = root.createElement('span');
-  name.className = 'shift-library-picker-name';
+  name.className = 'shift-open-file-thumb-name';
   name.textContent = entry.name;
 
-  const meta = root.createElement('span');
-  meta.className = 'shift-library-picker-meta';
-  meta.textContent = `${new Date(entry.addedAt).toLocaleDateString()} · ${formatFileSize(entry.size)}`;
+  const detail = root.createElement('span');
+  detail.className = 'shift-open-file-thumb-detail';
+  detail.textContent = formatFileSize(entry.size);
 
-  row.append(name, meta);
+  meta.append(name, detail);
+  row.append(preview, meta);
+
+  void paintFilePreview(preview, entry.file).catch(() => {
+    preview.classList.add('is-empty');
+  });
+
   if (!disabled) {
     row.addEventListener('click', () => onSelect(entry));
   }
