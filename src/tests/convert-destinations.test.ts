@@ -101,6 +101,7 @@ describe('destination batch capability', () => {
       expect(byId.get(id)?.acceptsMultiple ?? false).toBe(false);
     }
     expect(byId.get('pdf-to-docx')?.acceptsMultiple).toBe(true);
+    expect(byId.get('pdf-to-pptx')?.acceptsMultiple).toBe(true);
   });
 
   it('filters destinations by name, subtitle, or extension', () => {
@@ -110,6 +111,9 @@ describe('destination batch capability', () => {
     expect(
       filterConvertDestinations(all, 'word').map((entry) => entry.id)
     ).toEqual(['pdf-to-docx']);
+    expect(
+      filterConvertDestinations(all, 'powerpoint').map((entry) => entry.id)
+    ).toEqual(['pdf-to-pptx']);
     expect(
       filterConvertDestinations(all, 'jpg').some(
         (entry) => entry.id === 'pdf-to-jpg'
@@ -146,6 +150,9 @@ describe('destination batch capability', () => {
     ).toBe('notes.json');
     expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-docx')!)).toBe(
       'basicapi.docx'
+    );
+    expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-pptx')!)).toBe(
+      'basicapi.pptx'
     );
   });
 

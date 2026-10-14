@@ -813,6 +813,7 @@ export default defineConfig(({ mode }) => {
           'pdf-to-cbz': resolve(__dirname, 'src/pages/pdf-to-cbz.html'),
           'pdf-to-webp': resolve(__dirname, 'src/pages/pdf-to-webp.html'),
           'pdf-to-docx': resolve(__dirname, 'src/pages/pdf-to-docx.html'),
+          'pdf-to-pptx': resolve(__dirname, 'src/pages/pdf-to-pptx.html'),
           'extract-images': resolve(__dirname, 'src/pages/extract-images.html'),
           'pdf-to-markdown': resolve(
             __dirname,

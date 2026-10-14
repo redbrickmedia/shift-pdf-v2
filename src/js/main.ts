@@ -557,6 +557,7 @@ const init = async () => {
     'PDF to Text': 'tools:pdfToText',
     'Extract Tables': 'tools:extractTables',
     'PDF to Word': 'tools:pdfToWord',
+    'PDF to PowerPoint': 'tools:pdfToPptx',
     'Extract Images': 'tools:extractImages',
     'PDF to Markdown': 'tools:pdfToMarkdown',
     'Prepare PDF for AI': 'tools:preparePdfForAi',

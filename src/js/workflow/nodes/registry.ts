@@ -42,6 +42,7 @@ import { RedactNode } from './redact-node';
 import { RepairNode } from './repair-node';
 import { PdfToTextNode } from './pdf-to-text-node';
 import { PdfToDocxNode } from './pdf-to-docx-node';
+import { PdfToPptxNode } from './pdf-to-pptx-node';
 import { PdfToXlsxNode } from './pdf-to-xlsx-node';
 import { PdfToCsvNode } from './pdf-to-csv-node';
 import { PdfToSvgNode } from './pdf-to-svg-node';
@@ -654,6 +655,14 @@ export const nodeRegistry: Record<string, NodeRegistryEntry> = {
     description: 'Convert PDF to Word document',
     factory: () => new PdfToDocxNode(),
     toolPageId: 'pdf-to-docx',
+  },
+  PdfToPptxNode: {
+    label: 'PDF to PowerPoint',
+    category: 'Output',
+    icon: 'ph-microsoft-powerpoint-logo',
+    description: 'Convert PDF to PowerPoint slides',
+    factory: () => new PdfToPptxNode(),
+    toolPageId: 'pdf-to-pptx',
   },
   PdfToXlsxNode: {
     label: 'PDF to XLSX',

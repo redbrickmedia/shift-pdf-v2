@@ -96,6 +96,7 @@ Extract content from PDFs into images, documents, and data formats.
 - [**PDF to Greyscale**](./pdf-to-greyscale) — Convert all colors to black and white.
 - [**PDF to JSON**](./pdf-to-json) — Convert PDF files to JSON format.
 - [**PDF to Word**](./pdf-to-docx) — Convert PDF files to editable Word documents.
+- [**PDF to PowerPoint**](./pdf-to-pptx) — Convert PDF files to editable PowerPoint slides.
 - [**Extract Images**](./extract-images) — Extract all embedded images from your PDF files.
 - [**PDF to Markdown**](./pdf-to-markdown) — Convert PDF text and tables to Markdown format.
 - [**Prepare PDF for AI**](./prepare-pdf-for-ai) — Extract PDF content as LlamaIndex JSON for RAG/LLM pipelines.
