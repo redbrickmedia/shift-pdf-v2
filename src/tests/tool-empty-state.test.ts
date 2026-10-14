@@ -387,7 +387,7 @@ describe('tool empty state: multi-slot uploaders', () => {
 
   it('gives the convert hub the shared library button', () => {
     document.body.innerHTML = `
-      <div id="convert-hub">
+      <div id="tool-uploader" data-convert-hub>
         <div id="drop-zone">
           <div>Click to select files</div>
           <input id="file-input" type="file" class="absolute top-0 left-0 w-full h-full opacity-0" />

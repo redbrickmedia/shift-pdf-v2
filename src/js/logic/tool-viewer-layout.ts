@@ -291,9 +291,9 @@ export function resetToolViewerLayout(): void {
 }
 
 /**
- * Sign authors the shared tool card for its empty state and keeps the viewer
- * header in the markup, hidden. The full-bleed shell only applies once a file
- * is open, so the empty screen matches Merge and Compress.
+ * Sign authors the shared header and the shared tool card. The header stays
+ * visible on the empty screen, the same as Merge. The full-bleed viewer shell
+ * only applies once a file is open.
  */
 function syncAuthoredViewerShell(root: Document, viewing: boolean): void {
   const uploader = root.getElementById('uploader');
@@ -304,7 +304,7 @@ function syncAuthoredViewerShell(root: Document, viewing: boolean): void {
 
   uploader.classList.toggle('shift-pdf-viewer-shell', viewing);
   root.body.classList.toggle('shift-pdf-viewer-page', viewing);
-  header.hidden = !viewing;
+  header.hidden = false;
 }
 
 function isRevealed(el: HTMLElement): boolean {

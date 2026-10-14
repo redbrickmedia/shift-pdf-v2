@@ -234,9 +234,7 @@ describe('viewer chrome', () => {
     expect(signPdf).not.toContain(
       'id="uploader" class="shift-pdf-viewer-shell"'
     );
-    expect(signPdf).toContain(
-      `<header class="${VIEWER_CHROME_HEADER_CLASS}" hidden>`
-    );
+    expect(signPdf).toContain(`<header class="${VIEWER_CHROME_HEADER_CLASS}">`);
     expect(signPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
     expect(signPdf).toContain(VIEWER_CHROME_ACTIONS_CLASS);
     expect(signPdf).toContain('shift-action-row');
@@ -252,7 +250,7 @@ describe('viewer chrome', () => {
     expect(signPdf).not.toContain('shift-pdf-viewer-empty');
     expect(signPdf).not.toContain('shift-pdf-viewer-page');
     expect(signPdf).toContain('bg-gray-800 rounded-xl');
-    expect(signPdf).toMatch(/id="tool-uploader"[\s\S]*<h1[\s\S]*Sign PDF/);
+    expect(signPdf).not.toMatch(/id="tool-uploader"[\s\S]*<h1/);
     expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="sign"`);
     expect(signPdf).not.toContain('id="shift-pdf-viewer"');
     expect(signPdf).toContain('{{> footer }}');

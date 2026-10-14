@@ -1672,7 +1672,7 @@ body.shift-tool-viewer-pending #uploader.shift-pdf-viewer-shell #tool-uploader {
 /* One inset for boxed tools and viewer tools. Same tokens as
    .shift-pdf-viewer-shell. Do not add a second max-width here — that is
    what made boxed pages sit inside a narrower column than Sign / View.
-   Convert hub has no #tool-uploader. */
+   Convert uses #tool-uploader, so it gets this layout too. */
 body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   > #uploader:has(#tool-uploader) {
   display: flex;

@@ -438,7 +438,7 @@ describe('viewer inside the tool card', () => {
         .getElementById('uploader')
         ?.classList.contains('shift-pdf-viewer-shell')
     ).toBe(false);
-    expect(header?.hasAttribute('hidden')).toBe(true);
+    expect(header?.hasAttribute('hidden')).toBe(false);
     expect(header?.parentElement?.id).toBe('uploader');
     expect(
       header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')

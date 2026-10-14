@@ -577,19 +577,23 @@ describe('tool output toolbar', () => {
     expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
   });
 
-  it('skips the convert hub destination flow', () => {
+  it('lifts the convert title into the shared tool header', () => {
     document.body.innerHTML = `
       <main>
-        <div id="convert-hub">
-          <h1>Convert</h1>
-          <p>Select one or more documents.</p>
+        <div id="uploader">
+          <div id="tool-uploader" data-convert-hub>
+            <h1>Convert</h1>
+            <p>Select one or more documents.</p>
+          </div>
         </div>
       </main>
     `;
     initToolOutputToolbar();
 
-    expect(document.querySelector('.shift-pdf-viewer-header')).toBeNull();
-    expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).toBeNull();
+    const header = document.querySelector('.shift-pdf-viewer-header');
+    expect(header?.querySelector('h1')?.textContent).toBe('Convert');
+    expect(header?.parentElement?.id).toBe('uploader');
+    expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).not.toBeNull();
   });
 
   it('keeps boxed Process visible and Save disabled until a result exists', () => {

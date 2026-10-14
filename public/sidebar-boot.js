@@ -472,7 +472,6 @@
       (body && body.classList.contains('shift-home')) ||
       !!document.getElementById('shift-my-pdfs') ||
       !!document.getElementById('tool-grid') ||
-      !!document.getElementById('convert-hub') ||
       !!document.getElementById('shift-pdf-viewer')
     );
   }

@@ -211,7 +211,6 @@ function isNonToolPage(root: Document): boolean {
     root.body.classList.contains('shift-home') ||
     Boolean(root.getElementById('shift-my-pdfs')) ||
     Boolean(root.getElementById('tool-grid')) ||
-    Boolean(root.getElementById('convert-hub')) ||
     // The PDF viewer produces no output, so it keeps its own header actions.
     Boolean(root.getElementById('shift-pdf-viewer'))
   );
