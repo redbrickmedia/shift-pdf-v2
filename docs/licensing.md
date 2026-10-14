@@ -1,92 +1,41 @@
-# Commercial License
+# Licensing
 
-BentoPDF is dual-licensed under **AGPL-3.0** (for open-source projects) and a **Commercial License** (for proprietary/closed-source applications).
+This Shift fork is licensed under **AGPL-3.0-only**. There is no commercial license that waives AGPL obligations for the combined work.
 
-::: tip Full Details
-For complete licensing information, delivery details, AGPL component notices, and invoicing, visit our [Licensing Page](https://bentopdf.com/licensing.html).
+::: tip Corresponding source
+Each production deployment names its git revision on [`licensing.html`](/licensing.html) and links the pinned engine source. The same page and the repository [`NOTICE`](/NOTICE) file list third-party terms.
 :::
 
-## Get a Commercial License
+## What you receive
 
-**[Get Lifetime License for $79](https://ko-fi.com/s/f32ca4cb75)** — A one-time purchase that includes all future updates forever.
+The public repository is the corresponding source for the Shift shell, modifications, and build scripts. PyMuPDF, Ghostscript, and CoherentPDF ship from the app origin as pinned npm packages. Their package repositories and upstream projects are the corresponding source for those engines.
 
-## When Do You Need a Commercial License?
+## AGPL processing engines
 
-| Use Case                                    | License Required       |
-| ------------------------------------------- | ---------------------- |
-| Open-source project with public source code | AGPL-3.0 (Free)        |
-| Internal company tool (not distributed)     | AGPL-3.0 (Free)        |
-| Proprietary/closed-source application       | **Commercial License** |
-| SaaS product without source code disclosure | **Commercial License** |
-| Redistributing without AGPL compliance      | **Commercial License** |
+These engines run in the user's browser. Fetching them as part of the app is conveyance. A CDN of binaries is not a source offer, so the default build copies the packages into `wasm/` on this origin.
 
-## Delivery & Licensing Model
+| Component       | Package                  | Version | License           | Source                                                                      |
+| --------------- | ------------------------ | ------- | ----------------- | --------------------------------------------------------------------------- |
+| **PyMuPDF**     | `@bentopdf/pymupdf-wasm` | 0.11.16 | AGPL-3.0-only     | [bentopdf-pymupdf-wasm](https://github.com/alam00000/bentopdf-pymupdf-wasm) |
+| **Ghostscript** | `@bentopdf/gs-wasm`      | 0.1.1   | AGPL-3.0-only     | [bentopdf-gs-wasm](https://github.com/alam00000/bentopdf-gs-wasm)           |
+| **CoherentPDF** | `coherentpdf`            | 2.5.5   | AGPL-3.0-or-later | [coherentpdf.js](https://github.com/coherentgraphics/coherentpdf.js)        |
 
-- **No license key is required or provided.** BentoPDF intentionally does not use license keys to streamline deployment and reduce operational friction for users.
-- Upon purchase, users receive a ZIP archive containing the complete BentoPDF source code and binaries.
-- The source code provided is identical to the code published in our public open-source repository.
+Build instructions live in each package repository. Do not compile these engines into Shift Browser.
 
-**GitHub Repository:** [github.com/alam00000/bentopdf](https://github.com/alam00000/bentopdf)
+## Other notices
 
-## Important Notice on Third-Party Components
-
-::: info AGPL Components — Pre-configured via CDN
-BentoPDF **does not bundle** AGPL-licensed processing libraries in its source code. These components are loaded at runtime from CDN URLs that are **pre-configured by default** — all features work out of the box with zero setup.
-
-| Component       | License  | Status                 |
-| --------------- | -------- | ---------------------- |
-| **PyMuPDF**     | AGPL-3.0 | Pre-configured via CDN |
-| **Ghostscript** | AGPL-3.0 | Pre-configured via CDN |
-| **CoherentPDF** | AGPL-3.0 | Pre-configured via CDN |
-
-WASM module URLs are configured via environment variables at build time (`.env.production`). The defaults point to jsDelivr CDN. For custom deployments (air-gapped, self-hosted), you can override via environment variables, Docker build args, or per-user via **Advanced Settings** in the UI.
-
-See [Self-Hosting > WASM Configuration](/self-hosting/#wasm-configuration-agpl-components) for details.
-
-This approach ensures:
-
-- BentoPDF's core code remains under its dual-license (AGPL-3.0 / Commercial)
-- WASM binaries are loaded at runtime, not included in the source
-- Clear compliance boundaries for commercial users
-  :::
-
-::: tip Commercial License & AGPL Features
-The commercial license covers BentoPDF's own code. If you configure and use AGPL components (PyMuPDF, Ghostscript, CoherentPDF), you must still comply with their respective AGPL-3.0 license terms, which may require source code disclosure if you distribute modified versions.
-:::
-
-## Invoicing
-
-- Ko-fi does not automatically issue invoices.
-- An official invoice will be provided immediately upon request.
-
-**Contact us:** [contact@bentopdf.com](mailto:contact@bentopdf.com) with your purchase details.
-
-## What's Included
-
-| Feature                       | Included       |
-| ----------------------------- | -------------- |
-| Full source code              | ✅             |
-| All 50+ PDF tools             | ✅             |
-| Self-hosting rights           | ✅             |
-| Lifetime updates              | ✅             |
-| Remove branding (Simple Mode) | ✅             |
-| Commercial support            | ✅ (via email) |
-| Priority feature requests     | ✅             |
+LibreOffice (MPL-2.0), qpdf (Apache-2.0), PDFium (BSD-3-Clause), and PDF.js (Apache-2.0) are documented in [`NOTICE`](/NOTICE). Those binaries also stay on the PDF app origin.
 
 ## FAQ
 
-### Do I need a license key to use BentoPDF?
+### Can I use this fork in a closed-source product?
 
-No. BentoPDF does not use license keys. The commercial license grants you legal rights to use the software in proprietary applications.
+No. AGPL-3.0 applies to this combined work. Shift cannot sell a waiver for Artifex or Coherent Graphics components.
 
-### Can I use BentoPDF in my SaaS product?
+### Do I need a license key?
 
-Yes, with a commercial license. Without it, you must comply with AGPL-3.0, which requires you to make your full source code available to users.
+No. There is no commercial license key and no dual-license offer on this fork.
 
-### What about the AGPL components?
+### Where is the source for a live deployment?
 
-Components like CoherentPDF are licensed under AGPL v3 and remain under that license. The commercial license covers BentoPDF's own code but does not override third-party AGPL obligations.
-
-### How do I get an invoice?
-
-Email [contact@bentopdf.com](mailto:contact@bentopdf.com) with your Ko-fi purchase confirmation, and we'll send an official invoice.
+Open `/licensing.html` on that origin. It names the deployed git revision and links each pinned engine.

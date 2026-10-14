@@ -8,10 +8,16 @@ interface WasmProviderConfig {
 
 const STORAGE_KEY = 'bentopdf:wasm-providers';
 
-const CDN_DEFAULTS: Record<WasmPackage, string> = {
-  pymupdf: 'https://cdn.jsdelivr.net/npm/@bentopdf/pymupdf-wasm@0.11.16/',
-  ghostscript: 'https://cdn.jsdelivr.net/npm/@bentopdf/gs-wasm@0.1.1/assets/',
-  cpdf: 'https://cdn.jsdelivr.net/npm/coherentpdf@2.5.5/dist/',
+function sameOriginEngineUrl(subdir: string): string {
+  const base = import.meta.env.BASE_URL || '/';
+  const normalized = base.endsWith('/') ? base : `${base}/`;
+  return `${normalized}wasm/${subdir}/`;
+}
+
+const SAME_ORIGIN_DEFAULTS: Record<WasmPackage, string> = {
+  pymupdf: sameOriginEngineUrl('pymupdf'),
+  ghostscript: sameOriginEngineUrl('gs'),
+  cpdf: sameOriginEngineUrl('cpdf'),
 };
 
 function envOrDefault(envVar: string | undefined, fallback: string): string {
@@ -21,18 +27,31 @@ function envOrDefault(envVar: string | undefined, fallback: string): string {
 const ENV_DEFAULTS: Record<WasmPackage, string> = {
   pymupdf: envOrDefault(
     import.meta.env.VITE_WASM_PYMUPDF_URL,
-    CDN_DEFAULTS.pymupdf
+    SAME_ORIGIN_DEFAULTS.pymupdf
   ),
   ghostscript: envOrDefault(
     import.meta.env.VITE_WASM_GS_URL,
-    CDN_DEFAULTS.ghostscript
+    SAME_ORIGIN_DEFAULTS.ghostscript
   ),
-  cpdf: envOrDefault(import.meta.env.VITE_WASM_CPDF_URL, CDN_DEFAULTS.cpdf),
+  cpdf: envOrDefault(
+    import.meta.env.VITE_WASM_CPDF_URL,
+    SAME_ORIGIN_DEFAULTS.cpdf
+  ),
 };
+
+function urlBase(): string {
+  try {
+    return typeof location !== 'undefined' && location.origin
+      ? location.origin
+      : 'http://localhost';
+  } catch {
+    return 'http://localhost';
+  }
+}
 
 function hostnameOf(url: string): string | null {
   try {
-    return new URL(url).hostname;
+    return new URL(url, urlBase()).hostname;
   } catch {
     return null;
   }
@@ -43,7 +62,7 @@ function collectBuiltinTrustedHosts(): Set<string> {
   if (typeof location !== 'undefined' && location.hostname) {
     hosts.add(location.hostname);
   }
-  for (const url of Object.values(CDN_DEFAULTS)) {
+  for (const url of Object.values(SAME_ORIGIN_DEFAULTS)) {
     const h = hostnameOf(url);
     if (h) hosts.add(h);
   }
@@ -179,8 +198,9 @@ class WasmProviderManager {
       return { valid: false, error: 'No URL configured' };
     }
 
+    let parsedUrl: URL;
     try {
-      const parsedUrl = new URL(testUrl);
+      parsedUrl = new URL(testUrl, urlBase());
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
         return {
           valid: false,
@@ -191,11 +211,13 @@ class WasmProviderManager {
       return {
         valid: false,
         error:
-          'Invalid URL format. Please enter a valid URL (e.g., https://example.com/wasm/)',
+          'Invalid URL format. Please enter a valid URL (e.g., /wasm/pymupdf/ or https://example.com/wasm/)',
       };
     }
 
-    const normalizedUrl = testUrl.endsWith('/') ? testUrl : `${testUrl}/`;
+    const normalizedUrl = parsedUrl.href.endsWith('/')
+      ? parsedUrl.href
+      : `${parsedUrl.href}/`;
 
     try {
       const testFiles: Record<WasmPackage, string> = {

@@ -12,8 +12,26 @@ import viteCompression from 'vite-plugin-compression';
 import handlebars from 'vite-plugin-handlebars';
 import { resolve } from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
 import { constants as zlibConstants } from 'zlib';
 import { fileURLToPath } from 'url';
+import { ENGINE_SOURCE } from './src/js/const/engine-source';
+
+function resolveSourceRevision(): string {
+  const fromEnv =
+    process.env.VITE_SOURCE_REVISION ||
+    process.env.CF_PAGES_COMMIT_SHA ||
+    process.env.GITHUB_SHA;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  try {
+    return execSync('git rev-parse HEAD', {
+      cwd: __dirname,
+      encoding: 'utf8',
+    }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const SUPPORTED_LANGUAGES = [
@@ -502,6 +520,7 @@ export default defineConfig(({ mode }) => {
   }
 
   const USE_CDN = process.env.VITE_USE_CDN === 'true';
+  const sourceRevision = resolveSourceRevision();
 
   if (USE_CDN) {
     console.log('[Vite] Using CDN for WASM files (with local fallback)');
@@ -513,6 +532,42 @@ export default defineConfig(({ mode }) => {
     {
       src: 'node_modules/embedpdf-snippet/dist/pdfium.wasm',
       dest: 'embedpdf',
+    },
+    {
+      src: 'node_modules/@bentopdf/pymupdf-wasm/dist',
+      dest: 'wasm/pymupdf',
+    },
+    {
+      src: 'node_modules/@bentopdf/pymupdf-wasm/assets',
+      dest: 'wasm/pymupdf',
+    },
+    {
+      src: 'node_modules/@bentopdf/pymupdf-wasm/LICENSE',
+      dest: 'wasm/pymupdf',
+    },
+    {
+      src: 'node_modules/@bentopdf/gs-wasm/assets/gs.js',
+      dest: 'wasm/gs',
+    },
+    {
+      src: 'node_modules/@bentopdf/gs-wasm/assets/gs.wasm',
+      dest: 'wasm/gs',
+    },
+    {
+      src: 'node_modules/@bentopdf/gs-wasm/LICENSE',
+      dest: 'wasm/gs',
+    },
+    {
+      src: 'node_modules/coherentpdf/dist/coherentpdf.browser.min.js',
+      dest: 'wasm/cpdf',
+    },
+    {
+      src: 'node_modules/coherentpdf/LICENSE.md',
+      dest: 'wasm/cpdf',
+    },
+    {
+      src: 'NOTICE',
+      dest: '.',
     },
   ];
 
@@ -528,10 +583,11 @@ export default defineConfig(({ mode }) => {
           simpleMode: process.env.SIMPLE_MODE === 'true',
           brandName: process.env.VITE_BRAND_NAME || 'Shift PDF',
           brandLogo: process.env.VITE_BRAND_LOGO || 'images/shift-pdf-logo.svg',
-          footerText:
-            process.env.VITE_FOOTER_TEXT ||
-            'Shift PDF — files stay on your machine',
+          footerText: process.env.VITE_FOOTER_TEXT || '',
           appVersion: process.env.npm_package_version || 'Unknown',
+          sourceRevision,
+          sourceRevisionUrl: `https://github.com/redbrickmedia/shift-pdf-v2/tree/${sourceRevision}`,
+          engineSource: ENGINE_SOURCE,
         },
       }),
       languageRouterPlugin(),

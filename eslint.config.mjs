@@ -20,7 +20,6 @@ export default [
       'bentopdf-airgap-bundle/**',
       'public/pdfjs-viewer/**',
       'public/pdfjs-annotation-viewer/**',
-      'public/coherentpdf.browser.min.js',
       'public/libreoffice-wasm/**',
       'public/workers/**',
     ],

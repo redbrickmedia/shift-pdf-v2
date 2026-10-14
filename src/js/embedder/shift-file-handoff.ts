@@ -8,8 +8,6 @@ import {
 
 const FILE_HANDOFF_VERSION = 1;
 const FILE_HANDOFF_MAX_BYTES = 16 * 1024 * 1024;
-const SHIFT_WEB_UI_ORIGIN =
-  'chrome-extension://mofjdkplmlofiadhjjcacadmghmaglna';
 const HANDOFF_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -36,8 +34,12 @@ export function hasShiftFileHandoffRequest(): boolean {
   return readHandoffId() !== null;
 }
 
-function isShiftWebUiOrigin(origin: string): boolean {
-  return origin === SHIFT_WEB_UI_ORIGIN;
+function isTrustedHandoffOrigin(origin: string): boolean {
+  try {
+    return new URL(origin).protocol === 'chrome-extension:';
+  } catch {
+    return false;
+  }
 }
 
 type HandoffMessageSource = {
@@ -136,7 +138,7 @@ export function listenForShiftFileHandoff(
   let receivedPayload = false;
 
   window.addEventListener('message', (event: MessageEvent<unknown>) => {
-    if (!isShiftWebUiOrigin(event.origin)) return;
+    if (!isTrustedHandoffOrigin(event.origin)) return;
     if (!event.data || typeof event.data !== 'object') return;
 
     const data = event.data as Record<string, unknown>;

@@ -38,9 +38,9 @@ export type { FeatureId, PdfKind, SizeBucket };
 
 /**
  * Consent boundary: the only sink is the host `track` function resolved from
- * VITE_HOST_API_ROOT (integrated Shift builds set `chrome.shift`). If that
- * function is missing, events are dropped in process. Nothing is posted to
- * Mixpanel or any other vendor. See docs/telemetry.md.
+ * VITE_HOST_API_ROOT. If that function is missing, events are dropped in
+ * process. Nothing is posted to Mixpanel or any other vendor. See
+ * docs/telemetry.md.
  */
 export const APP_VERSION: string = packageJson.version;
 
