@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getHostAnalytics, INTEGRATED_APP_ORIGIN } from '../js/host/bridge';
+import { getHostAnalytics } from '../js/host/bridge';
 import {
   bootstrapHostIntegration,
   resetBootstrapForTests,
@@ -110,15 +110,13 @@ describe('host bootstrap', () => {
     expect(document.documentElement.style.colorScheme).toBe('dark');
   });
 
-  it('resolves chrome.shift on the production origin when the env root is empty', () => {
+  it('does not resolve chrome.shift when the env root is empty', () => {
     vi.stubEnv('VITE_HOST_API_ROOT', '');
     const trackFn = vi.fn();
-    vi.stubGlobal('location', { origin: INTEGRATED_APP_ORIGIN });
     vi.stubGlobal('chrome', { shift: { analytics: { track: trackFn } } });
 
-    getHostAnalytics()?.track('PdfEngine_ExperienceStarted', {});
-
-    expect(trackFn).toHaveBeenCalledTimes(1);
+    expect(getHostAnalytics()).toBeUndefined();
+    expect(trackFn).not.toHaveBeenCalled();
   });
 
   it('stays dark on pages.dev when the env root is empty', () => {
@@ -133,12 +131,13 @@ describe('host bootstrap', () => {
     expect(trackFn).not.toHaveBeenCalled();
   });
 
-  it('keeps the production origin in the first-paint boot script', () => {
+  it('does not hardcode a production origin or chrome.shift in the boot script', () => {
     const boot = readFileSync(
       resolve(process.cwd(), 'public/sidebar-boot.js'),
       'utf8'
     );
-    expect(boot).toContain(INTEGRATED_APP_ORIGIN);
+    expect(boot).not.toContain('tryshift.com');
+    expect(boot).not.toContain('chrome.shift');
   });
 });
 

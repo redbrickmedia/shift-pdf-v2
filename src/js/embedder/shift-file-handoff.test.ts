@@ -284,6 +284,37 @@ describe('listenForShiftFileHandoff', () => {
     );
   });
 
+  it('accepts a handoff from a different chrome-extension origin', async () => {
+    const stagingOrigin = 'chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef';
+    window.history.replaceState(
+      {},
+      '',
+      `/merge-pdf.html?shiftHandoff=${HANDOFF_ID}`
+    );
+    const onFile = vi.fn().mockResolvedValue(undefined);
+    const source = { postMessage: vi.fn() };
+
+    listenForShiftFileHandoff({ onFile });
+    dispatchMessage({
+      data: {
+        channel: 'shift-file-handoff-offer',
+        handoffId: HANDOFF_ID,
+        version: 1,
+      },
+      origin: stagingOrigin,
+      source,
+    });
+
+    expect(source.postMessage).toHaveBeenCalledWith(
+      {
+        channel: 'shift-file-handoff-ready',
+        handoffId: HANDOFF_ID,
+        version: 1,
+      },
+      stagingOrigin
+    );
+  });
+
   it('ignores foreign-origin offers', () => {
     window.history.replaceState(
       {},

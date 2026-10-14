@@ -186,7 +186,7 @@ describe('XSS replay — WASM provider localStorage poisoning', () => {
 
     const got = WasmProvider.getUrl('pymupdf');
     expect(got).not.toContain('attacker.test');
-    expect(got).toMatch(/cdn\.jsdelivr\.net|^https?:\/\/[^/]+\//);
+    expect(got).toMatch(/\/wasm\/pymupdf\/|^https?:\/\/[^/]+\//);
 
     const remaining = JSON.parse(
       localStorage.getItem('bentopdf:wasm-providers') || '{}'
@@ -194,6 +194,46 @@ describe('XSS replay — WASM provider localStorage poisoning', () => {
     expect(remaining.pymupdf).toBeUndefined();
     expect(remaining.ghostscript).toBeUndefined();
     expect(remaining.cpdf).toBeUndefined();
+  });
+});
+
+describe('XSS replay — same-origin engine URL validation', () => {
+  it('accepts recommended origin-relative engine paths', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {
+        getReader: (): {
+          read: () => Promise<{ done: boolean }>;
+          cancel: () => Promise<void>;
+        } => ({
+          read: async (): Promise<{ done: boolean }> => ({ done: true }),
+          cancel: async (): Promise<void> => undefined,
+        }),
+      },
+      headers: { get: (): string => 'application/javascript' },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const { WasmProvider } = await import('../js/utils/wasm-provider');
+
+    await expect(
+      WasmProvider.validateUrl('pymupdf', '/wasm/pymupdf/')
+    ).resolves.toEqual({ valid: true });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/wasm\/pymupdf\/dist\/index\.js$/
+    );
+  });
+
+  it('still rejects non-http engine URLs', async () => {
+    vi.resetModules();
+    const { WasmProvider } = await import('../js/utils/wasm-provider');
+
+    await expect(
+      WasmProvider.validateUrl('pymupdf', 'javascript:alert(1)')
+    ).resolves.toEqual({
+      valid: false,
+      error: 'URL must start with http:// or https://',
+    });
   });
 });
 

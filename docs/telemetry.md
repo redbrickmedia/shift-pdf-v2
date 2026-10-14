@@ -6,9 +6,9 @@ An automated reader can treat this file as the contract. The same names and prop
 
 ## Consent
 
-The only sink is the host `track` function resolved from `VITE_HOST_API_ROOT`. Integrated Shift builds set that variable to `chrome.shift`, which forwards to Shift's analytics API and then Mixpanel. That host API is the consent boundary: if the user has opted out, or this origin is not an allowlisted integrated app, `track` is absent and the PDF app emits nothing.
+The only sink is the host `track` function resolved from `VITE_HOST_API_ROOT`. That variable is unset by default. Integrated builds inject the host analytics object path at deploy time. Do not commit a production origin or a `chrome.shift` fallback in source. That host API is the consent boundary: if the user has opted out, or this origin is not an allowlisted integrated app, `track` is absent and the PDF app emits nothing.
 
-The production origin is `https://shift-pdf-neo.integrated-apps.tryshift.com`. `http://shift-pdf-neo.integrated-apps.tryshift.com/` redirects there, and the loaded document origin is the https URL. On that origin the app resolves `chrome.shift` even when `VITE_HOST_API_ROOT` is empty. `pages.dev` and local builds do not. Do not set the variable in Wrangler, Pages, or CI.
+`pages.dev` and local builds leave the variable empty. Do not set it in Wrangler, Pages, or committed env files.
 
 When `track` is missing the PDF app does not POST, send a beacon, or call a second analytics vendor.
 
@@ -181,11 +181,11 @@ A failed process job emits this event and `PdfEngine_ToolUsed` with `result` `er
 | `action`         | `shown`, `upload-selected`, or `dismissed`                                                                                                  |
 | `trigger`        | `system`, `upload-button-pressed`, or `dismiss-button-pressed`                                                                              |
 | `surface_id`     | `my-pdfs-walkthrough`                                                                                                                       |
-| `route`          | `home` or `my-pdfs`                                                                                                                         |
+| `route`          | `home` or `my-pdfs`. A language-only path such as `/es/` is `home`.                                                                        |
 
 ## Delivery gap
 
-Mixpanel receives these events only after an allowlisted integrated-app origin loads a build with `VITE_HOST_API_ROOT=chrome.shift`. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.
+Mixpanel receives these events only after an allowlisted integrated-app origin loads a build whose deploy-time `VITE_HOST_API_ROOT` points at the host analytics object. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.
 
 ## Comparison readout
 
