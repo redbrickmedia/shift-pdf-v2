@@ -1,0 +1,52 @@
+Shift PDF third-party notices
+=============================
+
+This file lists third-party components shipped with Shift PDF that are not
+covered by the AGPL-3.0-only license of this repository. AGPL processing
+engines (PyMuPDF, Ghostscript, CoherentPDF) have their own corresponding-source
+links on licensing.html and in src/js/const/engine-source.ts.
+
+Do not patch the LibreOffice WASM blobs in place.
+
+LibreOffice WASM
+----------------
+Package: @matbee/libreoffice-converter 2.5.0
+Files: public/libreoffice-wasm/
+License: Mozilla Public License 2.0
+Source: https://github.com/matbee-eth/libreoffice-converter
+Upstream: https://www.libreoffice.org/download/download-libreoffice/
+MPL notice: https://www.mozilla.org/en-US/MPL/2.0/
+
+qpdf
+----
+Package: @neslinesli93/qpdf-wasm 0.3.0
+Files: public/qpdf.wasm
+License: Apache License 2.0 (qpdf); ISC (npm wrapper)
+Source: https://github.com/neslinesli93/qpdf-wasm
+Upstream: https://github.com/qpdf/qpdf
+
+PDFium
+------
+Package: embedpdf-snippet 2.9.1
+Files: embedpdf/pdfium.wasm (copied at build)
+License: BSD-3-Clause
+Source: https://github.com/embedpdf/embed-pdf-viewer
+Upstream: https://pdfium.googlesource.com/pdfium/
+
+PDF.js (legacy viewer)
+----------------------
+Package: pdfjs-dist 6.2.108
+Files: public/pdfjs-viewer/
+License: Apache License 2.0
+Source: https://github.com/mozilla/pdf.js
+Notes: Official legacy full viewer matching the version pinned in
+package.json. See docs/pdfjs-version-alignment.md.
+
+PDF.js (annotation viewer)
+--------------------------
+Version: 4.3.136
+Files: public/pdfjs-annotation-viewer/
+License: Apache License 2.0
+Source: https://github.com/mozilla/pdf.js
+Notes: Pinned separately; the annotation extension has no published npm
+refresh to 6.2.108. See docs/pdfjs-version-alignment.md.

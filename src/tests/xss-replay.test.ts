@@ -186,7 +186,7 @@ describe('XSS replay — WASM provider localStorage poisoning', () => {
 
     const got = WasmProvider.getUrl('pymupdf');
     expect(got).not.toContain('attacker.test');
-    expect(got).toMatch(/cdn\.jsdelivr\.net|^https?:\/\/[^/]+\//);
+    expect(got).toMatch(/\/wasm\/pymupdf\/|^https?:\/\/[^/]+\//);
 
     const remaining = JSON.parse(
       localStorage.getItem('bentopdf:wasm-providers') || '{}'
