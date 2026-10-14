@@ -467,6 +467,67 @@ describe('pdf telemetry', () => {
     }
   );
 
+  it.each([
+    ['pdf-to-excel', 'src/js/logic/pdf-to-excel-page.ts', '!pwResult'],
+    ['pdf-to-png', 'src/js/logic/pdf-to-png-page.ts', '!result'],
+  ])(
+    'emits one cancelled when the %s password prompt returns early',
+    (toolId, pagePath, guard) => {
+      const page = readFileSync(resolve(process.cwd(), pagePath), 'utf8');
+      expect(page).toContain(
+        `if (${guard}) {\n      endToolUse('cancelled');\n      return;\n    }`
+      );
+
+      resetToolUseForTests();
+      trackFn.mockClear();
+      window.history.replaceState({}, '', `/${toolId}.html`);
+      document.body.innerHTML =
+        '<button id="process-btn" type="button"></button>';
+      listenForToolJobs();
+      document.getElementById('process-btn')?.click();
+      endToolUse('cancelled');
+      window.dispatchEvent(new Event('pagehide'));
+
+      const terminal = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+      expect(terminal).toHaveLength(1);
+      expect(terminal[0][1]).toMatchObject({
+        result: 'cancelled',
+        tool_id: toolId,
+      });
+      expect(eventsNamed(trackFn, PDF_ENGINE_EVENTS.error)).toHaveLength(0);
+      expect(eventsNamed(trackFn, PDF_ENGINE_EVENTS.featureUsed)).toHaveLength(
+        0
+      );
+    }
+  );
+
+  it('keeps a download click separate from ToolUsed success', () => {
+    document.body.innerHTML =
+      '<button id="process-btn" type="button"></button><button id="shift-tool-output-download" type="button"></button>';
+    listenForToolJobs();
+    listenForFeatureUse();
+    document.getElementById('process-btn')?.click();
+    downloadFile(new Blob(['pdf']), 'out.pdf');
+
+    const beforeClick = eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed);
+    expect(beforeClick).toHaveLength(1);
+    expect(beforeClick[0][1]).toMatchObject({
+      result: 'success',
+      tool_id: 'merge-pdf',
+    });
+    expect(eventsNamed(trackFn, PDF_ENGINE_EVENTS.featureUsed)).toHaveLength(0);
+
+    document.getElementById('shift-tool-output-download')?.click();
+
+    const features = eventsNamed(trackFn, PDF_ENGINE_EVENTS.featureUsed);
+    expect(features).toHaveLength(1);
+    expect(features[0][1]).toMatchObject({
+      feature_id: 'download',
+      step: 'feature',
+    });
+    expect(eventsNamed(trackFn, PDF_ENGINE_EVENTS.toolUsed)).toHaveLength(1);
+  });
+
   it('rejects experiment_variant on ExperienceStarted', () => {
     track(PDF_ENGINE_EVENTS.experienceStarted, {
       experiment_variant: 'variation',

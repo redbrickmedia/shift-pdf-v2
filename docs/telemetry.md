@@ -186,3 +186,20 @@ A failed process job emits this event and `PdfEngine_ToolUsed` with `result` `er
 ## Delivery gap
 
 Mixpanel receives these events only after an allowlisted integrated-app origin loads a build with `VITE_HOST_API_ROOT=chrome.shift`. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.
+
+## Comparison readout
+
+Compare this app with the current Shift PDF app using only the pairs below. `profile=shift-pdf` is stamped on both apps and does not separate them. Filter both sides by the browser `split_st*` key once that key exists. `WexondAnalytics::SendEventMixpanel` already merges `mp_props_` into every `shift.analytics.track` call, then overlays the app payload, so PDF events inherit the split without an `experiment_variant` property. Do not add `experiment_variant`. A `pages.dev` preview cannot prove the split; confirm `PdfEngine_ToolUsed` and `PdfOnboarding_Action` on `https://shift-pdf-neo.integrated-apps.tryshift.com`.
+
+| Question | This app | Current app |
+| --- | --- | --- |
+| Session | `PdfEngine_ExperienceStarted` `tool_id` | `PDFSideMenuOption_Pressed` `side_menu_option` |
+| Job produced a file | `PdfEngine_ToolUsed` with `result` `success` | `PDF_Compressed`, `Converted_From_PDF`, `Converted_To_PDF`, and `PDF_Signed_And_Saved` |
+| User downloaded that file | `PdfEngine_FeatureUsed` with `feature_id` `download` | `PDF_Downloaded` |
+| Failures | `PdfEngine_ToolUsed` with `result` `error` | Current-app failure events only. Do not add `PdfEngine_Error` on top. |
+
+`downloadFile()` in `src/js/utils/helpers.ts` emits `PdfEngine_ToolUsed` `result` `success` when the output is published, not when the user clicks Download. `listenForFeatureUse()` in `src/js/host/analytics.ts` emits `PdfEngine_FeatureUsed` `feature_id` `download` only for a click on `#shift-tool-output-download`.
+
+Do not compare this app's `cancelled` result, including a `pagehide` abandon, with the current app. The current app has no cancel event. `PdfOnboarding_Action` is this app only. Do not pair it with `Dialog_Opened` or `Dialog_Closed`.
+
+PDF to PowerPoint stays one-sided. The current app is the only side with `format` `pptx` or `fileExtension` `pptx` or `ppt`. This app does not emit those values.
