@@ -369,6 +369,9 @@ describe('pdf telemetry', () => {
   it('maps routes and file-like paths to safe tool ids', () => {
     expect(getToolIdFromPath('/en/compress-pdf.html')).toBe('compress-pdf');
     expect(getToolIdFromPath('/')).toBe('home');
+    expect(getToolIdFromPath('/es/')).toBe('home');
+    expect(getToolIdFromPath('/zh-TW/')).toBe('home');
+    expect(getToolIdFromPath('/es/my-pdfs.html')).toBe('my-pdfs');
     expect(getToolIdFromPath('/tmp/invoice-secret.pdf')).toBe('unknown');
   });
 
@@ -547,6 +550,8 @@ describe('pdf telemetry', () => {
   it('records walkthrough actions and drops unsafe values', () => {
     window.history.replaceState({}, '', '/');
     trackOnboardingAction('shown');
+    window.history.replaceState({}, '', '/es/');
+    trackOnboardingAction('shown');
     window.history.replaceState({}, '', '/my-pdfs.html');
     trackOnboardingAction('upload-selected');
     trackOnboardingAction('dismissed');
@@ -562,6 +567,7 @@ describe('pdf telemetry', () => {
     expect(actions.map((call) => [call[1].action, call[1].event_type])).toEqual(
       [
         ['shown', 'state-change'],
+        ['shown', 'state-change'],
         ['upload-selected', 'user-interaction'],
         ['dismissed', 'user-interaction'],
         ['shown', 'state-change'],
@@ -574,11 +580,16 @@ describe('pdf telemetry', () => {
       trigger: 'system',
     });
     expect(actions[1][1]).toMatchObject({
+      route: 'home',
+      tool_id: 'home',
+      trigger: 'system',
+    });
+    expect(actions[2][1]).toMatchObject({
       route: 'my-pdfs',
       tool_id: 'my-pdfs',
       trigger: 'upload-button-pressed',
     });
-    expect(actions[2][1]).toMatchObject({
+    expect(actions[3][1]).toMatchObject({
       trigger: 'dismiss-button-pressed',
     });
 
