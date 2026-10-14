@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import {
   downloadFile,
@@ -164,7 +167,7 @@ async function performPhotonCompression(
     hideLoader();
     const result = await loadPdfWithPasswordPrompt(file);
     if (!result) return null;
-    showLoader('Running Photon compression...');
+    showResultLoader('Running Photon compression...');
     pdfJsDoc = result.pdf;
   } else {
     pdfJsDoc = await getPDFDocument({ data: arrayBuffer }).promise;
@@ -268,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const fileDiv = document.createElement('div');
           fileDiv.className =
             'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+          mountToolInputPreview(fileDiv, file);
 
           const infoContainer = document.createElement('div');
           infoContainer.className = 'flex flex-col overflow-hidden';
@@ -373,10 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const algorithm = (
       document.getElementById('compression-algorithm') as HTMLSelectElement
     ).value;
-    const convertToGrayscale =
-      (document.getElementById('convert-to-grayscale') as HTMLInputElement)
-        ?.checked ?? false;
-
     let customSettings:
       | {
           imageQuality?: number;
@@ -411,6 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const removeThumbnails =
         (document.getElementById('remove-thumbnails') as HTMLInputElement)
           ?.checked ?? true;
+      const convertToGrayscale =
+        (document.getElementById('convert-to-grayscale') as HTMLInputElement)
+          ?.checked ?? false;
 
       customSettings = {
         imageQuality,
@@ -418,11 +421,9 @@ document.addEventListener('DOMContentLoaded', () => {
         dpiThreshold,
         removeMetadata,
         subsetFonts,
-        convertToGrayscale,
         removeThumbnails,
+        convertToGrayscale,
       };
-    } else {
-      customSettings = convertToGrayscale ? { convertToGrayscale } : undefined;
     }
 
     const startedAt = performance.now();
@@ -450,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let usedMethod: string;
 
         if (algorithm === 'condense') {
-          showLoader('Running Condense compression...');
+          showResultLoader('Running Condense compression...');
           const result = await performCondenseCompression(
             originalFile,
             level,
@@ -466,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ' (without image optimization due to unsupported patterns)';
           }
         } else {
-          showLoader('Running Photon compression...');
+          showResultLoader('Running Photon compression...');
           const arrayBuffer = (await readFileAsArrayBuffer(
             originalFile
           )) as ArrayBuffer;
@@ -508,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
           timing: completionTiming(startedAt),
         });
       } else {
-        showLoader('Compressing multiple PDFs...');
+        showResultLoader('Compressing multiple PDFs...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         let totalOriginalSize = 0;
@@ -516,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Compressing ${i + 1}/${state.files.length}: ${file.name}...`
           );
           totalOriginalSize += file.size;

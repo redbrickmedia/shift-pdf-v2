@@ -385,7 +385,7 @@ describe('tool viewer layout', () => {
       /body\.shift-home:has\(#tool-grid\) #grid-view\s*\{[^}]*overscroll-behavior:\s*contain/s
     );
     expect(css).toMatch(
-      /body\.shift-home:has\(#shift-my-pdfs\) \.shift-my-pdfs-scroll\s*\{[^}]*overscroll-behavior:\s*contain/s
+      /body\.shift-home:has\(#shift-my-pdfs\):not\(\.simple-mode\):has\(#shift-sidebar\)\s*\{[^}]*overscroll-behavior:\s*contain/s
     );
     expect(css).toMatch(
       /\.shift-library-picker-list\s*\{[^}]*overscroll-behavior:\s*contain/s
@@ -432,12 +432,30 @@ describe('viewer inside the tool card', () => {
     expect(
       viewer?.parentElement?.classList.contains('shift-pdf-viewer-stage')
     ).toBe(true);
-    expect(empty?.classList.contains('shift-pdf-viewer-empty')).toBe(true);
     expect(empty?.closest('#signature-editor')).toBeNull();
+    expect(
+      document
+        .getElementById('uploader')
+        ?.classList.contains('shift-pdf-viewer-shell')
+    ).toBe(false);
+    expect(header?.hasAttribute('hidden')).toBe(false);
     expect(header?.parentElement?.id).toBe('uploader');
     expect(
       header?.nextElementSibling?.classList.contains('shift-pdf-viewer-stage')
     ).toBe(true);
+
+    viewer?.classList.remove('hidden');
+    syncToolViewerLayout();
+
+    expect(
+      document
+        .getElementById('uploader')
+        ?.classList.contains('shift-pdf-viewer-shell')
+    ).toBe(true);
+    expect(header?.hasAttribute('hidden')).toBe(false);
+    expect(document.body.classList.contains('shift-pdf-viewer-page')).toBe(
+      true
+    );
     expect(document.querySelectorAll(`.${TOOL_VIEWER_BAR_CLASS}`)).toHaveLength(
       1
     );
@@ -693,6 +711,7 @@ describe('sidebar-boot.js viewer layout', () => {
   it('claims the viewer layout and header bar before the module runs', () => {
     mountSignLikeShell();
     sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+    sessionStorage.setItem('shiftOpenWithSelection', '1');
 
     runBootScript();
 
@@ -753,6 +772,7 @@ describe('sidebar-boot.js viewer layout', () => {
   it('keeps an authored Sign PDF shell header and stage on the first painted frame', () => {
     mountSignViewerShell();
     sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+    sessionStorage.setItem('shiftOpenWithSelection', '1');
 
     runBootScript();
 

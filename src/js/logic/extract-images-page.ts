@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -162,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (let i = 0; i < state.files.length; i++) {
         const file = state.files[i];
-        showLoader(`Extracting images from ${file.name}...`);
+        showResultLoader(`Extracting images from ${file.name}...`);
 
         const doc = await pymupdf.open(file);
         const pageCount = doc.pageCount;
@@ -217,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadAll = async () => {
     if (extractedImages.length === 0) return;
 
-    showLoader('Creating ZIP archive...');
+    showResultLoader('Creating ZIP archive...');
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
 

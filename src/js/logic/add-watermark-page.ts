@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
@@ -148,6 +150,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, pageState.file);
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -802,7 +805,7 @@ async function applyWatermark() {
     return;
   }
 
-  showLoader('Adding watermark...');
+  showResultLoader('Adding watermark...');
 
   try {
     saveCurrentPageConfig();
@@ -965,7 +968,7 @@ async function applyWatermark() {
       const renderScale = 2.5;
 
       for (let i = 1; i <= totalPages; i++) {
-        showLoader(`Flattening page ${i} of ${totalPages}...`);
+        showResultLoader(`Flattening page ${i} of ${totalPages}...`);
         const page = await watermarkedPdf.getPage(i);
         const unscaledVP = page.getViewport({ scale: 1 });
         const viewport = page.getViewport({ scale: renderScale });

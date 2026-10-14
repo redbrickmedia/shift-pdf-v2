@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
@@ -8,6 +9,7 @@ import {
 import { icons, createIcons } from 'lucide';
 import type { OverlayPdfState, QpdfInstanceExtended } from '@/types';
 import { syncSeededToolFiles } from './tool-file-seed.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 const pageState: OverlayPdfState = {
   baseFile: null,
@@ -48,6 +50,7 @@ function renderFileEntry(
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+  mountToolInputPreview(fileDiv, file);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col overflow-hidden';
@@ -129,7 +132,7 @@ async function processOverlay() {
   try {
     qpdf = await initializeQpdf();
 
-    showLoader('Reading files...');
+    showResultLoader('Reading files...');
 
     const baseBuffer = await readFileAsArrayBuffer(pageState.baseFile);
     const overlayBuffer = await readFileAsArrayBuffer(pageState.overlayFile);
@@ -154,7 +157,7 @@ async function processOverlay() {
     const pageRange = pageRangeInput?.value.trim();
     const shouldRepeat = repeatCheckbox?.checked;
 
-    showLoader(`Applying ${mode.replace('--', '')}...`);
+    showResultLoader(`Applying ${mode.replace('--', '')}...`);
 
     const args = [inputPath, mode, overlayPath];
 

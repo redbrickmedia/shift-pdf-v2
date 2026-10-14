@@ -244,6 +244,7 @@ export function syncToolViewerLayout(root: Document = document): void {
     );
     suppressUploadChrome(root, false);
     markViewerScrollHosts(root, false);
+    syncAuthoredViewerShell(root, false);
     return;
   }
 
@@ -254,6 +255,7 @@ export function syncToolViewerLayout(root: Document = document): void {
 
   root.body.classList.toggle(TOOL_VIEWER_BODY_CLASS, viewing);
   root.body.classList.toggle(TOOL_VIEWER_PENDING_CLASS, pending);
+  syncAuthoredViewerShell(root, viewing);
   ensureViewerChrome(root);
   suppressUploadChrome(root, viewing);
   markViewerScrollHosts(root, viewing);
@@ -286,6 +288,23 @@ export function resetToolViewerLayout(): void {
     markViewerScrollHosts(boundRoot, false);
   }
   boundRoot = null;
+}
+
+/**
+ * Sign authors the shared header and the shared tool card. The header stays
+ * visible on the empty screen, the same as Merge. The full-bleed viewer shell
+ * only applies once a file is open.
+ */
+function syncAuthoredViewerShell(root: Document, viewing: boolean): void {
+  const uploader = root.getElementById('uploader');
+  if (!(uploader instanceof HTMLElement)) return;
+  if (!root.getElementById('signature-editor')) return;
+  const header = uploader.querySelector(':scope > .shift-pdf-viewer-header');
+  if (!(header instanceof HTMLElement)) return;
+
+  uploader.classList.toggle('shift-pdf-viewer-shell', viewing);
+  root.body.classList.toggle('shift-pdf-viewer-page', viewing);
+  header.hidden = false;
 }
 
 function isRevealed(el: HTMLElement): boolean {
@@ -326,9 +345,7 @@ function markViewerScrollHosts(root: Document, active: boolean): void {
 }
 
 function ensureViewerChrome(root: Document): HTMLElement | null {
-  return (
-    mountViewerChrome(root, { preset: 'tool' })?.actions ?? null
-  );
+  return mountViewerChrome(root, { preset: 'tool' })?.actions ?? null;
 }
 
 function relocateDownloadButtons(root: Document): void {

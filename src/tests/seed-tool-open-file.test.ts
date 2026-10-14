@@ -12,6 +12,8 @@ import {
   seedToolOpenFile,
 } from '../js/logic/seed-tool-open-file';
 import {
+  markOpenWithSelection,
+  OPEN_WITH_SELECTION_KEY,
   writePersistedOpenFile,
   writePersistedOpenFiles,
 } from '../js/logic/open-file-store';
@@ -33,6 +35,7 @@ import {
 afterEach(async () => {
   document.body.className = '';
   state.files = [];
+  sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
   resetToolFilesSeededState();
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
@@ -71,11 +74,12 @@ describe('seed tool open file', () => {
     document.getElementById('tool-interface')?.classList.remove('hidden');
 
     await vi.waitFor(() => {
-      const inputs = document.querySelectorAll<HTMLInputElement>('#file-input');
-      expect(inputs[0]?.files).toHaveLength(0);
-      expect(inputs[1]?.files?.[0]?.name).toBe('from-home.pdf');
+      expect(isHomeDocument()).toBe(false);
     });
-    expect(isHomeDocument()).toBe(false);
+    const inputs = document.querySelectorAll<HTMLInputElement>('#file-input');
+    expect(inputs[0]?.files).toHaveLength(0);
+    expect(inputs[1]?.files?.length ?? 0).toBe(0);
+    expect(getWorkspaceFiles()).toEqual([]);
   });
 
   it('does not seed the all-tools catalog page', async () => {
@@ -115,6 +119,29 @@ describe('seed tool open file', () => {
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
+  it('does not carry a My PDFs selection into a tool without Open with', async () => {
+    await addPdfToLibrary(
+      new File(['x'], 'saved.pdf', { type: 'application/pdf' }),
+      'upload'
+    );
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="image/png,.png" />
+      </div>
+      <div id="file-display-area"></div>
+    `;
+    await writePersistedOpenFile(
+      new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+    expect(state.files).toEqual([]);
+    expect(getWorkspaceFiles()).toEqual([]);
+  });
+
   it('seeds every selected PDF into a multiple file input', async () => {
     document.body.innerHTML = `
       <div id="drop-zone">
@@ -135,6 +162,7 @@ describe('seed tool open file', () => {
       },
     ]);
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     const input = document.getElementById('file-input') as HTMLInputElement;
@@ -172,6 +200,7 @@ describe('seed tool open file', () => {
       },
     ]);
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     const input = document.getElementById('file-input') as HTMLInputElement;
@@ -272,6 +301,27 @@ describe('seed tool open file', () => {
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
   });
 
+  it('spends Open with when the selected file is missing', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+    `;
+    markOpenWithSelection();
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(sessionStorage.getItem(OPEN_WITH_SELECTION_KEY)).toBeNull();
+
+    await writePersistedOpenFile(
+      new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(state.files).toEqual([]);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
+  });
+
   it('does not invent a selection from the library when the workspace is empty', async () => {
     await addPdfToLibrary(
       new File(['older'], 'older.pdf', { type: 'application/pdf' }),
@@ -308,13 +358,13 @@ describe('seed tool open file', () => {
       { source: 'handoff' }
     );
 
-    await expect(seedToolOpenFile()).resolves.toBe(true);
+    await expect(seedToolOpenFile()).resolves.toBe(false);
 
     expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(state.files).toEqual([]);
   });
 
-  it('hides the picker on non-PDF tools when the library already has files', async () => {
+  it('keeps the picker visible on non-PDF tools even when the library has files', async () => {
     await addPdfToLibrary(
       new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
       'upload'
@@ -329,9 +379,9 @@ describe('seed tool open file', () => {
       { source: 'handoff' }
     );
 
-    await expect(seedToolOpenFile()).resolves.toBe(true);
+    await expect(seedToolOpenFile()).resolves.toBe(false);
 
-    expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
     expect(state.files).toEqual([]);
   });
 
@@ -363,6 +413,7 @@ describe('seed tool open file', () => {
       },
     ]);
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
@@ -394,6 +445,7 @@ describe('seed tool open file', () => {
       },
     ]);
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     const input = document.getElementById('file-input') as HTMLInputElement;
@@ -466,6 +518,7 @@ describe('seed tool open file', () => {
       <div id="file-controls" class="hidden"></div>
     `;
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(state.files[0]?.name).toBe('briefing.pdf');
@@ -493,6 +546,7 @@ describe('seed tool open file', () => {
       document.getElementById('file-controls')?.classList.remove('hidden');
     });
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(
@@ -519,6 +573,7 @@ describe('seed tool open file', () => {
       localFiles.push(...files);
     });
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(localFiles).toHaveLength(1);

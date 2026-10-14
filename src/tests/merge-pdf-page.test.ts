@@ -175,6 +175,7 @@ describe('merge pdf page', () => {
       },
     ]);
 
+    openFileStore.markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
     await vi.waitFor(() => {
       expect(document.querySelectorAll('#file-list li')).toHaveLength(1);

@@ -181,7 +181,7 @@ A failed process job emits this event and `PdfEngine_ToolUsed` with `result` `er
 | `action`         | `shown`, `upload-selected`, or `dismissed`                                                                                                  |
 | `trigger`        | `system`, `upload-button-pressed`, or `dismiss-button-pressed`                                                                              |
 | `surface_id`     | `my-pdfs-walkthrough`                                                                                                                       |
-| `route`          | `home` or `my-pdfs`. A language-only path such as `/es/` is `home`.                                                                        |
+| `route`          | `home` or `my-pdfs`. A language-only path such as `/es/` is `home`.                                                                         |
 
 ## Delivery gap
 
@@ -191,12 +191,12 @@ Mixpanel receives these events only after an allowlisted integrated-app origin l
 
 Compare this app with the current Shift PDF app using only the pairs below. `profile=shift-pdf` is stamped on both apps and does not separate them. Filter both sides by the browser `split_st*` key once that key exists. `WexondAnalytics::SendEventMixpanel` already merges `mp_props_` into every `shift.analytics.track` call, then overlays the app payload, so PDF events inherit the split without an `experiment_variant` property. Do not add `experiment_variant`. A `pages.dev` preview cannot prove the split; confirm `PdfEngine_ToolUsed` and `PdfOnboarding_Action` on `https://shift-pdf-neo.integrated-apps.tryshift.com`.
 
-| Question | This app | Current app |
-| --- | --- | --- |
-| Session | `PdfEngine_ExperienceStarted` `tool_id` | `PDFSideMenuOption_Pressed` `side_menu_option` |
-| Job produced a file | `PdfEngine_ToolUsed` with `result` `success` | `PDF_Compressed`, `Converted_From_PDF`, `Converted_To_PDF`, and `PDF_Signed_And_Saved` |
-| User downloaded that file | `PdfEngine_FeatureUsed` with `feature_id` `download` | `PDF_Downloaded` |
-| Failures | `PdfEngine_ToolUsed` with `result` `error` | Current-app failure events only. Do not add `PdfEngine_Error` on top. |
+| Question                  | This app                                             | Current app                                                                            |
+| ------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Session                   | `PdfEngine_ExperienceStarted` `tool_id`              | `PDFSideMenuOption_Pressed` `side_menu_option`                                         |
+| Job produced a file       | `PdfEngine_ToolUsed` with `result` `success`         | `PDF_Compressed`, `Converted_From_PDF`, `Converted_To_PDF`, and `PDF_Signed_And_Saved` |
+| User downloaded that file | `PdfEngine_FeatureUsed` with `feature_id` `download` | `PDF_Downloaded`                                                                       |
+| Failures                  | `PdfEngine_ToolUsed` with `result` `error`           | Current-app failure events only. Do not add `PdfEngine_Error` on top.                  |
 
 `downloadFile()` in `src/js/utils/helpers.ts` emits `PdfEngine_ToolUsed` `result` `success` when the output is published, not when the user clicks Download. `listenForFeatureUse()` in `src/js/host/analytics.ts` emits `PdfEngine_FeatureUsed` `feature_id` `download` only for a click on `#shift-tool-output-download`.
 

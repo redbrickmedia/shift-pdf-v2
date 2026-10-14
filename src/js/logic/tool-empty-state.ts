@@ -32,7 +32,6 @@ const LEGACY_UPLOAD_SLOTS: ReadonlyArray<{ zoneId: string; inputId: string }> =
     { zoneId: 'drop-zone-2', inputId: 'file-input-2' },
     { zoneId: 'base-drop-zone', inputId: 'base-file-input' },
     { zoneId: 'overlay-drop-zone', inputId: 'overlay-file-input' },
-    { zoneId: 'dropZone', inputId: 'pdfFileInput' },
     { zoneId: 'upload-area', inputId: 'pdf-file-input' },
   ];
 
@@ -98,8 +97,8 @@ function collectUploadSlots(root: Document): UploadSlot[] {
   const slots: UploadSlot[] = [];
 
   const dropZone = root.getElementById('drop-zone');
-  const toolUploader = root.getElementById('tool-uploader');
-  if (dropZone && toolUploader) {
+  const emptyHost = root.getElementById('tool-uploader');
+  if (dropZone && emptyHost) {
     slots.push({
       zone: dropZone,
       inputId: null,

@@ -661,15 +661,6 @@ export function initConvertHubPage(root: Document = document): void {
     fileInput.value = '';
   });
 
-  root.getElementById('convert-library-btn')?.addEventListener('click', () => {
-    void openConvertSourcePicker(
-      root,
-      fileInput,
-      (file) => addSources([file]),
-      state.sourceFiles
-    );
-  });
-
   listenForShiftFileHandoff({
     onFile: (file) => {
       markFileFromHandoff(file);
@@ -699,7 +690,7 @@ export function initConvertHubPage(root: Document = document): void {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('convert-hub')) {
+    if (document.querySelector('[data-convert-hub]')) {
       initConvertHubPage();
     }
   });

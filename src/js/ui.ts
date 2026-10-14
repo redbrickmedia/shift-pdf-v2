@@ -1,5 +1,5 @@
 import { resetState } from './state.js';
-import { formatBytes, getPDFDocument } from './utils/helpers.js';
+import { getPDFDocument } from './utils/helpers.js';
 import {
   renderPagesProgressively,
   cleanupLazyRendering,
@@ -16,6 +16,7 @@ import { t } from './i18n/i18n';
 import type { FileInputOptions } from '@/types';
 import { noteProcessAlert } from './host/analytics.js';
 import { setWorkspaceFiles } from './logic/workspace-files.js';
+import { renderToolInputFiles } from './logic/tool-input-preview.js';
 import {
   hideLoader as hideShiftLoader,
   showLoader as showShiftLoader,
@@ -502,25 +503,7 @@ export const renderPageThumbnails = async (
  * @param {File[]} files The array of file objects.
  */
 export const renderFileDisplay = (container: HTMLElement, files: File[]) => {
-  container.textContent = '';
-  if (files.length > 0) {
-    files.forEach((file: File) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'truncate font-medium text-gray-200';
-      nameSpan.textContent = file.name;
-
-      const sizeSpan = document.createElement('span');
-      sizeSpan.className = 'flex-shrink-0 ml-4 text-gray-400';
-      sizeSpan.textContent = formatBytes(file.size);
-
-      fileDiv.append(nameSpan, sizeSpan);
-      container.appendChild(fileDiv);
-    });
-  }
+  renderToolInputFiles(container, files);
   setWorkspaceFiles(files);
 };
 

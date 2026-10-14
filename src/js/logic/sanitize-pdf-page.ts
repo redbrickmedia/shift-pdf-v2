@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
@@ -36,6 +39,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -88,7 +92,7 @@ async function runSanitize() {
     showAlert('Error', 'No PDF document loaded.');
     return;
   }
-  showLoader('Sanitizing PDF...');
+  showResultLoader('Sanitizing PDF...');
 
   try {
     const options = {
@@ -138,7 +142,7 @@ async function runSanitize() {
       hideLoader();
       return;
     }
-    showLoader('Sanitizing PDF...');
+    showResultLoader('Sanitizing PDF...');
     loaded.pdf.destroy();
     pageState.file = loaded.file;
     const result = await sanitizePdf(new Uint8Array(loaded.bytes), options);

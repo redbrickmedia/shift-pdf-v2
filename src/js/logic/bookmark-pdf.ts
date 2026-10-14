@@ -1,3 +1,4 @@
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { PDFDocument, PDFName, PDFNumber, PDFHexString, PDFRef } from 'pdf-lib';
 
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
@@ -573,7 +574,9 @@ class="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900" />
       fields.forEach((field) => {
         if (field.type !== 'preview' && field.type !== 'destination') {
           const input = modal.querySelector(`#modal-${field.name}`) as
-            HTMLInputElement | HTMLSelectElement | null;
+            | HTMLInputElement
+            | HTMLSelectElement
+            | null;
           if (input) {
             result[field.name] = input.value;
           }
@@ -1199,6 +1202,7 @@ function renderFileDisplay(file: File): void {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+  mountToolInputPreview(fileDiv, file);
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'truncate font-medium text-gray-200';

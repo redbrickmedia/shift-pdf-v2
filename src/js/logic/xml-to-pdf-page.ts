@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -28,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -86,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = state.files[0];
         const pdfBlob = await convertXmlToPdf(file, {
           onProgress: (percent, message) => {
-            showLoader(message, percent);
+            showResultLoader(message, percent);
           },
         });
 
@@ -101,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting multiple files...');
+        showResultLoader('Converting multiple files...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         const usedNames = new Set<string>();
@@ -110,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const file = state.files[i];
           const pdfBlob = await convertXmlToPdf(file, {
             onProgress: (percent, message) => {
-              showLoader(
+              showResultLoader(
                 `File ${i + 1}/${state.files.length}: ${message}`,
                 percent
               );

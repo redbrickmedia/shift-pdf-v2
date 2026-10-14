@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { t } from '../i18n/i18n';
 import {
   downloadFile,
@@ -58,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, currentFile);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -414,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveLayersBtn) {
       saveLayersBtn.onclick = () => {
         try {
-          showLoader('Saving PDF with layer changes...');
+          showResultLoader('Saving PDF with layer changes...');
           const pdfBytes = currentDoc.save();
           const blob = new Blob([new Uint8Array(pdfBytes)], {
             type: 'application/pdf',

@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
@@ -200,6 +202,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, organizeState.file);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -357,7 +360,7 @@ function initializeSortable() {
 }
 
 async function saveChanges() {
-  showLoader('Building new PDF...');
+  showResultLoader('Building new PDF...');
 
   try {
     const grid = document.getElementById('page-grid');

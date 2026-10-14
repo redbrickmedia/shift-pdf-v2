@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import {
   downloadFile,
@@ -43,6 +45,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -128,7 +131,7 @@ async function combineToSinglePage() {
   const backgroundColor = hexToRgb(backgroundColorHex);
   const separatorColor = hexToRgb(separatorColorHex);
 
-  showLoader('Combining pages...');
+  showResultLoader('Combining pages...');
 
   try {
     const sourceDoc = pageState.pdfDoc;
@@ -176,7 +179,7 @@ async function combineToSinglePage() {
     let currentY = finalHeight;
 
     for (let i = 0; i < sourcePages.length; i++) {
-      showLoader(`Processing page ${i + 1} of ${sourcePages.length}...`);
+      showResultLoader(`Processing page ${i + 1} of ${sourcePages.length}...`);
       const sourcePage = sourcePages[i];
       const { width, height } = sourcePage.getSize();
 

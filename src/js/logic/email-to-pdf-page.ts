@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -107,11 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (state.files.length === 1) {
         const originalFile = state.files[0];
-        showLoader(`Parsing ${originalFile.name}...`);
+        showResultLoader(`Parsing ${originalFile.name}...`);
 
         const email = await parseEmailFile(originalFile);
 
-        showLoader('Generating PDF...');
+        showResultLoader('Generating PDF...');
         const htmlContent = renderEmailToHtml(email, {
           includeCcBcc,
           includeAttachments,
@@ -144,13 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting emails...');
+        showResultLoader('Converting emails...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
 

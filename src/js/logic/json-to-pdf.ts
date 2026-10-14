@@ -11,6 +11,7 @@ import {
   WasmProvider,
 } from '../utils/wasm-provider.js';
 import { initI18n, t } from '../i18n/i18n';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 const worker = new Worker(
   import.meta.env.BASE_URL + 'workers/json-to-pdf.worker.js'
@@ -55,6 +56,7 @@ function updateFileList() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm mb-2';
+    mountToolInputPreview(fileDiv, file);
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'truncate font-medium text-gray-200';

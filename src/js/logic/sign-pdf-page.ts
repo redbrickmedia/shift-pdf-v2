@@ -1,6 +1,9 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader } from '../ui.js';
+
 import { formatBytes, downloadFile } from '../utils/helpers.js';
 import { t } from '../i18n/i18n';
 import { endToolUse } from '../host/analytics.js';
@@ -167,6 +170,7 @@ function updateFileDisplay(requestedFile: File): boolean {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, signState.file);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -381,7 +385,7 @@ async function applyAndSaveSignatures() {
       'flatten-signature-toggle'
     ) as HTMLInputElement | null;
     const shouldFlatten = flattenCheckbox?.checked;
-    showLoader(
+    showResultLoader(
       shouldFlatten ? 'Flattening and saving PDF...' : 'Saving signed PDF...'
     );
 

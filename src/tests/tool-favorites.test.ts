@@ -440,7 +440,8 @@ describe('sidebar pinned tools', () => {
     expect(links[0]).toBe(allTools);
     expect(allTools?.getAttribute('href')).toContain('all-tools.html');
     expect(allTools?.textContent).toMatch(/All tools/);
-    expect(toolsNav?.lastElementChild?.id).toBe('shift-favorite-tools');
+    expect(toolsNav?.lastElementChild).toBe(allTools);
+    expect(toolsNav?.firstElementChild?.id).toBe('shift-favorite-tools');
   });
 
   it('does not hardcode former prepinned tools in the Tools markup', () => {

@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { pdfjsLib } from '@/js/utils/pdfjs.js';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -111,6 +114,7 @@ const updateUI = () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -174,7 +178,7 @@ async function processAllPages(): Promise<void> {
     return;
   }
 
-  showLoader('Applying color adjustments...');
+  showResultLoader('Applying color adjustments...');
 
   try {
     const settings = getSettings();
@@ -183,7 +187,7 @@ async function processAllPages(): Promise<void> {
     const newPdfDoc = await PDFDocument.create();
 
     for (let i = 1; i <= doc.numPages; i++) {
-      showLoader(`Processing page ${i} of ${doc.numPages}...`);
+      showResultLoader(`Processing page ${i} of ${doc.numPages}...`);
 
       const page = await doc.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });

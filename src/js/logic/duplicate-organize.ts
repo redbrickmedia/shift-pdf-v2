@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile } from '../utils/helpers.js';
 import { state } from '../state.js';
@@ -178,7 +179,7 @@ export async function renderDuplicateOrganizeThumbnails() {
 }
 
 export async function processAndSave() {
-  showLoader('Building new PDF...');
+  showResultLoader('Building new PDF...');
   try {
     const grid = document.getElementById('page-grid');
     const finalPageElements = grid.querySelectorAll('.page-thumbnail');

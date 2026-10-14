@@ -1,3 +1,4 @@
+import { mountToolInputPreview } from './tool-input-preview.js';
 import JSZip from 'jszip';
 import { createIcons, icons } from 'lucide';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
@@ -71,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div');
       row.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(row, file);
 
       const name = document.createElement('span');
       name.className = 'truncate font-medium text-gray-200';

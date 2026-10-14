@@ -1,5 +1,7 @@
 // // note: this is a work in progress
-// import { showLoader, hideLoader, showAlert } from '../ui.js';
+// import { showResultLoader } from './tool-success.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 // import { downloadFile } from '../utils/helpers.js';
 // import html2canvas from 'html2canvas';
 
@@ -21,7 +23,7 @@
 //     showAlert('Input Required', 'Please enter some Markdown text.');
 //     return;
 //   }
-//   showLoader('Generating High-Quality PDF...');
+//   showResultLoader('Generating High-Quality PDF...');
 
 //   try {
 //     // @ts-expect-error TS(2304) FIXME: Cannot find name 'marked'.

@@ -4,7 +4,10 @@ import {
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
-import { writePersistedOpenFiles } from '../js/logic/open-file-store';
+import {
+  markOpenWithSelection,
+  writePersistedOpenFiles,
+} from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
 import { resetToolFilesSeededState } from '../js/logic/tool-file-seed';
@@ -62,6 +65,7 @@ describe('pdf multi tool seeding', () => {
         changeFiles = Array.from(input.files ?? []).map((file) => file.name);
       });
 
+    markOpenWithSelection();
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(changeFiles).toEqual(['alpha.pdf', 'beta.pdf']);

@@ -1,5 +1,11 @@
 export const OPEN_FILE_FLAG_KEY = 'shiftHasOpenFile';
 /**
+ * Set by Open with on My PDFs. Tool pages seed from the selection only when
+ * this is present; a sidebar or catalog click leaves the tool's own picker.
+ * sidebar-boot.js reads the same key before modules load.
+ */
+export const OPEN_WITH_SELECTION_KEY = 'shiftOpenWithSelection';
+/**
  * Name/size of the selected files, kept in sessionStorage so sidebar-boot.js can
  * paint a real file row before IndexedDB has produced any blob. Bytes never go
  * here — this is only enough to reserve the row and show the filename.
@@ -101,6 +107,24 @@ export function markOpenFilePresent(present: boolean): void {
     writeOpenFileSnapshot([]);
   } catch {
     // Private mode can block storage.
+  }
+}
+
+export function markOpenWithSelection(): void {
+  try {
+    sessionStorage.setItem(OPEN_WITH_SELECTION_KEY, '1');
+  } catch {
+    // Session storage can be blocked; the tool then asks for a file.
+  }
+}
+
+export function consumeOpenWithSelection(): boolean {
+  try {
+    const armed = sessionStorage.getItem(OPEN_WITH_SELECTION_KEY) === '1';
+    sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
+    return armed;
+  } catch {
+    return false;
   }
 }
 

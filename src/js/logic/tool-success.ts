@@ -1,6 +1,9 @@
 import { downloadBlob, PDF_OUTPUT_READY_EVENT } from '../utils/helpers.js';
 import { findWritableLibraryEntry } from './pdf-library-store.js';
 import { isPdfOutput, saveToShiftPdf } from './shift-pdf-save.js';
+import { showLoader } from './shift-loader.js';
+import { createShiftFilePreview } from './shift-file-preview.js';
+import { paintFilePreview } from './tool-input-preview.js';
 import { getWorkspaceFiles } from './workspace-files.js';
 
 export const TOOL_SUCCESS_ID = 'shift-tool-success';
@@ -93,12 +96,16 @@ function ensureDialog(root: Document): HTMLElement {
   dialog.setAttribute('aria-describedby', 'shift-tool-success-message');
   dialog.innerHTML = `
     <div class="shift-tool-success-card">
-      <h2 id="shift-tool-success-title">Your file is ready</h2>
-      <p id="shift-tool-success-message"></p>
-      <div class="shift-tool-success-actions">
-        <button type="button" id="shift-tool-success-download" class="shift-button shift-button-primary">Download</button>
-        <a id="shift-tool-success-library" class="shift-button" href="${libraryHref()}">View in My PDFs</a>
-        <button type="button" id="shift-tool-success-close" class="shift-button">Close</button>
+      <div id="shift-tool-success-loading" class="shift-tool-success-loading" hidden></div>
+      <div id="shift-tool-success-ready">
+        <div id="shift-tool-success-preview" class="shift-tool-success-preview"></div>
+        <h2 id="shift-tool-success-title">Your file is ready</h2>
+        <p id="shift-tool-success-message"></p>
+        <div class="shift-tool-success-actions">
+          <button type="button" id="shift-tool-success-download" class="shift-button shift-button-primary">Download</button>
+          <a id="shift-tool-success-library" class="shift-button" href="${libraryHref()}">View in My PDFs</a>
+          <button type="button" id="shift-tool-success-close" class="shift-button">Close</button>
+        </div>
       </div>
     </div>
   `;
@@ -192,6 +199,8 @@ function showDialog(
   message.textContent = output.summary ? `${ready} ${output.summary}` : ready;
   library.hidden = addedNames.length === 0;
   root.getElementById('completion-panel')?.classList.add('hidden');
+  setResultPhase(dialog, 'ready');
+  void paintSuccessPreview(dialog, output);
   download.onclick = () => {
     downloadBlob(output.blob, output.filename);
     if (isOpen(dialog)) download.focus();
@@ -225,7 +234,10 @@ async function claimedByOpenHandle(output: ToolOutput): Promise<boolean> {
   }
 }
 
-async function presentBatch(batch: ToolOutput[], root: Document): Promise<void> {
+async function presentBatch(
+  batch: ToolOutput[],
+  root: Document
+): Promise<void> {
   const pending: ToolOutput[] = [];
   for (const output of batch) {
     if (await claimedByOpenHandle(output)) continue;
@@ -257,6 +269,50 @@ function scheduleFlush(root: Document): void {
     flushScheduled = false;
     void presentBatch(batch, activeRoot);
   });
+}
+
+function setResultPhase(dialog: HTMLElement, phase: 'loading' | 'ready'): void {
+  dialog.dataset.phase = phase;
+  const loading = dialog.querySelector<HTMLElement>(
+    '#shift-tool-success-loading'
+  );
+  const ready = dialog.querySelector<HTMLElement>('#shift-tool-success-ready');
+  if (loading) loading.hidden = phase !== 'loading';
+  if (ready) ready.hidden = phase !== 'ready';
+}
+
+function paintSuccessPreview(dialog: HTMLElement, output: ToolOutput): void {
+  const slot = dialog.querySelector('#shift-tool-success-preview');
+  if (!(slot instanceof HTMLElement)) return;
+  slot.replaceChildren();
+  const preview = createShiftFilePreview(dialog.ownerDocument, {
+    size: 'card',
+    empty: true,
+  });
+  slot.append(preview);
+  const file = new File([output.blob], output.filename, {
+    type: output.blob.type || 'application/octet-stream',
+  });
+  void paintFilePreview(preview, file).catch(() => {
+    preview.classList.add('is-empty');
+  });
+}
+
+/** Processing state inside the same dialog that later says the file is ready. */
+export function showResultLoader(
+  text = 'Working...',
+  progress?: number,
+  root: Document = document
+): void {
+  const dialog = ensureDialog(root);
+  setResultPhase(dialog, 'loading');
+  const loading = dialog.querySelector<HTMLElement>(
+    '#shift-tool-success-loading'
+  );
+  dialog.hidden = false;
+  dialog.inert = false;
+  dialog.classList.remove('hidden');
+  showLoader(text, progress, { host: loading });
 }
 
 export function enqueueToolSuccess(

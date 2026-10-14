@@ -49,12 +49,13 @@
 
   var RAIL_KEY = 'shiftPdfFavoriteRail';
   var OPEN_FILE_KEY = 'shiftHasOpenFile';
+  /* Keep in step with OPEN_WITH_SELECTION_KEY in open-file-store.ts. */
+  var OPEN_WITH_KEY = 'shiftOpenWithSelection';
   var OPEN_FILE_SNAPSHOT_KEY = 'shiftOpenFileSnapshot';
   var OPEN_FILE_PENDING_CLASS = 'shift-open-file-pending';
   var HAS_OPEN_FILE_CLASS = 'shift-has-open-file';
   var OPEN_FILE_IN_TOOL_CLASS = 'shift-open-file-in-tool';
   var SKELETON_ATTR = 'data-shift-skeleton';
-  var PENDING_FILE_ROW_ATTR = 'data-shift-pending-file';
   var REVEALED_PANEL_ATTR = 'data-shift-revealed';
   /* Keep the viewer names below in step with tool-viewer-layout.ts; its test
      asserts the literals match. */
@@ -85,9 +86,6 @@
     'crop-button',
     'save-stamped-btn',
   ];
-  var SIDEBAR_THUMB_STORE_KEY = 'shiftSidebarThumbnails';
-  var SIDEBAR_THUMB_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
-  var MAX_SIDEBAR_ROWS = 3;
   /* Keep these two in sync with open-file-store.ts; open-file-boot.test.ts
      asserts the literals match. */
   var PANEL_REVEAL_PATTERN = '^file-controls$|-options$|-panel$';
@@ -164,7 +162,11 @@
   // Optimistic hide for tool drop zones. Refined once #file-input exists so
   // image/non-PDF tools and home/My PDFs keep their pickers.
   if (readSession(OPEN_FILE_KEY) === '1') {
-    document.documentElement.classList.add(OPEN_FILE_PENDING_CLASS);
+    /* Pending hides the tool picker. Only Open with carries a My PDFs
+       selection into a tool; a sidebar click must leave the picker up. */
+    if (readSession(OPEN_WITH_KEY) === '1') {
+      document.documentElement.classList.add(OPEN_FILE_PENDING_CLASS);
+    }
 
     function acceptsPdf(input) {
       var accept = (input.accept || '').toLowerCase();
@@ -288,108 +290,17 @@
       return true;
     }
 
-    /* The sidebar list ships empty and hidden, and main.ts cannot fill it until
-       the open-file store resolves — measured tens of milliseconds after the new
-       document is revealed. A cross-document view transition holds the previous,
-       populated rail on screen for that gap, so it reads as the selected file
-       disappearing rather than arriving late. Same snapshot and same row shape
-       as renderPendingSidebarFiles in workspace-files.ts, which takes the rows
-       over once it runs, so the handover changes nothing on screen.
-
-       Unlike the tool card this also matters on My PDFs, so it sits outside
-       refineOpenFileClass and its early return for the library pages. */
-    function buildSidebarRow(entry) {
-      var row = document.createElement('a');
-      row.className = 'shift-nav-link shift-open-file-item is-selected';
-      row.setAttribute(PENDING_FILE_ROW_ATTR, '');
-      // No href: the row is replaced with the wired one within a few frames,
-      // and a placeholder should not take a tab stop in the meantime.
-      row.setAttribute('aria-hidden', 'true');
-
-      var preview = document.createElement('span');
-      preview.className =
-        'shift-nav-icon shift-open-file-preview shift-file-preview is-empty';
-      preview.setAttribute('data-shift-preview-size', 'rail');
-      preview.setAttribute('aria-hidden', 'true');
-
-      var canvas = document.createElement('canvas');
-      canvas.className =
-        'shift-open-file-preview-canvas shift-file-preview-canvas';
-      preview.appendChild(canvas);
-
-      var thumbnail = readThumbnail(entry);
-      if (thumbnail) {
-        preview.style.backgroundImage = 'url("' + thumbnail + '")';
-        preview.classList.remove('is-empty');
-      }
-
-      var label = document.createElement('span');
-      label.className = 'shift-nav-label';
-      label.textContent = entry.name;
-
-      var chip = document.createElement('span');
-      chip.className = 'shift-open-file-selected-label';
-      chip.textContent = 'Selected';
-
-      row.appendChild(preview);
-      row.appendChild(label);
-      row.appendChild(chip);
-      return row;
-    }
-
-    /* Cached bitmaps of the first page, written by workspace-files.ts. Session
-       storage is user-writable, so only adopt what is safe inside a CSS url(). */
-    function readThumbnail(entry) {
-      var raw = readSession(SIDEBAR_THUMB_STORE_KEY);
-      if (!raw || raw.length > MAX_STORED_LENGTH * 8) return '';
-      var parsed;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        return '';
-      }
-      if (!parsed || typeof parsed !== 'object') return '';
-      var value = parsed[entry.name + '|' + entry.size];
-      return typeof value === 'string' && SIDEBAR_THUMB_DATA_URL.test(value)
-        ? value
-        : '';
-    }
-
+    /* Selected files stay on My PDFs. The sidebar list used to paint them
+       before the store resolved; that row is gone, so the list stays empty. */
     function paintSidebarFiles() {
       if (openFilePass.sidebarPainted) return true;
 
       var list = document.getElementById('shift-open-files-list');
       if (!list) return false;
-      list.classList.add('shift-file-browser');
-      list.setAttribute('data-shift-file-browser', 'list');
       openFilePass.sidebarPainted = true;
-      if (list.childElementCount > 0) return true;
-
-      var entries = readSnapshot();
-      if (entries.length === 0) return true;
-
-      var count = Math.min(entries.length, MAX_SIDEBAR_ROWS);
-      for (var i = 0; i < count; i++) {
-        list.appendChild(buildSidebarRow(entries[i]));
-      }
-      if (entries.length > count) {
-        list.appendChild(buildOverflowRow(entries.length - count));
-      }
-      list.hidden = false;
+      list.textContent = '';
+      list.hidden = true;
       return true;
-    }
-
-    function buildOverflowRow(remaining) {
-      var row = document.createElement('span');
-      row.className =
-        'shift-nav-link shift-open-file-item shift-open-files-more';
-      row.setAttribute(PENDING_FILE_ROW_ATTR, '');
-      row.setAttribute('aria-hidden', 'true');
-      var label = document.createElement('span');
-      label.className = 'shift-nav-label';
-      label.textContent = remaining + ' more';
-      row.appendChild(label);
-      return row;
     }
 
     /* Every tool ships its options panel with Tailwind's `hidden` and only
@@ -505,6 +416,10 @@
       }
     }
 
+    function isMyPdfsPage() {
+      return !!document.getElementById('shift-my-pdfs');
+    }
+
     function pumpOpenFile() {
       // The signal can be withdrawn while the page is still parsing: the seed
       // finds the blob gone and hands the tool back its picker. Putting the
@@ -514,7 +429,16 @@
         return true;
       }
 
-      var sidebarDone = paintSidebarFiles();
+      if (document.body && !isMyPdfsPage()) {
+        if (readSession(OPEN_WITH_KEY) !== '1') {
+          document.documentElement.classList.remove(OPEN_FILE_PENDING_CLASS);
+          stopOpenFileObserver();
+          return true;
+        }
+      }
+
+      var sidebarDone =
+        !document.body || isMyPdfsPage() ? paintSidebarFiles() : true;
       return refineOpenFileClass() && sidebarDone;
     }
 
@@ -542,7 +466,6 @@
       (body && body.classList.contains('shift-home')) ||
       !!document.getElementById('shift-my-pdfs') ||
       !!document.getElementById('tool-grid') ||
-      !!document.getElementById('convert-hub') ||
       !!document.getElementById('shift-pdf-viewer')
     );
   }

@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -27,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const fileDiv = document.createElement('div');
           fileDiv.className =
             'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+          mountToolInputPreview(fileDiv, file);
 
           const infoContainer = document.createElement('div');
           infoContainer.className = 'flex flex-col overflow-hidden';
@@ -100,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pdfBlob = await convertCsvToPdf(originalFile, {
           onProgress: (percent, message) => {
             console.log(`[CSV2PDF] Progress: ${percent}% - ${message}`);
-            showLoader(message, percent);
+            showResultLoader(message, percent);
           },
         });
 
@@ -124,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
       } else {
         console.log('[CSV2PDF] Converting multiple files:', state.files.length);
-        showLoader('Preparing conversion...');
+        showResultLoader('Preparing conversion...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
 
@@ -139,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             onProgress: (percent) => {
               const overallPercent =
                 (i / state.files.length) * 100 + percent / state.files.length;
-              showLoader(
+              showResultLoader(
                 `Converting ${i + 1}/${state.files.length}: ${file.name}...`,
                 overallPercent
               );
@@ -157,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         console.log('[CSV2PDF] Generating ZIP file...');
-        showLoader('Creating ZIP archive...');
+        showResultLoader('Creating ZIP archive...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         console.log('[CSV2PDF] ZIP size:', zipBlob.size);
 

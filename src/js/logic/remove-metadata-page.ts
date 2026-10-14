@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
@@ -86,6 +89,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -138,7 +142,7 @@ async function removeMetadata() {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Removing all metadata...');
+  showResultLoader('Removing all metadata...');
 
   try {
     hideLoader();
@@ -147,7 +151,7 @@ async function removeMetadata() {
       hideLoader();
       return;
     }
-    showLoader('Removing all metadata...');
+    showResultLoader('Removing all metadata...');
     result.pdf.destroy();
     const pdfDoc = await loadPdfDocument(result.bytes);
 

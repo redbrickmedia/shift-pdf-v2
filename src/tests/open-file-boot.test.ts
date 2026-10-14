@@ -14,6 +14,7 @@ import {
   hasOpenFileFlag,
   hasOpenFileSkeleton,
   markOpenFilePresent,
+  markOpenWithSelection,
   readOpenFileSnapshot,
   readPersistedOpenFile,
   removeOpenFileSkeleton,
@@ -169,6 +170,7 @@ describe('applyOpenFileFlagClasses', () => {
 describe('sidebar-boot open-file pre-paint', () => {
   it('sets the pending class from sessionStorage before body exists', () => {
     sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+    markOpenWithSelection();
     document.documentElement.className = '';
 
     runBootScript();
@@ -178,8 +180,25 @@ describe('sidebar-boot open-file pre-paint', () => {
     ).toBe(true);
   });
 
+  it('leaves the tool picker up when a My PDFs selection was not opened with', () => {
+    sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+    document.documentElement.className = '';
+
+    runBootScript();
+    document.body.innerHTML = TOOL_PAGE_DOM;
+
+    expect(
+      document.documentElement.classList.contains(OPEN_FILE_PENDING_CLASS)
+    ).toBe(false);
+    expect(document.body.classList.contains(OPEN_FILE_IN_TOOL_CLASS)).toBe(
+      false
+    );
+    expect(hasOpenFileSkeleton()).toBe(false);
+  });
+
   it('promotes pending to body.shift-open-file-in-tool once file-input exists', async () => {
     sessionStorage.setItem(OPEN_FILE_FLAG_KEY, '1');
+    markOpenWithSelection();
 
     runBootScript();
     expect(
@@ -202,6 +221,7 @@ describe('sidebar-boot open-file pre-paint', () => {
 describe('first painted frame is never an empty card', () => {
   it('paints a skeleton row with the real filename when the flag is set', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -222,6 +242,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('reserves one row per snapshot entry for multi-file tools', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([
       { name: 'first.pdf', size: 1024 },
       { name: 'second.pdf', size: 4096 },
@@ -269,6 +290,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('removes the skeleton once the real files are applied', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -294,6 +316,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('keeps the skeleton until an async tool paints its own row', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -319,6 +342,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('retires a stranded skeleton when the tool never renders a row', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -332,6 +356,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('unhides the tool options panel before any blob arrives', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -365,6 +390,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('does not reveal panels on a tool that cannot use the file', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -390,6 +416,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('keeps the panel up when a tool module hides it mid-seed', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
     await writePersistedOpenFile(
       new File(['%PDF'], 'briefing.pdf', { type: 'application/pdf' }),
@@ -417,6 +444,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('hands the revealed panel to the tool once files land', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -437,6 +465,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('re-hides the revealed panel when the seed turns up no files', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -456,6 +485,7 @@ describe('first painted frame is never an empty card', () => {
 
   it('restores the drop zone when the seed turns up no files', async () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     runBootScript();
@@ -498,6 +528,7 @@ describe('open file snapshot', () => {
 
   it('goes away with the flag, so a withdrawn selection cannot repaint', () => {
     markOpenFilePresent(true);
+    markOpenWithSelection();
     writeOpenFileSnapshot([{ name: 'briefing.pdf', size: 2048 }]);
 
     // What abandonSeed and restorePdfLibrary do when the store turns up empty.

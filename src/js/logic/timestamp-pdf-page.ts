@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader } from '../ui.js';
+
 import { t } from '../i18n/i18n';
 import {
   readFileAsArrayBuffer,
@@ -135,6 +138,7 @@ async function updatePdfDisplay(): Promise<void> {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, state.pdfFile);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -224,7 +228,7 @@ async function processTimestamp(): Promise<void> {
     throw error;
   }
 
-  showLoader('Applying timestamp...');
+  showResultLoader('Applying timestamp...');
 
   try {
     const timestampedBytes = await timestampPdf(state.pdfBytes, tsaUrl);

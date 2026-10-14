@@ -75,10 +75,13 @@
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
   </head>
 
-  <body class="antialiased shift-pdf-viewer-page">
+  <body class="antialiased bg-gray-900">
     {{> navbar }}
 
-    <div id="uploader" class="shift-pdf-viewer-shell">
+    <div
+      id="uploader"
+      class="min-h-screen flex flex-col items-center justify-start py-12 p-4 bg-gray-900"
+    >
       <header class="shift-pdf-viewer-header">
         <div class="shift-pdf-viewer-heading">
           <h1 data-i18n="tools:signPdf.name">Sign PDF</h1>
@@ -126,6 +129,57 @@
         </div>
       </header>
 
+      <div
+        id="tool-uploader"
+        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
+      >
+        <div
+          id="drop-zone"
+          class="relative flex flex-col items-center justify-center w-full h-48 md:h-64 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+        >
+          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+            <i
+              data-lucide="circle-arrow-up"
+              class="w-10 h-10 mb-3 text-gray-400"
+            ></i>
+            <p class="mb-2 text-sm text-gray-400">
+              <span class="font-semibold" data-i18n="upload.clickToSelect"
+                >Click to select a file</span
+              >
+              <span data-i18n="upload.orDragAndDrop">or drag and drop</span>
+            </p>
+            <p class="text-xs text-gray-500" data-i18n="upload.hints.singlePdf">
+              A single PDF file
+            </p>
+            <p class="text-xs text-gray-500" data-i18n="upload.filesNeverLeave">
+              Your files never leave your device.
+            </p>
+            <p
+              class="text-xs text-gray-500"
+              data-i18n="tools:signPdf.visualSignatureNotice"
+            >
+              Sign PDF adds a visual signature to the page. It is not a
+              certificate-backed Digital Signature. Use the Digital Signature
+              tool when certificate validation is required.
+            </p>
+            <p
+              class="text-xs text-gray-500"
+              data-i18n="tools:signPdf.sessionOnlyNotice"
+            >
+              Signatures and PDFs stay in this browser session and are not saved
+              for later use.
+            </p>
+          </div>
+          <input
+            id="file-input"
+            type="file"
+            accept="application/pdf"
+            class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+        <div id="file-display-area"></div>
+      </div>
+
       <section class="shift-pdf-viewer-stage" aria-label="Signature editor">
         <div id="signature-editor" class="hidden">
           <div id="canvas-container-sign" class="shift-pdf-viewer-frame">
@@ -138,28 +192,6 @@
           >
             <span>Apply signatures</span>
           </button>
-        </div>
-
-        <div id="tool-uploader" class="shift-pdf-viewer-empty">
-          <div id="drop-zone">
-            <p>
-              <span class="font-semibold" data-i18n="upload.clickToSelect"
-                >Click to select a file</span
-              >
-              <span data-i18n="upload.orDragAndDrop">or drag and drop</span>
-            </p>
-            <p data-i18n="tools:signPdf.visualSignatureNotice">
-              Sign PDF adds a visual signature to the page. It is not a
-              certificate-backed Digital Signature. Use the Digital Signature
-              tool when certificate validation is required.
-            </p>
-            <p data-i18n="tools:signPdf.sessionOnlyNotice">
-              Signatures and PDFs stay in this browser session and are not saved
-              for later use.
-            </p>
-            <input id="file-input" type="file" accept="application/pdf" />
-          </div>
-          <div id="file-display-area"></div>
         </div>
       </section>
 
@@ -254,6 +286,7 @@
       </div>
     </div>
 
+    {{> footer }}
     <script type="module" src="/src/js/utils/lucide-init.ts"></script>
     <script type="module" src="/src/js/utils/full-width.ts"></script>
     <script type="module" src="/src/js/utils/simple-mode-footer.ts"></script>

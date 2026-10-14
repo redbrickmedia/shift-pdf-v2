@@ -384,4 +384,21 @@ describe('tool empty state: multi-slot uploaders', () => {
     expect(slotButton('drop-zone-1')).toBeNull();
     expect(slotButton('drop-zone-2')).not.toBeNull();
   });
+
+  it('gives the convert hub the shared library button', () => {
+    document.body.innerHTML = `
+      <div id="tool-uploader" data-convert-hub>
+        <div id="drop-zone">
+          <div>Click to select files</div>
+          <input id="file-input" type="file" class="absolute top-0 left-0 w-full h-full opacity-0" />
+        </div>
+      </div>
+    `;
+    initToolEmptyState();
+
+    const button = document.getElementById(TOOL_LIBRARY_BTN_ID);
+    expect(button?.textContent).toBe(TOOL_LIBRARY_BTN_LABEL);
+    expect(document.getElementById('drop-zone')?.contains(button)).toBe(true);
+    expect(document.getElementById('convert-library-btn')).toBeNull();
+  });
 });

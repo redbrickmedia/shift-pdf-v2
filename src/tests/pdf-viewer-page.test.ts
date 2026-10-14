@@ -18,6 +18,8 @@ import { PDF_ENGINE_EVENTS, resetToolUseForTests } from '../js/host/analytics';
 import { dom, hideAlert } from '../js/ui';
 import {
   clearPersistedOpenFile,
+  markOpenWithSelection,
+  OPEN_WITH_SELECTION_KEY,
   readPersistedOpenFiles,
   writePersistedOpenFiles,
 } from '../js/logic/open-file-store';
@@ -26,6 +28,7 @@ import {
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
+import { state } from '../js/state';
 import {
   getWorkspaceFiles,
   persistWorkspaceOpenFile,
@@ -46,6 +49,8 @@ function mountViewer(): void {
 afterEach(async () => {
   resetPdfViewerPageForTests();
   resetWorkspaceFileIndicator();
+  state.files = [];
+  sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
   await clearPersistedOpenFile();
   await clearPdfLibrary();
   document.body.innerHTML = '';
@@ -290,6 +295,42 @@ describe('PDF viewer page', () => {
     ).toBe(0);
   });
 
+  it('spends Open with on the viewer so a later tool keeps its picker', async () => {
+    document.body.innerHTML = `
+      <main id="shift-pdf-viewer">
+        <h1 id="shift-pdf-viewer-title">PDF</h1>
+        <iframe id="shift-pdf-viewer-frame"></iframe>
+        <div id="shift-pdf-viewer-empty"></div>
+        <input id="file-input" type="file" accept="application/pdf,.pdf" hidden />
+      </main>
+    `;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['alpha'], 'alpha.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+    markOpenWithSelection();
+
+    await expect(seedToolOpenFile(document)).resolves.toBe(true);
+    expect(sessionStorage.getItem(OPEN_WITH_SELECTION_KEY)).toBeNull();
+
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+    `;
+    state.files = [];
+
+    await expect(seedToolOpenFile(document)).resolves.toBe(false);
+    expect(state.files).toEqual([]);
+    expect(
+      (document.getElementById('file-input') as HTMLInputElement).files
+        ?.length ?? 0
+    ).toBe(0);
+    sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
+  });
+
   it('persists the open PDF before routing to a header tool', async () => {
     mountViewer();
     const file = new File(['pdf'], 'locked.pdf', {
@@ -308,6 +349,17 @@ describe('PDF viewer page', () => {
     expect(assignLocation).toHaveBeenCalledOnce();
     expect(assignLocation.mock.calls[0]?.[0]).toMatch(/\/encrypt-pdf\.html$/);
     expect(getWorkspaceFiles()[0]?.blob).toBe(file);
+    expect(sessionStorage.getItem(OPEN_WITH_SELECTION_KEY)).toBe('1');
+
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+    `;
+    state.files = [];
+
+    await expect(seedToolOpenFile(document)).resolves.toBe(true);
+    expect(state.files[0]?.name).toBe('locked.pdf');
   });
 
   it('records download success and one error when a PDF cannot be opened', () => {

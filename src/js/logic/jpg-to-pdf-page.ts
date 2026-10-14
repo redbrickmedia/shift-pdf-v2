@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import type { PyMuPDFInstance } from '@/types';
@@ -127,6 +130,7 @@ function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -180,7 +184,7 @@ async function convertToPdf() {
   try {
     const mupdf = await ensurePyMuPDF();
 
-    showLoader('Converting images to PDF...');
+    showResultLoader('Converting images to PDF...');
     const quality = getSelectedQuality();
     const compressedFiles: File[] = [];
     for (const file of files) {

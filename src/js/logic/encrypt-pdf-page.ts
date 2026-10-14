@@ -1,4 +1,7 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -47,6 +50,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -130,7 +134,7 @@ async function encryptPdf() {
 
     qpdf.FS.writeFile(inputPath, uint8Array);
 
-    showLoader('Encrypting PDF with 256-bit AES...');
+    showResultLoader('Encrypting PDF with 256-bit AES...');
 
     const args = [inputPath, '--encrypt', userPassword, ownerPassword, '256'];
 
@@ -161,7 +165,7 @@ async function encryptPdf() {
       );
     }
 
-    showLoader('Preparing download...');
+    showResultLoader('Preparing download...');
     const outputFile = qpdf.FS.readFile(outputPath, { encoding: 'binary' });
 
     if (!outputFile || outputFile.length === 0) {

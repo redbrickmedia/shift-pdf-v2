@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
@@ -37,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -106,11 +109,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       hideLoader();
       state.files = await batchDecryptIfNeeded(state.files);
-      showLoader('Converting...');
+      showResultLoader('Converting...');
 
       if (state.files.length === 1) {
         const file = state.files[0];
-        showLoader(`Converting ${file.name}...`);
+        showResultLoader(`Converting ${file.name}...`);
 
         const markdown = await pymupdf.pdfToMarkdown(file, { includeImages });
         const outName = file.name.replace(/\.pdf$/i, '') + '.md';
@@ -132,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
 
@@ -142,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
           zip.file(zipEntryName, markdown);
         }
 
-        showLoader('Creating ZIP archive...');
+        showResultLoader('Creating ZIP archive...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
 
         downloadFile(zipBlob, 'markdown-files.zip');

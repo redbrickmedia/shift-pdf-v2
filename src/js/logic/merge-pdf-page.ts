@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
@@ -516,7 +517,7 @@ async function renderMergeUI(syncWorkspace = true): Promise<void> {
 async function restore(snapshotToRestore: MergeSnapshot): Promise<void> {
   mergeModel = cloneSnapshot(snapshotToRestore);
   syncSharedFiles();
-  showLoader('Restoring merge state...');
+  showResultLoader('Restoring merge state...');
   try {
     await ensureRuntimeDocuments();
     await renderMergeUI();
@@ -664,7 +665,7 @@ export async function merge(): Promise<void> {
     return;
   }
 
-  showLoader('Merging PDFs...');
+  showResultLoader('Merging PDFs...');
   const message: MergeMessage = {
     command: 'merge',
     files: prepared.files,

@@ -10,7 +10,10 @@ import {
   restoreLibraryEntryAccess,
   type PdfLibraryEntry,
 } from './pdf-library-store.js';
-import { readPersistedOpenFiles } from './open-file-store.js';
+import {
+  markOpenWithSelection,
+  readPersistedOpenFiles,
+} from './open-file-store.js';
 import {
   markFileLibraryId,
   markFileFromDownload,
@@ -72,7 +75,11 @@ async function readableLibraryEntry(
   if (entry.availability === 'ready' && entry.file.size > 0) return entry;
   if (!entry.handle || entry.availability === 'unavailable') return null;
   const restored = await restoreLibraryEntryAccess(entry.id);
-  if (!restored || restored.availability !== 'ready' || restored.file.size === 0) {
+  if (
+    !restored ||
+    restored.availability !== 'ready' ||
+    restored.file.size === 0
+  ) {
     return null;
   }
   return restored;
@@ -208,6 +215,9 @@ export async function launchViewerTool(
   if (!currentFile) return false;
   setWorkspaceFiles([currentFile], root);
   await persistWorkspaceOpenFile();
+  // View PDF spends Open with so a later sidebar click keeps its picker.
+  // These header buttons are the hop that should still carry the file.
+  markOpenWithSelection();
   assignLocation(new URL(target, document.baseURI).href);
   return true;
 }

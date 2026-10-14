@@ -1,9 +1,11 @@
+import { showResultLoader } from './tool-success.js';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { escapeHtml, downloadFile } from '../utils/helpers.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 const pageState: { pdfDoc: PDFDocument | null; file: File | null } = {
   pdfDoc: null,
@@ -34,6 +36,8 @@ function updateFileDisplay() {
         </div>
     `;
 
+  const card = displayArea.querySelector('div');
+  if (card && pageState.file) mountToolInputPreview(card, pageState.file);
   createIcons({ icons });
 
   document
@@ -82,7 +86,7 @@ async function processRemoveAnnotations() {
     return;
   }
 
-  showLoader('Removing annotations...');
+  showResultLoader('Removing annotations...');
   try {
     const pages = pageState.pdfDoc.getPages();
 

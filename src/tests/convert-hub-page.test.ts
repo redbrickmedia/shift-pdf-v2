@@ -484,7 +484,7 @@ describe('convert hub against the shipped page markup', () => {
       path.resolve(__dirname, '../../pdf-converter.html'),
       'utf8'
     );
-    const hub = /<div\s+id="convert-hub"[\s\S]*?\n {6}<\/div>/.exec(markup);
+    const hub = /<div\s+id="tool-uploader"[\s\S]*?\n {6}<\/div>/.exec(markup);
     expect(hub).not.toBeNull();
     document.body.innerHTML = hub?.[0] ?? '';
   }

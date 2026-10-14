@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -31,6 +34,7 @@ const updateUI = () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -89,7 +93,7 @@ async function convert() {
   const useJpeg = quality !== 'high';
   const jpegQuality = jpegQualityMap[quality] || 0.75;
 
-  showLoader('Converting TIFF to PDF...');
+  showResultLoader('Converting TIFF to PDF...');
   try {
     const pdfDoc = await PDFLibDocument.create();
     for (const file of files) {

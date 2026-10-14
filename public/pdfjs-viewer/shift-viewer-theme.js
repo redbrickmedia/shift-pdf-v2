@@ -160,4 +160,36 @@
       if (errorAttempts > 40) window.clearInterval(errorTimer);
     }, 50);
   }
+
+  /* Typed signatures must not copy the typed name into the alt text. The
+     description stays "Signature" until the user edits that field. */
+  var SIGNATURE_ALT = 'Signature';
+  document.addEventListener('input', function (event) {
+    var target = event.target;
+    if (!target || target.id !== 'addSignatureTypeInput') return;
+    var description = document.getElementById('addSignatureDescInput');
+    if (!description || description.dataset.shiftAltEdited === 'true') return;
+    /* PDF.js copies the typed name into the description before this bubbles. */
+    description.value = SIGNATURE_ALT;
+  });
+  document.addEventListener(
+    'focusin',
+    function (event) {
+      var target = event.target;
+      if (!target || target.id !== 'addSignatureTypeInput') return;
+      var description = document.getElementById('addSignatureDescInput');
+      if (!description || description.value) return;
+      description.value = SIGNATURE_ALT;
+    },
+    true
+  );
+  document.addEventListener(
+    'input',
+    function (event) {
+      var target = event.target;
+      if (!target || target.id !== 'addSignatureDescInput') return;
+      target.dataset.shiftAltEdited = 'true';
+    },
+    true
+  );
 })();

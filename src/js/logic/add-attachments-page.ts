@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { AddAttachmentState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
@@ -102,6 +104,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -241,7 +244,7 @@ async function addAttachments() {
     }
   }
 
-  showLoader('Embedding files into PDF...');
+  showResultLoader('Embedding files into PDF...');
 
   try {
     const pdfBuffer = await pageState.file.arrayBuffer();
@@ -251,7 +254,7 @@ async function addAttachments() {
 
     for (let i = 0; i < pageState.attachments.length; i++) {
       const file = pageState.attachments[i];
-      showLoader(
+      showResultLoader(
         `Reading ${file.name} (${i + 1}/${pageState.attachments.length})...`
       );
 
@@ -260,7 +263,7 @@ async function addAttachments() {
       attachmentNames.push(file.name);
     }
 
-    showLoader('Attaching files to PDF...');
+    showResultLoader('Attaching files to PDF...');
 
     const message = {
       command: 'add-attachments',
