@@ -13,6 +13,7 @@ import {
 } from '../js/logic/seed-tool-open-file';
 import {
   markOpenWithSelection,
+  OPEN_WITH_SELECTION_KEY,
   writePersistedOpenFile,
   writePersistedOpenFiles,
 } from '../js/logic/open-file-store';
@@ -34,6 +35,7 @@ import {
 afterEach(async () => {
   document.body.className = '';
   state.files = [];
+  sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
   resetToolFilesSeededState();
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
@@ -297,6 +299,27 @@ describe('seed tool open file', () => {
     await expect(seedToolOpenFile()).resolves.toBe(true);
 
     expect(document.getElementById('drop-zone')?.hidden).toBe(true);
+  });
+
+  it('spends Open with when the selected file is missing', async () => {
+    document.body.innerHTML = `
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" />
+      </div>
+    `;
+    markOpenWithSelection();
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(sessionStorage.getItem(OPEN_WITH_SELECTION_KEY)).toBeNull();
+
+    await writePersistedOpenFile(
+      new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
+      { source: 'upload' }
+    );
+
+    await expect(seedToolOpenFile()).resolves.toBe(false);
+    expect(state.files).toEqual([]);
+    expect(document.getElementById('drop-zone')?.hidden).toBe(false);
   });
 
   it('does not invent a selection from the library when the workspace is empty', async () => {

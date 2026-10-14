@@ -162,6 +162,11 @@ export async function seedToolOpenFile(
   const persistedRead = readPersistedOpenFiles();
 
   await syncHomeLibraryFromStore(root);
+  // Open with is one navigation. Spend it on this page before any exit,
+  // including View PDF (which keeps the selection read-only) and a missing
+  // blob. Leaving the flag set makes the next sidebar or catalog click look
+  // like Open with and hide that tool's picker.
+  const openWith = consumeOpenWithSelection();
   // A handoff request means the embedder is about to push its own file in.
   if (hasShiftFileHandoffRequest()) return abandonSeed(root);
 
@@ -198,7 +203,6 @@ export async function seedToolOpenFile(
 
   // My PDFs selection stays on that page. A tool receives it only from Open
   // with, or when Shift handed the file to this page directly.
-  const openWith = consumeOpenWithSelection();
   if (!openWith && !handoff) {
     removeOpenFileSkeleton(root);
     restoreRevealedPanels(root);
