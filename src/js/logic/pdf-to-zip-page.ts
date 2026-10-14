@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
@@ -38,6 +41,7 @@ function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -83,7 +87,7 @@ async function createZipArchive() {
     return;
   }
 
-  showLoader('Creating ZIP archive...');
+  showResultLoader('Creating ZIP archive...');
 
   try {
     const zip = new JSZip();
@@ -91,13 +95,15 @@ async function createZipArchive() {
 
     for (let i = 0; i < pageState.files.length; i++) {
       const file = pageState.files[i];
-      showLoader(`Adding ${file.name} (${i + 1}/${pageState.files.length})...`);
+      showResultLoader(
+        `Adding ${file.name} (${i + 1}/${pageState.files.length})...`
+      );
       const arrayBuffer = await file.arrayBuffer();
       const zipEntryName = deduplicateFileName(file.name, usedNames);
       zip.file(zipEntryName, arrayBuffer);
     }
 
-    showLoader('Generating ZIP file...');
+    showResultLoader('Generating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
 
     downloadFile(zipBlob, 'pdfs_archive.zip');

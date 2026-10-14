@@ -145,6 +145,14 @@ export function hideLoader(): void {
   const overlay = host?.querySelector<HTMLElement>(':scope > .shift-loader');
   overlay?.classList.remove('is-visible', 'is-active');
   host?.removeAttribute('aria-busy');
+
+  const dialog = host?.closest('#shift-tool-success');
+  if (dialog instanceof HTMLElement && dialog.dataset.phase === 'loading') {
+    dialog.classList.add('hidden');
+    dialog.hidden = true;
+    dialog.inert = true;
+    delete dialog.dataset.phase;
+  }
   activeHost = null;
 }
 

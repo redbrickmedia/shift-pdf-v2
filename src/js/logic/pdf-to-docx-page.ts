@@ -1,3 +1,4 @@
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { t } from '../i18n/i18n';
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';

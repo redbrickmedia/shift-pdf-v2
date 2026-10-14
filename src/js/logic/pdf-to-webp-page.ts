@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -31,6 +34,7 @@ const updateUI = () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -104,7 +108,7 @@ async function convert() {
   try {
     const result = await loadPdfWithPasswordPrompt(files[0], files, 0);
     if (!result) return;
-    showLoader(t('tools:pdfToWebp.loader.converting'));
+    showResultLoader(t('tools:pdfToWebp.loader.converting'));
     const { pdf } = result;
 
     const qualityInput = document.getElementById(

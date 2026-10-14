@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { EditAttachmentState, AttachmentInfo } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { isCpdfAvailable } from '../utils/cpdf-helper.js';
@@ -257,7 +260,7 @@ async function saveChanges() {
     return;
   }
 
-  showLoader('Processing attachments...');
+  showResultLoader('Processing attachments...');
 
   // Check if CPDF is configured (double check)
   if (!isCpdfAvailable()) {
@@ -297,6 +300,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';

@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { PDFDocument } from 'pdf-lib';
 
@@ -7,6 +8,7 @@ import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { escapeHtml, downloadFile } from '../utils/helpers.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 // State
 const pageState: {
@@ -44,6 +46,8 @@ function updateFileDisplay() {
             </div>
         </div>
     `;
+  const card = area.querySelector('div');
+  if (card && pageState.file) mountToolInputPreview(card, pageState.file);
   createIcons({ icons });
   document.getElementById('remove-file')?.addEventListener('click', resetState);
 }
@@ -144,7 +148,7 @@ async function detectBlankPages() {
   const sensitivityPercent = parseInt(sensitivitySlider?.value || '80');
   const maxNonWhitePercent = 5 - (sensitivityPercent / 100) * 4.9;
 
-  showLoader('Detecting blank pages...');
+  showResultLoader('Detecting blank pages...');
   try {
     const pdfData = await pageState.file.arrayBuffer();
     const pdfDoc = await getPDFDocument({ data: pdfData }).promise;
@@ -254,7 +258,7 @@ async function processRemoveBlankPages() {
     return;
   }
 
-  showLoader(`Removing ${selectedPages.length} blank page(s)...`);
+  showResultLoader(`Removing ${selectedPages.length} blank page(s)...`);
   try {
     const newPdf = await PDFDocument.create();
     const pages = pageState.pdfDoc.getPages();

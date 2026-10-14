@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers.js';
@@ -212,6 +214,7 @@ function renderFileList() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+    mountToolInputPreview(fileDiv, entry.file);
 
     const leftSection = document.createElement('div');
     leftSection.className = 'flex items-center gap-3 flex-1 min-w-0';
@@ -436,7 +439,7 @@ async function applyBatesNumbers() {
     return;
   }
 
-  showLoader('Applying Bates numbers...');
+  showResultLoader('Applying Bates numbers...');
   try {
     const template = (
       document.getElementById('bates-template') as HTMLInputElement

@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import {
   downloadFile,
   formatBytes,
@@ -6,7 +7,9 @@ import {
 } from '../utils/helpers';
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { createIcons, icons } from 'lucide';
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { hideLoader, showAlert } from '../ui.js';
+
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { getDerivedPdfFilename } from '../utils/derived-pdf-filename.js';
 import { captureIframeFileSave } from '../utils/iframe-file-save.js';
@@ -147,6 +150,7 @@ function updateFileList() {
   const wrapper = document.createElement('div');
   wrapper.className =
     'bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors';
+  mountToolInputPreview(wrapper, selectedFile);
 
   const innerDiv = document.createElement('div');
   innerDiv.className = 'flex items-center justify-between';
@@ -334,7 +338,7 @@ async function applyStampedPdf() {
   }
 
   try {
-    showLoader('Saving stamped PDF...');
+    showResultLoader('Saving stamped PDF...');
     const extension = getStampExtension(viewerIframe);
     if (extension?.hasUnsavedChanges?.() && extension.exportPdf) {
       const saved = await captureIframeFileSave(viewerIframe, () =>

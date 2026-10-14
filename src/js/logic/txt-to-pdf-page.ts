@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
@@ -31,6 +34,7 @@ const updateUI = () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoSpan = document.createElement('span');
       infoSpan.className = 'truncate font-medium text-gray-200';
@@ -121,7 +125,7 @@ async function convert() {
       textContent = textInput.value;
     }
 
-    showLoader('Creating PDF...');
+    showResultLoader('Creating PDF...');
 
     const pdfBlob = await pymupdf.textToPdf(textContent, {
       fontSize,

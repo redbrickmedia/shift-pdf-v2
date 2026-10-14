@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader } from '../ui.js';
+
 import {
   downloadFile,
   readFileAsArrayBuffer,
@@ -118,6 +121,7 @@ function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -203,7 +207,7 @@ async function convertToPdf() {
     return;
   }
 
-  showLoader('Creating PDF from JPGs...');
+  showResultLoader('Creating PDF from JPGs...');
 
   try {
     const pdfDoc = await PDFLibDocument.create();

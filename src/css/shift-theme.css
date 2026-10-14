@@ -1721,6 +1721,29 @@ body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
   box-shadow: 0 16px 40px rgb(0 0 0 / 28%);
 }
 
+.shift-tool-success-loading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+}
+
+.shift-tool-success-loading[hidden],
+.shift-tool-success-ready[hidden] {
+  display: none !important;
+}
+
+.shift-tool-success-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.shift-tool-success-preview .shift-file-preview {
+  width: min(220px, 100%);
+}
+
 .shift-tool-success-card h2 {
   margin: 0;
   font-size: 1.25rem;
@@ -3870,53 +3893,49 @@ body.shift-home:has(#tool-grid) #grid-view {
   padding-right: var(--spacing-4);
 }
 
-/* ---- My PDFs: the file list scrolls, not the page ----
- * The body is already a fixed-height scrollport (see the panel rule above), so
- * a library taller than the viewport used to scroll the whole page and take the
- * filter and the selection row with it — you had to scroll back up to reach the
- * controls for what you were looking at. Giving #app the leftover column height
- * (footer stays below) and letting `.shift-my-pdfs-scroll` take the rest keeps
- * the heading, drop zone, filter and selection row in place while the cards
- * move under them.
+/* ---- My PDFs: the panel to the right of the sidebar scrolls ----
+ * Heading, drop zone, filter, selection row, cards, and footer move together.
+ * An inner pane used to own overflow, which left the footer pinned over the
+ * last cards. Tool pages and the All Tools catalog keep their own scrollports.
  *
- * Scoped to the page that has the library so tool pages, which want ordinary
- * document scrolling, are untouched. */
-/* The body is already a flex column ending in a sticky footer, so #app claims
-   the space the footer leaves rather than the whole height — which would push
-   the footer out and hand the scroll straight back to the body. The panel rule
-   sets flex-shrink to 0 to stop short pages collapsing; here the point is the
-   opposite, so it is restated. */
-body.shift-home:has(#shift-my-pdfs) #app {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
+ * The panel rule already makes the body a 100dvh scrollport. #app must not
+ * flex-grow or clip, or the footer is pushed to the viewport edge again. */
 body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar) {
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  /* Without this a flex item refuses to shrink past its content, so the
-     section would grow and hand the scroll back to the body. */
-  min-height: 0;
-}
-
-/* One scrollport for both views. Table and thumbs stay siblings inside so the
-   table keeps auto layout (Date/Size stay narrow) while overflow lives here. */
-body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
-  flex: 1 1 auto;
-  min-height: clamp(12rem, 40vh, 28rem);
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Room for the scrollbar so cards do not sit under it. */
-  padding-right: var(--spacing-4);
+}
+
+body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar):has(
+    > .shift-footer
+  )
+  > #app.min-h-screen {
+  flex-grow: 0;
+  overflow: visible;
+}
+
+body.shift-home:has(#shift-my-pdfs) #app,
+body.shift-home:has(#shift-my-pdfs) #shift-my-pdfs {
+  display: block;
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Table and thumbs stay siblings so the table keeps auto layout. Overflow
+   lives on the panel, not in this wrapper. */
+body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll {
+  overflow: visible;
+  min-height: 0;
+}
+
+body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar)
+  > .shift-footer {
+  position: static;
+  /* Follows the library. margin-top: auto on the shared footer rule is what
+     parked it on the viewport. */
+  margin-top: 2rem;
+  background-color: transparent;
 }
 
 /* Cards draw their selection ring just outside themselves, and this pane clips
@@ -4324,6 +4343,16 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   z-index: 1;
 }
 
+.shift-open-file-tool-wrap {
+  display: inline-flex;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.shift-my-pdfs-more-tools-list .shift-open-file-tool-wrap {
+  display: flex;
+}
+
 .shift-open-file-tools.is-disabled .shift-open-file-tool-btn,
 .shift-open-file-tool-btn.is-disabled {
   color: var(--action-text-neutral-disabled);
@@ -4407,6 +4436,35 @@ body.shift-home #shift-my-pdfs[data-view='list'] .shift-my-pdfs-table thead {
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* Tool inputs reuse the library card. The row used to be a gray filename
+   strip; the preview sits above the name the page already rendered. */
+#file-display-area:has(.shift-tool-input-card),
+.shift-tool-input-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-16);
+  align-items: stretch;
+}
+
+.shift-tool-input-card {
+  position: relative;
+  cursor: default;
+  align-items: stretch;
+  background: var(--background-secondary) !important;
+  padding: 0 !important;
+}
+
+.shift-tool-input-card > :not(.shift-file-preview) {
+  padding-inline: 10px;
+}
+
+.shift-tool-input-card .shift-tool-file-remove {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  z-index: 1;
 }
 
 .shift-open-file-thumb:hover {

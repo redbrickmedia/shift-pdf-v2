@@ -1,3 +1,4 @@
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showCancellableLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const fileDiv = document.createElement('div');
           fileDiv.className =
             'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+          mountToolInputPreview(fileDiv, file);
 
           const infoContainer = document.createElement('div');
           infoContainer.className = 'flex flex-col overflow-hidden';

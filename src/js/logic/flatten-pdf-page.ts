@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { PDFDocument } from 'pdf-lib';
@@ -48,6 +51,7 @@ async function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -110,7 +114,7 @@ async function flattenPdf() {
 
   try {
     if (pageState.files.length === 1) {
-      showLoader('Flattening PDF...');
+      showResultLoader('Flattening PDF...');
 
       const file = pageState.files[0];
       const arrayBuffer = await file.arrayBuffer();
@@ -139,7 +143,7 @@ async function flattenPdf() {
       );
       hideLoader();
     } else {
-      showLoader('Flattening multiple PDFs...');
+      showResultLoader('Flattening multiple PDFs...');
 
       const zip = new JSZip();
       const usedNames = new Set<string>();
@@ -147,7 +151,7 @@ async function flattenPdf() {
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
-        showLoader(
+        showResultLoader(
           `Flattening ${i + 1}/${pageState.files.length}: ${file.name}...`
         );
 

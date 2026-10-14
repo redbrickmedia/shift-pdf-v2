@@ -1,8 +1,10 @@
 // Self-contained Form Filler logic for standalone page
+import { showResultLoader } from './tool-success.js';
 import { createIcons, icons } from 'lucide';
 import { downloadFile, getPDFDocument } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { hideLoader, showLoader } from '../ui.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { getDerivedPdfFilename } from '../utils/derived-pdf-filename.js';
 import { exportPdfJsAnnotations } from '../utils/sign-pdf-export.js';
 import {
@@ -63,6 +65,7 @@ function updateFileDisplay() {
   const card = document.createElement('div');
   card.className =
     'bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors';
+  mountToolInputPreview(card, currentFile);
 
   const row = document.createElement('div');
   row.className = 'flex items-center justify-between';
@@ -264,7 +267,7 @@ async function processAndDownloadForm() {
   }
 
   try {
-    showLoader('Saving filled form...');
+    showResultLoader('Saving filled form...');
     const app = await waitForPdfJsSignViewer(viewerIframe);
     if (!app.pdfDocument) {
       throw new Error('The PDF.js document is unavailable.');

@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import type {
   AddPageLabelsState,
@@ -5,7 +7,8 @@ import type {
   PageLabelStyleName,
   CpdfInstance,
 } from '@/types';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader, showLoader } from '../ui.js';
+
 import { t } from '../i18n/index.js';
 import {
   downloadFile,
@@ -186,6 +189,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, pageState.file);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -427,7 +431,7 @@ async function addPageLabels() {
     return;
   }
 
-  showLoader(
+  showResultLoader(
     translate('tools:addPageLabels.applyingLabels', 'Applying page labels...')
   );
 

@@ -3,6 +3,7 @@ import { state } from '../state.js';
 import { syncHomeLibraryFromStore } from './workspace-files.js';
 import {
   clearOpenFileFlagClasses,
+  consumeOpenWithSelection,
   forgetRevealedPanels,
   holdRevealedPanels,
   markOpenFilePresent,
@@ -166,6 +167,9 @@ export async function seedToolOpenFile(
 
   const persisted = await persistedRead;
   let files: File[] | undefined;
+  const handoff =
+    persisted.length > 0 &&
+    persisted.every((entry) => entry.source === 'handoff');
 
   if (persisted.length > 0) {
     files = persisted.map((entry) => {
@@ -192,18 +196,31 @@ export async function seedToolOpenFile(
     return true;
   }
 
+  // My PDFs selection stays on that page. A tool receives it only from Open
+  // with, or when Shift handed the file to this page directly.
+  const openWith = consumeOpenWithSelection();
+  if (!openWith && !handoff) {
+    removeOpenFileSkeleton(root);
+    restoreRevealedPanels(root);
+    clearOpenFileFlagClasses(root);
+    renderWorkspaceFiles(root);
+    return false;
+  }
+
   const applicable = filesApplicableToToolInput(files, root);
   const applied = applyFilesToToolInput(files, root);
-  setWorkspaceFiles(applied ? applicable : files, root);
-  if (applied) return true;
+  if (!applied) {
+    // A PDF opened into a tool that cannot take one used to hide the picker
+    // and leave the card blank. Keep the picker and leave the selection on
+    // My PDFs.
+    removeOpenFileSkeleton(root);
+    restoreRevealedPanels(root);
+    clearOpenFileFlagClasses(root);
+    renderWorkspaceFiles(root);
+    return false;
+  }
 
-  // Nothing landed in the input — a PDF on an image-only tool, say. The file is
-  // still the workspace file for the sidebar, so let renderWorkspaceFiles decide
-  // the picker rather than forcing it either way.
-  const kept = getWorkspaceFiles().length > 0;
-  removeOpenFileSkeleton(root);
-  if (!kept) return abandonSeed(root);
-  renderWorkspaceFiles(root);
+  setWorkspaceFiles(applicable, root);
   return true;
 }
 

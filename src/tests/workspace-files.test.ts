@@ -43,7 +43,7 @@ import {
   syncSidebarFileTooltips,
 } from '../js/logic/workspace-files';
 
-function mountShell() {
+function mountShell(page: 'home' | 'tool' = 'home') {
   document.body.innerHTML = `
     <aside id="shift-sidebar">
       <section id="shift-open-files">
@@ -57,6 +57,7 @@ function mountShell() {
     </div>
     <div id="file-display-area"></div>
     <div id="file-list"></div>
+    ${page === 'home' ? '<section id="shift-my-pdfs" hidden></section>' : ''}
   `;
 }
 
@@ -205,7 +206,7 @@ describe('workspace files sidebar', () => {
   });
 
   it('hides the tool drop zone when the library and workspace both have files', () => {
-    mountShell();
+    mountShell('tool');
     setHomeLibraryFiles([
       {
         name: 'saved.pdf',
@@ -223,7 +224,7 @@ describe('workspace files sidebar', () => {
   });
 
   it('restores the tool drop zone after the workspace is cleared while the library still has files', () => {
-    mountShell();
+    mountShell('tool');
     setHomeLibraryFiles([
       {
         name: 'saved.pdf',
@@ -293,7 +294,8 @@ describe('workspace files sidebar', () => {
       new File(['y'], 'two.pdf', { type: 'application/pdf' }),
     ]);
 
-    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
       false
     );
@@ -315,7 +317,8 @@ describe('workspace files sidebar', () => {
       new File(['y'], 'two.pdf', { type: 'application/pdf' }),
     ]);
 
-    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
       false
     );
@@ -336,7 +339,8 @@ describe('workspace files sidebar', () => {
       new File(['x'], 'briefing.pdf', { type: 'application/pdf' }),
     ]);
 
-    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(document.body.classList.contains('shift-has-open-file')).toBe(true);
     expect(document.body.classList.contains('shift-open-file-in-tool')).toBe(
       false
@@ -393,6 +397,7 @@ describe('workspace files sidebar', () => {
         <h2 id="shift-open-files-heading">Open file</h2>
         <div id="shift-open-files-list"></div>
       </section>
+      <section id="shift-my-pdfs" hidden></section>
     `;
     setWorkspaceFiles([{ name: 'report.pdf' }]);
 
@@ -1093,7 +1098,7 @@ describe('workspace files sidebar', () => {
     ).toContain('dropped.pdf');
   });
 
-  it('lists every active file in the sidebar on the all-tools page', () => {
+  it('does not list a My PDFs selection in the sidebar on the all-tools page', () => {
     document.body.className = 'shift-home';
     document.body.innerHTML = `
       <section id="shift-open-files" hidden>
@@ -1116,12 +1121,12 @@ describe('workspace files sidebar', () => {
       )
     ).map((node) => node.textContent);
 
-    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
-    expect(sidebarLabels).toEqual(['upload.pdf', 'from-tab.pdf']);
-    expect(selectedChips).toEqual(['Selected', 'Selected']);
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(sidebarLabels).toEqual([]);
+    expect(selectedChips).toEqual([]);
     expect(
       document.querySelectorAll('.shift-open-file-item.is-selected')
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(document.getElementById('shift-my-pdfs')).toBeNull();
   });
 

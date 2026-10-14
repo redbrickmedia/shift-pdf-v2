@@ -1,5 +1,8 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, hideLoader } from '../ui.js';
+
 import {
   readFileAsArrayBuffer,
   formatBytes,
@@ -193,7 +196,9 @@ function initializePage(): void {
         }
         state.sigImageData = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
         state.sigImageType = file.type.replace('image/', '') as
-          'png' | 'jpeg' | 'webp';
+          | 'png'
+          | 'jpeg'
+          | 'webp';
 
         if (sigImageThumb && sigImagePreview) {
           const url = URL.createObjectURL(file);
@@ -269,6 +274,7 @@ async function updatePdfDisplay(): Promise<void> {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, state.pdfFile);
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -746,7 +752,7 @@ async function processSignature(): Promise<void> {
     throw error;
   }
 
-  showLoader(t('tools:digitalSignPdf.applyingSignature'));
+  showResultLoader(t('tools:digitalSignPdf.applyingSignature'));
 
   try {
     const signedPdfBytes = await signPdf(state.pdfBytes, state.certData, {

@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import type { PyMuPDFInstance } from '@/types';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
@@ -61,6 +63,7 @@ function updateFileDisplay(): void {
     const row = document.createElement('div');
     row.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+    mountToolInputPreview(row, file);
 
     const info = document.createElement('div');
     info.className = 'flex items-center gap-3';
@@ -169,7 +172,7 @@ async function processDeskew(): Promise<void> {
     await pdf.load();
 
     for (const file of selectedFiles) {
-      showLoader(`Deskewing ${file.name}...`);
+      showResultLoader(`Deskewing ${file.name}...`);
 
       const { pdf: resultPdf, result } = await pdf.deskewPdf(file, {
         threshold,

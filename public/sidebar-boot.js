@@ -49,6 +49,8 @@
 
   var RAIL_KEY = 'shiftPdfFavoriteRail';
   var OPEN_FILE_KEY = 'shiftHasOpenFile';
+  /* Keep in step with OPEN_WITH_SELECTION_KEY in open-file-store.ts. */
+  var OPEN_WITH_KEY = 'shiftOpenWithSelection';
   var OPEN_FILE_SNAPSHOT_KEY = 'shiftOpenFileSnapshot';
   var OPEN_FILE_PENDING_CLASS = 'shift-open-file-pending';
   var HAS_OPEN_FILE_CLASS = 'shift-has-open-file';
@@ -170,7 +172,11 @@
   // Optimistic hide for tool drop zones. Refined once #file-input exists so
   // image/non-PDF tools and home/My PDFs keep their pickers.
   if (readSession(OPEN_FILE_KEY) === '1') {
-    document.documentElement.classList.add(OPEN_FILE_PENDING_CLASS);
+    /* Pending hides the tool picker. Only Open with carries a My PDFs
+       selection into a tool; a sidebar click must leave the picker up. */
+    if (readSession(OPEN_WITH_KEY) === '1') {
+      document.documentElement.classList.add(OPEN_FILE_PENDING_CLASS);
+    }
 
     function acceptsPdf(input) {
       var accept = (input.accept || '').toLowerCase();
@@ -511,6 +517,10 @@
       }
     }
 
+    function isMyPdfsPage() {
+      return !!document.getElementById('shift-my-pdfs');
+    }
+
     function pumpOpenFile() {
       // The signal can be withdrawn while the page is still parsing: the seed
       // finds the blob gone and hands the tool back its picker. Putting the
@@ -520,7 +530,16 @@
         return true;
       }
 
-      var sidebarDone = paintSidebarFiles();
+      if (document.body && !isMyPdfsPage()) {
+        if (readSession(OPEN_WITH_KEY) !== '1') {
+          document.documentElement.classList.remove(OPEN_FILE_PENDING_CLASS);
+          stopOpenFileObserver();
+          return true;
+        }
+      }
+
+      var sidebarDone =
+        !document.body || isMyPdfsPage() ? paintSidebarFiles() : true;
       return refineOpenFileClass() && sidebarDone;
     }
 

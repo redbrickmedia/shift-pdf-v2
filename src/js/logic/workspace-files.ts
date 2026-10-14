@@ -15,11 +15,13 @@ import {
   clearPersistedOpenFile,
   hasOpenFileFlag,
   hasOpenFileSkeleton,
+  markOpenWithSelection,
   OPEN_FILE_SKELETON_ATTR,
   PENDING_FILE_ROW_ATTR,
   readOpenFileSnapshot,
   writePersistedOpenFiles,
 } from './open-file-store.js';
+import { acceptForToolHref } from './tool-input-accept.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 import { downloadBlob } from '../utils/helpers.js';
 import {
@@ -480,10 +482,17 @@ function syncHomeHeaderToolActions(root: Document): void {
   for (const link of tools.querySelectorAll<HTMLAnchorElement>(
     'a.shift-open-file-tool-btn, a.shift-button'
   )) {
-    link.classList.toggle('is-disabled', !hasSelection);
-    link.setAttribute('aria-disabled', String(!hasSelection));
-    if (hasSelection) link.removeAttribute('tabindex');
-    else link.tabIndex = -1;
+    if (!link.classList.contains('shift-open-file-tool-btn')) continue;
+    const mismatch = hasSelection && !toolMatchesSelection(link.href);
+    const disabled = !hasSelection || mismatch;
+    link.classList.toggle('is-disabled', disabled);
+    link.setAttribute('aria-disabled', String(disabled));
+    if (disabled) link.tabIndex = -1;
+    else link.removeAttribute('tabindex');
+    syncOpenWithTooltip(
+      link,
+      mismatch ? incompatibleToolTooltip(link.href) : ''
+    );
   }
 
   const deleteSelected = root.getElementById(
@@ -791,7 +800,23 @@ function renderMoreToolsMenu(root: Document, menu: HTMLElement): void {
     link.dataset.tool = openWithToolId(entry.href);
     link.setAttribute('role', 'menuitem');
     link.textContent = entry.name;
-    list.appendChild(link);
+    const mismatch =
+      currentFiles.length > 0 && !toolMatchesSelection(entry.href);
+    if (mismatch) {
+      link.classList.add('is-disabled');
+      link.setAttribute('aria-disabled', 'true');
+      link.tabIndex = -1;
+      const wrap = root.createElement('span');
+      wrap.className = 'shift-open-file-tool-wrap';
+      wrap.append(link);
+      attachShiftTooltip(wrap, {
+        placement: 'bottom',
+        text: incompatibleToolTooltip(entry.href),
+      });
+      list.appendChild(wrap);
+    } else {
+      list.appendChild(link);
+    }
   }
   menu.appendChild(list);
 
@@ -844,6 +869,45 @@ function bindMyPdfsMoreTools(root: Document): void {
     setMoreToolsExpanded(root, false);
     root.getElementById(MY_PDFS_MORE_TOOLS_ID)?.focus();
   });
+}
+
+function selectedInputBlobs(): File[] {
+  return currentFiles
+    .map((file) => file.blob)
+    .filter((blob): blob is File => blob instanceof File);
+}
+
+function toolMatchesSelection(href: string): boolean {
+  const files = selectedInputBlobs();
+  if (files.length === 0) return true;
+  const probe = document.createElement('input');
+  probe.accept = acceptForToolHref(href);
+  return files.some((file) => pickerAcceptsFile(probe, file));
+}
+
+function incompatibleToolTooltip(href: string): string {
+  const accept = acceptForToolHref(href).toLowerCase();
+  const takesPdf =
+    accept.includes('pdf') || accept.includes('*') || accept.trim() === '';
+  if (!takesPdf) return "This tool doesn't accept PDF files.";
+  return "This tool doesn't accept the selected file.";
+}
+
+function syncOpenWithTooltip(link: HTMLAnchorElement, text: string): void {
+  const doc = link.ownerDocument;
+  let wrap = link.parentElement;
+  if (!wrap?.classList.contains('shift-open-file-tool-wrap')) {
+    if (!text) return;
+    wrap = doc.createElement('span');
+    wrap.className = 'shift-open-file-tool-wrap';
+    link.replaceWith(wrap);
+    wrap.append(link);
+  }
+  if (!text) {
+    wrap.replaceWith(link);
+    return;
+  }
+  attachShiftTooltip(wrap, { placement: 'bottom', text });
 }
 
 function openWithToolId(href: string): string {
@@ -1142,10 +1206,19 @@ function bindMyPdfsSelectionControls(root: Document): void {
 
   root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('#shift-open-file-tools a[aria-disabled="true"]')) {
+    const openWithLink = target?.closest<HTMLAnchorElement>(
+      '#shift-open-file-tools a.shift-open-file-tool-btn, #shift-my-pdfs-more-tools-menu a.shift-my-pdfs-more-tools-item:not(.shift-my-pdfs-more-tools-browse)'
+    );
+    const disabledOpenWith =
+      openWithLink?.getAttribute('aria-disabled') === 'true' ||
+      target
+        ?.closest('.shift-open-file-tool-wrap')
+        ?.querySelector('a[aria-disabled="true"]');
+    if (disabledOpenWith) {
       event.preventDefault();
       return;
     }
+    if (openWithLink) markOpenWithSelection();
     if (target?.closest(`#${MY_PDFS_SELECT_ALL_ID}`)) {
       toggleSelectAllVisible(root);
       return;
@@ -1341,7 +1414,14 @@ function shouldHideDropZone(root: Document): boolean {
   if (isHomePage(root)) return false;
   if (hasOpenFileSkeleton(root)) return true;
   if (homeLibraryFiles.length === 0) return false;
-  return currentFiles.length > 0;
+  if (currentFiles.length === 0) return false;
+  const input = getActiveFileInput(root) ?? findToolFileInput(root);
+  if (!input) return true;
+  const blobs = currentFiles
+    .map((file) => file.blob)
+    .filter((blob): blob is File => blob instanceof File);
+  if (blobs.length === 0) return false;
+  return blobs.some((blob) => pickerAcceptsFile(input, blob));
 }
 
 function isHomePage(root: Document): boolean {
@@ -1378,6 +1458,13 @@ function renderSidebarFiles(root: Document, files: WorkspaceFileInfo[]): void {
   const section = root.getElementById('shift-open-files');
   const list = root.getElementById('shift-open-files-list');
   if (!section || !list) return;
+
+  // Selected files are a My PDFs concept. Tool pages ask for their own input.
+  if (!isHomePage(root)) {
+    list.replaceChildren();
+    list.hidden = true;
+    return;
+  }
 
   const hasFiles = files.length > 0;
   // The section also holds the My PDFs nav link, so only the file list toggles.

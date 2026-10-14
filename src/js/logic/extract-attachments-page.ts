@@ -1,4 +1,6 @@
-import { showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
@@ -8,6 +10,7 @@ import {
   WasmProvider,
 } from '../utils/wasm-provider.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 const worker = new Worker(
   import.meta.env.BASE_URL + 'workers/extract-attachments.worker.js'
@@ -163,6 +166,8 @@ async function updateUI() {
     const summaryDiv = document.createElement('div');
     summaryDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    const firstFile = pageState.files[0];
+    if (firstFile) mountToolInputPreview(summaryDiv, firstFile);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -222,7 +227,7 @@ async function extractAttachments() {
 
   try {
     pageState.files = await batchDecryptIfNeeded(pageState.files);
-    showLoader('Reading files...');
+    showResultLoader('Reading files...');
 
     const fileBuffers: ArrayBuffer[] = [];
     const fileNames: string[] = [];

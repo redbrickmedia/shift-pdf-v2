@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { t } from '../i18n/i18n';
 import {
   downloadFile,
@@ -40,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -126,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          showLoader('Pre-flattening PDF...');
+          showResultLoader('Pre-flattening PDF...');
           const pymupdf = await loadPyMuPDF();
 
           // Rasterize PDF to images and back to PDF (300 DPI for quality)
@@ -148,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const convertedBlob = await convertFileToPdfA(
           fileToConvert,
           level,
-          (msg) => showLoader(msg)
+          (msg) => showResultLoader(msg)
         );
 
         const fileName = originalFile.name.replace(/\.pdf$/i, '') + '_pdfa.pdf';
@@ -164,19 +168,19 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting multiple PDFs to PDF/A...');
+        showResultLoader('Converting multiple PDFs to PDF/A...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         const usedNames = new Set<string>();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
 
           const convertedBlob = await convertFileToPdfA(file, level, (msg) =>
-            showLoader(msg)
+            showResultLoader(msg)
           );
 
           const baseName = file.name.replace(/\.pdf$/i, '');

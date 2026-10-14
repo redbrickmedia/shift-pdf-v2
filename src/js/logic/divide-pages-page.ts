@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { DividePagesState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import {
@@ -53,6 +55,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -143,7 +146,7 @@ async function dividePages() {
     }
   }
 
-  showLoader('Splitting PDF pages...');
+  showResultLoader('Splitting PDF pages...');
 
   try {
     const newPdfDoc = await PDFLibDocument.create();
@@ -154,7 +157,7 @@ async function dividePages() {
       const originalPage = pages[i];
       const { width, height } = originalPage.getSize();
 
-      showLoader(`Processing page ${pageNum} of ${pages.length}...`);
+      showResultLoader(`Processing page ${pageNum} of ${pages.length}...`);
 
       if (pagesToDivide.has(pageNum)) {
         const [page1] = await newPdfDoc.copyPages(pageState.pdfDoc, [i]);

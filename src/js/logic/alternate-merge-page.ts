@@ -1,3 +1,4 @@
+import { showResultLoader } from './tool-success.js';
 import { AlternateMergeState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
@@ -8,6 +9,7 @@ import { makeUniqueFileKey } from '../utils/deduplicate-filename.js';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
 import { interleavePdfs } from '../utils/alternate-merge.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 
 const pageState: AlternateMergeState = {
   files: [],
@@ -47,6 +49,8 @@ async function updateUI() {
     const summaryDiv = document.createElement('div');
     summaryDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    const firstFile = pageState.files[0];
+    if (firstFile) mountToolInputPreview(summaryDiv, firstFile);
 
     const infoSpan = document.createElement('span');
     infoSpan.className = 'text-gray-200';
@@ -146,7 +150,7 @@ async function mixPages() {
     return;
   }
 
-  showLoader('Alternating and mixing pages...');
+  showResultLoader('Alternating and mixing pages...');
 
   try {
     const fileList = document.getElementById('file-list');

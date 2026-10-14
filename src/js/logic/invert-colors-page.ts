@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
@@ -80,6 +82,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, pageState.file);
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -116,14 +119,14 @@ async function invertColors() {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Inverting PDF colors...');
+  showResultLoader('Inverting PDF colors...');
   try {
     const newPdfDoc = await PDFLibDocument.create();
     const pdfBytes = await pageState.pdfDoc.save();
     const pdfjsDoc = await getPDFDocument({ data: pdfBytes }).promise;
 
     for (let i = 1; i <= pdfjsDoc.numPages; i++) {
-      showLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
+      showResultLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
       const page = await pdfjsDoc.getPage(i);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement('canvas');

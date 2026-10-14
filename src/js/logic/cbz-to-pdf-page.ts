@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -217,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -273,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (state.files.length === 1) {
         const originalFile = state.files[0];
-        showLoader(`Converting ${originalFile.name}...`);
+        showResultLoader(`Converting ${originalFile.name}...`);
 
         let pdfBlob: Blob;
         if (isCbzFile(originalFile.name)) {
@@ -293,12 +297,12 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting files...');
+        showResultLoader('Converting files...');
         const outputZip = new JSZip();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
 

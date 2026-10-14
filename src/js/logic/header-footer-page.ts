@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import {
@@ -88,6 +90,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, pageState.file);
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -124,7 +127,7 @@ async function addHeaderFooter() {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Adding header & footer...');
+  showResultLoader('Adding header & footer...');
   try {
     const helveticaFont = await pageState.pdfDoc.embedFont(
       StandardFonts.Helvetica

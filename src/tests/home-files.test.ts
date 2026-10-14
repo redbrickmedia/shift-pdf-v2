@@ -86,7 +86,7 @@ describe('home files', () => {
     expect(getWorkspaceFiles()).toEqual([]);
   });
 
-  it('restores the active file into the all-tools sidebar without a library grid', async () => {
+  it('keeps a restored selection off the all-tools sidebar', async () => {
     await writePersistedOpenFile(
       new File(['x'], 'active.pdf', { type: 'application/pdf' }),
       { source: 'upload' }
@@ -97,11 +97,8 @@ describe('home files', () => {
     await vi.waitFor(() => {
       expect(getWorkspaceFiles()).toMatchObject([{ name: 'active.pdf' }]);
     });
-    expect(document.getElementById('shift-open-files')?.hidden).toBe(false);
-    expect(
-      document.querySelector('.shift-open-file-item .shift-nav-label')
-        ?.textContent
-    ).toBe('active.pdf');
+    expect(document.getElementById('shift-open-files-list')?.hidden).toBe(true);
+    expect(document.querySelector('.shift-open-file-item')).toBeNull();
     expect(document.getElementById('shift-my-pdfs')).toBeNull();
   });
 
@@ -268,7 +265,9 @@ describe('home files', () => {
   });
 
   it('downloads a library card PDF without opening the viewer', async () => {
-    const download = vi.spyOn(helpers, 'downloadBlob').mockImplementation(() => {});
+    const download = vi
+      .spyOn(helpers, 'downloadBlob')
+      .mockImplementation(() => {});
     mountHome();
     initHomeFiles();
     const file = new File(['pdf-bytes'], 'briefing.pdf', {
@@ -278,7 +277,9 @@ describe('home files', () => {
 
     await vi.waitFor(() => {
       expect(
-        document.querySelector('.shift-my-pdfs-download[data-file-name="briefing.pdf"]')
+        document.querySelector(
+          '.shift-my-pdfs-download[data-file-name="briefing.pdf"]'
+        )
       ).not.toBeNull();
     });
 

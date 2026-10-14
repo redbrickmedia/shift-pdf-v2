@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { convertFileToOutlines } from '../utils/ghostscript-loader.js';
 import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader.js';
@@ -46,6 +49,7 @@ async function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -114,17 +118,17 @@ async function processFiles() {
 
   try {
     if (pageState.files.length === 1) {
-      showLoader('Converting fonts to outlines...');
+      showResultLoader('Converting fonts to outlines...');
 
       const file = pageState.files[0];
       const resultBlob = await convertFileToOutlines(file, (msg) => {
-        showLoader(msg);
+        showResultLoader(msg);
       });
 
       downloadFile(resultBlob, file.name);
       hideLoader();
     } else {
-      showLoader('Processing multiple PDFs...');
+      showResultLoader('Processing multiple PDFs...');
 
       const zip = new JSZip();
       const usedNames = new Set<string>();
@@ -132,7 +136,7 @@ async function processFiles() {
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
-        showLoader(
+        showResultLoader(
           `Processing ${i + 1}/${pageState.files.length}: ${file.name}...`
         );
 

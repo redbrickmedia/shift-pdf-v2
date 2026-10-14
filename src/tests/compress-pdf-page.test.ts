@@ -5,7 +5,10 @@ import {
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
+import {
+  markOpenWithSelection,
+  writePersistedOpenFile,
+} from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
 
@@ -64,6 +67,7 @@ describe('compress pdf page', () => {
     const file = new File(['pdf'], 'saved.pdf', { type: 'application/pdf' });
     await addPdfToLibrary(file, 'upload');
     await writePersistedOpenFile(file, { source: 'upload' });
+    markOpenWithSelection();
 
     await import('../js/logic/compress-pdf-page.ts');
     document.dispatchEvent(new Event('DOMContentLoaded'));

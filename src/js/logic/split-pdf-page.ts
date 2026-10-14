@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import { createIcons, icons } from 'lucide';
@@ -64,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -300,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) as HTMLInputElement | null
       )?.value === 'separate';
 
-    showLoader('Splitting PDF...');
+    showResultLoader('Splitting PDF...');
 
     let qpdf: QpdfInstanceExtended | null = null;
     const inputPath = '/split-input.pdf';
@@ -459,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
             groupFilename(outputGroups[0])
           );
         } else {
-          showLoader('Creating ZIP file...');
+          showResultLoader('Creating ZIP file...');
           const zip = new JSZip();
           const usedNames = new Map<string, number>();
           for (const group of outputGroups) {

@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -35,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
         const nameSpan = document.createElement('div');
@@ -86,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (state.files.length === 1) {
         const file = state.files[0];
-        showLoader(`Converting ${file.name}...`);
+        showResultLoader(`Converting ${file.name}...`);
         const pdfBlob = await mupdf.imageToPdf(file, { imageType: 'psd' });
         const baseName = file.name.replace(/\.[^/.]+$/, '');
         downloadFile(pdfBlob, `${baseName}.pdf`);
@@ -98,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting multiple files...');
+        showResultLoader('Converting multiple files...');
         const pdfBlob = await mupdf.imagesToPdf(state.files);
         downloadFile(pdfBlob, 'psd_to_pdf.pdf');
         hideLoader();

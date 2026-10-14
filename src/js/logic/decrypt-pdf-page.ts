@@ -1,4 +1,7 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -48,6 +51,7 @@ async function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -134,7 +138,7 @@ async function decryptPdf() {
       const fileBuffer = await readFileAsArrayBuffer(file);
       const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
 
-      showLoader('Decrypting PDF...');
+      showResultLoader('Decrypting PDF...');
       const { bytes: decryptedBytes, wasEncrypted } = await decryptPdfBytes(
         uint8Array,
         password
@@ -145,7 +149,7 @@ async function decryptPdf() {
         return;
       }
 
-      showLoader('Preparing download...');
+      showResultLoader('Preparing download...');
       const blob = new Blob([decryptedBytes.slice().buffer], {
         type: 'application/pdf',
       });
@@ -170,7 +174,7 @@ async function decryptPdf() {
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
 
-        showLoader(
+        showResultLoader(
           `Decrypting ${file.name} (${i + 1}/${pageState.files.length})...`
         );
 
@@ -206,7 +210,7 @@ async function decryptPdf() {
         );
       }
 
-      showLoader('Generating ZIP file...');
+      showResultLoader('Generating ZIP file...');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, 'decrypted-pdfs.zip');
 

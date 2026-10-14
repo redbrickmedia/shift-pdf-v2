@@ -1,3 +1,4 @@
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { isCpdfAvailable } from '../utils/cpdf-helper.js';
@@ -71,6 +72,7 @@ function renderFileDisplay(file: File) {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+  mountToolInputPreview(fileDiv, file);
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'truncate font-medium text-gray-200';

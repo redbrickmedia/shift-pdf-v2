@@ -82,23 +82,33 @@ describe('default starting page', () => {
   });
 
   /**
-   * The library chrome (heading, drop zone, filter, selection row) stays put
-   * while cards move. `.shift-my-pdfs-scroll` is the overflow owner — not the
-   * page body and not the table itself (which would break auto column widths).
+   * The column beside the sidebar is the scrollport, footer included. The
+   * file list wrapper must not own overflow — that trapped the last cards
+   * under a pinned footer. The table itself stays a table.
    */
-  it('scrolls the My PDFs list inside its own pane', () => {
+  it('scrolls the whole My PDFs panel, including the footer', () => {
     const css = read('src/css/shift-theme.css');
-    const start = css.indexOf(
+    const panel = css.slice(
+      css.indexOf(
+        'body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar) {'
+      )
+    );
+    const panelRule = panel.slice(0, panel.indexOf('}'));
+    const scrollStart = css.indexOf(
       'body.shift-home:has(#shift-my-pdfs) .shift-my-pdfs-scroll'
     );
-    const rule = css.slice(start, css.indexOf('}', start));
-
-    expect(start).toBeGreaterThan(-1);
-    expect(rule).toContain('overflow-y: auto');
-    expect(rule).toContain('min-height: clamp(12rem, 40vh, 28rem)');
-    expect(css).toContain(
-      'body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar)'
+    const scrollRule = css.slice(scrollStart, css.indexOf('}', scrollStart));
+    const footerStart = css.indexOf(
+      'body.shift-home:has(#shift-my-pdfs):not(.simple-mode):has(#shift-sidebar)\n  > .shift-footer'
     );
+    const footerRule = css.slice(footerStart, css.indexOf('}', footerStart));
+
+    expect(panelRule).toContain('overflow-y: auto');
+    expect(panelRule).not.toContain('overflow: hidden');
+    expect(scrollRule).toContain('overflow: visible');
+    expect(scrollRule).not.toContain('overflow-y: auto');
+    expect(footerRule).toContain('position: static');
+    expect(footerRule).not.toContain('position: sticky');
     // Table display must stay table; a block scrollport collapsed Date/Size.
     expect(css).not.toMatch(
       /#shift-my-pdfs\[data-view='list'\] \.shift-my-pdfs-table \{\s*display:\s*block/

@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { t } from '../i18n/i18n';
 import {
   downloadFile,
@@ -35,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileDiv = document.createElement('div');
         fileDiv.className =
           'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        mountToolInputPreview(fileDiv, file);
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -103,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       hideLoader();
       state.files = await batchDecryptIfNeeded(state.files);
-      showLoader('Extracting...');
+      showResultLoader('Extracting...');
 
       const total = state.files.length;
       let completed = 0;
@@ -111,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (total === 1) {
         const file = state.files[0];
-        showLoader(`Extracting ${file.name} for AI...`);
+        showResultLoader(`Extracting ${file.name} for AI...`);
 
         const llamaDocs = await (pymupdf as PyMuPDFInstance).pdfToLlamaIndex(
           file
@@ -138,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let fi = 0; fi < state.files.length; fi++) {
           try {
             const file = state.files[fi];
-            showLoader(
+            showResultLoader(
               `Extracting ${file.name} for AI (${completed + 1}/${total})...`
             );
 
@@ -157,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        showLoader('Creating ZIP archive...');
+        showResultLoader('Creating ZIP archive...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
 
         downloadFile(zipBlob, 'pdf-for-ai.zip');

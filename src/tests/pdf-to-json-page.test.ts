@@ -3,8 +3,11 @@ import {
   addPdfToLibrary,
   clearPdfLibrary,
 } from '../js/logic/pdf-library-store';
+import {
+  markOpenWithSelection,
+  writePersistedOpenFile,
+} from '../js/logic/open-file-store';
 import { seedToolOpenFile } from '../js/logic/seed-tool-open-file';
-import { writePersistedOpenFile } from '../js/logic/open-file-store';
 import { state } from '../js/state';
 import { resetWorkspaceFileIndicator } from '../js/logic/workspace-files';
 
@@ -50,6 +53,7 @@ describe('pdf to json page', () => {
     });
     await addPdfToLibrary(file, 'upload');
     await writePersistedOpenFile(file, { source: 'upload' });
+    markOpenWithSelection();
 
     await import('../js/logic/pdf-to-json.ts');
     document.dispatchEvent(new Event('DOMContentLoaded'));

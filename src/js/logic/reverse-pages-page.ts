@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -41,6 +44,7 @@ function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -106,7 +110,7 @@ async function reversePages() {
 
   try {
     const decryptedFiles = await batchDecryptIfNeeded(reverseState.files);
-    showLoader('Reversing page order...');
+    showResultLoader('Reversing page order...');
     reverseState.files = decryptedFiles;
 
     const validFiles = reverseState.files.filter(function (f) {
@@ -123,7 +127,9 @@ async function reversePages() {
 
     for (let j = 0; j < validFiles.length; j++) {
       const file = validFiles[j];
-      showLoader(`Reversing ${file.name} (${j + 1}/${validFiles.length})...`);
+      showResultLoader(
+        `Reversing ${file.name} (${j + 1}/${validFiles.length})...`
+      );
 
       const newPdfBytes = await reverseSingleFile(file);
       const zipEntryName = deduplicateFileName(file.name, usedNames);

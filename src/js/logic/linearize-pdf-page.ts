@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import {
   downloadFile,
   formatBytes,
@@ -44,6 +47,7 @@ async function updateUI() {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -104,7 +108,7 @@ async function linearizePdf() {
     showAlert('No PDF Files', 'Please upload at least one PDF file.');
     return;
   }
-  showLoader('Optimizing PDFs for web view (linearizing)...');
+  showResultLoader('Optimizing PDFs for web view (linearizing)...');
 
   const zip = new JSZip();
   const usedNames = new Set<string>();
@@ -120,7 +124,9 @@ async function linearizePdf() {
       const inputPath = `/input_${i}.pdf`;
       const outputPath = `/output_${i}.pdf`;
 
-      showLoader(`Optimizing ${file.name} (${i + 1}/${pdfFiles.length})...`);
+      showResultLoader(
+        `Optimizing ${file.name} (${i + 1}/${pdfFiles.length})...`
+      );
 
       try {
         const fileBuffer = await readFileAsArrayBuffer(file);
@@ -172,7 +178,7 @@ async function linearizePdf() {
       throw new Error('No PDF files could be linearized.');
     }
 
-    showLoader('Generating ZIP file...');
+    showResultLoader('Generating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     downloadFile(zipBlob, 'linearized-pdfs.zip');
 

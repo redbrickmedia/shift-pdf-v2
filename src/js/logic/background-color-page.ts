@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers.js';
@@ -78,6 +80,7 @@ function updateFileDisplay() {
   const fileDiv = document.createElement('div');
   fileDiv.className =
     'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  mountToolInputPreview(fileDiv, pageState.file);
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -118,7 +121,7 @@ async function changeBackgroundColor() {
     document.getElementById('background-color') as HTMLInputElement
   ).value;
   const color = hexToRgb(colorHex);
-  showLoader('Changing background color...');
+  showResultLoader('Changing background color...');
   try {
     const newPdfDoc = await PDFLibDocument.create();
     for (let i = 0; i < pageState.pdfDoc.getPageCount(); i++) {

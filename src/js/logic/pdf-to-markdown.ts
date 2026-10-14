@@ -1,4 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import {
   downloadFile,
   readFileAsArrayBuffer,
@@ -7,7 +9,7 @@ import {
 import { state } from '../state.js';
 
 export async function pdfToMarkdown() {
-  showLoader('Converting to Markdown...');
+  showResultLoader('Converting to Markdown...');
   try {
     const file = state.files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);

@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
@@ -20,6 +23,7 @@ const updateUI = () => {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -75,7 +79,7 @@ async function convert() {
     pwResult.pdf.destroy();
     file = pwResult.file;
 
-    showLoader('Extracting tables...');
+    showResultLoader('Extracting tables...');
 
     const doc = await pymupdf.open(file);
     const pageCount = doc.pageCount;
@@ -89,7 +93,7 @@ async function convert() {
     const allTables: TableData[] = [];
 
     for (let i = 0; i < pageCount; i++) {
-      showLoader(`Scanning page ${i + 1} of ${pageCount}...`);
+      showResultLoader(`Scanning page ${i + 1} of ${pageCount}...`);
       const page = doc.getPage(i);
       const tables = page.findTables();
 
@@ -106,7 +110,7 @@ async function convert() {
       return;
     }
 
-    showLoader('Creating Excel file...');
+    showResultLoader('Creating Excel file...');
 
     const workbook = XLSX.utils.book_new();
 

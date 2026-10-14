@@ -1,4 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import {
   downloadFile,
   initializeQpdf,
@@ -75,7 +77,9 @@ export async function repairPdf() {
 
     for (let i = 0; i < state.files.length; i++) {
       const file = state.files[i];
-      showLoader(`Repairing ${file.name} (${i + 1}/${state.files.length})...`);
+      showResultLoader(
+        `Repairing ${file.name} (${i + 1}/${state.files.length})...`
+      );
 
       const repairedData = await repairPdfFile(file);
 
@@ -114,7 +118,7 @@ export async function repairPdf() {
       });
       downloadFile(blob, file.name);
     } else {
-      showLoader('Creating ZIP archive...');
+      showResultLoader('Creating ZIP archive...');
       const zip = new JSZip();
       const usedNames = new Set<string>();
       successfulRepairs.forEach((file) => {

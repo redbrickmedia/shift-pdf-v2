@@ -1,3 +1,5 @@
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
@@ -41,6 +43,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -120,7 +123,7 @@ async function nUpTool() {
     (document.getElementById('border-color') as HTMLInputElement).value
   );
 
-  showLoader('Creating N-Up PDF...');
+  showResultLoader('Creating N-Up PDF...');
 
   try {
     const sourceDoc = pageState.pdfDoc;
@@ -155,7 +158,7 @@ async function nUpTool() {
     const usableHeight = pageHeight - margin * 2;
 
     for (let i = 0; i < sourcePages.length; i += n) {
-      showLoader(`Processing sheet ${Math.floor(i / n) + 1}...`);
+      showResultLoader(`Processing sheet ${Math.floor(i / n) + 1}...`);
       const chunk = sourcePages.slice(i, i + n);
       const outputPage = newDoc.addPage([pageWidth, pageHeight]);
 

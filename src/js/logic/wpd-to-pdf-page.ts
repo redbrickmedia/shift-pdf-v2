@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
@@ -35,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const fileDiv = document.createElement('div');
           fileDiv.className =
             'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+          mountToolInputPreview(fileDiv, file);
 
           const infoContainer = document.createElement('div');
           infoContainer.className = 'flex flex-col overflow-hidden';
@@ -95,12 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showLoader('Loading engine...');
       await converter.initialize((progress: LoadProgress) => {
-        showLoader(progress.message, progress.percent);
+        showResultLoader(progress.message, progress.percent);
       });
 
       if (state.files.length === 1) {
         const file = state.files[0];
-        showLoader(`Converting ${file.name}...`);
+        showResultLoader(`Converting ${file.name}...`);
         const pdfBlob = await converter.convertToPdf(file);
 
         const baseName = file.name.replace(/\.[^/.]+$/, '');
@@ -114,14 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showLoader('Converting multiple files...');
+        showResultLoader('Converting multiple files...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         const usedNames = new Set<string>();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
+          showResultLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
           const pdfBlob = await converter.convertToPdf(file);

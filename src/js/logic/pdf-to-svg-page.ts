@@ -1,4 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
+
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
@@ -27,6 +30,7 @@ const updateUI = () => {
       const fileDiv = document.createElement('div');
       fileDiv.className =
         'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      mountToolInputPreview(fileDiv, file);
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -92,7 +96,7 @@ async function convert() {
 
     hideLoader();
     files = await batchDecryptIfNeeded(files);
-    showLoader('Converting to SVG...');
+    showResultLoader('Converting to SVG...');
 
     const isSingleFile = files.length === 1;
 
@@ -102,7 +106,7 @@ async function convert() {
       const baseName = files[0].name.replace(/\.[^/.]+$/, '');
 
       if (pageCount === 1) {
-        showLoader('Converting to SVG...');
+        showResultLoader('Converting to SVG...');
         const page = doc.getPage(0);
         const svgContent = page.toSvg();
         const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
@@ -116,12 +120,12 @@ async function convert() {
       } else {
         const zip = new JSZip();
         for (let i = 0; i < pageCount; i++) {
-          showLoader(`Converting page ${i + 1} of ${pageCount}...`);
+          showResultLoader(`Converting page ${i + 1} of ${pageCount}...`);
           const page = doc.getPage(i);
           const svgContent = page.toSvg();
           zip.file(`page_${i + 1}.svg`, svgContent);
         }
-        showLoader('Creating ZIP file...');
+        showResultLoader('Creating ZIP file...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         downloadFile(zipBlob, `${baseName}_svg.zip`);
         showAlert(
@@ -137,13 +141,13 @@ async function convert() {
 
       for (let f = 0; f < files.length; f++) {
         const file = files[f];
-        showLoader(`Processing file ${f + 1} of ${files.length}...`);
+        showResultLoader(`Processing file ${f + 1} of ${files.length}...`);
         const doc = await pymupdf.open(file);
         const pageCount = doc.pageCount;
         const baseName = file.name.replace(/\.[^/.]+$/, '');
 
         for (let i = 0; i < pageCount; i++) {
-          showLoader(
+          showResultLoader(
             `File ${f + 1}/${files.length}: Page ${i + 1}/${pageCount}`
           );
           const page = doc.getPage(i);
@@ -157,7 +161,7 @@ async function convert() {
         }
       }
 
-      showLoader('Creating ZIP file...');
+      showResultLoader('Creating ZIP file...');
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, 'pdf_to_svg.zip');
       showAlert(

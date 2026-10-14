@@ -1,4 +1,7 @@
-import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { showResultLoader } from './tool-success.js';
+import { mountToolInputPreview } from './tool-input-preview.js';
+import { hideLoader, showAlert } from '../ui.js';
+
 import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers.js';
 import { fixPageSize as fixPageSizeCore } from '../utils/pdf-operations';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
@@ -34,6 +37,7 @@ async function updateUI() {
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    mountToolInputPreview(fileDiv, pageState.file);
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -104,7 +108,7 @@ async function fixPageSize() {
   const backgroundColor = hexToRgb(
     (document.getElementById('background-color') as HTMLInputElement).value
   );
-  showLoader('Standardizing pages...');
+  showResultLoader('Standardizing pages...');
 
   try {
     const customWidth =

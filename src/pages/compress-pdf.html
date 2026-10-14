@@ -147,36 +147,6 @@
         <div id="compress-options" class="hidden mt-6 space-y-6">
           <div>
             <label
-              for="compression-algorithm"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >Compression Algorithm</label
-            >
-            <select
-              id="compression-algorithm"
-              class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="condense">Condense (Recommended)</option>
-              <option value="photon">Photon (For Photo-Heavy PDFs)</option>
-            </select>
-            <div id="algorithm-info" class="mt-2 text-xs text-gray-400">
-              <p id="condense-info">
-                <strong>Condense</strong> uses advanced compression: removes
-                dead-weight, optimizes images, subsets fonts. Best for most
-                PDFs.
-              </p>
-              <p id="photon-info" class="hidden">
-                <strong>Photon</strong> converts pages to images. Use for
-                photo-heavy/scanned PDFs.
-                <span class="text-yellow-500"
-                  >⚠️ Warning: Text will become non-selectable and links will
-                  stop working.</span
-                >
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label
               for="compression-level"
               class="block mb-2 text-sm font-medium text-gray-300"
               >Compression Level</label
@@ -234,6 +204,36 @@
             >
               <div class="text-sm text-gray-400 mb-2">
                 Fine-tune compression parameters:
+              </div>
+
+              <div>
+                <label
+                  for="compression-algorithm"
+                  class="block mb-2 text-sm font-medium text-gray-300"
+                  >Compression Algorithm</label
+                >
+                <select
+                  id="compression-algorithm"
+                  class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="condense">Condense (Recommended)</option>
+                  <option value="photon">Photon (For Photo-Heavy PDFs)</option>
+                </select>
+                <div id="algorithm-info" class="mt-2 text-xs text-gray-400">
+                  <p id="condense-info">
+                    <strong>Condense</strong> uses advanced compression: removes
+                    dead-weight, optimizes images, subsets fonts. Best for most
+                    PDFs.
+                  </p>
+                  <p id="photon-info" class="hidden">
+                    <strong>Photon</strong> converts pages to images. Use for
+                    photo-heavy/scanned PDFs.
+                    <span class="text-yellow-500"
+                      >⚠️ Warning: Text will become non-selectable and links
+                      will stop working.</span
+                    >
+                  </p>
+                </div>
               </div>
 
               <div class="grid grid-cols-3 gap-4">
