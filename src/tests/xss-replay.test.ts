@@ -197,6 +197,43 @@ describe('XSS replay — WASM provider localStorage poisoning', () => {
   });
 });
 
+describe('XSS replay — same-origin engine URL validation', () => {
+  it('accepts recommended origin-relative engine paths', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: async () => ({ done: true }),
+          cancel: async () => undefined,
+        }),
+      },
+      headers: { get: () => 'application/javascript' },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.resetModules();
+    const { WasmProvider } = await import('../js/utils/wasm-provider');
+
+    await expect(
+      WasmProvider.validateUrl('pymupdf', '/wasm/pymupdf/')
+    ).resolves.toEqual({ valid: true });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(
+      /\/wasm\/pymupdf\/dist\/index\.js$/
+    );
+  });
+
+  it('still rejects non-http engine URLs', async () => {
+    vi.resetModules();
+    const { WasmProvider } = await import('../js/utils/wasm-provider');
+
+    await expect(
+      WasmProvider.validateUrl('pymupdf', 'javascript:alert(1)')
+    ).resolves.toEqual({
+      valid: false,
+      error: 'URL must start with http:// or https://',
+    });
+  });
+});
+
 describe('XSS replay — CDN URL version pinning', () => {
   it('every WASM CDN default URL is pinned to an exact patch version', async () => {
     const { WasmProvider } = await import('../js/utils/wasm-provider');

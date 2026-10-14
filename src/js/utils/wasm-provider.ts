@@ -198,8 +198,9 @@ class WasmProviderManager {
       return { valid: false, error: 'No URL configured' };
     }
 
+    let parsedUrl: URL;
     try {
-      const parsedUrl = new URL(testUrl);
+      parsedUrl = new URL(testUrl, urlBase());
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
         return {
           valid: false,
@@ -210,11 +211,13 @@ class WasmProviderManager {
       return {
         valid: false,
         error:
-          'Invalid URL format. Please enter a valid URL (e.g., https://example.com/wasm/)',
+          'Invalid URL format. Please enter a valid URL (e.g., /wasm/pymupdf/ or https://example.com/wasm/)',
       };
     }
 
-    const normalizedUrl = testUrl.endsWith('/') ? testUrl : `${testUrl}/`;
+    const normalizedUrl = parsedUrl.href.endsWith('/')
+      ? parsedUrl.href
+      : `${parsedUrl.href}/`;
 
     try {
       const testFiles: Record<WasmPackage, string> = {
