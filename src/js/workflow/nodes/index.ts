@@ -47,6 +47,7 @@ export * from './pages-to-pdf-node';
 export * from './pdf-input-node';
 export * from './pdf-to-csv-node';
 export * from './pdf-to-docx-node';
+export * from './pdf-to-pptx-node';
 export * from './pdf-to-images-node';
 export * from './pdf-to-markdown-node';
 export * from './pdf-to-pdfa-node';

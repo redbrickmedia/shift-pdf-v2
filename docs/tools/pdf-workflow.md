@@ -26,7 +26,7 @@ Nodes are organized into six categories, each color-coded on the canvas:
 - **Organize & Manage** (violet) -- Merge, Split, Extract Pages, Rotate, Delete Pages, Reverse, Add Blank Page, Divide Pages, N-Up, Fix Page Size, Combine to Single Page, Booklet, Posterize, Edit Metadata, Table of Contents, OCR.
 - **Optimize & Repair** (amber) -- Compress, Rasterize, Linearize, Deskew, PDF to PDF/A, Font to Outline, Repair.
 - **Secure PDF** (rose) -- Encrypt, Decrypt, Sanitize, Flatten, Digital Sign, Redact.
-- **Output** (teal) -- Download (auto-detects single PDF vs. ZIP), PDF to Images, PDF to Text, PDF to DOCX, PDF to XLSX, PDF to CSV, PDF to SVG, PDF to Markdown, Extract Images.
+- **Output** (teal) -- Download (auto-detects single PDF vs. ZIP), PDF to Images, PDF to Text, PDF to DOCX, PDF to PowerPoint, PDF to XLSX, PDF to CSV, PDF to SVG, PDF to Markdown, Extract Images.
 
 ## Saving and Loading Workflows
 

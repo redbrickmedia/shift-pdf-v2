@@ -78,6 +78,8 @@
     "wrangler": "4.125.0"
   },
   "dependencies": {
+    "@bentopdf/gs-wasm": "^0.1.1",
+    "@bentopdf/pymupdf-wasm": "^0.11.16",
     "@fontsource/cedarville-cursive": "^5.2.7",
     "@fontsource/dancing-script": "^5.2.8",
     "@fontsource/dm-sans": "^5.2.8",
@@ -99,6 +101,7 @@
     "archiver": "^7.0.1",
     "blob-stream": "^0.1.3",
     "bwip-js": "^4.8.0",
+    "coherentpdf": "^2.5.5",
     "cropperjs": "^1.6.2",
     "diff": "^8.0.3",
     "dompurify": "^3.4.12",

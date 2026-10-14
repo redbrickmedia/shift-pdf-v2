@@ -15,6 +15,7 @@ import JSZip from 'jszip';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import { t } from '../i18n/i18n';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { endToolUse } from '../host/analytics.js';
 
 let files: File[] = [];
 
@@ -105,7 +106,10 @@ async function convert() {
   }
   try {
     const result = await loadPdfWithPasswordPrompt(files[0], files, 0);
-    if (!result) return;
+    if (!result) {
+      endToolUse('cancelled');
+      return;
+    }
     showResultLoader(t('tools:pdfToPng.loader.converting'));
     const { pdf } = result;
 

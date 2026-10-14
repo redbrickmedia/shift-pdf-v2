@@ -74,32 +74,23 @@ Visit our [Documentation](https://bentopdf.com/docs/) for:
 - **Tools Reference** (50+ tools)
 - **Self-Hosting** guides (Docker, Vercel, Netlify, Cloudflare, AWS, Hostinger, Nginx, Apache)
 - **Contributing** guide
-- **Commercial License** details
+- **AGPL source offer** and third-party notices
 
 ---
 
 ## 📜 Licensing
 
-BentoPDF is **dual-licensed** to fit your needs:
+This Shift fork is licensed under **AGPL-3.0-only**. There is no commercial license that waives AGPL obligations for the combined work.
 
-| License        | Best For                                     | Price              |
-| -------------- | -------------------------------------------- | ------------------ |
-| **AGPL-3.0**   | Open-source projects with public source code | **Free**           |
-| **Commercial** | Proprietary / closed-source applications     | **$79** (lifetime) |
+| License      | Applies to                                      |
+| ------------ | ----------------------------------------------- |
+| **AGPL-3.0** | Shift PDF, BentoPDF, PyMuPDF, Ghostscript, CPDF |
 
-<p align="center">
-  <a href="https://buy.polar.sh/polar_cl_ThDfffbl733x7oAodcIryCzhlO57ZtcWPq6HJ1qMChd">
-    <img src="https://img.shields.io/badge/🚀_Get_Commercial_License-$79_Lifetime-6366f1?style=for-the-badge&labelColor=1f2937" alt="Get Commercial License">
-  </a>
-</p>
+Corresponding source for the deployed revision and the pinned engines is listed on [`licensing.html`](licensing.html). Third-party notices live in [`NOTICE`](NOTICE).
 
-> **One-time purchase** · **Unlimited devices & users** · **Lifetime updates** · **No AGPL obligations**
+### AGPL processing engines (same origin)
 
-📖 For more details, see our [Licensing Page](https://bentopdf.com/licensing.html)
-
-### AGPL Components (Pre-configured via CDN)
-
-BentoPDF does **not** bundle AGPL-licensed processing libraries in its source code, but **pre-configures CDN URLs** so all features work out of the box with zero setup:
+PyMuPDF, Ghostscript, and CoherentPDF run in the user's browser from this app origin. The build copies the pinned npm packages into `wasm/` so the binaries travel with their source offer.
 
 | Component              | License  | Features Enabled                                                                                    |
 | ---------------------- | -------- | --------------------------------------------------------------------------------------------------- |
@@ -108,7 +99,7 @@ BentoPDF does **not** bundle AGPL-licensed processing libraries in its source co
 | **CoherentPDF (CPDF)** | AGPL-3.0 | Merge, Split by Bookmarks, Table of Contents, PDF to/from JSON, Attachments                         |
 
 > [!TIP]
-> **Zero-config by default.** WASM modules are loaded at runtime from jsDelivr CDN. No manual configuration is needed. For custom deployments (air-gapped, self-hosted), see [WASM Configuration](#wasm-configuration) below.
+> **Same-origin by default.** WASM modules load from `/wasm/pymupdf/`, `/wasm/gs/`, and `/wasm/cpdf/`. Override `VITE_WASM_*_URL` only for air-gapped mirrors. See [WASM Configuration](#wasm-configuration).
 
 <hr>
 
@@ -471,14 +462,14 @@ npm run build
 
 <h3 id="wasm-configuration">⚙️ WASM Configuration</h3>
 
-Advanced PDF features (PyMuPDF, Ghostscript, CoherentPDF) are pre-configured to load from jsDelivr CDN via environment variables. This means **all features work out of the box** — no manual setup needed.
+Advanced PDF features (PyMuPDF, Ghostscript, CoherentPDF) load from this origin by default. The build copies the pinned packages into `wasm/` so **all features work out of the box** without a third-party CDN.
 
-The default URLs are set in `.env.production`:
+Leave these empty unless you are pointing at an internal mirror:
 
 ```bash
-VITE_WASM_PYMUPDF_URL=https://cdn.jsdelivr.net/npm/@bentopdf/pymupdf-wasm@0.11.16/
-VITE_WASM_GS_URL=https://cdn.jsdelivr.net/npm/@bentopdf/gs-wasm@0.1.1/assets/
-VITE_WASM_CPDF_URL=https://cdn.jsdelivr.net/npm/coherentpdf@2.5.5/dist/
+VITE_WASM_PYMUPDF_URL=
+VITE_WASM_GS_URL=
+VITE_WASM_CPDF_URL=
 VITE_TESSERACT_WORKER_URL=
 VITE_TESSERACT_CORE_URL=
 VITE_TESSERACT_LANG_URL=

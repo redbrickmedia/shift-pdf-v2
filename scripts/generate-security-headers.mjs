@@ -20,19 +20,14 @@ function uniq(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-const DEFAULT_WASM_ORIGINS = {
-  pymupdf: 'https://cdn.jsdelivr.net',
-  gs: 'https://cdn.jsdelivr.net',
-  cpdf: 'https://cdn.jsdelivr.net',
-};
 const DEFAULT_CORS_PROXY_ORIGIN =
   'https://bentopdf-cors-proxy.bentopdf.workers.dev';
 const DEFAULT_OCR_FONT_CDN_ORIGIN = 'https://rawcdn.githack.com';
 
 const wasmOrigins = [
-  originOf(process.env.VITE_WASM_PYMUPDF_URL) || DEFAULT_WASM_ORIGINS.pymupdf,
-  originOf(process.env.VITE_WASM_GS_URL) || DEFAULT_WASM_ORIGINS.gs,
-  originOf(process.env.VITE_WASM_CPDF_URL) || DEFAULT_WASM_ORIGINS.cpdf,
+  originOf(process.env.VITE_WASM_PYMUPDF_URL),
+  originOf(process.env.VITE_WASM_GS_URL),
+  originOf(process.env.VITE_WASM_CPDF_URL),
 ];
 
 const tesseractOrigins = uniq([

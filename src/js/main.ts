@@ -23,6 +23,7 @@ import {
   isToolDisabled,
   isCurrentPageDisabled,
 } from './utils/disabled-tools.js';
+import { trackOnboardingAction } from './host/analytics.js';
 import { bootstrapHostIntegration } from './host/bootstrap.js';
 import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
 import {
@@ -185,9 +186,11 @@ function initShiftShell() {
     if (shouldShowPromiseBanner(now, state, until)) {
       markPromiseBannerSeen(localStorage, now, state.firstSeenAt);
       promiseBanner.hidden = false;
+      trackOnboardingAction('shown');
       promiseBanner
         .querySelector('#shift-promise-dismiss')
         ?.addEventListener('click', () => {
+          trackOnboardingAction('dismissed');
           dismissPromiseBanner(localStorage);
           promiseBanner.hidden = true;
         });
@@ -557,6 +560,7 @@ const init = async () => {
     'PDF to Text': 'tools:pdfToText',
     'Extract Tables': 'tools:extractTables',
     'PDF to Word': 'tools:pdfToWord',
+    'PDF to PowerPoint': 'tools:pdfToPptx',
     'Extract Images': 'tools:extractImages',
     'PDF to Markdown': 'tools:pdfToMarkdown',
     'Prepare PDF for AI': 'tools:preparePdfForAi',

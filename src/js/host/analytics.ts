@@ -12,7 +12,13 @@ import {
   resetTelemetryState,
   track,
 } from './telemetry.js';
-import type { ErrorType, FeatureId, ToolResult } from './telemetry-schema.js';
+import {
+  PDF_ONBOARDING_EVENTS,
+  type ErrorType,
+  type FeatureId,
+  type OnboardingAction,
+  type ToolResult,
+} from './telemetry-schema.js';
 
 export {
   APP_VERSION,
@@ -64,6 +70,21 @@ export function trackExperienceStarted(): void {
   if (storageGet(EXPERIENCE_SENT_STORAGE_KEY) === 'true') return;
   track(PDF_ENGINE_EVENTS.experienceStarted);
   storageSet(EXPERIENCE_SENT_STORAGE_KEY, 'true');
+}
+
+const ONBOARDING_TRIGGER_BY_ACTION = {
+  shown: 'system',
+  'upload-selected': 'upload-button-pressed',
+  dismissed: 'dismiss-button-pressed',
+} as const satisfies Record<OnboardingAction, string>;
+
+export function trackOnboardingAction(action: OnboardingAction): void {
+  track(PDF_ONBOARDING_EVENTS.action, {
+    action,
+    trigger: ONBOARDING_TRIGGER_BY_ACTION[action],
+    surface_id: 'my-pdfs-walkthrough',
+    route: getToolIdFromPath(),
+  });
 }
 
 let inFlight = false;

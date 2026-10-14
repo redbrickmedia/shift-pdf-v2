@@ -6,6 +6,7 @@ import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { endToolUse } from '../host/analytics.js';
 import * as XLSX from 'xlsx';
 let file: File | null = null;
 
@@ -75,7 +76,10 @@ async function convert() {
 
     hideLoader();
     const pwResult = await loadPdfWithPasswordPrompt(file);
-    if (!pwResult) return;
+    if (!pwResult) {
+      endToolUse('cancelled');
+      return;
+    }
     pwResult.pdf.destroy();
     file = pwResult.file;
 

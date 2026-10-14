@@ -6,9 +6,9 @@ An automated reader can treat this file as the contract. The same names and prop
 
 ## Consent
 
-The only sink is the host `track` function resolved from `VITE_HOST_API_ROOT`. Integrated Shift builds set that variable to `chrome.shift`, which forwards to Shift's analytics API and then Mixpanel. That host API is the consent boundary: if the user has opted out, or this origin is not an allowlisted integrated app, `track` is absent and the PDF app emits nothing.
+The only sink is the host `track` function resolved from `VITE_HOST_API_ROOT`. That variable is unset by default. Integrated builds inject the host analytics object path at deploy time. Do not commit a production origin or a `chrome.shift` fallback in source. That host API is the consent boundary: if the user has opted out, or this origin is not an allowlisted integrated app, `track` is absent and the PDF app emits nothing.
 
-The production origin is `https://shift-pdf-neo.integrated-apps.tryshift.com`. `http://shift-pdf-neo.integrated-apps.tryshift.com/` redirects there, and the loaded document origin is the https URL. On that origin the app resolves `chrome.shift` even when `VITE_HOST_API_ROOT` is empty. `pages.dev` and local builds do not. Do not set the variable in Wrangler, Pages, or CI.
+`pages.dev` and local builds leave the variable empty. Do not set it in Wrangler, Pages, or committed env files.
 
 When `track` is missing the PDF app does not POST, send a beacon, or call a second analytics vendor.
 
@@ -168,6 +168,38 @@ A failed process job emits this event and `PdfEngine_ToolUsed` with `result` `er
 | `rejection_reason` | `unknown_event`, `unknown_property`, `invalid_value`, `missing_property`, `forbidden_value` |
 | `step`             | `telemetry`                                                                                 |
 
+### `PdfOnboarding_Action`
+
+|                  |                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| When             | The My PDFs onboarding banner is shown, or the visitor chooses upload or dismiss. Not a process job.                                        |
+| Question         | Was the walkthrough shown, and did the visitor upload or dismiss it?                                                                        |
+| `schema_version` | `1`                                                                                                                                         |
+| `app_version`    | Package version                                                                                                                             |
+| `event_type`     | `state-change` when `action` is `shown`. `user-interaction` when `action` is `upload-selected` or `dismissed`. A caller cannot override it. |
+| `tool_id`        | `home` or `my-pdfs`                                                                                                                         |
+| `action`         | `shown`, `upload-selected`, or `dismissed`                                                                                                  |
+| `trigger`        | `system`, `upload-button-pressed`, or `dismiss-button-pressed`                                                                              |
+| `surface_id`     | `my-pdfs-walkthrough`                                                                                                                       |
+| `route`          | `home` or `my-pdfs`. A language-only path such as `/es/` is `home`.                                                                         |
+
 ## Delivery gap
 
-Mixpanel receives these events only after an allowlisted integrated-app origin loads a build with `VITE_HOST_API_ROOT=chrome.shift`. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.
+Mixpanel receives these events only after an allowlisted integrated-app origin loads a build whose deploy-time `VITE_HOST_API_ROOT` points at the host analytics object. `https://shift-pdf-neo.pages.dev` does not. Browser PDF-panel events live on `PdfViewerTracker` in shift-browser PR 5660, not in this catalog.
+
+## Comparison readout
+
+Compare this app with the current Shift PDF app using only the pairs below. `profile=shift-pdf` is stamped on both apps and does not separate them. Filter both sides by the browser `split_st*` key once that key exists. `WexondAnalytics::SendEventMixpanel` already merges `mp_props_` into every `shift.analytics.track` call, then overlays the app payload, so PDF events inherit the split without an `experiment_variant` property. Do not add `experiment_variant`. A `pages.dev` preview cannot prove the split; confirm `PdfEngine_ToolUsed` and `PdfOnboarding_Action` on `https://shift-pdf-neo.integrated-apps.tryshift.com`.
+
+| Question                  | This app                                             | Current app                                                                            |
+| ------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Session                   | `PdfEngine_ExperienceStarted` `tool_id`              | `PDFSideMenuOption_Pressed` `side_menu_option`                                         |
+| Job produced a file       | `PdfEngine_ToolUsed` with `result` `success`         | `PDF_Compressed`, `Converted_From_PDF`, `Converted_To_PDF`, and `PDF_Signed_And_Saved` |
+| User downloaded that file | `PdfEngine_FeatureUsed` with `feature_id` `download` | `PDF_Downloaded`                                                                       |
+| Failures                  | `PdfEngine_ToolUsed` with `result` `error`           | Current-app failure events only. Do not add `PdfEngine_Error` on top.                  |
+
+`downloadFile()` in `src/js/utils/helpers.ts` emits `PdfEngine_ToolUsed` `result` `success` when the output is published, not when the user clicks Download. `listenForFeatureUse()` in `src/js/host/analytics.ts` emits `PdfEngine_FeatureUsed` `feature_id` `download` only for a click on `#shift-tool-output-download`.
+
+Do not compare this app's `cancelled` result, including a `pagehide` abandon, with the current app. The current app has no cancel event. `PdfOnboarding_Action` is this app only. Do not pair it with `Dialog_Opened` or `Dialog_Closed`.
+
+PDF to PowerPoint stays one-sided. The current app is the only side with `format` `pptx` or `fileExtension` `pptx` or `ppt`. This app does not emit those values.
