@@ -399,14 +399,16 @@ function languageRouterPlugin(): Plugin {
 function sidebarBootPlugin(): Plugin {
   let base = '/';
   let hosted = false;
+  let defaultLanguage = '';
   return {
     name: 'sidebar-boot',
     configResolved(config) {
       base = config.base;
-      /* The boot script decides the colour mode before paint, and it is a
-         classic script so it cannot read import.meta.env. Mirror what
-         hasHostConfiguration() sees in bridge.ts onto the tag instead. */
+      /* The boot script decides the colour mode and the pre-paint language,
+         and it is a classic script so it cannot read import.meta.env. Mirror
+         the host flag and VITE_DEFAULT_LANGUAGE onto the tag instead. */
       hosted = String(config.env.VITE_HOST_API_ROOT ?? '').trim() !== '';
+      defaultLanguage = String(config.env.VITE_DEFAULT_LANGUAGE ?? '').trim();
     },
     transformIndexHtml() {
       return [
@@ -415,6 +417,9 @@ function sidebarBootPlugin(): Plugin {
           attrs: {
             src: `${base}sidebar-boot.js`,
             ...(hosted ? { 'data-shift-hosted': '' } : {}),
+            ...(defaultLanguage
+              ? { 'data-default-language': defaultLanguage }
+              : {}),
           },
           injectTo: 'head-prepend',
         },

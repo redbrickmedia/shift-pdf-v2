@@ -619,6 +619,32 @@ describe('sidebar-boot language and full width', () => {
     expect(document.documentElement.getAttribute('dir')).toBe('rtl');
   });
 
+  it('uses the default language baked onto the boot script tag', () => {
+    setPath('/');
+    stubLanguages(['pl']);
+    const script = document.createElement('script');
+    script.setAttribute('data-default-language', 'ar');
+    const previous = Object.getOwnPropertyDescriptor(document, 'currentScript');
+    Object.defineProperty(document, 'currentScript', {
+      configurable: true,
+      get: () => script,
+    });
+    try {
+      runBootScript();
+    } finally {
+      if (previous) {
+        Object.defineProperty(document, 'currentScript', previous);
+      } else {
+        Reflect.deleteProperty(document, 'currentScript');
+      }
+    }
+
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(true);
+    expect(document.documentElement.getAttribute('dir')).toBe('rtl');
+  });
+
   it('leaves English copy visible', () => {
     setPath('/');
     stubLanguages(['en-US']);

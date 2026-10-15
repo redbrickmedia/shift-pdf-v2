@@ -216,6 +216,12 @@
       var primary = candidate.split('-')[0];
       if (SUPPORTED_LANGS[primary]) return primary;
     }
+
+    /* Same last step as getLanguageFromUrl(): VITE_DEFAULT_LANGUAGE, baked
+       onto this tag because a classic script cannot read import.meta.env. */
+    var fallback =
+      bootScript && bootScript.getAttribute('data-default-language');
+    if (fallback && SUPPORTED_LANGS[fallback]) return fallback;
     return 'en';
   }
 
