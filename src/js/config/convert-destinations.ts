@@ -34,6 +34,7 @@ const PRIMARY_PDF_DESTINATION_IDS = [
  * `multiple` to a tool is a one-line change here rather than a silent drift.
  */
 export const SINGLE_FILE_DESTINATION_IDS: ReadonlySet<string> = new Set([
+  'extract-tables',
   'pdf-to-bmp',
   'pdf-to-cbz',
   'pdf-to-csv',
@@ -142,13 +143,12 @@ function toolHrefById(
 
 /** Slug suffixes that are not the file the tool actually downloads. */
 const OUTPUT_EXTENSION_BY_TOOL_ID: Record<string, string> = {
+  'extract-tables': 'csv',
   'pdf-to-excel': 'xlsx',
   'pdf-to-greyscale': 'pdf',
-  'pdf-to-json': 'zip',
   'pdf-to-markdown': 'md',
   'pdf-to-text': 'txt',
   'extract-images': 'zip',
-  'prepare-pdf-for-ai': 'json',
 };
 
 function outputExtensionForTool(toolId: string): string {

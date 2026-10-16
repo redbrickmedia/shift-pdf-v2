@@ -124,11 +124,21 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'xps-to-pdf': '.xps,.oxps,application/vnd.ms-xpsdocument,application/oxps',
 };
 
+export function acceptForToolId(id: string): string {
+  if (id === 'pdf-converter') return '';
+  return TOOL_INPUT_ACCEPT[id] ?? 'application/pdf';
+}
+
 export function acceptForToolHref(href: string): string {
+  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
+  if (entryMatch?.[1]) {
+    return acceptForToolId(decodeURIComponent(entryMatch[1]));
+  }
   const id =
     href
+      .split('?')[0]
       .split('/')
       .pop()
       ?.replace(/\.html.*$/, '') ?? href;
-  return TOOL_INPUT_ACCEPT[id] ?? 'application/pdf';
+  return acceptForToolId(id);
 }

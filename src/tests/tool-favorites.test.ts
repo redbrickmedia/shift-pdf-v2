@@ -4,7 +4,9 @@ import {
   DEFAULT_FAVORITE_TOOL_IDS,
   FAVORITE_CATALOG_COPY_ATTR,
   getDefaultFavoriteToolIds,
+  loadFavoriteRailSnapshot,
   loadFavoriteToolIds,
+  parseFavoriteRailSnapshot,
   parseFavoriteToolIds,
   partitionToolIdsByFavorites,
   placeFavoriteToolCards,
@@ -368,6 +370,87 @@ describe('tool favorites', () => {
     expect(storage.setItem).toHaveBeenCalledWith(
       TOOL_FAVORITES_STORAGE_KEY,
       JSON.stringify(['split-pdf'])
+    );
+  });
+
+  it('strips pruned tool IDs from saved favorites and rewrites storage when migrated', () => {
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) {
+          return JSON.stringify([
+            'pdf-workflow',
+            'merge-pdf',
+            'scanner-effect',
+            'sign-pdf',
+          ]);
+        }
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return '1';
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([
+      'merge-pdf',
+      'sign-pdf',
+    ]);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_STORAGE_KEY,
+      JSON.stringify(['merge-pdf', 'sign-pdf'])
+    );
+  });
+
+  it('prunes retired pins and rewrites consolidated pin hrefs in shiftPdfFavoriteRail', () => {
+    const rawPins = JSON.stringify([
+      {
+        name: 'PDF Workflow Builder',
+        href: '/pdf-workflow.html',
+        icon: 'ph-tree-structure',
+      },
+      {
+        name: 'Sign PDF',
+        href: '/sign-pdf.html',
+        icon: 'ph-pen-nib',
+      },
+      {
+        name: 'Rotate PDF',
+        href: 'rotate-pdf.html',
+        icon: 'ph-arrow-clockwise',
+      },
+      {
+        name: 'Merge PDF',
+        href: '/merge-pdf.html',
+        icon: 'ph-browsers',
+      },
+    ]);
+
+    expect(parseFavoriteRailSnapshot(rawPins)).toEqual([
+      {
+        name: 'Sign PDF',
+        href: '/edit-pdf.html?entry=sign-pdf',
+        icon: 'ph-pen-nib',
+      },
+      {
+        name: 'Rotate PDF',
+        href: 'pdf-multi-tool.html?entry=rotate-pdf',
+        icon: 'ph-arrow-clockwise',
+      },
+      {
+        name: 'Merge PDF',
+        href: '/merge-pdf.html',
+        icon: 'ph-browsers',
+      },
+    ]);
+
+    const storage = {
+      getItem: vi.fn(() => rawPins),
+      setItem: vi.fn(),
+    };
+    const migrated = loadFavoriteRailSnapshot(storage);
+    expect(migrated).toHaveLength(3);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_RAIL_KEY,
+      JSON.stringify(migrated)
     );
   });
 });

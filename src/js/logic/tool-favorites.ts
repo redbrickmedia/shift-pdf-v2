@@ -1,3 +1,5 @@
+import { getCatalogEntryById, PRUNED_TOOL_ID_SET } from '../config/tools.js';
+
 export const TOOL_FAVORITES_STORAGE_KEY = 'shiftPdfFavoriteToolIds';
 
 /**
@@ -60,6 +62,7 @@ export function parseFavoriteToolIds(
     for (const value of parsed) {
       if (
         typeof value !== 'string' ||
+        PRUNED_TOOL_ID_SET.has(value) ||
         !validToolIds.has(value) ||
         seen.has(value)
       ) {
@@ -149,6 +152,22 @@ export function loadFavoriteToolIds(
       markFavoritesMigrated(storage as StorageWriter);
     }
 
+    if (migrated && canWrite) {
+      try {
+        const rawParsed: unknown = JSON.parse(raw);
+        if (
+          Array.isArray(rawParsed) &&
+          rawParsed.some(
+            (item) => typeof item === 'string' && PRUNED_TOOL_ID_SET.has(item)
+          )
+        ) {
+          writeFavoriteToolIds(existing, storage as StorageWriter);
+        }
+      } catch {
+        // Ignore parse failure; parseFavoriteToolIds already handled it.
+      }
+    }
+
     return existing;
   } catch (error) {
     console.warn('PDF tool favorites storage is unavailable.', error);
@@ -191,6 +210,42 @@ export function saveFavoriteRailSnapshot(
   }
 }
 
+function extractPinToolId(href: string): string {
+  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
+  if (entryMatch?.[1]) {
+    return decodeURIComponent(entryMatch[1]);
+  }
+  const cleanHref = href.split('#')[0]?.split('?')[0] ?? href;
+  const slug =
+    cleanHref
+      .split('/')
+      .pop()
+      ?.replace(/\.html$/i, '') ?? '';
+  return slug;
+}
+
+function migratePinHref(href: string): {
+  pruned: boolean;
+  href: string;
+  changed: boolean;
+} {
+  const toolId = extractPinToolId(href);
+  if (toolId && PRUNED_TOOL_ID_SET.has(toolId)) {
+    return { pruned: true, href, changed: true };
+  }
+  const entry = toolId ? getCatalogEntryById(toolId) : undefined;
+  if (entry && entry.id !== entry.surface) {
+    const rewritten = href.replace(
+      new RegExp(`(^|/)${entry.id}\\.html(?:\\?[^#]*)?`, 'i'),
+      `$1${entry.surface}.html?entry=${entry.id}`
+    );
+    if (rewritten !== href) {
+      return { pruned: false, href: rewritten, changed: true };
+    }
+  }
+  return { pruned: false, href, changed: false };
+}
+
 /**
  * Read the rail snapshot written by the sidebar. The Open-with row needs a
  * favorite's name and link, and only the deferred catalog knows those, so it
@@ -199,13 +254,23 @@ export function saveFavoriteRailSnapshot(
 export function parseFavoriteRailSnapshot(
   storedValue: string | null
 ): FavoriteRailPin[] {
-  if (!storedValue || storedValue.length > MAX_STORED_LENGTH * 4) return [];
+  return parseFavoriteRailSnapshotInternal(storedValue).pins;
+}
+
+function parseFavoriteRailSnapshotInternal(storedValue: string | null): {
+  pins: FavoriteRailPin[];
+  mutated: boolean;
+} {
+  if (!storedValue || storedValue.length > MAX_STORED_LENGTH * 4) {
+    return { pins: [], mutated: false };
+  }
 
   try {
     const parsed: unknown = JSON.parse(storedValue);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return { pins: [], mutated: false };
 
     const pins: FavoriteRailPin[] = [];
+    let mutated = false;
 
     for (const value of parsed) {
       if (!value || typeof value !== 'object') continue;
@@ -213,24 +278,37 @@ export function parseFavoriteRailSnapshot(
       if (typeof name !== 'string' || typeof href !== 'string') continue;
       if (!name.trim() || !href.trim()) continue;
 
-      pins.push({ name, href, icon: typeof icon === 'string' ? icon : '' });
+      const migration = migratePinHref(href);
+      if (migration.changed) mutated = true;
+      if (migration.pruned) continue;
+
+      pins.push({
+        name,
+        href: migration.href,
+        icon: typeof icon === 'string' ? icon : '',
+      });
       if (pins.length === MAX_FAVORITES) break;
     }
 
-    return pins;
+    return { pins, mutated };
   } catch (error) {
     console.warn('Ignored an invalid PDF favorites rail cache.', error);
-    return [];
+    return { pins: [], mutated: false };
   }
 }
 
 export function loadFavoriteRailSnapshot(
-  storage: StorageReader | undefined = getLocalStorage()
+  storage: StorageLike | undefined = getLocalStorage()
 ): FavoriteRailPin[] {
   if (!storage) return [];
 
   try {
-    return parseFavoriteRailSnapshot(storage.getItem(TOOL_FAVORITES_RAIL_KEY));
+    const raw = storage.getItem(TOOL_FAVORITES_RAIL_KEY);
+    const { pins, mutated } = parseFavoriteRailSnapshotInternal(raw);
+    if (mutated && typeof storage.setItem === 'function') {
+      saveFavoriteRailSnapshot(pins, storage as StorageWriter);
+    }
+    return pins;
   } catch (error) {
     console.warn('PDF favorites rail cache is unavailable.', error);
     return [];

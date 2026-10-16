@@ -78,6 +78,7 @@ import {
 } from './logic/promise-banner.js';
 import { initToolBackNavigation } from './logic/tool-back.js';
 import { initToolBackMenu } from './logic/tool-back-menu.js';
+import { applyLaunchContextToDom } from './logic/launch-context.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -128,7 +129,9 @@ function getShellScroller(): HTMLElement {
 function getToolId(tool: { id?: string; href?: string }): string {
   if (tool.id) return tool.id;
   if (tool.href) {
-    const match = tool.href.match(/\/([^/]+)\.html$/);
+    const entryMatch = tool.href.match(/[?&]entry=([^&#]+)/);
+    if (entryMatch?.[1]) return decodeURIComponent(entryMatch[1]);
+    const match = tool.href.split('?')[0]?.match(/\/([^/]+)\.html$/);
     return match ? match[1] : tool.href;
   }
   return 'unknown';
@@ -165,6 +168,7 @@ function createInlineIcon(pathData: string): SVGSVGElement {
 }
 
 function initShiftShell() {
+  applyLaunchContextToDom(document);
   // sidebar-boot.js usually applied these before first paint; re-apply so a
   // missed boot (or tests) still hide the empty drop zone once main loads.
   applyOpenFileFlagClasses(document, {
@@ -262,12 +266,20 @@ function navPageId(pathname: string): string {
   return page === '' || page === 'index' ? 'index' : page;
 }
 
+function navEntryId(pathname: string, search: string): string {
+  const params = new URLSearchParams(
+    search.startsWith('?') ? search.slice(1) : search
+  );
+  const entry = params.get('entry')?.trim();
+  return entry || navPageId(pathname);
+}
+
 /* Authored nav links (All tools, My PDFs) are keyed by data-nav because some
    hrefs are aliased. Favourite pins come from the catalog and only have an
-   href, so they are matched by page instead. Both routes only add, so neither
-   clears what the other marked. */
+   href, so they are matched by entry/page instead. Both routes only add, so
+   neither clears what the other marked. */
 function markActiveNavLinks() {
-  const current = navPageId(window.location.pathname);
+  const current = navEntryId(window.location.pathname, window.location.search);
   document
     .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
     .forEach((link) => {
@@ -275,9 +287,8 @@ function markActiveNavLinks() {
       // would mark all of them current. renderWorkspaceFiles marks the one
       // file the viewer is actually showing.
       if (link.classList.contains('shift-open-file-item')) return;
-      const target = navPageId(
-        new URL(link.href, window.location.href).pathname
-      );
+      const url = new URL(link.href, window.location.href);
+      const target = navEntryId(url.pathname, url.search);
       if (target !== current) return;
       link.classList.add('is-active');
       link.setAttribute('aria-current', 'page');
