@@ -1352,7 +1352,7 @@ describe('workspace files sidebar', () => {
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       'split-pdf.html',
-      'crop-pdf.html',
+      'edit-pdf.html?entry=crop-pdf',
     ]);
     expect(links.map((link) => link.dataset.tool)).toEqual([
       'split-pdf',
@@ -1492,11 +1492,17 @@ describe('workspace files sidebar', () => {
     // Favorites then the popular tools, and nothing beyond them: this is a
     // shortlist, so a tool from another category appearing here would mean
     // the whole catalog had leaked back in.
-    const pageOf = (href: string): string =>
-      href
-        .split('/')
-        .pop()
-        ?.replace(/\.html$/, '') ?? href;
+    const pageOf = (href: string): string => {
+      const entryMatch = href.match(/[?&]entry=([^&#]+)/);
+      if (entryMatch?.[1]) return decodeURIComponent(entryMatch[1]);
+      return (
+        href
+          .split('?')[0]
+          ?.split('/')
+          .pop()
+          ?.replace(/\.html$/, '') ?? href
+      );
+    };
     const rendered = new Set(
       Array.from(
         list?.querySelectorAll<HTMLAnchorElement>('[data-tool]') ?? []

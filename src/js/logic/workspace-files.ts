@@ -885,9 +885,14 @@ function syncOpenWithTooltip(link: HTMLAnchorElement, text: string): void {
 }
 
 function openWithToolId(href: string): string {
+  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
+  if (entryMatch?.[1]) {
+    return decodeURIComponent(entryMatch[1]);
+  }
   return (
     href
-      .split('/')
+      .split('?')[0]
+      ?.split('/')
       .pop()
       ?.replace(/\.html$/, '') ?? href
   );

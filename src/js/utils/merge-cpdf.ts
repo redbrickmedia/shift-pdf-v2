@@ -1,5 +1,10 @@
 import { WasmProvider } from './wasm-provider';
-import { wfError } from '../workflow/errors';
+import { t } from '../i18n/i18n';
+
+const wfError = (
+  key: string,
+  params?: Record<string, string | number>
+): string => t(`tools:pdfWorkflow.errors.${key}`, params);
 
 export interface MergeFile {
   name: string;

@@ -4,6 +4,7 @@
  * second header. Button order lives in the shared action row.
  */
 import { arrangeShiftActionRow } from './shift-action-row.js';
+import { applyLaunchContextToDom } from './launch-context.js';
 export const VIEWER_CHROME_HEADER_CLASS = 'shift-pdf-viewer-header';
 export const VIEWER_CHROME_HEADING_CLASS = 'shift-pdf-viewer-heading';
 export const VIEWER_CHROME_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
@@ -150,6 +151,7 @@ export function mountViewerChrome(
 
   arrangeShiftActionRow(actions);
   applyViewerChromeFeatures(header, features);
+  applyLaunchContextToDom(root);
   return { header, heading, actions, features };
 }
 

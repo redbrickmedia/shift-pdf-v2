@@ -118,7 +118,6 @@ describe('central typography', () => {
   it('does not leave off-scale text-[10px] utilities in the app', async () => {
     const files = [
       'src/pages/compare-pdfs.html',
-      'src/js/logic/pdf-workflow-page.ts',
       'src/js/logic/form-creator.ts',
     ];
 

@@ -41,7 +41,7 @@ export const NETWORK_TOUCHPOINTS: Record<
   'timestamp-tsa': {
     id: 'timestamp-tsa',
     action: 'Timestamp PDF',
-    toolIds: ['timestamp-pdf', 'pdf-workflow'],
+    toolIds: ['timestamp-pdf'],
     provider: 'Selected RFC 3161 Time Stamp Authority (TSA)',
     dataLeavingDevice:
       'A cryptographic hash of the PDF (and related timestamp-query bytes). The full PDF is not uploaded as a file, but the hash is derived from your document.',
@@ -55,7 +55,7 @@ export const NETWORK_TOUCHPOINTS: Record<
   'digital-sign-chain-fetch': {
     id: 'digital-sign-chain-fetch',
     action: 'Digital Sign PDF',
-    toolIds: ['digital-sign-pdf', 'pdf-workflow'],
+    toolIds: ['digital-sign-pdf'],
     provider:
       'Certificate issuer AIA / OCSP / CRL hosts (and optional CORS proxy when configured)',
     dataLeavingDevice:
@@ -99,12 +99,10 @@ export const NETWORK_CALL_INVENTORY: readonly NetworkInventoryEntry[] =
     {
       id: 'timestamp-tsa',
       kind: 'remote-service',
-      description:
-        'RFC 3161 timestamp via TSA (tool page + workflow Timestamp node).',
+      description: 'RFC 3161 timestamp via TSA (tool page).',
       sourcePaths: [
         'src/js/logic/digital-sign-pdf.ts',
         'src/js/logic/timestamp-pdf-page.ts',
-        'src/js/workflow/nodes/timestamp-node.ts',
         'src/js/config/timestamp-tsa.ts',
       ],
       touchpointId: 'timestamp-tsa',
@@ -117,7 +115,6 @@ export const NETWORK_CALL_INVENTORY: readonly NetworkInventoryEntry[] =
       sourcePaths: [
         'src/js/logic/digital-sign-pdf.ts',
         'src/js/logic/digital-sign-pdf-page.ts',
-        'src/js/workflow/nodes/digital-sign-node.ts',
       ],
       touchpointId: 'digital-sign-chain-fetch',
     },

@@ -722,8 +722,21 @@
     return page === '' || page === 'index' ? 'index' : page;
   }
 
+  function activeEntryId(pathname, search) {
+    if (search) {
+      try {
+        var params = new URLSearchParams(search);
+        var entry = params.get('entry');
+        if (entry && entry.trim()) return entry.trim();
+      } catch (_entryErr) {
+        // Fall back to pageId when query parsing fails.
+      }
+    }
+    return pageId(pathname);
+  }
+
   function render(rail) {
-    var current = pageId(location.pathname);
+    var current = activeEntryId(location.pathname, location.search);
     var rendered = 0;
 
     for (var i = 0; i < pins.length && i < MAX_PINS; i++) {
@@ -755,7 +768,7 @@
       var link = document.createElement('a');
       link.href = url.href;
       link.className = 'shift-nav-link shift-favorite-link';
-      if (pageId(url.pathname) === current) {
+      if (activeEntryId(url.pathname, url.search) === current) {
         link.className += ' is-active';
         link.setAttribute('aria-current', 'page');
       }
