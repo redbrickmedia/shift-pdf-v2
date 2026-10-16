@@ -301,6 +301,24 @@ const domReady: Promise<void> =
         window.addEventListener('load', () => resolve(), { once: true });
       });
 
+/*
+ * Locale JSON used to wait on window load, IndexedDB seeding, and config.json.
+ * The page had already painted the English fallback, so a different string
+ * reflowed the footer and tool cards. Start the fetch with the module and
+ * apply it as soon as the DOM is parsed. Seeding stays on the load path in
+ * init(); awaiting i18n before that left the tool card on a placeholder.
+ */
+const i18nReady = initI18n();
+
+void Promise.all([domReady, i18nReady])
+  .then(() => {
+    applyTranslations();
+    rewriteLinks();
+  })
+  .catch(() => {
+    document.documentElement.classList.remove('shift-i18n-pending');
+  });
+
 const init = async () => {
   bootstrapHostIntegration();
   // Filling the tool card comes first. i18n and runtime config are both network
@@ -317,7 +335,7 @@ const init = async () => {
     await seedToolOpenFile();
   }
 
-  await initI18n();
+  await i18nReady;
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
@@ -1353,6 +1371,7 @@ const init = async () => {
   }
 
   function applyFullWidthMode(enabled: boolean) {
+    document.documentElement.classList.toggle('shift-full-width', enabled);
     if (toolInterface) {
       if (enabled) {
         toolInterface.classList.remove('max-w-4xl');

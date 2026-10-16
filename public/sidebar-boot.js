@@ -146,6 +146,98 @@
     document.documentElement.classList.add('shift-sidebar-collapsed-pending');
   }
 
+  /* Keep in step with getLanguageFromUrl() in src/js/i18n/i18n.ts.
+     Non-English copy is hidden until applyTranslations() removes this class,
+     and Arabic direction is set here so the page does not flip after load. */
+  var SUPPORTED_LANGS = {
+    en: 1,
+    ar: 1,
+    be: 1,
+    ru: 1,
+    fr: 1,
+    de: 1,
+    es: 1,
+    zh: 1,
+    'zh-TW': 1,
+    vi: 1,
+    tr: 1,
+    id: 1,
+    it: 1,
+    pt: 1,
+    nl: 1,
+    da: 1,
+    sv: 1,
+    ko: 1,
+    ja: 1,
+    uk: 1,
+    sk: 1,
+  };
+  var LANG_PATH =
+    /^\/(en|ar|fr|es|de|zh-TW|zh|vi|tr|id|it|pt|nl|be|da|ko|sv|ru|ja|uk|sk)(?:\/|$)/;
+
+  function bootLanguage() {
+    var path = window.location.pathname || '/';
+    if (path.charAt(0) !== '/') path = '/' + path;
+
+    /* BASE_URL is baked into this script's src by sidebarBootPlugin.
+       bootScript is captured above; currentScript is null inside a function. */
+    if (bootScript && bootScript.src) {
+      try {
+        var scriptPath = new URL(bootScript.src, window.location.href).pathname;
+        var basePath = scriptPath.replace(/sidebar-boot\.js$/, '');
+        if (basePath && basePath !== '/' && path.indexOf(basePath) === 0) {
+          path = path.slice(basePath.length) || '/';
+          if (path.charAt(0) !== '/') path = '/' + path;
+        }
+      } catch (_baseError) {
+        // Keep the raw pathname when the script URL cannot be parsed.
+      }
+    }
+
+    var langMatch = path.match(LANG_PATH);
+    if (langMatch && SUPPORTED_LANGS[langMatch[1]]) return langMatch[1];
+
+    var stored = read('i18nextLng');
+    if (stored && SUPPORTED_LANGS[stored]) return stored;
+
+    var langs = [];
+    try {
+      if (navigator.languages && navigator.languages.length) {
+        langs = navigator.languages;
+      } else if (navigator.language) {
+        langs = [navigator.language];
+      }
+    } catch (_langError) {
+      // navigator can throw in a locked-down browser.
+    }
+    for (var i = 0; i < langs.length; i++) {
+      var candidate = String(langs[i] || '');
+      if (SUPPORTED_LANGS[candidate]) return candidate;
+      var primary = candidate.split('-')[0];
+      if (SUPPORTED_LANGS[primary]) return primary;
+    }
+
+    /* Same last step as getLanguageFromUrl(): VITE_DEFAULT_LANGUAGE, baked
+       onto this tag because a classic script cannot read import.meta.env. */
+    var fallback =
+      bootScript && bootScript.getAttribute('data-default-language');
+    if (fallback && SUPPORTED_LANGS[fallback]) return fallback;
+    return 'en';
+  }
+
+  var bootLang = bootLanguage();
+  if (bootLang !== 'en') {
+    document.documentElement.classList.add('shift-i18n-pending');
+  }
+  if (bootLang === 'ar') {
+    document.documentElement.setAttribute('dir', 'rtl');
+  }
+
+  /* Keep in step with full-width.ts. Default is full width. */
+  if (read('fullWidthMode') !== 'false') {
+    document.documentElement.classList.add('shift-full-width');
+  }
+
   /* One open-file pass per document. The pass below watches the parser until
      DOMContentLoaded, so if this script runs again on a live document the
      earlier observer would still be reacting to the new DOM. `painted` is what

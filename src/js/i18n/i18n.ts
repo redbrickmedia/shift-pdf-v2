@@ -184,6 +184,28 @@ export const changeLanguage = (lang: SupportedLanguage): void => {
   window.location.href = newUrl;
 };
 
+/** Collapse source whitespace so indented fallback copy can match the catalog. */
+const sameVisibleText = (
+  current: string | null | undefined,
+  next: string
+): boolean =>
+  (current ?? '').replace(/\s+/g, ' ').trim() ===
+  next.replace(/\s+/g, ' ').trim();
+
+const writeTranslatedText = (element: Element, translation: string): void => {
+  if (sameVisibleText(element.textContent, translation)) return;
+  element.textContent = translation;
+};
+
+const writeTranslatedAttribute = (
+  element: Element,
+  name: string,
+  translation: string
+): void => {
+  if (sameVisibleText(element.getAttribute(name), translation)) return;
+  element.setAttribute(name, translation);
+};
+
 // Apply translations to all elements with data-i18n attribute
 export const applyTranslations = (): void => {
   document.querySelectorAll('[data-i18n]').forEach((element) => {
@@ -191,7 +213,7 @@ export const applyTranslations = (): void => {
     if (key) {
       const translation = t(key);
       if (translation && translation !== key) {
-        element.textContent = translation;
+        writeTranslatedText(element, translation);
       }
     }
   });
@@ -201,7 +223,9 @@ export const applyTranslations = (): void => {
     if (key && element instanceof HTMLInputElement) {
       const translation = t(key);
       if (translation && translation !== key) {
-        element.placeholder = translation;
+        if (!sameVisibleText(element.placeholder, translation)) {
+          element.placeholder = translation;
+        }
       }
     }
   });
@@ -211,7 +235,7 @@ export const applyTranslations = (): void => {
     if (key) {
       const translation = t(key);
       if (translation && translation !== key) {
-        (element as HTMLElement).title = translation;
+        writeTranslatedAttribute(element, 'title', translation);
       }
     }
   });
@@ -221,7 +245,7 @@ export const applyTranslations = (): void => {
     if (key) {
       const translation = t(key);
       if (translation && translation !== key) {
-        element.setAttribute('data-shift-tooltip', translation);
+        writeTranslatedAttribute(element, 'data-shift-tooltip', translation);
       }
     }
   });
@@ -231,13 +255,15 @@ export const applyTranslations = (): void => {
     if (key) {
       const translation = t(key);
       if (translation && translation !== key) {
-        element.setAttribute('aria-label', translation);
+        writeTranslatedAttribute(element, 'aria-label', translation);
       }
     }
   });
 
   document.documentElement.lang = i18next.language;
   document.documentElement.dir = i18next.language === 'ar' ? 'rtl' : 'ltr';
+  /* sidebar-boot.js hides non-English copy until this runs. */
+  document.documentElement.classList.remove('shift-i18n-pending');
 };
 
 export const rewriteLinks = (): void => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getLanguageFromUrl } from '@/js/i18n/i18n';
+import i18next from 'i18next';
+import { applyTranslations, getLanguageFromUrl } from '@/js/i18n/i18n';
 
 describe('getLanguageFromUrl', () => {
   const originalLocation = window.location;
@@ -125,5 +126,62 @@ describe('getLanguageFromUrl', () => {
       writable: true,
     });
     expect(getLanguageFromUrl()).toBe('en');
+  });
+});
+
+describe('applyTranslations', () => {
+  beforeEach(async () => {
+    document.body.innerHTML = '';
+    document.documentElement.className = '';
+    await i18next.init({
+      lng: 'en',
+      fallbackLng: 'en',
+      resources: {
+        en: {
+          translation: {
+            sample: 'Already here',
+            other: 'Replacement',
+          },
+        },
+      },
+      interpolation: { escapeValue: false },
+    });
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+    document.documentElement.className = '';
+  });
+
+  it('does not replace textContent when the node already shows the translation', () => {
+    document.body.innerHTML = `<p data-i18n="sample">
+      Already here
+    </p>`;
+    const element = document.querySelector('p');
+    if (!element) throw new Error('missing sample node');
+    const textNode = element.firstChild;
+    document.documentElement.classList.add('shift-i18n-pending');
+
+    applyTranslations();
+
+    expect(element.firstChild).toBe(textNode);
+    expect(element.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Already here'
+    );
+    expect(
+      document.documentElement.classList.contains('shift-i18n-pending')
+    ).toBe(false);
+  });
+
+  it('replaces textContent when the visible text differs', () => {
+    document.body.innerHTML = `<p data-i18n="other">Old copy</p>`;
+    const element = document.querySelector('p');
+    if (!element) throw new Error('missing other node');
+    const textNode = element.firstChild;
+
+    applyTranslations();
+
+    expect(element.firstChild).not.toBe(textNode);
+    expect(element.textContent).toBe('Replacement');
   });
 });
