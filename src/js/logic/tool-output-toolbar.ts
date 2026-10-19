@@ -141,7 +141,12 @@ function resolveSessionOutputKind(root: Document = document): ToolOutputKind {
       : session.outputKind;
   }
   const surfaceId = detectActiveSurfaceId(root);
-  if (NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId)) {
+  const entryId =
+    root.documentElement.dataset.launchEntry?.trim().toLowerCase() ?? '';
+  if (
+    NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId) ||
+    (entryId && NON_PDF_OUTPUT_SURFACE_IDS.has(entryId))
+  ) {
     return 'non-pdf';
   }
   const output = getLatestPdfOutput();
@@ -506,6 +511,7 @@ const PROCESS_BUTTON_WAIT_TIMEOUT_MS = 5 * 60 * 1000;
 
 async function applyToolOutput(root: Document): Promise<void> {
   if (session?.apply) {
+    clearLatestPdfOutput();
     await session.apply();
     return;
   }
