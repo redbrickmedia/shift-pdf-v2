@@ -502,7 +502,7 @@ export async function overwriteOutput(
   }
 }
 
-const PROCESS_BUTTON_WAIT_TIMEOUT_MS = 15000;
+const PROCESS_BUTTON_WAIT_TIMEOUT_MS = 5 * 60 * 1000;
 
 async function applyToolOutput(root: Document): Promise<void> {
   if (session?.apply) {
@@ -512,10 +512,13 @@ async function applyToolOutput(root: Document): Promise<void> {
   const processBtn = findProcessButton(root);
   if (!processBtn) return;
 
+  clearLatestPdfOutput();
+
   await new Promise<void>((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let sawBusyOrPrompt = false;
 
     const finish = () => {
       if (settled) return;
@@ -527,6 +530,28 @@ async function applyToolOutput(root: Document): Promise<void> {
         document.removeEventListener(PDF_OUTPUT_READY_EVENT, onReady);
       }
       resolve();
+    };
+
+    const armTimeout = () => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(finish, PROCESS_BUTTON_WAIT_TIMEOUT_MS);
+    };
+
+    const isProcessWorkActive = (): boolean =>
+      processBtn.disabled ||
+      Boolean(
+        root.querySelector(
+          '.shift-loader.is-active, #loader-modal:not(.hidden), #password-modal:not(.hidden), [aria-busy="true"]'
+        )
+      );
+
+    const hasVisibleErrorOrAlert = (): boolean => {
+      const alertModal = root.getElementById('alert-modal');
+      const errorModal = root.getElementById('errorModal');
+      return Boolean(
+        (alertModal && !alertModal.classList.contains('hidden')) ||
+        (errorModal && !errorModal.classList.contains('hidden'))
+      );
     };
 
     const onReady = () => {
@@ -542,42 +567,29 @@ async function applyToolOutput(root: Document): Promise<void> {
 
     processBtn.click();
 
-    // If clicking processBtn synchronously dispatched PDF_OUTPUT_READY_EVENT,
-    // `settled` is already true. Otherwise wait briefly for async completion,
-    // or resolve early if no async work was started (e.g., a test stub with no listener).
     if (settled) return;
 
-    const alertModal = root.getElementById('alert-modal');
-    const errorModal = root.getElementById('errorModal');
-    const loader = root.querySelector('.shift-loader.is-active');
-    const startedAsyncWork =
-      processBtn.disabled ||
-      Boolean(loader) ||
-      Boolean(root.querySelector('[aria-busy="true"]'));
-
-    if (!startedAsyncWork) {
-      // Allow microtasks from an async click handler to run before resolving
-      queueMicrotask(() => {
-        setTimeout(() => {
-          const nowBusy =
-            processBtn.disabled ||
-            Boolean(root.querySelector('.shift-loader.is-active')) ||
-            Boolean(root.querySelector('[aria-busy="true"]'));
-          if (!nowBusy) finish();
-        }, 25);
-      });
+    if (isProcessWorkActive()) {
+      sawBusyOrPrompt = true;
     }
 
     pollTimer = setInterval(() => {
-      if (
-        (alertModal && !alertModal.classList.contains('hidden')) ||
-        (errorModal && !errorModal.classList.contains('hidden'))
-      ) {
+      if (hasVisibleErrorOrAlert()) {
+        finish();
+        return;
+      }
+      if (isProcessWorkActive()) {
+        sawBusyOrPrompt = true;
+        armTimeout();
+        return;
+      }
+      if (sawBusyOrPrompt) {
+        // Busy state or password prompt finished without staging output (e.g. cancelled)
         finish();
       }
     }, 50);
 
-    timer = setTimeout(finish, PROCESS_BUTTON_WAIT_TIMEOUT_MS);
+    armTimeout();
   });
 }
 
