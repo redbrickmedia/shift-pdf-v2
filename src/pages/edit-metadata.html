@@ -131,8 +131,17 @@
 
         <div id="file-display-area" class="mt-4 space-y-2"></div>
 
-        <div id="tool-options" class="hidden mt-6">
-          <h2 class="text-lg font-semibold text-white mb-4">Edit Metadata</h2>
+        <div id="tool-options" class="hidden mt-6 space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-white">Edit Metadata</h2>
+            <button
+              id="clear-all-metadata"
+              type="button"
+              class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+            >
+              <i data-lucide="eraser" class="w-4 h-4"></i> Clear All Metadata
+            </button>
+          </div>
 
           <div class="space-y-4">
             <div>
@@ -236,7 +245,7 @@
           </div>
 
           <!-- Custom Fields Section -->
-          <div class="mt-6">
+          <div>
             <h3 class="text-md font-semibold text-white mb-2">Custom Fields</h3>
             <p class="text-xs text-gray-400 mb-3">
               Note: Custom fields are not supported by all PDF readers.
@@ -249,6 +258,26 @@
             >
               <i data-lucide="plus" class="w-4 h-4"></i> Add Custom Field
             </button>
+          </div>
+
+          <!-- Read-Only Metadata, XMP & Form Fields Inspector -->
+          <div
+            id="metadata-inspector"
+            class="border-t border-gray-700 pt-6 space-y-4"
+          >
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-white">
+                Document Metadata Inspector
+              </h2>
+              <button
+                id="copy-metadata"
+                type="button"
+                class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+              >
+                <i data-lucide="copy" class="w-4 h-4"></i> Copy Metadata as JSON
+              </button>
+            </div>
+            <div id="metadata-display" class="space-y-3"></div>
           </div>
 
           <button id="process-btn" class="btn-gradient w-full mt-6">

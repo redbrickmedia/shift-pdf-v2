@@ -1,39 +1,145 @@
 import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
-import { showAlert, hideLoader } from '../ui.js';
-
+import { showAlert, showLoader, hideLoader } from '../ui.js';
 import {
   readFileAsArrayBuffer,
   formatBytes,
   downloadFile,
+  escapeHtml,
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { t } from '../i18n/i18n';
 import {
   signPdf,
+  timestampPdf,
   parsePfxFile,
   parseCombinedPem,
   getCertificateInfo,
 } from './digital-sign-pdf.js';
+import { validatePdfSignatures } from './validate-signature-pdf.js';
+import { TIMESTAMP_TSA_PRESETS } from '../config/timestamp-tsa.js';
 import {
   NetworkDisclosureBlockedError,
   requireNetworkDisclosure,
 } from './network-disclosure-guard.js';
+import forge from 'node-forge';
 import {
   SignatureInfo,
   VisibleSignatureOptions,
   DigitalSignState,
+  SignatureValidationResult,
 } from '@/types';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+  setLaunchContext,
+} from './launch-context.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+  type ToolOutputKind,
+} from './tool-output-toolbar.ts';
+import { onToolFilesSeeded } from './tool-file-seed.js';
+import {
+  clearWorkspaceOpenFile,
+  setWorkspaceFiles,
+} from './workspace-files.js';
+import {
+  markOpenWithSelection,
+  writePersistedOpenFile,
+} from './open-file-store.js';
 
-const state: DigitalSignState = {
+type DigitalSignTab = 'sign' | 'validate' | 'timestamp';
+
+const state: DigitalSignState & {
+  activeTab: DigitalSignTab;
+  results: SignatureValidationResult[];
+  trustedCertFile: File | null;
+  trustedCert: forge.pki.Certificate | null;
+} = {
   pdfFile: null,
   pdfBytes: null,
   certFile: null,
   certData: null,
   sigImageData: null,
   sigImageType: null,
+  activeTab: 'sign',
+  results: [],
+  trustedCertFile: null,
+  trustedCert: null,
 };
+
+function getElement<T extends HTMLElement>(id: string): T | null {
+  return document.getElementById(id) as T | null;
+}
+
+function getInitialTabFromContext(): DigitalSignTab {
+  const entryId = resolveLaunchContext().entryId;
+  if (entryId === 'validate-signature-pdf') return 'validate';
+  if (entryId === 'timestamp-pdf') return 'timestamp';
+  return 'sign';
+}
+
+function entryIdForTab(tab: DigitalSignTab): string {
+  if (tab === 'validate') return 'validate-signature-pdf';
+  if (tab === 'timestamp') return 'timestamp-pdf';
+  return 'digital-sign-pdf';
+}
+
+function syncTabsUI(): void {
+  const tabMap: Array<[DigitalSignTab, string, string]> = [
+    ['sign', 'tab-sign', 'panel-sign'],
+    ['validate', 'tab-validate', 'panel-validate'],
+    ['timestamp', 'tab-timestamp', 'panel-timestamp'],
+  ];
+
+  for (const [tab, btnId, panelId] of tabMap) {
+    const btn = getElement<HTMLButtonElement>(btnId);
+    const panel = getElement<HTMLDivElement>(panelId);
+    const isActive = state.activeTab === tab;
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(isActive));
+      btn.classList.toggle('bg-indigo-600', isActive);
+      btn.classList.toggle('text-white', isActive);
+      btn.classList.toggle('text-gray-300', !isActive);
+    }
+    if (panel) {
+      panel.classList.toggle('hidden', !isActive);
+    }
+  }
+
+  const signNetworkBanner = getElement<HTMLDivElement>('sign-network-banner');
+  if (signNetworkBanner) {
+    signNetworkBanner.classList.toggle('hidden', state.activeTab !== 'sign');
+  }
+
+  updateProcessButton();
+  syncToolOutputToolbar();
+}
+
+function setActiveTab(tab: DigitalSignTab, updateUrl: boolean = true): void {
+  state.activeTab = tab;
+  if (updateUrl) {
+    setLaunchContext(entryIdForTab(tab));
+  }
+  syncTabsUI();
+  if (tab === 'validate' && state.pdfBytes) {
+    void validateSignatures();
+  }
+}
+
+function populateTsaPresets(): void {
+  const tsaPreset = getElement<HTMLSelectElement>('tsa-preset');
+  if (!tsaPreset) return;
+  tsaPreset.replaceChildren();
+  for (const preset of TIMESTAMP_TSA_PRESETS) {
+    const option = document.createElement('option');
+    option.value = preset.url;
+    option.textContent = preset.label;
+    tsaPreset.append(option);
+  }
+}
 
 function resetState(): void {
   state.pdfFile = null;
@@ -42,6 +148,9 @@ function resetState(): void {
   state.certData = null;
   state.sigImageData = null;
   state.sigImageType = null;
+  state.results = [];
+  state.trustedCertFile = null;
+  state.trustedCert = null;
 
   const fileDisplayArea = getElement<HTMLDivElement>('file-display-area');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
@@ -49,11 +158,28 @@ function resetState(): void {
   const certDisplayArea = getElement<HTMLDivElement>('cert-display-area');
   if (certDisplayArea) certDisplayArea.innerHTML = '';
 
+  const customCertDisplayArea = getElement<HTMLDivElement>(
+    'custom-cert-display-area'
+  );
+  if (customCertDisplayArea) customCertDisplayArea.innerHTML = '';
+
+  const resultsSection = getElement<HTMLDivElement>('results-section');
+  if (resultsSection) resultsSection.classList.add('hidden');
+
+  const resultsContainer = getElement<HTMLDivElement>('results-container');
+  if (resultsContainer) resultsContainer.innerHTML = '';
+
+  const toolOptions = getElement<HTMLDivElement>('tool-options');
+  if (toolOptions) toolOptions.classList.add('hidden');
+
   const fileInput = getElement<HTMLInputElement>('file-input');
   if (fileInput) fileInput.value = '';
 
   const certInput = getElement<HTMLInputElement>('cert-input');
   if (certInput) certInput.value = '';
+
+  const customCertInput = getElement<HTMLInputElement>('custom-cert-input');
+  if (customCertInput) customCertInput.value = '';
 
   const sigImageInput = getElement<HTMLInputElement>('sig-image-input');
   if (sigImageInput) sigImageInput.value = '';
@@ -61,28 +187,125 @@ function resetState(): void {
   const sigImagePreview = getElement<HTMLDivElement>('sig-image-preview');
   if (sigImagePreview) sigImagePreview.classList.add('hidden');
 
-  const certSection = getElement<HTMLDivElement>('certificate-section');
-  if (certSection) certSection.classList.add('hidden');
-
   hidePasswordSection();
   hideSignatureOptions();
   hideCertInfo();
   updateProcessButton();
+  void clearWorkspaceOpenFile();
+  syncToolOutputToolbar();
 }
 
-function getElement<T extends HTMLElement>(id: string): T | null {
-  return document.getElementById(id) as T | null;
+function resolveOutputKind(): ToolOutputKind {
+  if (state.activeTab === 'validate') {
+    return 'inspection-only';
+  }
+  return 'pdf';
+}
+
+function canCommitCurrentTab(): boolean {
+  if (!state.pdfBytes || !state.pdfFile) return false;
+  if (state.activeTab === 'sign') {
+    return state.certData !== null;
+  }
+  if (state.activeTab === 'timestamp') {
+    return Boolean(getElement<HTMLSelectElement>('tsa-preset')?.value);
+  }
+  return false;
+}
+
+async function applyActiveTabOutput(): Promise<void> {
+  if (state.activeTab === 'sign') {
+    await processSignature();
+  } else if (state.activeTab === 'timestamp') {
+    await processTimestamp();
+  } else if (state.activeTab === 'validate' && state.pdfBytes) {
+    const blob = new Blob([new Uint8Array(state.pdfBytes)], {
+      type: 'application/pdf',
+    });
+    downloadFile(blob, state.pdfFile?.name ?? 'document.pdf');
+  }
+}
+
+async function handleSignPdfHandoff(e: Event): Promise<void> {
+  e.preventDefault();
+  if (state.pdfFile) {
+    setWorkspaceFiles([state.pdfFile]);
+    await writePersistedOpenFile(state.pdfFile, { source: 'upload' });
+  }
+  markOpenWithSelection();
+  try {
+    window.location.assign(
+      `${import.meta.env.BASE_URL}edit-pdf.html?entry=sign-pdf`
+    );
+  } catch {
+    // JSDOM does not implement navigation
+  }
 }
 
 function initializePage(): void {
+  state.pdfFile = null;
+  state.pdfBytes = null;
+  state.certFile = null;
+  state.certData = null;
+  state.results = [];
+  state.trustedCertFile = null;
+  state.trustedCert = null;
+
+  applyLaunchContextToDom(document);
+  populateTsaPresets();
+  state.activeTab = getInitialTabFromContext();
+  syncTabsUI();
   createIcons({ icons });
+
+  getElement<HTMLButtonElement>('tab-sign')?.addEventListener('click', () =>
+    setActiveTab('sign', true)
+  );
+  getElement<HTMLButtonElement>('tab-validate')?.addEventListener('click', () =>
+    setActiveTab('validate', true)
+  );
+  getElement<HTMLButtonElement>('tab-timestamp')?.addEventListener(
+    'click',
+    () => setActiveTab('timestamp', true)
+  );
+
+  getElement<HTMLElement>('sign-pdf-handoff')?.addEventListener(
+    'click',
+    (e) => {
+      void handleSignPdfHandoff(e);
+    }
+  );
+
+  registerToolOutputSession({
+    apply: () => applyActiveTabOutput(),
+    reset: () => resetState(),
+    canSave: () => canCommitCurrentTab(),
+    canDownload: () => {
+      if (state.activeTab === 'validate') {
+        return Boolean(state.pdfBytes && state.pdfFile);
+      }
+      return canCommitCurrentTab();
+    },
+    canPrint: () => {
+      if (state.activeTab === 'validate') {
+        return Boolean(state.pdfBytes && state.pdfFile);
+      }
+      return canCommitCurrentTab();
+    },
+    canReset: () => Boolean(state.pdfBytes || state.certFile),
+    outputKind: resolveOutputKind,
+  });
 
   const fileInput = getElement<HTMLInputElement>('file-input');
   const dropZone = getElement<HTMLDivElement>('drop-zone');
   const certInput = getElement<HTMLInputElement>('cert-input');
   const certDropZone = getElement<HTMLDivElement>('cert-drop-zone');
   const certPassword = getElement<HTMLInputElement>('cert-password');
+  const customCertInput = getElement<HTMLInputElement>('custom-cert-input');
+  const customCertDropZone = getElement<HTMLDivElement>(
+    'custom-cert-drop-zone'
+  );
   const processBtn = getElement<HTMLButtonElement>('process-btn');
+
   if (fileInput) {
     fileInput.addEventListener('change', handlePdfUpload);
     fileInput.addEventListener('click', () => {
@@ -105,7 +328,7 @@ function initializePage(): void {
       dropZone.classList.remove('bg-gray-700');
       const droppedFiles = e.dataTransfer?.files;
       if (droppedFiles && droppedFiles.length > 0) {
-        handlePdfFile(droppedFiles[0]);
+        void handlePdfFile(droppedFiles[0]);
       }
     });
   }
@@ -132,22 +355,51 @@ function initializePage(): void {
       certDropZone.classList.remove('bg-gray-700');
       const droppedFiles = e.dataTransfer?.files;
       if (droppedFiles && droppedFiles.length > 0) {
-        handleCertFile(droppedFiles[0]);
+        void handleCertFile(droppedFiles[0]);
+      }
+    });
+  }
+
+  if (customCertInput) {
+    customCertInput.addEventListener('change', handleCustomCertUpload);
+    customCertInput.addEventListener('click', () => {
+      customCertInput.value = '';
+    });
+  }
+
+  if (customCertDropZone) {
+    customCertDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      customCertDropZone.classList.add('bg-gray-700');
+    });
+    customCertDropZone.addEventListener('dragleave', () => {
+      customCertDropZone.classList.remove('bg-gray-700');
+    });
+    customCertDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      customCertDropZone.classList.remove('bg-gray-700');
+      const droppedFiles = e.dataTransfer?.files;
+      if (droppedFiles && droppedFiles.length > 0) {
+        void handleCustomCertFile(droppedFiles[0]);
       }
     });
   }
 
   if (certPassword) {
-    certPassword.addEventListener('input', handlePasswordInput);
+    certPassword.addEventListener('input', () => {
+      void handlePasswordInput();
+    });
     certPassword.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
-        handlePasswordInput();
+        void handlePasswordInput();
       }
     });
   }
 
   if (processBtn) {
-    processBtn.addEventListener('click', processSignature);
+    processBtn.addEventListener('click', () => {
+      void applyActiveTabOutput();
+    });
   }
 
   const enableVisibleSig = getElement<HTMLInputElement>('enable-visible-sig');
@@ -163,21 +415,13 @@ function initializePage(): void {
 
   if (enableVisibleSig && visibleSigOptions) {
     enableVisibleSig.addEventListener('change', () => {
-      if (enableVisibleSig.checked) {
-        visibleSigOptions.classList.remove('hidden');
-      } else {
-        visibleSigOptions.classList.add('hidden');
-      }
+      visibleSigOptions.classList.toggle('hidden', !enableVisibleSig.checked);
     });
   }
 
   if (sigPage && customPageWrapper) {
     sigPage.addEventListener('change', () => {
-      if (sigPage.value === 'custom') {
-        customPageWrapper.classList.remove('hidden');
-      } else {
-        customPageWrapper.classList.add('hidden');
-      }
+      customPageWrapper.classList.toggle('hidden', sigPage.value !== 'custom');
     });
   }
 
@@ -227,19 +471,21 @@ function initializePage(): void {
 
   if (enableSigText && sigTextOptions) {
     enableSigText.addEventListener('change', () => {
-      if (enableSigText.checked) {
-        sigTextOptions.classList.remove('hidden');
-      } else {
-        sigTextOptions.classList.add('hidden');
-      }
+      sigTextOptions.classList.toggle('hidden', !enableSigText.checked);
     });
   }
+
+  onToolFilesSeeded(() => {
+    if (fileInput?.files && fileInput.files.length > 0 && !state.pdfFile) {
+      void handlePdfFile(fileInput.files[0]);
+    }
+  });
 }
 
 function handlePdfUpload(e: Event): void {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    handlePdfFile(input.files[0]);
+    void handlePdfFile(input.files[0]);
   }
 }
 
@@ -260,13 +506,21 @@ async function handlePdfFile(file: File): Promise<void> {
     (await readFileAsArrayBuffer(file)) as ArrayBuffer
   );
 
-  updatePdfDisplay();
+  const toolOptions = getElement<HTMLDivElement>('tool-options');
+  if (toolOptions) toolOptions.classList.remove('hidden');
+
+  await updatePdfDisplay();
   showCertificateSection();
+  updateProcessButton();
+  syncToolOutputToolbar();
+
+  if (state.activeTab === 'validate') {
+    await validateSignatures();
+  }
 }
 
 async function updatePdfDisplay(): Promise<void> {
   const fileDisplayArea = getElement<HTMLDivElement>('file-display-area');
-
   if (!fileDisplayArea || !state.pdfFile) return;
 
   fileDisplayArea.innerHTML = '';
@@ -296,11 +550,7 @@ async function updatePdfDisplay(): Promise<void> {
   removeBtn.title = `Remove ${state.pdfFile.name}`;
   removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
   removeBtn.onclick = () => {
-    state.pdfFile = null;
-    state.pdfBytes = null;
-    fileDisplayArea.innerHTML = '';
-    hideCertificateSection();
-    updateProcessButton();
+    resetState();
   };
 
   fileDiv.append(infoContainer, removeBtn);
@@ -310,11 +560,7 @@ async function updatePdfDisplay(): Promise<void> {
   if (state.pdfFile) {
     const result = await loadPdfWithPasswordPrompt(state.pdfFile);
     if (!result) {
-      state.pdfFile = null;
-      state.pdfBytes = null;
-      fileDisplayArea.innerHTML = '';
-      hideCertificateSection();
-      updateProcessButton();
+      resetState();
       return;
     }
     state.pdfFile = result.file;
@@ -322,6 +568,7 @@ async function updatePdfDisplay(): Promise<void> {
     nameSpan.textContent = result.file.name;
     metaSpan.textContent = `${formatBytes(result.file.size)} • ${t('tools:digitalSignPdf.pageCount', { count: result.pdf.numPages })}`;
     result.pdf.destroy();
+    setWorkspaceFiles([state.pdfFile]);
   }
 }
 
@@ -332,42 +579,10 @@ function showCertificateSection(): void {
   }
 }
 
-function hideCertificateSection(): void {
-  const certSection = getElement<HTMLDivElement>('certificate-section');
-  const signatureOptions = getElement<HTMLDivElement>('signature-options');
-
-  if (certSection) {
-    certSection.classList.add('hidden');
-  }
-  if (signatureOptions) {
-    signatureOptions.classList.add('hidden');
-  }
-
-  state.certFile = null;
-  state.certData = null;
-
-  const certDisplayArea = getElement<HTMLDivElement>('cert-display-area');
-  if (certDisplayArea) {
-    certDisplayArea.innerHTML = '';
-  }
-
-  const certInfo = getElement<HTMLDivElement>('cert-info');
-  if (certInfo) {
-    certInfo.classList.add('hidden');
-  }
-
-  const certPasswordSection = getElement<HTMLDivElement>(
-    'cert-password-section'
-  );
-  if (certPasswordSection) {
-    certPasswordSection.classList.add('hidden');
-  }
-}
-
 function handleCertUpload(e: Event): void {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    handleCertFile(input.files[0]);
+    void handleCertFile(input.files[0]);
   }
 }
 
@@ -400,6 +615,7 @@ async function handleCertFile(file: File): Promise<void> {
       if (isEncrypted) {
         showPasswordSection();
         updatePasswordLabel(t('tools:digitalSignPdf.privateKeyPassword'));
+        hideSignatureOptions();
       } else {
         state.certData = parseCombinedPem(pemContent);
         updateCertInfo();
@@ -418,19 +634,20 @@ async function handleCertFile(file: File): Promise<void> {
         certStatus.textContent = t('tools:digitalSignPdf.failedParsePem');
         certStatus.className = 'text-xs text-red-400';
       }
+      hideSignatureOptions();
     }
   } else {
     showPasswordSection();
     updatePasswordLabel(t('tools:digitalSignPdf.certPassword'));
+    hideSignatureOptions();
   }
 
-  hideSignatureOptions();
   updateProcessButton();
+  syncToolOutputToolbar();
 }
 
 function updateCertDisplay(): void {
   const certDisplayArea = getElement<HTMLDivElement>('cert-display-area');
-
   if (!certDisplayArea || !state.certFile) return;
 
   certDisplayArea.innerHTML = '';
@@ -467,6 +684,7 @@ function updateCertDisplay(): void {
     hideCertInfo();
     hideSignatureOptions();
     updateProcessButton();
+    syncToolOutputToolbar();
   };
 
   certDiv.append(infoContainer, removeBtn);
@@ -562,6 +780,7 @@ async function handlePasswordInput(): Promise<void> {
     updateCertInfo();
     showSignatureOptions();
     updateProcessButton();
+    syncToolOutputToolbar();
 
     const certStatus = getElement<HTMLDivElement>('cert-status');
     if (certStatus) {
@@ -573,6 +792,7 @@ async function handlePasswordInput(): Promise<void> {
     state.certData = null;
     hideSignatureOptions();
     updateProcessButton();
+    syncToolOutputToolbar();
 
     const certStatus = getElement<HTMLDivElement>('cert-status');
     if (certStatus) {
@@ -618,12 +838,226 @@ function updateProcessButton(): void {
   const processBtn = getElement<HTMLButtonElement>('process-btn');
   if (!processBtn) return;
 
-  const canProcess = state.pdfBytes !== null && state.certData !== null;
+  const canProcess = canCommitCurrentTab();
+  processBtn.disabled = !canProcess;
+  processBtn.style.display = canProcess ? '' : 'none';
+}
 
-  if (canProcess) {
-    processBtn.style.display = '';
-  } else {
-    processBtn.style.display = 'none';
+function handleCustomCertUpload(e: Event): void {
+  const input = e.target as HTMLInputElement;
+  if (input.files && input.files.length > 0) {
+    void handleCustomCertFile(input.files[0]);
+  }
+}
+
+async function handleCustomCertFile(file: File): Promise<void> {
+  const validExtensions = ['.pem', '.crt', '.cer', '.der'];
+  const hasValidExtension = validExtensions.some((ext) =>
+    file.name.toLowerCase().endsWith(ext)
+  );
+
+  if (!hasValidExtension) {
+    showAlert(
+      'Invalid Certificate',
+      'Please select a .pem, .crt, .cer, or .der certificate file.'
+    );
+    return;
+  }
+
+  state.trustedCertFile = file;
+  state.trustedCert = null;
+
+  try {
+    const content = await file.text();
+    if (content.includes('-----BEGIN CERTIFICATE-----')) {
+      state.trustedCert = forge.pki.certificateFromPem(content);
+    } else {
+      const bytes = new Uint8Array(
+        (await readFileAsArrayBuffer(file)) as ArrayBuffer
+      );
+      const derString = String.fromCharCode.apply(null, Array.from(bytes));
+      const asn1 = forge.asn1.fromDer(derString);
+      state.trustedCert = forge.pki.certificateFromAsn1(asn1);
+    }
+
+    updateCustomCertDisplay();
+    if (state.pdfBytes) {
+      await validateSignatures();
+    }
+  } catch (error) {
+    console.error('Error parsing certificate:', error);
+    showAlert('Invalid Certificate', 'Failed to parse the certificate file.');
+    state.trustedCertFile = null;
+    state.trustedCert = null;
+  }
+}
+
+function updateCustomCertDisplay(): void {
+  const certDisplayArea = getElement<HTMLDivElement>(
+    'custom-cert-display-area'
+  );
+  if (!certDisplayArea || !state.trustedCertFile || !state.trustedCert) return;
+
+  certDisplayArea.innerHTML = '';
+
+  const certDiv = document.createElement('div');
+  certDiv.className =
+    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+
+  const infoContainer = document.createElement('div');
+  infoContainer.className = 'flex flex-col flex-1 min-w-0';
+
+  const nameSpan = document.createElement('div');
+  nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
+  const cn = state.trustedCert.subject.getField('CN');
+  nameSpan.textContent = (cn?.value as string) || state.trustedCertFile.name;
+
+  const metaSpan = document.createElement('div');
+  metaSpan.className = 'text-xs text-green-400';
+  metaSpan.innerHTML =
+    '<i data-lucide="check-circle" class="inline w-3 h-3 mr-1"></i>Trusted certificate loaded';
+
+  infoContainer.append(nameSpan, metaSpan);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'ml-4 flex-shrink-0 shift-tool-file-remove';
+  removeBtn.type = 'button';
+  removeBtn.setAttribute('aria-label', `Remove ${state.trustedCertFile.name}`);
+  removeBtn.title = `Remove ${state.trustedCertFile.name}`;
+  removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
+  removeBtn.onclick = async () => {
+    state.trustedCertFile = null;
+    state.trustedCert = null;
+    certDisplayArea.innerHTML = '';
+    if (state.pdfBytes) {
+      await validateSignatures();
+    }
+  };
+
+  certDiv.append(infoContainer, removeBtn);
+  certDisplayArea.appendChild(certDiv);
+  createIcons({ icons });
+}
+
+async function validateSignatures(): Promise<void> {
+  if (!state.pdfBytes) return;
+
+  showLoader('Analyzing signatures...');
+  try {
+    state.results = await validatePdfSignatures(
+      state.pdfBytes,
+      state.trustedCert ?? undefined
+    );
+    displayValidationResults();
+  } catch (error) {
+    console.error('Validation error:', error);
+    showAlert(
+      'Error',
+      'Failed to validate signatures. The file may be corrupted.'
+    );
+  } finally {
+    hideLoader();
+  }
+}
+
+function displayValidationResults(): void {
+  const resultsSection = getElement<HTMLDivElement>('results-section');
+  const resultsContainer = getElement<HTMLDivElement>('results-container');
+  if (!resultsSection || !resultsContainer) return;
+
+  resultsContainer.innerHTML = '';
+  resultsSection.classList.remove('hidden');
+
+  if (state.results.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="bg-gray-700 rounded-lg p-6 text-center border border-gray-600">
+        <i data-lucide="file-x" class="w-12 h-12 mx-auto mb-4 text-gray-400"></i>
+        <h3 class="text-lg font-semibold text-white mb-2">No Signatures Found</h3>
+        <p class="text-gray-400">This PDF does not contain any digital signatures.</p>
+      </div>
+    `;
+    createIcons({ icons });
+    return;
+  }
+
+  const summaryDiv = document.createElement('div');
+  summaryDiv.className =
+    'mb-4 p-3 bg-gray-700 rounded-lg border border-gray-600';
+
+  const validCount = state.results.filter(
+    (r) => r.isValid && !r.isExpired && r.isTrusted
+  ).length;
+
+  summaryDiv.innerHTML = `
+    <p class="text-gray-300">
+      <span class="font-semibold text-white">${state.results.length}</span>
+      signature${state.results.length > 1 ? 's' : ''} found
+      <span class="text-gray-500">•</span>
+      <span class="${validCount === state.results.length ? 'text-green-400' : 'text-yellow-400'}">${validCount} valid</span>
+    </p>
+  `;
+  resultsContainer.appendChild(summaryDiv);
+
+  state.results.forEach((result, index) => {
+    const card = document.createElement('div');
+    card.className = 'bg-gray-700 rounded-lg p-4 border border-gray-600 mb-4';
+    const statusText = result.isValid ? 'Valid Signature' : 'Invalid Signature';
+    const statusColor = result.isValid ? 'text-green-400' : 'text-red-400';
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="font-semibold text-white">Signature ${index + 1}</h3>
+          <p class="text-sm ${statusColor}">${statusText}</p>
+        </div>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div>
+          <p class="text-gray-400">Signed By</p>
+          <p class="text-white font-medium">${escapeHtml(result.signerName)}</p>
+        </div>
+        <div>
+          <p class="text-gray-400">Issuer</p>
+          <p class="text-white font-medium">${escapeHtml(result.issuer)}</p>
+        </div>
+      </div>
+    `;
+    resultsContainer.appendChild(card);
+  });
+
+  createIcons({ icons });
+}
+
+async function processTimestamp(): Promise<void> {
+  if (!state.pdfBytes || !state.pdfFile) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
+
+  const tsaUrl = getElement<HTMLSelectElement>('tsa-preset')?.value ?? null;
+  if (!tsaUrl) return;
+
+  try {
+    await requireNetworkDisclosure('timestamp-tsa');
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    throw error;
+  }
+
+  showResultLoader('Applying timestamp...');
+  try {
+    const timestampedBytes = await timestampPdf(state.pdfBytes, tsaUrl);
+    const blob = new Blob([new Uint8Array(timestampedBytes)], {
+      type: 'application/pdf',
+    });
+    downloadFile(blob, state.pdfFile.name);
+  } catch (error) {
+    if (error instanceof NetworkDisclosureBlockedError) return;
+    console.error('Timestamp error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    showAlert('Timestamp Failed', `Failed to timestamp PDF: ${message}`);
+  } finally {
+    hideLoader();
   }
 }
 
@@ -683,11 +1117,7 @@ async function processSignature(): Promise<void> {
       if (sigPageSelect.value === 'last') {
         sigPage = (numPages - 1).toString();
       } else if (sigPageSelect.value === 'all') {
-        if (numPages === 1) {
-          sigPage = '0';
-        } else {
-          sigPage = `0-${numPages - 1}`;
-        }
+        sigPage = numPages === 1 ? '0' : `0-${numPages - 1}`;
       } else if (sigPageSelect.value === 'custom') {
         sigPage =
           parseInt(
@@ -764,18 +1194,7 @@ async function processSignature(): Promise<void> {
       type: 'application/pdf',
     });
     downloadFile(blob, state.pdfFile?.name ?? 'document.pdf');
-
-    hideLoader();
-    showAlert(
-      t('common.success'),
-      t('tools:digitalSignPdf.successMessage'),
-      'success',
-      () => {
-        resetState();
-      }
-    );
   } catch (error) {
-    hideLoader();
     if (error instanceof NetworkDisclosureBlockedError) {
       return;
     }
@@ -783,7 +1202,6 @@ async function processSignature(): Promise<void> {
     const errorMessage =
       error instanceof Error ? error.message : t('common.unknownError');
 
-    // Check if this is a CORS/network error from certificate chain fetching
     if (
       errorMessage.includes('Failed to fetch') ||
       errorMessage.includes('CORS') ||
@@ -799,11 +1217,12 @@ async function processSignature(): Promise<void> {
         t('tools:digitalSignPdf.failedToSignPdf', { message: errorMessage })
       );
     }
+  } finally {
+    hideLoader();
   }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializePage);
-} else {
+document.addEventListener('DOMContentLoaded', initializePage);
+if (document.readyState !== 'loading') {
   initializePage();
 }
