@@ -1,4 +1,5 @@
 import { showLoader, hideLoader, showAlert } from '../ui.ts';
+import { applyTranslations } from '../i18n/i18n.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { icons, createIcons } from 'lucide';
 
@@ -780,6 +781,7 @@ function resetCompareState(): void {
     'tools:comparePdfs.secondPdf',
     'Second PDF'
   );
+  applyTranslations();
 
   const compareViewer = document.getElementById('compare-viewer');
   if (compareViewer) compareViewer.classList.add('hidden');
