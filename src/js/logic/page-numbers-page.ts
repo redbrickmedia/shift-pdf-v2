@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
@@ -797,7 +796,7 @@ async function processNumbering() {
     return;
   }
 
-  showResultLoader('Applying numbering...');
+  showLoader('Applying numbering...');
   try {
     const position = ((
       document.getElementById('position') as HTMLSelectElement | null

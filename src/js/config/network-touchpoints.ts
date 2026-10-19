@@ -49,7 +49,7 @@ export const NETWORK_TOUCHPOINTS: Record<
       'Obtain a trusted timestamp token proving the document existed at a point in time.',
     policyUrl: 'privacy.html',
     helpUrl: 'about.html',
-    staticPagePaths: ['src/pages/timestamp-pdf.html'],
+    staticPagePaths: ['src/pages/digital-sign-pdf.html'],
     guardEntryPoints: ['timestampPdf'],
   },
   'digital-sign-chain-fetch': {
@@ -102,7 +102,7 @@ export const NETWORK_CALL_INVENTORY: readonly NetworkInventoryEntry[] =
       description: 'RFC 3161 timestamp via TSA (tool page).',
       sourcePaths: [
         'src/js/logic/digital-sign-pdf.ts',
-        'src/js/logic/timestamp-pdf-page.ts',
+        'src/js/logic/digital-sign-pdf-page.ts',
         'src/js/config/timestamp-tsa.ts',
       ],
       touchpointId: 'timestamp-tsa',

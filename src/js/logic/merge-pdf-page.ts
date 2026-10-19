@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
@@ -591,7 +590,7 @@ async function restore(snapshotToRestore: MergeSnapshot): Promise<void> {
   mergeModel = cloneSnapshot(snapshotToRestore);
   syncLaunchContextFromMode(mergeModel.activeMode);
   syncSharedFiles();
-  showResultLoader('Restoring merge state...');
+  showLoader('Restoring merge state...');
   try {
     await ensureRuntimeDocuments();
     await renderMergeUI();
@@ -754,7 +753,7 @@ export async function merge(): Promise<void> {
       reverseFlags.push(Boolean(source.reverse));
     }
 
-    showResultLoader('Alternating and mixing pages...');
+    showLoader('Alternating and mixing pages...');
     const operationId = Date.now() + Math.random();
     activeMergeOperation = operationId;
     if (processButton) processButton.disabled = true;
@@ -802,7 +801,7 @@ export async function merge(): Promise<void> {
     return;
   }
 
-  showResultLoader('Merging PDFs...');
+  showLoader('Merging PDFs...');
   const message: MergeMessage = {
     command: 'merge',
     files: prepared.files,

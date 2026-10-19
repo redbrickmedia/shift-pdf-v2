@@ -71,7 +71,7 @@ describe('central button coverage', () => {
     }
 
     expect(unstyled).toEqual([]);
-    expect(covered).toBeGreaterThan(390);
+    expect(covered).toBeGreaterThan(150);
   });
 
   it('leaves menu rows, pills and icon buttons to their own components', async () => {

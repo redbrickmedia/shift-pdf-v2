@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { EditMetadataState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
@@ -619,7 +618,7 @@ async function saveMetadata() {
     return;
   }
 
-  showResultLoader('Updating metadata...');
+  showLoader('Updating metadata...');
 
   try {
     const titleInput = document.getElementById(

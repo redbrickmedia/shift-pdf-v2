@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { pdfjsLib } from '@/js/utils/pdfjs.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
@@ -262,7 +261,7 @@ async function processAllPages(): Promise<void> {
     return;
   }
 
-  showResultLoader('Applying color adjustments...');
+  showLoader('Applying color adjustments...');
 
   try {
     const settings = getSettings();
@@ -284,7 +283,7 @@ async function processAllPages(): Promise<void> {
     const newPdfDoc = await PDFDocument.create();
 
     for (let i = 1; i <= doc.numPages; i++) {
-      showResultLoader(`Processing page ${i} of ${doc.numPages}...`);
+      showLoader(`Processing page ${i} of ${doc.numPages}...`);
 
       const page = await doc.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });

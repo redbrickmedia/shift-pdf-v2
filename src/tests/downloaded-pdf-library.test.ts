@@ -11,12 +11,14 @@ import {
   initShiftPdfSave,
   clearLatestPdfOutput,
 } from '../js/logic/shift-pdf-save';
-import { TOOL_SUCCESS_ID, showResultLoader } from '../js/logic/tool-success';
+import { showLoader } from '../js/ui';
 import { downloadFile, PDF_OUTPUT_READY_EVENT } from '../js/utils/helpers';
 import {
   resetWorkspaceFileIndicator,
   setWorkspaceFiles,
 } from '../js/logic/workspace-files';
+
+const TOOL_SUCCESS_ID = 'shift-tool-success';
 
 function mockHandle(options: {
   granted?: boolean;
@@ -138,9 +140,9 @@ describe('pure Output Session staging in downloadFile', () => {
     await expect(entries[0]?.file.text()).resolves.toBe('before');
   });
 
-  it('keeps showResultLoader working via the shared in-card loader without creating #shift-tool-success', () => {
+  it('renders in-card progress via showLoader without creating #shift-tool-success', () => {
     document.body.innerHTML = '<div id="tool-uploader"></div>';
-    showResultLoader('Processing page 1 of 3...', 33);
+    showLoader('Processing page 1 of 3...', 33);
 
     expect(document.getElementById(TOOL_SUCCESS_ID)).toBeNull();
     const card = document.getElementById('tool-uploader');

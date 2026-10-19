@@ -10,7 +10,6 @@ import {
 } from '../config/convert-destinations.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 import { beginToolUse, endToolUse } from '../host/analytics.js';
-import { showResultLoader } from './tool-success.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
 import { downloadFile, getCleanPdfFilename } from '../utils/helpers.js';
 import {
@@ -208,14 +207,14 @@ async function runImagesToPdf(
 ): Promise<void> {
   showLoader('Loading engine...');
   const mupdf = await loadPyMuPDF();
-  showResultLoader('Converting images to PDF...');
+  showLoader('Converting images to PDF...');
 
   if (files.length > 1 && options.imageCombineMode === 'separate') {
     const zip = new JSZip();
     const usedNames = new Set<string>();
     for (let i = 0; i < files.length; i++) {
       const file = files[i]!;
-      showResultLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+      showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
       const pdfBlob = await convertSingleImageToPdfBlob(
         file,
         destinationId,
@@ -270,12 +269,12 @@ async function runLibreOfficeToPdf(
   const converter = getLibreOfficeConverter();
   showLoader('Loading engine...');
   await converter.initialize((progress: LoadProgress) => {
-    showResultLoader(progress.message, progress.percent);
+    showLoader(progress.message, progress.percent);
   });
 
   if (files.length === 1) {
     const file = files[0]!;
-    showResultLoader(`Converting ${file.name}...`);
+    showLoader(`Converting ${file.name}...`);
     const pdfBlob = await converter.convertToPdf(file);
     downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
     return;
@@ -285,7 +284,7 @@ async function runLibreOfficeToPdf(
   const usedNames = new Set<string>();
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    showResultLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+    showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
     const pdfBlob = await converter.convertToPdf(file);
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.pdf`, usedNames);
@@ -304,7 +303,7 @@ async function runPyMuPdfEbookToPdf(
 
   if (files.length === 1) {
     const file = files[0]!;
-    showResultLoader(`Converting ${file.name}...`);
+    showLoader(`Converting ${file.name}...`);
     const pdfBlob = await pymupdf.convertToPdf(file, { filetype });
     downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
     return;
@@ -314,7 +313,7 @@ async function runPyMuPdfEbookToPdf(
   const usedNames = new Set<string>();
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    showResultLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+    showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
     const pdfBlob = await pymupdf.convertToPdf(file, { filetype });
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.pdf`, usedNames);
@@ -329,7 +328,7 @@ async function runCsvToPdf(files: File[]): Promise<void> {
   if (files.length === 1) {
     const file = files[0]!;
     const pdfBlob = await convertCsvToPdf(file, {
-      onProgress: (percent, message) => showResultLoader(message, percent),
+      onProgress: (percent, message) => showLoader(message, percent),
     });
     downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
     return;
@@ -341,7 +340,7 @@ async function runCsvToPdf(files: File[]): Promise<void> {
     const file = files[i]!;
     const pdfBlob = await convertCsvToPdf(file, {
       onProgress: (percent) =>
-        showResultLoader(
+        showLoader(
           `Converting ${i + 1}/${files.length}: ${file.name}...`,
           percent
         ),
@@ -359,7 +358,7 @@ async function runXmlToPdf(files: File[]): Promise<void> {
   if (files.length === 1) {
     const file = files[0]!;
     const pdfBlob = await convertXmlToPdf(file, {
-      onProgress: (percent, message) => showResultLoader(message, percent),
+      onProgress: (percent, message) => showLoader(message, percent),
     });
     downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
     return;
@@ -371,7 +370,7 @@ async function runXmlToPdf(files: File[]): Promise<void> {
     const file = files[i]!;
     const pdfBlob = await convertXmlToPdf(file, {
       onProgress: (percent, message) =>
-        showResultLoader(`File ${i + 1}/${files.length}: ${message}`, percent),
+        showLoader(`File ${i + 1}/${files.length}: ${message}`, percent),
     });
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.pdf`, usedNames);
@@ -416,7 +415,7 @@ async function runEmailToPdf(
 
   if (files.length === 1) {
     const file = files[0]!;
-    showResultLoader(`Parsing ${file.name}...`);
+    showLoader(`Parsing ${file.name}...`);
     const pdfBlob = await convertSingleEmailToPdfBlob(file, options, pymupdf);
     downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
     return;
@@ -426,7 +425,7 @@ async function runEmailToPdf(
   const usedNames = new Set<string>();
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    showResultLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+    showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
     const pdfBlob = await convertSingleEmailToPdfBlob(file, options, pymupdf);
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.pdf`, usedNames);
@@ -926,7 +925,7 @@ async function runPdfToSvg(files: File[]): Promise<void> {
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
   if (decrypted.length === 0) return;
-  showResultLoader('Converting to SVG...');
+  showLoader('Converting to SVG...');
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
@@ -979,7 +978,7 @@ async function runPdfToDocx(files: File[]): Promise<void> {
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
-    showResultLoader(`Converting ${file.name}...`);
+    showLoader(`Converting ${file.name}...`);
     const docxBlob = await pymupdf.pdfToDocx(file);
     downloadFile(docxBlob, `${getFilenameWithoutExtension(file.name)}.docx`);
     return;
@@ -989,9 +988,7 @@ async function runPdfToDocx(files: File[]): Promise<void> {
   const usedNames = new Set<string>();
   for (let i = 0; i < decrypted.length; i++) {
     const file = decrypted[i]!;
-    showResultLoader(
-      `Converting ${i + 1}/${decrypted.length}: ${file.name}...`
-    );
+    showLoader(`Converting ${i + 1}/${decrypted.length}: ${file.name}...`);
     const docxBlob = await pymupdf.pdfToDocx(file);
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.docx`, usedNames);
@@ -1011,7 +1008,7 @@ async function runPdfToPptx(files: File[]): Promise<void> {
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
-    showResultLoader(`Converting ${file.name}...`);
+    showLoader(`Converting ${file.name}...`);
     const pptxBlob = await pdfToPptx(file);
     downloadFile(pptxBlob, `${getFilenameWithoutExtension(file.name)}.pptx`);
     return;
@@ -1021,9 +1018,7 @@ async function runPdfToPptx(files: File[]): Promise<void> {
   const usedNames = new Set<string>();
   for (let i = 0; i < decrypted.length; i++) {
     const file = decrypted[i]!;
-    showResultLoader(
-      `Converting ${i + 1}/${decrypted.length}: ${file.name}...`
-    );
+    showLoader(`Converting ${i + 1}/${decrypted.length}: ${file.name}...`);
     const pptxBlob = await pdfToPptx(file);
     const baseName = getFilenameWithoutExtension(file.name);
     const entryName = deduplicateFileName(`${baseName}.pptx`, usedNames);
@@ -1113,7 +1108,7 @@ async function runPdfToTables(
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
   if (decrypted.length === 0) return;
-  showResultLoader('Extracting tables...');
+  showLoader('Extracting tables...');
 
   const format =
     destinationId === 'pdf-to-excel'
@@ -1249,7 +1244,7 @@ async function runPdfToText(files: File[]): Promise<void> {
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
   if (decrypted.length === 0) return;
-  showResultLoader('Extracting text...');
+  showLoader('Extracting text...');
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
@@ -1281,7 +1276,7 @@ async function runPdfToMarkdown(
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
   if (decrypted.length === 0) return;
-  showResultLoader('Converting to Markdown...');
+  showLoader('Converting to Markdown...');
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;

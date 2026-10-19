@@ -52,7 +52,7 @@ describe('AGPL source offer', () => {
     expect(notice).toContain('qpdf.wasm');
     expect(notice).toContain('pdfium.wasm');
     expect(notice).toContain('public/pdfjs-viewer/');
-    expect(notice).toContain('public/pdfjs-annotation-viewer/');
+    expect(notice).not.toContain('public/pdfjs-annotation-viewer/');
   });
 
   it('keeps host identifiers out of compiled source', () => {

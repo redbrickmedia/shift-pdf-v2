@@ -12,12 +12,7 @@ const DIST_DIR = path.resolve(__dirname, '../dist');
  * page correctness only. Canonical/hreflang/sitemap checks were dropped along
  * with the metadata they validated.
  */
-const SKIP_DIRS = new Set([
-  'assets',
-  'docs',
-  'pdfjs-viewer',
-  'pdfjs-annotation-viewer',
-]);
+const SKIP_DIRS = new Set(['assets', 'docs', 'pdfjs-viewer']);
 
 const BRAND = 'Shift PDF';
 const UPSTREAM_BRAND = ['Bento', 'PDF'].join('');

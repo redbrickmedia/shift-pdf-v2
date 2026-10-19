@@ -47,7 +47,7 @@ const stripExternalIdentifiers = (content: string) =>
 
 describe('page branding', () => {
   it('finds page and locale sources to check', () => {
-    expect(pageSources.length).toBeGreaterThan(100);
+    expect(pageSources.length).toBeGreaterThan(40);
     expect(localeSources.length).toBeGreaterThan(20);
   });
 

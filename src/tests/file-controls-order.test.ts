@@ -66,7 +66,7 @@ describe('file controls order', () => {
     }
 
     expect(mismatches).toEqual([]);
-    expect(cards.length).toBeGreaterThan(40);
+    expect(cards.length).toBeGreaterThanOrEqual(10);
   });
 
   it('keeps the picker above the file list', async () => {

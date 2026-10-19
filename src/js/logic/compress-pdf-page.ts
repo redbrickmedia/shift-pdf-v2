@@ -1,7 +1,6 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
-import { hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import {
@@ -167,7 +166,7 @@ async function performPhotonCompression(
     hideLoader();
     const result = await loadPdfWithPasswordPrompt(file);
     if (!result) return null;
-    showResultLoader('Running Photon compression...');
+    showLoader('Running Photon compression...');
     pdfJsDoc = result.pdf;
   } else {
     pdfJsDoc = await getPDFDocument({ data: arrayBuffer }).promise;
@@ -451,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let usedMethod: string;
 
         if (algorithm === 'condense') {
-          showResultLoader('Running Condense compression...');
+          showLoader('Running Condense compression...');
           const result = await performCondenseCompression(
             originalFile,
             level,
@@ -467,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ' (without image optimization due to unsupported patterns)';
           }
         } else {
-          showResultLoader('Running Photon compression...');
+          showLoader('Running Photon compression...');
           const arrayBuffer = (await readFileAsArrayBuffer(
             originalFile
           )) as ArrayBuffer;
@@ -509,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
           timing: completionTiming(startedAt),
         });
       } else {
-        showResultLoader('Compressing multiple PDFs...');
+        showLoader('Compressing multiple PDFs...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         let totalOriginalSize = 0;
@@ -517,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showResultLoader(
+          showLoader(
             `Compressing ${i + 1}/${state.files.length}: ${file.name}...`
           );
           totalOriginalSize += file.size;
