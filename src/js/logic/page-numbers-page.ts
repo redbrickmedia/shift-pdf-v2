@@ -2,12 +2,7 @@ import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
-import {
-  downloadFile,
-  hexToRgb,
-  formatBytes,
-  parsePageRanges,
-} from '../utils/helpers.js';
+import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers.js';
 import { rgb, StandardFonts } from 'pdf-lib';
 import JSZip from 'jszip';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
@@ -454,7 +449,15 @@ function updateFileDisplay() {
     createIcons({ icons });
     optionsPanel?.classList.remove('hidden');
     fileControls?.classList.remove('hidden');
-    if (totalPagesSpan) totalPagesSpan.textContent = String(totalPages);
+    const maxEntryPages = Math.max(
+      ...pageState.entries.map((e) => e.pageCount)
+    );
+    if (totalPagesSpan) {
+      totalPagesSpan.textContent =
+        pageState.entries.length === 1
+          ? String(totalPages)
+          : `${maxEntryPages} per file (${totalPages} total)`;
+    }
     setWorkspaceFiles(pageState.entries.map((e) => e.file));
   } else {
     optionsPanel?.classList.add('hidden');
@@ -462,6 +465,55 @@ function updateFileDisplay() {
     if (totalPagesSpan) totalPagesSpan.textContent = '0';
   }
   syncToolOutputToolbar();
+}
+
+function resolveBatchEntryPageIndices(
+  rangeString: string,
+  entryPageCount: number
+): number[] {
+  const trimmed = rangeString.trim();
+  if (!trimmed) {
+    return Array.from({ length: entryPageCount }, (_, i) => i);
+  }
+
+  const indices = new Set<number>();
+  const parts = trimmed.split(',');
+
+  for (const part of parts) {
+    const token = part.trim();
+    if (!token) continue;
+    if (token.includes('-')) {
+      const [start, end] = token.split('-').map(Number);
+      if (isNaN(start) || isNaN(end) || start < 1 || start > end) {
+        continue;
+      }
+      if (start > entryPageCount) {
+        continue;
+      }
+      const clampedEnd = Math.min(end, entryPageCount);
+      for (let p = start; p <= clampedEnd; p++) {
+        indices.add(p - 1);
+      }
+    } else {
+      const pageNum = Number(token);
+      if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= entryPageCount) {
+        indices.add(pageNum - 1);
+      }
+    }
+  }
+
+  return Array.from(indices).sort((a, b) => a - b);
+}
+
+function validateBatchPageRangeOrThrow(pageRangeInput: string): void {
+  const trimmed = pageRangeInput.trim();
+  if (!trimmed) return;
+  const anyMatched = pageState.entries.some(
+    (entry) => resolveBatchEntryPageIndices(trimmed, entry.pageCount).length > 0
+  );
+  if (!anyMatched) {
+    throw new Error('Invalid page range specified.');
+  }
 }
 
 function resetState() {
@@ -530,11 +582,12 @@ async function applyPageNumbersBatch(
         ?.value || '1'
     ) || 1;
 
+  validateBatchPageRangeOrThrow(pageRangeInput);
   const outputs: { name: string; bytes: Uint8Array }[] = [];
 
   for (const entry of pageState.entries) {
     const pageIndices = pageRangeInput.trim()
-      ? parsePageRanges(pageRangeInput, entry.pageCount)
+      ? resolveBatchEntryPageIndices(pageRangeInput, entry.pageCount)
       : undefined;
     const resultBytes = await addPageNumbersToPdf(entry.bytes, {
       position,
@@ -557,6 +610,7 @@ async function applyHeaderFooterBatch(
   textColor: { r: number; g: number; b: number },
   pageRangeInput: string
 ): Promise<{ name: string; bytes: Uint8Array }[]> {
+  validateBatchPageRangeOrThrow(pageRangeInput);
   const texts = getHeaderFooterTexts();
   const margin = 40;
   const outputs: { name: string; bytes: Uint8Array }[] = [];
@@ -566,10 +620,10 @@ async function applyHeaderFooterBatch(
     const font = await pdfDoc.embedFont(StandardFonts[fontFamily]);
     const allPages = pdfDoc.getPages();
     const totalPages = allPages.length;
-    const indicesToProcess = parsePageRanges(pageRangeInput, totalPages);
-    if (indicesToProcess.length === 0) {
-      throw new Error('Invalid page range specified.');
-    }
+    const indicesToProcess = resolveBatchEntryPageIndices(
+      pageRangeInput,
+      totalPages
+    );
 
     const drawOptions = {
       font,
@@ -678,6 +732,7 @@ async function applyBatesBatch(
         ?.value || '1'
     ) || 1;
 
+  validateBatchPageRangeOrThrow(pageRangeInput);
   const outputs: { name: string; bytes: Uint8Array }[] = [];
   let batesCounter = batesStart;
   let fileCounter = fileStart;
@@ -688,7 +743,7 @@ async function applyBatesBatch(
     const pages = pdfDoc.getPages();
     const fileName = entry.file.name.replace(/\.pdf$/i, '');
     const allowedIndices = pageRangeInput.trim()
-      ? new Set(parsePageRanges(pageRangeInput, pages.length))
+      ? new Set(resolveBatchEntryPageIndices(pageRangeInput, pages.length))
       : null;
 
     for (let i = 0; i < pages.length; i++) {
