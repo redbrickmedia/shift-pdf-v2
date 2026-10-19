@@ -18,14 +18,23 @@ import { resetToolFilesSeededState } from '../js/logic/tool-file-seed';
 import { clearPersistedOpenFile } from '../js/logic/open-file-store';
 import * as openFileStore from '../js/logic/open-file-store';
 
-const { getPDFDocument, batchDecryptIfNeeded } = vi.hoisted(() => ({
-  getPDFDocument: vi.fn(),
-  batchDecryptIfNeeded: vi.fn(async (files: File[]) => files),
-}));
+const { getPDFDocument, batchDecryptIfNeeded, interleavePdfsMock } = vi.hoisted(
+  () => ({
+    getPDFDocument: vi.fn(),
+    batchDecryptIfNeeded: vi.fn(async (files: File[]) => files),
+    interleavePdfsMock: vi.fn(
+      async () => new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52])
+    ),
+  })
+);
 
 vi.mock('../js/utils/pdfjs.js', () => ({
   pdfjsLib: {},
   getPDFDocument,
+}));
+
+vi.mock('../js/utils/alternate-merge.js', () => ({
+  interleavePdfs: interleavePdfsMock,
 }));
 
 vi.mock('../js/utils/password-prompt.js', () => ({
@@ -50,12 +59,17 @@ vi.mock('../js/analytics/index.js', () => ({
 vi.mock('../js/utils/wasm-provider.js', () => ({
   isCpdfAvailable: vi.fn(() => true),
   showWasmRequiredDialog: vi.fn(),
-  WasmProvider: { getUrl: vi.fn(() => 'https://example.test/') },
+  WasmProvider: {
+    getUrl: vi.fn(() => 'https://example.test/'),
+    isConfigured: vi.fn(() => true),
+  },
 }));
 
 vi.mock('../js/utils/render-utils.js', () => ({
   cleanupLazyRendering: vi.fn(),
-  renderPageToCanvas: vi.fn(),
+  renderPageToCanvas: vi.fn(async () => ({
+    toDataURL: () => 'data:image/jpeg;base64,',
+  })),
 }));
 
 vi.mock('../js/embedder/shift-file-handoff.js', () => ({
@@ -93,29 +107,37 @@ async function deleteIndexedDatabases(): Promise<void> {
 }
 
 const MERGE_PAGE_DOM = `
-  <div id="drop-zone">
-    <input id="file-input" type="file" accept="application/pdf" multiple />
+  <div id="uploader">
+    <div id="tool-uploader">
+      <h1 data-i18n="tools:mergePdf.name">Merge PDF</h1>
+      <p data-i18n="tools:mergePdf.subtitle">Combine whole files, or select specific pages to merge into a new document.</p>
+      <div id="drop-zone">
+        <input id="file-input" type="file" accept="application/pdf" multiple />
+      </div>
+      <div id="file-controls" class="hidden"></div>
+      <div id="merge-options" class="hidden"></div>
+      <button id="add-more-btn" type="button"></button>
+      <button id="clear-files-btn" type="button"></button>
+      <button id="process-btn" type="button" disabled></button>
+      <button id="undo-merge-btn" type="button" disabled></button>
+      <button id="redo-merge-btn" type="button" disabled></button>
+      <button id="file-mode-btn" type="button"></button>
+      <button id="page-mode-btn" type="button"></button>
+      <button id="alternate-mode-btn" type="button"></button>
+      <div id="file-mode-panel"></div>
+      <div id="alternate-mode-panel" class="hidden"></div>
+      <div id="page-mode-panel" class="hidden"></div>
+      <ul id="file-list"></ul>
+      <div id="page-merge-preview"></div>
+      <input id="retain-page-labels" type="checkbox" />
+      <section id="completion-panel" class="hidden">
+        <p id="completion-summary"></p>
+        <span id="completion-timing"></span>
+        <a id="completion-download" href="#"></a>
+        <button id="completion-start-over" type="button"></button>
+      </section>
+    </div>
   </div>
-  <div id="file-controls" class="hidden"></div>
-  <div id="merge-options" class="hidden"></div>
-  <button id="add-more-btn" type="button"></button>
-  <button id="clear-files-btn" type="button"></button>
-  <button id="process-btn" type="button" disabled></button>
-  <button id="undo-merge-btn" type="button" disabled></button>
-  <button id="redo-merge-btn" type="button" disabled></button>
-  <button id="file-mode-btn" type="button"></button>
-  <button id="page-mode-btn" type="button"></button>
-  <div id="file-mode-panel"></div>
-  <div id="page-mode-panel" class="hidden"></div>
-  <ul id="file-list"></ul>
-  <div id="page-merge-preview"></div>
-  <input id="retain-page-labels" type="checkbox" />
-  <section id="completion-panel" class="hidden">
-    <p id="completion-summary"></p>
-    <span id="completion-timing"></span>
-    <a id="completion-download" href="#"></a>
-    <button id="completion-start-over" type="button"></button>
-  </section>
 `;
 
 function mockPdfDocument(numPages = 2) {
@@ -138,12 +160,14 @@ afterEach(async () => {
 
 describe('merge pdf page', () => {
   beforeAll(async () => {
-    document.body.innerHTML = MERGE_PAGE_DOM;
     await import('../js/logic/merge-pdf-page.ts');
-    document.dispatchEvent(new Event('DOMContentLoaded'));
   });
 
   beforeEach(async () => {
+    window.history.replaceState({}, '', '/merge-pdf.html');
+    document.title = 'Merge PDF | Shift PDF';
+    document.body.innerHTML = MERGE_PAGE_DOM;
+    document.dispatchEvent(new Event('DOMContentLoaded'));
     state.files = [];
     resetToolFilesSeededState();
     resetWorkspaceFileIndicator();
@@ -219,5 +243,122 @@ describe('merge pdf page', () => {
     expect(
       (document.getElementById('process-btn') as HTMLButtonElement).disabled
     ).toBe(false);
+  });
+
+  it('pre-selects Alternate & Mix on ?entry=alternate-merge, syncs ?entry via replaceState when switching tabs, supports per-file reverse toggles + undo/redo, and interleaves via interleavePdfs on commit', async () => {
+    const { getLatestPdfOutput, clearLatestPdfOutput } =
+      await import('../js/logic/shift-pdf-save');
+    clearLatestPdfOutput();
+
+    window.history.replaceState(
+      {},
+      '',
+      '/merge-pdf.html?entry=alternate-merge'
+    );
+    document.title = 'Merge PDF | Shift PDF';
+    document.getElementById('clear-files-btn')?.click();
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('#file-list li')).toHaveLength(0);
+    });
+
+    const alternateBtn = document.getElementById(
+      'alternate-mode-btn'
+    ) as HTMLButtonElement;
+    const fileBtn = document.getElementById(
+      'file-mode-btn'
+    ) as HTMLButtonElement;
+    const pageBtn = document.getElementById(
+      'page-mode-btn'
+    ) as HTMLButtonElement;
+
+    expect(alternateBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(fileBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(
+      document
+        .getElementById('alternate-mode-panel')
+        ?.classList.contains('hidden')
+    ).toBe(false);
+    expect(
+      document.getElementById('file-mode-panel')?.classList.contains('hidden')
+    ).toBe(true);
+
+    // Upload two files
+    const fileInput = document.getElementById('file-input') as HTMLInputElement;
+    const f1 = new File(['one'], 'odd-pages.pdf', { type: 'application/pdf' });
+    const f2 = new File(['two'], 'even-pages.pdf', { type: 'application/pdf' });
+    Object.defineProperty(fileInput, 'files', {
+      value: [f1, f2],
+      configurable: true,
+    });
+    fileInput.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('#file-list li')).toHaveLength(2);
+    });
+
+    // Switching to File Mode clears ?entry=alternate-merge -> bare /merge-pdf.html
+    fileBtn.click();
+    expect(window.location.search).toBe('');
+    expect(fileBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(alternateBtn.getAttribute('aria-pressed')).toBe('false');
+
+    // Switching to Page Mode keeps bare /merge-pdf.html
+    pageBtn.click();
+    expect(window.location.search).toBe('');
+    expect(pageBtn.getAttribute('aria-pressed')).toBe('true');
+
+    // Switching back to Alternate & Mix sets ?entry=alternate-merge
+    alternateBtn.click();
+    expect(window.location.search).toBe('?entry=alternate-merge');
+    expect(alternateBtn.getAttribute('aria-pressed')).toBe('true');
+
+    // Per-file reverse toggles are rendered in Alternate & Mix mode
+    const reverseToggles = () =>
+      Array.from(
+        document.querySelectorAll<HTMLInputElement>(
+          '#file-list input[data-reverse-toggle]'
+        )
+      );
+    expect(reverseToggles()).toHaveLength(2);
+    expect(reverseToggles()[1]?.checked).toBe(false);
+
+    // Toggle reverse on second file and retainPageLabels
+    reverseToggles()[1]!.checked = true;
+    reverseToggles()[1]!.dispatchEvent(new Event('change'));
+
+    const retainLabels = document.getElementById(
+      'retain-page-labels'
+    ) as HTMLInputElement;
+    retainLabels.checked = true;
+    retainLabels.dispatchEvent(new Event('change'));
+
+    // Undo unchecks retainPageLabels, Redo restores it
+    document.getElementById('undo-merge-btn')?.click();
+    await vi.waitFor(() => {
+      expect(retainLabels.checked).toBe(false);
+    });
+    document.getElementById('redo-merge-btn')?.click();
+    await vi.waitFor(() => {
+      expect(retainLabels.checked).toBe(true);
+    });
+
+    // Commit in alternate mode invokes interleavePdfs and stages alternated-mixed.pdf
+    document.getElementById('process-btn')?.click();
+    await vi.waitFor(() => {
+      expect(interleavePdfsMock).toHaveBeenCalledTimes(1);
+    });
+    expect(interleavePdfsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: [
+          expect.objectContaining({ reverse: false }),
+          expect.objectContaining({ reverse: true }),
+        ],
+        reverseFlags: [false, true],
+        retainPageLabels: true,
+      })
+    );
+    expect(getLatestPdfOutput()?.filename).toBe('alternated-mixed.pdf');
+
+    window.history.replaceState({}, '', '/merge-pdf.html');
   });
 });

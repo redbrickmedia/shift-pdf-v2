@@ -9,4 +9,5 @@ export interface AlternateMergeState {
 export interface InterleaveFile {
   name: string;
   data: ArrayBuffer;
+  reverse?: boolean;
 }

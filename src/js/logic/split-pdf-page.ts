@@ -33,11 +33,25 @@ import {
   extractPagesWithQpdf,
 } from '../utils/split-pdf-helpers.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
-import { registerToolOutputSession } from './tool-output-toolbar.ts';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.ts';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+} from './launch-context.js';
+import {
+  clearWorkspaceOpenFile,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   let visualSelectorRendered = false;
   let isSplitting = false;
+
+  const getDefaultSplitMode = (): string =>
+    resolveLaunchContext().entryId === 'extract-pages' ? 'visual' : 'range';
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
@@ -91,7 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBtn.onclick = () => {
           state.files = [];
           state.pdfDoc = null;
-          updateUI();
+          void clearWorkspaceOpenFile();
+          void updateUI();
         };
 
         fileDiv.append(infoContainer, removeBtn);
@@ -103,33 +118,41 @@ document.addEventListener('DOMContentLoaded', () => {
           const result = await loadPdfWithPasswordPrompt(file);
           if (!result) {
             state.files = [];
-            updateUI();
+            void updateUI();
             return;
           }
           const pageCount = result.pdf.numPages;
           result.pdf.destroy();
           state.files[0] = result.file;
           state.pdfDoc = await loadPdfDocument(result.bytes);
+          visualSelectorRendered = false;
+          setWorkspaceFiles(state.files);
           metaSpan.textContent = `${formatBytes(file.size)} • ${pageCount} pages`;
         } catch (error) {
           console.error('Error loading PDF:', error);
           showAlert('Error', 'Failed to load PDF file.');
           state.files = [];
-          updateUI();
+          void updateUI();
           return;
         }
       }
 
       if (splitOptions) splitOptions.classList.remove('hidden');
+      if (splitModeSelect?.value === 'visual') {
+        await renderVisualSelector();
+      }
+      syncToolOutputToolbar();
     } else {
       if (fileDisplayArea) fileDisplayArea.innerHTML = '';
       if (splitOptions) splitOptions.classList.add('hidden');
       state.pdfDoc = null;
+      syncToolOutputToolbar();
     }
   };
 
   const renderVisualSelector = async () => {
     if (visualSelectorRendered) return;
+    if (!state.pdfDoc && state.files.length === 0) return;
 
     const container = document.getElementById('page-selector-grid');
     if (!container) return;
@@ -237,6 +260,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const applyDefaultModeAndOutput = () => {
+    const defaultMode = getDefaultSplitMode();
+
+    const combineRadio = document.getElementById(
+      'output-combine'
+    ) as HTMLInputElement | null;
+    const separateRadio = document.getElementById(
+      'output-separate'
+    ) as HTMLInputElement | null;
+    if (combineRadio) combineRadio.checked = true;
+    if (separateRadio) separateRadio.checked = false;
+
+    const modeRadio = document.querySelector(
+      `input[name="split-mode"][value="${defaultMode}"]`
+    ) as HTMLInputElement | null;
+    if (modeRadio) {
+      modeRadio.checked = true;
+      modeRadio.dispatchEvent(new Event('change'));
+    }
+
+    if (splitModeSelect) {
+      splitModeSelect.value = defaultMode;
+      splitModeSelect.dispatchEvent(new Event('change'));
+    }
+  };
+
   const resetState = () => {
     state.files = [];
     state.pdfDoc = null;
@@ -263,31 +312,33 @@ document.addEventListener('DOMContentLoaded', () => {
     ) as HTMLInputElement;
     if (nValueInput) nValueInput.value = '5';
 
-    const combineRadio = document.getElementById(
-      'output-combine'
-    ) as HTMLInputElement;
-    if (combineRadio) combineRadio.checked = true;
+    applyDefaultModeAndOutput();
+    void clearWorkspaceOpenFile();
+    void updateUI();
+  };
 
-    // Reset radio buttons to default (range)
-    const rangeRadio = document.querySelector(
-      'input[name="split-mode"][value="range"]'
-    ) as HTMLInputElement;
-    if (rangeRadio) {
-      rangeRadio.checked = true;
-      rangeRadio.dispatchEvent(new Event('change'));
+  const resolveOutputKind = (): 'pdf' | 'multi-pdf-zip' => {
+    const mode = splitModeSelect?.value ?? getDefaultSplitMode();
+    if (mode === 'all' || mode === 'bookmarks' || mode === 'n-times') {
+      return 'multi-pdf-zip';
     }
-
-    // Reset split mode select
-    if (splitModeSelect) {
-      splitModeSelect.value = 'range';
-      splitModeSelect.dispatchEvent(new Event('change'));
+    if (mode === 'range' || mode === 'visual') {
+      const separate =
+        (
+          document.querySelector(
+            'input[name="split-output-mode"]:checked'
+          ) as HTMLInputElement | null
+        )?.value === 'separate';
+      if (separate) return 'multi-pdf-zip';
     }
-
-    updateUI();
+    return 'pdf';
   };
 
   registerToolOutputSession({
+    apply: () => split(),
     reset: resetState,
+    canSave: () => Boolean(state.pdfDoc) && !isSplitting,
+    outputKind: resolveOutputKind,
   });
 
   const split = async () => {
@@ -616,12 +667,25 @@ document.addEventListener('DOMContentLoaded', () => {
           .getElementById('split-n-value')
           ?.addEventListener('input', updateWarning);
       }
+
+      syncToolOutputToolbar();
     });
   }
+
+  document
+    .querySelectorAll('input[name="split-output-mode"]')
+    .forEach((radio) => {
+      radio.addEventListener('change', () => {
+        syncToolOutputToolbar();
+      });
+    });
 
   if (processBtn) {
     processBtn.addEventListener('click', split);
   }
+
+  applyLaunchContextToDom(document);
+  applyDefaultModeAndOutput();
 
   onToolFilesSeeded(() => {
     void updateUI();

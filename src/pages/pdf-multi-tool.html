@@ -108,57 +108,34 @@
     class="antialiased bg-gray-900 h-[100dvh] overflow-hidden flex flex-col"
   >
     {{> navbar }}
-    <!-- SEO H1 (visually hidden but present for search engines) -->
-    <h1 class="sr-only">PDF Multi Tool Free Online - Edit & Organize PDFs</h1>
 
     <!-- Main Container -->
-    <div class="flex flex-col flex-1 overflow-hidden relative">
+    <div
+      id="uploader"
+      class="shift-pdf-viewer-shell flex flex-col flex-1 overflow-hidden relative"
+    >
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1 data-i18n="tools:pdfMultiTool.name">PDF Multi Tool</h1>
+          <p
+            data-viewer-chrome="subtitle"
+            data-i18n="tools:pdfMultiTool.subtitle"
+          >
+            Merge, Split, Organize, Delete, Rotate, Add Blank Pages, Extract and
+            Duplicate in an unified interface.
+          </p>
+        </div>
+        <div
+          class="shift-pdf-viewer-actions shift-action-row"
+          data-shift-viewer-actions
+          role="group"
+          aria-label="PDF actions"
+        ></div>
+      </header>
+
       <!-- Toolbar -->
       <div class="toolbar-container shift-chrome-bar flex-none z-20">
         <div class="shift-action-row" role="group" aria-label="PDF actions">
-          <div
-            class="shift-action-group"
-            data-shift-action-group="history"
-            role="group"
-            aria-labelledby="multi-tool-edit-caption"
-          >
-            <span
-              id="multi-tool-edit-caption"
-              class="shift-action-caption"
-              data-i18n="multiTool.edit"
-              >Edit:</span
-            >
-            <button
-              id="undo-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="undo"
-              aria-label="Undo"
-            >
-              <i data-lucide="undo-2" aria-hidden="true"></i>
-              <span data-i18n="multiTool.undo">Undo</span>
-            </button>
-            <button
-              id="redo-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="redo"
-              aria-label="Redo"
-            >
-              <i data-lucide="redo-2" aria-hidden="true"></i>
-              <span data-i18n="multiTool.redo">Redo</span>
-            </button>
-            <button
-              id="reset-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="reset"
-              aria-label="Reset"
-            >
-              <i data-lucide="refresh-ccw" aria-hidden="true"></i>
-              <span data-i18n="multiTool.reset">Reset</span>
-            </button>
-          </div>
           <div
             class="shift-action-group"
             data-shift-action-group="output"
@@ -182,16 +159,6 @@
               <span data-i18n="multiTool.downloadSelected"
                 >Download Selected</span
               >
-            </button>
-            <button
-              id="export-pdf-btn"
-              type="button"
-              class="shift-pdf-viewer-action shift-action-button"
-              data-shift-action="download"
-              aria-label="Export PDF"
-            >
-              <i data-lucide="download" aria-hidden="true"></i>
-              <span data-i18n="multiTool.exportPdf">Export PDF</span>
             </button>
           </div>
           <div class="shift-action-group" data-shift-action-group="extras">
@@ -309,6 +276,16 @@
               >
                 <i data-lucide="scissors" aria-hidden="true"></i>
                 <span data-i18n="multiTool.split">Split</span>
+              </button>
+              <button
+                id="reverse-pages-btn"
+                type="button"
+                class="shift-pdf-viewer-action shift-action-button"
+                data-shift-action="extra"
+                aria-label="Reverse"
+              >
+                <i data-lucide="arrow-up-down" aria-hidden="true"></i>
+                <span data-i18n="multiTool.reverse">Reverse</span>
               </button>
             </div>
             <div

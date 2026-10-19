@@ -117,6 +117,41 @@ describe('Launch Context resolution and DOM synchronization', () => {
     expect(fileInput?.multiple).toBe(false);
   });
 
+  it('applies Launch Context accept and multiple to #pdf-file-input on pdf-multi-tool', () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/pdf-multi-tool.html?entry=rotate-pdf'
+    );
+    document.title = 'PDF Multi Tool | Shift PDF';
+    document.body.innerHTML = `
+      <div id="uploader" class="shift-pdf-viewer-shell">
+        <header class="shift-pdf-viewer-header">
+          <div class="shift-pdf-viewer-heading">
+            <h1>PDF Multi Tool</h1>
+            <p data-viewer-chrome="subtitle">Subtitle</p>
+          </div>
+          <div class="shift-pdf-viewer-actions" data-shift-viewer-actions></div>
+        </header>
+        <input id="pdf-file-input" type="file" accept="application/pdf,image/*" />
+      </div>
+    `;
+
+    applyLaunchContextToDom(document);
+
+    const pdfInput =
+      document.querySelector<HTMLInputElement>('#pdf-file-input');
+    expect(pdfInput?.accept).toBe('application/pdf');
+    expect(pdfInput?.multiple).toBe(true);
+    expect(
+      document.querySelector('.shift-pdf-viewer-header h1')?.textContent
+    ).toBe('Rotate PDF');
+
+    setLaunchContext('pdf-multi-tool', document);
+    expect(pdfInput?.accept).toContain('image/*');
+    expect(pdfInput?.multiple).toBe(true);
+  });
+
   it('syncs URL, header copy, file input, and telemetry attribution on in-surface mode changes via setLaunchContext', () => {
     window.history.replaceState(
       {},

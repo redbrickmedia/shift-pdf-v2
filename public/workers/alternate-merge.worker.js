@@ -43,11 +43,11 @@ self.onmessage = async function (e) {
   }
 
   if (command === 'interleave') {
-    interleavePDFs(files, retainPageLabels === true);
+    interleavePDFs(files, retainPageLabels === true, e.data.reverseFlags);
   }
 };
 
-function interleavePDFs(files, retainPageLabels) {
+function interleavePDFs(files, retainPageLabels, reverseFlags) {
   try {
     const loadedPdfs = [];
     const pageCounts = [];
@@ -71,8 +71,12 @@ function interleavePDFs(files, retainPageLabels) {
     for (let i = 1; i <= maxPages; i++) {
       for (let j = 0; j < loadedPdfs.length; j++) {
         if (i <= pageCounts[j]) {
+          const isReversed =
+            (Array.isArray(reverseFlags) && reverseFlags[j] === true) ||
+            Boolean(files[j] && files[j].reverse);
+          const pageNum = isReversed ? pageCounts[j] - i + 1 : i;
           pdfsToMerge.push(loadedPdfs[j]);
-          rangesToMerge.push(coherentpdf.range(i, i));
+          rangesToMerge.push(coherentpdf.range(pageNum, pageNum));
         }
       }
     }

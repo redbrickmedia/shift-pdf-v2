@@ -51,6 +51,10 @@ afterEach(async () => {
   resetToolFilesSeededState();
   resetWorkspaceFileIndicator();
   await clearPdfLibrary();
+  document.documentElement.removeAttribute('data-launch-entry');
+  document.documentElement.removeAttribute('data-launch-surface');
+  document.documentElement.removeAttribute('data-launch-context-applied');
+  window.history.replaceState({}, '', '/');
   vi.resetModules();
 });
 
@@ -88,5 +92,83 @@ describe('extract pages page', () => {
     expect(document.getElementById('file-display-area')?.textContent).toContain(
       'saved.pdf'
     );
+  });
+
+  it('pre-selects Visual Page Selector and Single combined PDF when split-pdf.html is launched with ?entry=extract-pages, preserves ?entry on mode change, and restores Launch Context defaults on reset', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { initToolOutputToolbar, TOOL_OUTPUT_RESET_ID } =
+      await import('../js/logic/tool-output-toolbar');
+
+    const html = readFileSync(
+      resolve(process.cwd(), 'src/pages/split-pdf.html'),
+      'utf8'
+    );
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    document.body.innerHTML = (bodyMatch?.[1] ?? '')
+      .replace(/\{\{>\s*navbar\s*\}\}/g, '')
+      .replace(/\{\{>\s*footer\s*\}\}/g, '')
+      .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+
+    window.history.replaceState({}, '', '/split-pdf.html?entry=extract-pages');
+    document.title = 'Split PDF | Shift PDF';
+
+    initToolOutputToolbar();
+    await import('../js/logic/split-pdf-page.ts');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const splitMode = document.getElementById(
+      'split-mode'
+    ) as HTMLSelectElement;
+    const combineRadio = document.getElementById(
+      'output-combine'
+    ) as HTMLInputElement;
+    const separateRadio = document.getElementById(
+      'output-separate'
+    ) as HTMLInputElement;
+
+    expect(
+      document.querySelector('.shift-pdf-viewer-header h1')?.textContent
+    ).toBe('Extract Pages');
+    expect(document.title).toBe('Extract Pages | Shift PDF');
+    expect(splitMode.value).toBe('visual');
+    expect(combineRadio.checked).toBe(true);
+    expect(separateRadio.disabled).toBe(false);
+    expect(
+      document
+        .getElementById('visual-select-panel')
+        ?.classList.contains('hidden')
+    ).toBe(false);
+    expect(
+      document.getElementById('range-panel')?.classList.contains('hidden')
+    ).toBe(true);
+    expect(Array.from(splitMode.options).map((o) => o.value)).toEqual([
+      'range',
+      'even-odd',
+      'all',
+      'visual',
+      'bookmarks',
+      'n-times',
+    ]);
+
+    // Switching split modes does NOT overwrite ?entry=extract-pages
+    splitMode.value = 'even-odd';
+    splitMode.dispatchEvent(new Event('change'));
+    expect(window.location.search).toBe('?entry=extract-pages');
+    expect(
+      document.getElementById('even-odd-panel')?.classList.contains('hidden')
+    ).toBe(false);
+
+    // Resetting restores visual + combine for ?entry=extract-pages
+    separateRadio.checked = true;
+    combineRadio.checked = false;
+    (
+      document.getElementById(TOOL_OUTPUT_RESET_ID) as HTMLButtonElement
+    )?.click();
+
+    await vi.waitFor(() => {
+      expect(splitMode.value).toBe('visual');
+      expect(combineRadio.checked).toBe(true);
+    });
   });
 });
