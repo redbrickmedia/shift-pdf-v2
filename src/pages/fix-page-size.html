@@ -87,7 +87,7 @@
     >
       <div
         id="tool-uploader"
-        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-2xl w-full text-gray-200 border border-gray-700"
+        class="bg-gray-800 rounded-xl shadow-xl px-4 py-8 md:p-8 max-w-4xl w-full text-gray-200 border border-gray-700"
       >
         <h1
           class="text-2xl font-bold text-white mb-2"
@@ -128,150 +128,217 @@
 
         <div id="file-display-area" class="mt-4 space-y-2"></div>
 
-        <!-- Fix Page Size Options -->
-        <div id="tool-options" class="hidden mt-6 space-y-4">
-          <!-- Target Size -->
-          <div>
-            <label
-              for="target-size"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >Target Page Size</label
+        <!-- Fix Page Size & Page Dimensions Options -->
+        <div id="tool-options" class="hidden mt-6 space-y-6">
+          <!-- Current Page Dimensions & Mixed-Size Inspector -->
+          <div
+            id="dimensions-results"
+            class="hidden border-b border-gray-700 pb-6"
+          >
+            <h2 class="text-lg font-semibold text-white mb-4">
+              Current Page Dimensions &amp; Mixed-Size Inspector
+            </h2>
+
+            <div id="dimensions-summary" class="mb-6"></div>
+
+            <div
+              class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4"
             >
-            <select
-              id="target-size"
-              class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
-            >
-              <option value="A4">A4 (210 × 297 mm)</option>
-              <option value="Letter">Letter (8.5 × 11 in)</option>
-              <option value="Legal">Legal (8.5 × 14 in)</option>
-              <option value="A3">A3 (297 × 420 mm)</option>
-              <option value="A5">A5 (148 × 210 mm)</option>
-              <option value="Tabloid">Tabloid (11 × 17 in)</option>
-              <option value="Custom">Custom...</option>
-            </select>
+              <div class="flex items-center gap-2">
+                <label
+                  for="units-select"
+                  class="text-sm font-medium text-gray-300"
+                  >Units:</label
+                >
+                <select
+                  id="units-select"
+                  class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg p-2"
+                >
+                  <option value="pt">Points (pt)</option>
+                  <option value="in">Inches (in)</option>
+                  <option value="mm">Millimeters (mm)</option>
+                  <option value="px">Pixels (px)</option>
+                </select>
+              </div>
+              <button
+                id="export-csv-btn"
+                type="button"
+                class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors"
+              >
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Export to CSV</span>
+              </button>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-gray-700">
+              <table class="w-full text-sm text-left">
+                <thead class="text-xs uppercase bg-gray-900 text-gray-400">
+                  <tr>
+                    <th class="px-4 py-3">Page #</th>
+                    <th class="px-4 py-3">Dimensions</th>
+                    <th class="px-4 py-3">Standard Size</th>
+                    <th class="px-4 py-3">Orientation</th>
+                    <th class="px-4 py-3">Aspect Ratio</th>
+                    <th class="px-4 py-3">Area</th>
+                    <th class="px-4 py-3">Rotation</th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="dimensions-table-body"
+                  class="bg-gray-800 divide-y divide-gray-700"
+                ></tbody>
+              </table>
+            </div>
           </div>
 
-          <!-- Custom Size (hidden by default) -->
-          <div id="custom-size-wrapper" class="hidden space-y-3">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label
-                  for="custom-width"
-                  class="block mb-1 text-xs font-medium text-gray-400"
-                  >Width</label
-                >
-                <input
-                  type="number"
-                  id="custom-width"
-                  step="0.01"
-                  min="0.1"
-                  value="8.5"
-                  class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
-                />
-              </div>
-              <div>
-                <label
-                  for="custom-height"
-                  class="block mb-1 text-xs font-medium text-gray-400"
-                  >Height</label
-                >
-                <input
-                  type="number"
-                  id="custom-height"
-                  step="0.01"
-                  min="0.1"
-                  value="11"
-                  class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
-                />
-              </div>
-            </div>
+          <div id="standardize-section" class="space-y-4">
+            <h2 class="text-lg font-semibold text-white">
+              Standardize Page Size
+            </h2>
+
+            <!-- Target Size -->
             <div>
               <label
-                for="custom-units"
-                class="block mb-1 text-xs font-medium text-gray-400"
-                >Units</label
+                for="target-size"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >Target Page Size</label
               >
               <select
-                id="custom-units"
-                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
+                id="target-size"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
               >
-                <option value="in">Inches</option>
-                <option value="mm">Millimeters</option>
+                <option value="A4">A4 (210 × 297 mm)</option>
+                <option value="Letter">Letter (8.5 × 11 in)</option>
+                <option value="Legal">Legal (8.5 × 14 in)</option>
+                <option value="A3">A3 (297 × 420 mm)</option>
+                <option value="A5">A5 (148 × 210 mm)</option>
+                <option value="Tabloid">Tabloid (11 × 17 in)</option>
+                <option value="Custom">Custom...</option>
               </select>
             </div>
-          </div>
 
-          <!-- Orientation -->
-          <div>
-            <label
-              for="orientation"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >Orientation</label
-            >
-            <select
-              id="orientation"
-              class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
-            >
-              <option value="auto">Auto (Keep Original)</option>
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
-            </select>
-          </div>
-
-          <!-- Scaling Mode -->
-          <div>
-            <label class="block mb-2 text-sm font-medium text-gray-300"
-              >Content Scaling</label
-            >
-            <div class="flex gap-4 p-2 rounded-lg bg-gray-900">
-              <label
-                class="flex-1 flex items-center gap-2 p-3 rounded-md hover:bg-gray-700 cursor-pointer has-[:checked]:bg-indigo-600"
-              >
-                <input
-                  type="radio"
-                  name="scaling-mode"
-                  value="fit"
-                  checked
-                  class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
-                />
+            <!-- Custom Size (hidden by default) -->
+            <div id="custom-size-wrapper" class="hidden space-y-3">
+              <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <span class="font-semibold text-white">Fit</span>
-                  <p class="text-xs text-gray-400">
-                    Preserves all content, may add margins.
-                  </p>
+                  <label
+                    for="custom-width"
+                    class="block mb-1 text-xs font-medium text-gray-400"
+                    >Width</label
+                  >
+                  <input
+                    type="number"
+                    id="custom-width"
+                    step="0.01"
+                    min="0.1"
+                    value="8.5"
+                    class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
+                  />
                 </div>
-              </label>
-              <label
-                class="flex-1 flex items-center gap-2 p-3 rounded-md hover:bg-gray-700 cursor-pointer has-[:checked]:bg-indigo-600"
-              >
-                <input
-                  type="radio"
-                  name="scaling-mode"
-                  value="fill"
-                  class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
-                />
                 <div>
-                  <span class="font-semibold text-white">Fill (Crop)</span>
-                  <p class="text-xs text-gray-400">
-                    Fills the page, may crop content.
-                  </p>
+                  <label
+                    for="custom-height"
+                    class="block mb-1 text-xs font-medium text-gray-400"
+                    >Height</label
+                  >
+                  <input
+                    type="number"
+                    id="custom-height"
+                    step="0.01"
+                    min="0.1"
+                    value="11"
+                    class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
+                  />
                 </div>
-              </label>
+              </div>
+              <div>
+                <label
+                  for="custom-units"
+                  class="block mb-1 text-xs font-medium text-gray-400"
+                  >Units</label
+                >
+                <select
+                  id="custom-units"
+                  class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2 text-sm"
+                >
+                  <option value="in">Inches</option>
+                  <option value="mm">Millimeters</option>
+                </select>
+              </div>
             </div>
-          </div>
 
-          <!-- Background Color -->
-          <div>
-            <label
-              for="background-color"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >Background Color</label
-            >
-            <div class="flex items-center gap-3">
-              <input type="color" id="background-color" value="#ffffff" />
-              <span class="text-sm text-gray-400"
-                >Color for margins/padding</span
+            <!-- Orientation -->
+            <div>
+              <label
+                for="orientation"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >Orientation</label
               >
+              <select
+                id="orientation"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
+              >
+                <option value="auto">Auto (Keep Original)</option>
+                <option value="portrait">Portrait</option>
+                <option value="landscape">Landscape</option>
+              </select>
+            </div>
+
+            <!-- Scaling Mode -->
+            <div>
+              <label class="block mb-2 text-sm font-medium text-gray-300"
+                >Content Scaling</label
+              >
+              <div class="flex gap-4 p-2 rounded-lg bg-gray-900">
+                <label
+                  class="flex-1 flex items-center gap-2 p-3 rounded-md hover:bg-gray-700 cursor-pointer has-[:checked]:bg-indigo-600"
+                >
+                  <input
+                    type="radio"
+                    name="scaling-mode"
+                    value="fit"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span class="font-semibold text-white">Fit</span>
+                    <p class="text-xs text-gray-400">
+                      Preserves all content, may add margins.
+                    </p>
+                  </div>
+                </label>
+                <label
+                  class="flex-1 flex items-center gap-2 p-3 rounded-md hover:bg-gray-700 cursor-pointer has-[:checked]:bg-indigo-600"
+                >
+                  <input
+                    type="radio"
+                    name="scaling-mode"
+                    value="fill"
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span class="font-semibold text-white">Fill (Crop)</span>
+                    <p class="text-xs text-gray-400">
+                      Fills the page, may crop content.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Background Color -->
+            <div>
+              <label
+                for="background-color"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >Background Color</label
+              >
+              <div class="flex items-center gap-3">
+                <input type="color" id="background-color" value="#ffffff" />
+                <span class="text-sm text-gray-400"
+                  >Color for margins/padding</span
+                >
+              </div>
             </div>
           </div>
 

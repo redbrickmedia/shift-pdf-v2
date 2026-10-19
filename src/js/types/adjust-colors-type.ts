@@ -7,4 +7,9 @@ export interface AdjustColorsSettings {
   tint: number;
   gamma: number;
   sepia: number;
+  greyscale?: boolean;
+  invertColors?: boolean;
+  backgroundColor?: string | null;
+  textColor?: string | null;
+  textDarknessThreshold?: number;
 }

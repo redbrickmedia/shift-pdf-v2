@@ -6,16 +6,31 @@ import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
   downloadFile,
   formatBytes,
+  hexToRgb,
   readFileAsArrayBuffer,
   getPDFDocument,
 } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { applyColorAdjustments } from '../utils/image-effects.js';
 
 import type { AdjustColorsSettings } from '../types/adjust-colors-type.js';
 import { t } from '../i18n/i18n';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
+import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+} from './launch-context.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.ts';
+import { onToolFilesSeeded } from './tool-file-seed.js';
+import {
+  clearWorkspaceOpenFile,
+  setWorkspaceFiles,
+} from './workspace-files.js';
 
 let files: File[] = [];
 let cachedBaselineData: ImageData | null = null;
@@ -24,6 +39,25 @@ let cachedBaselineHeight = 0;
 let pdfjsDoc: pdfjsLib.PDFDocumentProxy | null = null;
 
 function getSettings(): AdjustColorsSettings {
+  const greyscaleToggle = document.getElementById(
+    'toggle-greyscale'
+  ) as HTMLInputElement | null;
+  const invertToggle = document.getElementById(
+    'toggle-invert'
+  ) as HTMLInputElement | null;
+  const bgToggle = document.getElementById(
+    'toggle-background-color'
+  ) as HTMLInputElement | null;
+  const bgInput = document.getElementById(
+    'background-color'
+  ) as HTMLInputElement | null;
+  const textToggle = document.getElementById(
+    'toggle-text-color'
+  ) as HTMLInputElement | null;
+  const textInput = document.getElementById(
+    'text-color-input'
+  ) as HTMLInputElement | null;
+
   return {
     brightness: parseInt(
       (document.getElementById('setting-brightness') as HTMLInputElement)
@@ -57,7 +91,29 @@ function getSettings(): AdjustColorsSettings {
       (document.getElementById('setting-sepia') as HTMLInputElement)?.value ??
         '0'
     ),
+    greyscale: Boolean(greyscaleToggle?.checked),
+    invertColors: Boolean(invertToggle?.checked),
+    backgroundColor: bgToggle?.checked ? (bgInput?.value ?? '#FFFFCC') : null,
+    textColor: textToggle?.checked ? (textInput?.value ?? '#0000FF') : null,
+    textDarknessThreshold: 120,
   };
+}
+
+function isVectorBackgroundOnly(settings: AdjustColorsSettings): boolean {
+  return (
+    Boolean(settings.backgroundColor) &&
+    settings.brightness === 0 &&
+    settings.contrast === 0 &&
+    settings.saturation === 0 &&
+    settings.hueShift === 0 &&
+    settings.temperature === 0 &&
+    settings.tint === 0 &&
+    Math.abs(settings.gamma - 1.0) < 0.001 &&
+    settings.sepia === 0 &&
+    !settings.greyscale &&
+    !settings.invertColors &&
+    !settings.textColor
+  );
 }
 
 const applyEffects = applyColorAdjustments;
@@ -71,11 +127,16 @@ function updatePreview(): void {
   if (!previewCanvas) return;
 
   const settings = getSettings();
-  const baselineCopy = new ImageData(
-    new Uint8ClampedArray(cachedBaselineData.data),
-    cachedBaselineWidth,
-    cachedBaselineHeight
-  );
+  const copyBytes = new Uint8ClampedArray(cachedBaselineData.data);
+  const baselineCopy =
+    typeof ImageData !== 'undefined'
+      ? new ImageData(copyBytes, cachedBaselineWidth, cachedBaselineHeight)
+      : ({
+          data: copyBytes,
+          width: cachedBaselineWidth,
+          height: cachedBaselineHeight,
+          colorSpace: 'srgb',
+        } as ImageData);
 
   applyEffects(baselineCopy, previewCanvas, settings);
 }
@@ -86,7 +147,8 @@ async function renderPreview(): Promise<void> {
   const page = await pdfjsDoc.getPage(1);
   const viewport = page.getViewport({ scale: 1.0 });
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
   canvas.width = viewport.width;
   canvas.height = viewport.height;
 
@@ -125,7 +187,11 @@ const updateUI = () => {
 
       const metaSpan = document.createElement('div');
       metaSpan.className = 'text-xs text-gray-400';
-      metaSpan.textContent = `${formatBytes(file.size)} • ${t('common.loadingPageCount')}`;
+      if (pdfjsDoc) {
+        metaSpan.textContent = `${formatBytes(file.size)} • ${pdfjsDoc.numPages} ${pdfjsDoc.numPages !== 1 ? t('common.pages') : t('common.page')}`;
+      } else {
+        metaSpan.textContent = formatBytes(file.size);
+      }
 
       infoContainer.append(nameSpan, metaSpan);
 
@@ -136,31 +202,19 @@ const updateUI = () => {
       removeBtn.title = `Remove ${file.name}`;
       removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
-        files = [];
-        pdfjsDoc = null;
-        cachedBaselineData = null;
-        updateUI();
+        resetState();
       };
 
       fileDiv.append(infoContainer, removeBtn);
       fileDisplayArea.appendChild(fileDiv);
-
-      readFileAsArrayBuffer(file)
-        .then((buffer: ArrayBuffer) => {
-          return getPDFDocument(buffer).promise;
-        })
-        .then((pdf: pdfjsLib.PDFDocumentProxy) => {
-          metaSpan.textContent = `${formatBytes(file.size)} • ${pdf.numPages} ${pdf.numPages !== 1 ? t('common.pages') : t('common.page')}`;
-        })
-        .catch(() => {
-          metaSpan.textContent = formatBytes(file.size);
-        });
     });
 
     createIcons({ icons });
+    setWorkspaceFiles(files);
   } else {
     optionsPanel.classList.add('hidden');
   }
+  syncToolOutputToolbar();
 };
 
 const resetState = () => {
@@ -169,8 +223,38 @@ const resetState = () => {
   cachedBaselineData = null;
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   if (fileInput) fileInput.value = '';
+  void clearWorkspaceOpenFile();
   updateUI();
 };
+
+async function applyVectorBackgroundUnderlay(
+  pdfBytes: ArrayBuffer,
+  colorHex: string
+): Promise<Uint8Array> {
+  const color = hexToRgb(colorHex);
+  const srcDoc = await loadPdfDocument(pdfBytes);
+  const newPdfDoc = await PDFDocument.create();
+
+  for (let i = 0; i < srcDoc.getPageCount(); i++) {
+    const [originalPage] = await newPdfDoc.copyPages(srcDoc, [i]);
+    const { width, height } = originalPage.getSize();
+    const newPage = newPdfDoc.addPage([width, height]);
+    newPage.drawRectangle({
+      x: 0,
+      y: 0,
+      width,
+      height,
+      color: rgb(color.r, color.g, color.b),
+    });
+    if (!originalPage.node.Contents()) {
+      continue;
+    }
+    const embeddedPage = await newPdfDoc.embedPage(originalPage);
+    newPage.drawPage(embeddedPage, { x: 0, y: 0, width, height });
+  }
+
+  return new Uint8Array(await newPdfDoc.save());
+}
 
 async function processAllPages(): Promise<void> {
   if (files.length === 0) {
@@ -183,6 +267,19 @@ async function processAllPages(): Promise<void> {
   try {
     const settings = getSettings();
     const pdfBytes = (await readFileAsArrayBuffer(files[0])) as ArrayBuffer;
+
+    if (isVectorBackgroundOnly(settings) && settings.backgroundColor) {
+      const resultBytes = await applyVectorBackgroundUnderlay(
+        pdfBytes,
+        settings.backgroundColor
+      );
+      downloadFile(
+        new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
+        files[0]?.name || 'document.pdf'
+      );
+      return;
+    }
+
     const doc = await getPDFDocument({ data: pdfBytes }).promise;
     const newPdfDoc = await PDFDocument.create();
 
@@ -237,14 +334,6 @@ async function processAllPages(): Promise<void> {
     downloadFile(
       new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
       files[0]?.name || 'document.pdf'
-    );
-    showAlert(
-      'Success',
-      'Color adjustments applied successfully!',
-      'success',
-      () => {
-        resetState();
-      }
     );
   } catch (e) {
     console.error(e);
@@ -308,6 +397,47 @@ const sliderDefaults: {
   },
 ];
 
+function applyLaunchContextDefaults(): void {
+  const entryId = resolveLaunchContext().entryId;
+  const greyscaleToggle = document.getElementById(
+    'toggle-greyscale'
+  ) as HTMLInputElement | null;
+  const invertToggle = document.getElementById(
+    'toggle-invert'
+  ) as HTMLInputElement | null;
+  const bgToggle = document.getElementById(
+    'toggle-background-color'
+  ) as HTMLInputElement | null;
+  const bgInput = document.getElementById(
+    'background-color'
+  ) as HTMLInputElement | null;
+  const textToggle = document.getElementById(
+    'toggle-text-color'
+  ) as HTMLInputElement | null;
+  const textInput = document.getElementById(
+    'text-color-input'
+  ) as HTMLInputElement | null;
+
+  if (greyscaleToggle) {
+    greyscaleToggle.checked = entryId === 'pdf-to-greyscale';
+  }
+  if (invertToggle) {
+    invertToggle.checked = entryId === 'invert-colors';
+  }
+  if (bgToggle) {
+    bgToggle.checked = entryId === 'background-color';
+  }
+  if (textToggle) {
+    textToggle.checked = entryId === 'text-color';
+  }
+
+  if (entryId === 'background-color' && bgInput) {
+    bgInput.focus();
+  } else if (entryId === 'text-color' && textInput) {
+    textInput.focus();
+  }
+}
+
 function resetSettings(): void {
   sliderDefaults.forEach(({ id, display, suffix, defaultValue }) => {
     const slider = document.getElementById(id) as HTMLInputElement;
@@ -316,7 +446,9 @@ function resetSettings(): void {
     if (label) label.textContent = defaultValue + suffix;
   });
 
+  applyLaunchContextDefaults();
   updatePreview();
+  syncToolOutputToolbar();
 }
 
 function setupSettingsListeners(): void {
@@ -327,9 +459,58 @@ function setupSettingsListeners(): void {
       slider.addEventListener('input', () => {
         label.textContent = slider.value + suffix;
         updatePreview();
+        syncToolOutputToolbar();
       });
     }
   });
+
+  for (const toggleId of [
+    'toggle-greyscale',
+    'toggle-invert',
+    'toggle-background-color',
+    'toggle-text-color',
+  ]) {
+    document.getElementById(toggleId)?.addEventListener('change', () => {
+      updatePreview();
+      syncToolOutputToolbar();
+    });
+  }
+
+  const bgInput = document.getElementById(
+    'background-color'
+  ) as HTMLInputElement | null;
+  const bgToggle = document.getElementById(
+    'toggle-background-color'
+  ) as HTMLInputElement | null;
+  if (bgInput) {
+    const onBgColorChange = () => {
+      if (bgToggle && !bgToggle.checked) {
+        bgToggle.checked = true;
+      }
+      updatePreview();
+      syncToolOutputToolbar();
+    };
+    bgInput.addEventListener('input', onBgColorChange);
+    bgInput.addEventListener('change', onBgColorChange);
+  }
+
+  const textInput = document.getElementById(
+    'text-color-input'
+  ) as HTMLInputElement | null;
+  const textToggle = document.getElementById(
+    'toggle-text-color'
+  ) as HTMLInputElement | null;
+  if (textInput) {
+    const onTextColorChange = () => {
+      if (textToggle && !textToggle.checked) {
+        textToggle.checked = true;
+      }
+      updatePreview();
+      syncToolOutputToolbar();
+    };
+    textInput.addEventListener('input', onTextColorChange);
+    textInput.addEventListener('change', onTextColorChange);
+  }
 
   const resetBtn = document.getElementById('reset-settings-btn');
   if (resetBtn) {
@@ -338,6 +519,13 @@ function setupSettingsListeners(): void {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  files = [];
+  pdfjsDoc = null;
+  cachedBaselineData = null;
+
+  applyLaunchContextToDom(document);
+  applyLaunchContextDefaults();
+
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
@@ -345,7 +533,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleFileSelect = async (newFiles: FileList | null) => {
     if (!newFiles || newFiles.length === 0) return;
     const validFiles = Array.from(newFiles).filter(
-      (file) => file.type === 'application/pdf'
+      (file) =>
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
     );
 
     if (validFiles.length === 0) {
@@ -358,20 +548,28 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!result) return;
       showLoader('Loading preview...');
       files = [result.file];
-      updateUI();
       pdfjsDoc = result.pdf;
+      updateUI();
       await renderPreview();
     } catch (e) {
       console.error(e);
       showAlert('Error', 'Failed to load PDF for preview.');
     } finally {
       hideLoader();
+      syncToolOutputToolbar();
     }
   };
 
+  registerToolOutputSession({
+    apply: () => processAllPages(),
+    reset: () => resetState(),
+    canSave: () => files.length > 0,
+    canReset: () => files.length > 0,
+  });
+
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
+      void handleFileSelect((e.target as HTMLInputElement).files);
     });
 
     dropZone.addEventListener('dragover', (e) => {
@@ -387,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
+      void handleFileSelect(e.dataTransfer?.files ?? null);
     });
 
     fileInput.addEventListener('click', () => {
@@ -396,8 +594,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (processBtn) {
-    processBtn.addEventListener('click', processAllPages);
+    processBtn.addEventListener('click', () => {
+      void processAllPages();
+    });
   }
 
   setupSettingsListeners();
+
+  onToolFilesSeeded(() => {
+    if (fileInput?.files && fileInput.files.length > 0 && files.length === 0) {
+      void handleFileSelect(fileInput.files);
+    }
+  });
 });
