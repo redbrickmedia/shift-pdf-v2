@@ -214,6 +214,9 @@ function updatePreview() {
   if (!previewContent) return;
 
   const firstPageCount = pageState.entries[0]?.pageCount ?? 5;
+  const pageRangeVal =
+    (document.getElementById('page-range') as HTMLInputElement | null)?.value ||
+    '';
 
   if (pageState.activeMode === 'page-numbers') {
     const formatVal =
@@ -224,7 +227,13 @@ function updatePreview() {
         (document.getElementById('starting-number') as HTMLInputElement | null)
           ?.value || '1'
       ) || 1;
-    const totalDisplay = firstPageCount + startNum - 1;
+    const stampedIndices = resolveBatchEntryPageIndices(
+      pageRangeVal,
+      firstPageCount
+    );
+    const stampedCount =
+      stampedIndices.length > 0 ? stampedIndices.length : firstPageCount;
+    const totalDisplay = stampedCount + startNum - 1;
     const p1 =
       formatVal === 'page_x_of_y'
         ? `${startNum} / ${totalDisplay}`
@@ -301,15 +310,26 @@ function updatePreview() {
     let fileCounter = fileStart;
     for (const entry of pageState.entries) {
       const name = entry.file.name.replace(/\.pdf$/i, '');
-      lines.push(
-        `File ${fileCounter}, Page 1: ${formatBatesText(template, batesCounter, 1, fileCounter, name, padding)}`
+      const stampedIndices = resolveBatchEntryPageIndices(
+        pageRangeVal,
+        entry.pageCount
       );
-      if (entry.pageCount > 1) {
+      const stampedCount = stampedIndices.length;
+      if (stampedCount === 0) {
+        fileCounter++;
+        continue;
+      }
+      const firstPage = (stampedIndices[0] ?? 0) + 1;
+      lines.push(
+        `File ${fileCounter}, Page ${firstPage}: ${formatBatesText(template, batesCounter, firstPage, fileCounter, name, padding)}`
+      );
+      if (stampedCount > 1) {
+        const secondPage = (stampedIndices[1] ?? 1) + 1;
         lines.push(
-          `File ${fileCounter}, Page 2: ${formatBatesText(template, batesCounter + 1, 2, fileCounter, name, padding)}`
+          `File ${fileCounter}, Page ${secondPage}: ${formatBatesText(template, batesCounter + 1, secondPage, fileCounter, name, padding)}`
         );
       }
-      batesCounter += entry.pageCount;
+      batesCounter += stampedCount;
       fileCounter++;
     }
     const lastEntry = pageState.entries[pageState.entries.length - 1];

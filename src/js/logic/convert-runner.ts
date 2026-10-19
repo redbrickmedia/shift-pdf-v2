@@ -230,29 +230,43 @@ async function runImagesToPdf(
   }
 
   if (
-    files.length === 1 &&
     (destinationId === 'psd-to-pdf' ||
-      files[0]!.name.toLowerCase().endsWith('.psd')) &&
+      files.some((f) => f.name.toLowerCase().endsWith('.psd'))) &&
     typeof mupdf.imageToPdf === 'function'
   ) {
-    const file = files[0]!;
-    const pdfBlob = await mupdf.imageToPdf(file, { imageType: 'psd' });
-    downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
+    if (files.length === 1) {
+      const file = files[0]!;
+      const pdfBlob = await mupdf.imageToPdf(file, { imageType: 'psd' });
+      downloadFile(pdfBlob, `${getFilenameWithoutExtension(file.name)}.pdf`);
+      return;
+    }
+    const mergedDoc = await PDFDocument.create();
+    for (const file of files) {
+      const partBlob = file.name.toLowerCase().endsWith('.psd')
+        ? await mupdf.imageToPdf(file, { imageType: 'psd' })
+        : await mupdf.imagesToPdf([
+            await prepareImageFileForPdf(file, options.imageQuality),
+          ]);
+      const partDoc = await PDFDocument.load(await partBlob.arrayBuffer());
+      const pages = await mergedDoc.copyPages(
+        partDoc,
+        partDoc.getPageIndices()
+      );
+      pages.forEach((p) => mergedDoc.addPage(p));
+    }
+    const mergedBytes = await mergedDoc.save();
+    downloadFile(
+      new Blob([new Uint8Array(mergedBytes)], { type: 'application/pdf' }),
+      `${destinationId.replace(/-/g, '_')}.pdf`
+    );
     return;
   }
 
   const processedFiles: File[] = [];
   for (const file of files) {
-    if (
-      destinationId === 'psd-to-pdf' ||
-      file.name.toLowerCase().endsWith('.psd')
-    ) {
-      processedFiles.push(file);
-    } else {
-      processedFiles.push(
-        await prepareImageFileForPdf(file, options.imageQuality)
-      );
-    }
+    processedFiles.push(
+      await prepareImageFileForPdf(file, options.imageQuality)
+    );
   }
   const pdfBlob = await mupdf.imagesToPdf(processedFiles);
   const outName =
@@ -953,6 +967,7 @@ async function runPdfToSvg(files: File[]): Promise<void> {
   }
 
   const zip = new JSZip();
+  const usedNames = new Set<string>();
   for (const file of decrypted) {
     const doc = await pymupdf.open(file);
     const pageCount = doc.pageCount;
@@ -960,8 +975,10 @@ async function runPdfToSvg(files: File[]): Promise<void> {
     for (let i = 0; i < pageCount; i++) {
       const page = doc.getPage(i);
       const svgContent = extractPageSvgOrThrow(page);
-      const entryName =
-        pageCount === 1 ? `${baseName}.svg` : `${baseName}_page_${i + 1}.svg`;
+      const entryName = deduplicateFileName(
+        pageCount === 1 ? `${baseName}.svg` : `${baseName}_page_${i + 1}.svg`,
+        usedNames
+      );
       zip.file(entryName, svgContent);
     }
   }
