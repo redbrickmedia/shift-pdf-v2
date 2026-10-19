@@ -78,6 +78,7 @@ const embedPdfWasmUrl = new URL(
 
 let activeMode: EditPdfMode = 'annotate';
 let activeEntryId = 'edit-pdf';
+let preferredFillSignEntryId: 'sign-pdf' | 'form-filler' = 'sign-pdf';
 let currentFileName = 'document.pdf';
 let workingPdfBytes: Uint8Array | null = null;
 let hasAccumulatedModeEdits = false;
@@ -741,8 +742,14 @@ async function switchEditPdfMode(nextMode: EditPdfMode): Promise<void> {
     else cleanupCropStage();
 
     activeMode = nextMode;
-    const nextEntryId = entryIdForEditPdfMode(nextMode, activeEntryId);
+    const nextEntryId = entryIdForEditPdfMode(
+      nextMode,
+      activeEntryId === 'form-filler' ? 'form-filler' : preferredFillSignEntryId
+    );
     activeEntryId = setLaunchContext(nextEntryId, document).entryId;
+    if (activeEntryId === 'form-filler' || activeEntryId === 'sign-pdf') {
+      preferredFillSignEntryId = activeEntryId;
+    }
     syncModeTabsAndChrome();
 
     if (bytesToHandOff) {
@@ -786,6 +793,7 @@ async function applyEditedPdf(): Promise<void> {
 
     if (activeMode === 'crop') {
       if (
+        !hasAccumulatedModeEdits &&
         cropInstance &&
         !cropHistory.hasCrops() &&
         !cropHistory.canUndo() &&
@@ -994,6 +1002,8 @@ async function handleFiles(files: FileList | File[]): Promise<boolean> {
 export function initializeEditPdfPage(): void {
   const context = applyLaunchContextToDom(document);
   activeEntryId = context.entryId;
+  preferredFillSignEntryId =
+    activeEntryId === 'form-filler' ? 'form-filler' : 'sign-pdf';
   activeMode = resolveInitialEditPdfMode(activeEntryId);
 
   createIcons({ icons });
