@@ -175,7 +175,8 @@ export function openPdfJsSignatureDialog(
 
 export function configureSessionOnlySignatureUi(
   iframe: HTMLIFrameElement,
-  application: PDFViewerApplication
+  application: PDFViewerApplication,
+  options: { autoActivateSignatureMode?: boolean } = {}
 ): void {
   const viewerDocument = iframe.contentDocument;
   if (!viewerDocument || !application.eventBus) {
@@ -205,8 +206,10 @@ export function configureSessionOnlySignatureUi(
     saveCheckbox.disabled = true;
   }
 
-  application.eventBus.dispatch('switchannotationeditormode', {
-    source: window,
-    mode: PDFJS_SIGNATURE_MODE,
-  });
+  if (options.autoActivateSignatureMode !== false) {
+    application.eventBus.dispatch('switchannotationeditormode', {
+      source: window,
+      mode: PDFJS_SIGNATURE_MODE,
+    });
+  }
 }

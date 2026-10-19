@@ -176,33 +176,18 @@ describe('shared chrome', () => {
     );
   });
 
-  it('routes the bookmark editor through the shared action row', () => {
+  it('routes the bookmark editor through the shared viewer header and workspace tabs', () => {
     const page = readFileSync(
       resolve(process.cwd(), 'src/pages/bookmark.html'),
       'utf8'
     );
-    const headerStart = page.indexOf('<header class="shift-chrome-bar');
-    const header = page.slice(
-      headerStart,
-      page.indexOf('</header>', headerStart)
-    );
-    expect(header).toContain('class="shift-action-row"');
-    expect(header).toContain('role="group"');
-    expect(header).not.toContain('data-shift-viewer-actions');
-    expect(header).not.toMatch(/bg-gray-|text-gray-|bg-red-|bg-orange-/);
-    const navigate = header.indexOf('data-shift-action-group="navigate"');
-    const history = header.indexOf('data-shift-action-group="history"');
-    const extras = header.indexOf('data-shift-action-group="extras"');
-    expect(navigate).toBeLessThan(history);
-    expect(history).toBeLessThan(extras);
-    expect(header.indexOf('id="back-btn"')).toBeLessThan(
-      header.indexOf('id="undo-btn"')
-    );
-    expect(header.indexOf('id="undo-btn"')).toBeLessThan(
-      header.indexOf('id="reset-btn"')
-    );
-    expect(header.indexOf('id="reset-btn"')).toBeLessThan(
-      header.indexOf('id="delete-all-btn"')
-    );
+    expect(page).toContain('class="shift-pdf-viewer-header"');
+    expect(page).toContain('class="shift-pdf-viewer-heading"');
+    expect(page).toContain('data-shift-viewer-actions');
+    expect(page).toContain('id="tab-bookmarks"');
+    expect(page).toContain('id="tab-toc"');
+    expect(page).toContain('id="delete-all-btn"');
+    expect(page).not.toContain('id="back-btn"');
+    expect(page).not.toContain('id="download-btn"');
   });
 });

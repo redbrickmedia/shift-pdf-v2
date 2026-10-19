@@ -1,6 +1,8 @@
 import type { AppConfig } from '@/types';
 
-const disabledToolsSet = new Set<string>(__DISABLED_TOOLS__);
+const disabledToolsSet = new Set<string>(
+  typeof __DISABLED_TOOLS__ !== 'undefined' ? __DISABLED_TOOLS__ : []
+);
 let runtimeConfigLoaded = false;
 let editorDisabledCategories: string[] = [];
 

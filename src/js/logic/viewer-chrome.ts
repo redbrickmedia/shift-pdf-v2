@@ -204,15 +204,28 @@ export function resolveViewerChromeFeatures(
     options.features?.flatten === undefined &&
     hasAuthoredFeature(root, 'flatten')
   ) {
-    features.flatten = isToolViewerShowing(root);
+    features.flatten = isFillSignChromeActive(root);
   }
   if (
     options.features?.sign === undefined &&
     hasAuthoredFeature(root, 'sign')
   ) {
-    features.sign = isToolViewerShowing(root);
+    features.sign = isFillSignChromeActive(root);
   }
   return features;
+}
+
+function isFillSignChromeActive(root: Document): boolean {
+  const fillSignTab = root.querySelector<HTMLElement>(
+    '[data-edit-mode="fill-sign"]'
+  );
+  if (fillSignTab) {
+    return (
+      fillSignTab.getAttribute('aria-selected') === 'true' ||
+      fillSignTab.getAttribute('aria-pressed') === 'true'
+    );
+  }
+  return isToolViewerShowing(root);
 }
 
 function hasAuthoredFeature(

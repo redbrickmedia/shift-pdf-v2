@@ -19,8 +19,8 @@ describe('bookmark inverted-ramp leftovers', () => {
     expect(html).toMatch(
       /id="picking-mode-banner"[\s\S]*?text-blue-300[\s\S]*?Click on the PDF to set bookmark destination/
     );
-    expect(html).toContain(
-      'class="text-lg font-bold text-gray-300 mb-4">Bookmarks</h3>'
+    expect(html).toMatch(
+      /class="text-lg font-bold text-gray-300 mb-4">\s*Bookmarks\s*<\/h3>/
     );
     expect(html).toMatch(
       /id="extract-existing-btn"[\s\S]*?text-gray-300[\s\S]*?Extract Existing Bookmarks/
