@@ -295,8 +295,8 @@ const i18nReady = initI18n();
 
 void Promise.all([domReady, i18nReady])
   .then(() => {
-    applyTranslations();
     applyLaunchContextToDom(document);
+    applyTranslations();
     rewriteLinks();
   })
   .catch(() => {
@@ -309,6 +309,7 @@ const init = async () => {
   // round-trips, and awaiting them before seeding left the card showing a
   // placeholder for several frames.
   await domReady;
+  applyLaunchContextToDom(document);
   initShiftShell();
   initHomeFiles();
   initDownloadedPdfLibrary();
@@ -322,8 +323,8 @@ const init = async () => {
   await i18nReady;
   await loadRuntimeConfig();
   injectLanguageSwitcher();
-  applyTranslations();
   applyLaunchContextToDom(document);
+  applyTranslations();
 
   initToolEmptyState();
   initAddMoreLibraryPicker();
