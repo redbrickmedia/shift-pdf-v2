@@ -38,8 +38,10 @@
   color: var(--text-primary);
 }
 
-/* Dark bar focus ring. The default brand step on dark-700 is below 3:1. */
-html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible {
+/* Dark bar focus ring and launch-action highlight. The default brand step on dark-700 is below 3:1. */
+html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible,
+html.dark .shift-action-button.is-launch-action,
+html.dark .shift-action-button[data-launch-highlight='true'] {
   outline-color: #60a5fa;
 }
 

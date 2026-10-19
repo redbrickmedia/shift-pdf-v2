@@ -115,7 +115,7 @@ describe('shared chrome', () => {
       'utf8'
     );
     const withoutDarkFocus = css.replace(
-      /html\.dark :is\(\.shift-action-button, \.shift-pdf-viewer-action\):focus-visible \{[^}]*\}/,
+      /html\.dark[\s\S]*?outline-color:\s*#60a5fa;[\s\S]*?\}/,
       ''
     );
     expect(withoutDarkFocus).not.toMatch(/#[0-9a-fA-F]{3,8}/);
