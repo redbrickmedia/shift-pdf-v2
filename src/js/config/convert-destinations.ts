@@ -1,4 +1,4 @@
-import { categories } from './tools.js';
+import { categories, getCatalogEntryById } from './tools.js';
 import { isPdfFile } from '../utils/pdf-file.js';
 
 export { isPdfFile } from '../utils/pdf-file.js';
@@ -10,8 +10,10 @@ export type ConvertDestination = {
   icon: string;
   href: string;
   outputExtension: string;
-  /** Whether the destination tool's file input takes a batch or a single file. */
+  /** Every in-place conversion destination supports multi-file batches. */
   acceptsMultiple: boolean;
+  /** True when the destination outputs a PDF (or multi-PDF ZIP), false for Convert from PDF. */
+  producesPdf: boolean;
 };
 
 export type ConvertSourceKind = 'pdf' | 'to-pdf' | 'unsupported';
@@ -24,26 +26,21 @@ const PRIMARY_PDF_DESTINATION_IDS = [
   'pdf-to-png',
 ] as const;
 
-/**
- * Destination tools whose file input takes one file only, so the hub cannot
- * hand them a batch — the shared seed path would keep a single file and drop
- * the rest without saying so.
- *
- * convert-destinations.test.ts reads the `multiple` attribute off every
- * destination page and fails if this list and the markup disagree, so adding
- * `multiple` to a tool is a one-line change here rather than a silent drift.
- */
-export const SINGLE_FILE_DESTINATION_IDS: ReadonlySet<string> = new Set([
-  'extract-tables',
-  'pdf-to-bmp',
-  'pdf-to-csv',
-  'pdf-to-excel',
-  'pdf-to-greyscale',
-  'pdf-to-jpg',
-  'pdf-to-png',
-  'pdf-to-tiff',
-  'pdf-to-webp',
-]);
+export const IMAGE_TO_PDF_DESTINATION_IDS = [
+  'image-to-pdf',
+  'jpg-to-pdf',
+  'png-to-pdf',
+  'webp-to-pdf',
+  'svg-to-pdf',
+  'bmp-to-pdf',
+  'heic-to-pdf',
+  'tiff-to-pdf',
+  'psd-to-pdf',
+] as const;
+
+export const IMAGE_TO_PDF_DESTINATION_ID_SET: ReadonlySet<string> = new Set(
+  IMAGE_TO_PDF_DESTINATION_IDS
+);
 
 const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   bmp: 'bmp-to-pdf',
@@ -61,6 +58,8 @@ const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   jpg: 'jpg-to-pdf',
   jp2: 'image-to-pdf',
   jpx: 'image-to-pdf',
+  jxr: 'image-to-pdf',
+  markdown: 'markdown-to-pdf',
   md: 'markdown-to-pdf',
   mobi: 'mobi-to-pdf',
   msg: 'email-to-pdf',
@@ -69,11 +68,13 @@ const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   ods: 'ods-to-pdf',
   odt: 'odt-to-pdf',
   odg: 'odg-to-pdf',
+  pam: 'image-to-pdf',
   pages: 'pages-to-pdf',
   pbm: 'image-to-pdf',
   pgm: 'image-to-pdf',
   png: 'png-to-pdf',
   pnm: 'image-to-pdf',
+  ppm: 'image-to-pdf',
   potx: 'powerpoint-to-pdf',
   ppsx: 'powerpoint-to-pdf',
   ppt: 'powerpoint-to-pdf',
@@ -94,6 +95,7 @@ const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   xltx: 'excel-to-pdf',
   xml: 'xml-to-pdf',
   xps: 'xps-to-pdf',
+  oxps: 'xps-to-pdf',
 };
 
 const SUPPORTED_TO_PDF_EXTENSIONS = new Set(Object.keys(EXTENSION_TO_TOOL_ID));
@@ -104,20 +106,33 @@ const IMAGE_EXTENSIONS = new Set([
   'heic',
   'heif',
   'jp2',
+  'jpeg',
+  'jpg',
   'jpx',
+  'jxr',
+  'pam',
   'pbm',
-  'pdf',
   'pgm',
+  'png',
   'pnm',
   'ppm',
   'psd',
+  'svg',
   'tif',
   'tiff',
+  'webp',
 ]);
 
 export function getFileExtension(filename: string): string {
   const parts = filename.toLowerCase().split('.');
   return parts.length > 1 ? (parts.pop() ?? '') : '';
+}
+
+export function isImageSourceFile(file: File): boolean {
+  if (isPdfFile(file)) return false;
+  const extension = getFileExtension(file.name);
+  if (IMAGE_EXTENSIONS.has(extension)) return true;
+  return file.type.startsWith('image/');
 }
 
 export function getConvertSourceKind(file: File): ConvertSourceKind {
@@ -128,21 +143,19 @@ export function getConvertSourceKind(file: File): ConvertSourceKind {
   return 'unsupported';
 }
 
-function toolHrefById(
+function inPlaceConverterHrefById(
   toolId: string,
   baseUrl = import.meta.env.BASE_URL
 ): string {
-  return `${baseUrl}${toolId}.html`;
+  return `${baseUrl}pdf-converter.html?entry=${toolId}`;
 }
 
 /** Slug suffixes that are not the file the tool actually downloads. */
 const OUTPUT_EXTENSION_BY_TOOL_ID: Record<string, string> = {
   'extract-tables': 'csv',
   'pdf-to-excel': 'xlsx',
-  'pdf-to-greyscale': 'pdf',
   'pdf-to-markdown': 'md',
   'pdf-to-text': 'txt',
-  'extract-images': 'zip',
 };
 
 function outputExtensionForTool(toolId: string): string {
@@ -153,18 +166,49 @@ function outputExtensionForTool(toolId: string): string {
 }
 
 function destinationFromTool(
-  tool: (typeof categories)[number]['tools'][number]
+  tool: (typeof categories)[number]['tools'][number],
+  baseUrl = import.meta.env.BASE_URL
 ): ConvertDestination {
   const outputExtension = outputExtensionForTool(tool.id);
+  const producesPdf = outputExtension === 'pdf';
   return {
     id: tool.id,
     name: tool.name,
     subtitle: tool.subtitle,
     icon: tool.icon,
-    href: tool.href,
+    href:
+      tool.surface === 'pdf-converter' && tool.id !== 'pdf-converter'
+        ? tool.href
+        : inPlaceConverterHrefById(tool.id, baseUrl),
     outputExtension,
-    acceptsMultiple: !SINGLE_FILE_DESTINATION_IDS.has(tool.id),
+    acceptsMultiple: true,
+    producesPdf,
   };
+}
+
+export function getConvertDestinationById(
+  id: string,
+  baseUrl = import.meta.env.BASE_URL
+): ConvertDestination | null {
+  const normalized = id.trim().toLowerCase();
+  if (
+    !normalized ||
+    normalized === 'pdf-converter' ||
+    normalized === 'extract-images'
+  ) {
+    return null;
+  }
+
+  const entry = getCatalogEntryById(normalized);
+  if (
+    entry &&
+    (entry.surface === 'pdf-converter' ||
+      entry.id === 'txt-to-pdf' ||
+      entry.id === 'markdown-to-pdf')
+  ) {
+    return destinationFromTool(entry, baseUrl);
+  }
+  return null;
 }
 
 export function filterConvertDestinations(
@@ -195,8 +239,8 @@ export function getPdfDestinations(options?: {
       ?.tools ?? [];
 
   const destinations = convertFromPdf
-    .filter((tool) => !isDisabled(tool.id))
-    .map(destinationFromTool);
+    .filter((tool) => tool.surface === 'pdf-converter' && !isDisabled(tool.id))
+    .map((tool) => destinationFromTool(tool));
 
   const primaryIds = new Set<string>(PRIMARY_PDF_DESTINATION_IDS);
   const primary: ConvertDestination[] = [];
@@ -242,23 +286,23 @@ export function getToPdfDestination(
       name: 'PDF',
       subtitle: 'Convert this file to PDF.',
       icon: 'ph-file-pdf',
-      href: toolHrefById(toolId, baseUrl),
+      href: inPlaceConverterHrefById(toolId, baseUrl),
       outputExtension: 'pdf',
-      acceptsMultiple: !SINGLE_FILE_DESTINATION_IDS.has(toolId),
+      acceptsMultiple: true,
+      producesPdf: true,
     };
   }
 
-  return destinationFromTool(tool);
+  return destinationFromTool(tool, baseUrl);
 }
 
 /**
  * Destinations every one of `files` can reach, keyed by id.
  *
  * PDFs all share the same destination list, so a batch of them keeps the full
- * grid. A non-PDF resolves to exactly one to-PDF tool chosen by its extension,
- * so several images of the same type still share a destination while a mixed
- * bag (a DOCX next to a PNG) intersects to nothing — which is the honest
- * answer, since no single tool takes both.
+ * grid. A non-PDF resolves to a to-PDF tool chosen by its extension; when
+ * multiple images of different image formats are selected together, they share
+ * the general `image-to-pdf` destination.
  */
 export function getSharedDestinations(
   files: File[],
@@ -293,10 +337,25 @@ export function getSharedDestinations(
     )
   );
 
-  return {
-    primary: first.primary.filter((entry) => sharedIds.has(entry.id)),
-    secondary: first.secondary.filter((entry) => sharedIds.has(entry.id)),
-  };
+  const primary = first.primary.filter((entry) => sharedIds.has(entry.id));
+  const secondary = first.secondary.filter((entry) => sharedIds.has(entry.id));
+
+  if (
+    primary.length === 0 &&
+    secondary.length === 0 &&
+    files.length > 1 &&
+    files.every(isImageSourceFile)
+  ) {
+    const isDisabled = options?.isToolDisabled ?? (() => false);
+    if (!isDisabled('image-to-pdf')) {
+      const imageDest = getConvertDestinationById('image-to-pdf');
+      if (imageDest) {
+        return { primary: [imageDest], secondary: [] };
+      }
+    }
+  }
+
+  return { primary, secondary };
 }
 
 export function resolveDestinationHref(

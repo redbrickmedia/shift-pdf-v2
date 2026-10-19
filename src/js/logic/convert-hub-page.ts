@@ -9,21 +9,43 @@ import {
 } from '../host/analytics.js';
 import {
   buildConvertSourceAccept,
+  filterConvertDestinations,
+  getConvertDestinationById,
   getConvertSourceKind,
   getOutputFilename,
-  filterConvertDestinations,
   getSharedDestinations,
+  IMAGE_TO_PDF_DESTINATION_ID_SET,
+  isImageSourceFile,
   isPdfFile,
-  resolveDestinationHref,
   type ConvertDestination,
 } from '../config/convert-destinations.js';
+import {
+  createDefaultConvertFormatOptions,
+  readConvertFormatOptionsFromDom,
+  renderConvertFormatOptions,
+  type ConvertFormatOptions,
+} from './convert-format-options.js';
+import { runInPlaceConversion } from './convert-runner.js';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+  setLaunchContext,
+} from './launch-context.js';
 import {
   isDuplicateMergeFile,
   mergeFilesMatch,
   type MergeFileIdentity,
 } from './merge-file-identity.js';
+import { markOpenWithSelection } from './open-file-store.js';
 import { addPdfToLibrary } from './pdf-library-store.js';
 import { openPdfLibraryPicker } from './pdf-library-picker.js';
+import { clearLatestPdfOutput, initShiftPdfSave } from './shift-pdf-save.js';
+import { onToolFilesSeeded } from './tool-file-seed.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+  type ToolOutputKind,
+} from './tool-output-toolbar.js';
 import {
   clearWorkspaceOpenFile,
   getWorkspaceFiles,
@@ -33,7 +55,6 @@ import {
   setWorkspaceFiles,
   syncHomeLibraryFromStore,
 } from './workspace-files.js';
-import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state as appState } from '../state.js';
 import { isToolDisabled } from '../utils/disabled-tools.js';
 import { formatBytes } from '../utils/helpers.js';
@@ -43,6 +64,7 @@ export type ConvertHubStep = 'source' | 'destination';
 export type ConvertHubState = {
   step: ConvertHubStep;
   sourceFiles: File[];
+  selectedDestinationId?: string | null;
 };
 
 export const CONVERT_DESTINATION_SEARCH_ID = 'convert-destination-search';
@@ -52,12 +74,17 @@ export const CONVERT_DESTINATION_SEARCH_EMPTY_ID =
 let destinationSearchQuery = '';
 
 export function createInitialConvertHubState(
-  sourceFiles: File[] = []
+  sourceFiles: File[] = [],
+  selectedDestinationId: string | null = null
 ): ConvertHubState {
   const supported = sourceFiles.filter(isSupportedSource);
   return {
     step: supported.length > 0 ? 'destination' : 'source',
     sourceFiles: supported,
+    selectedDestinationId: resolveAutoSelectedDestinationId(
+      supported,
+      selectedDestinationId
+    ),
   };
 }
 
@@ -67,6 +94,54 @@ function isSupportedSource(file: File): boolean {
 
 function toIdentity(file: File): MergeFileIdentity {
   return { name: file.name, size: file.size };
+}
+
+export function getDestinationsForSources(
+  files: File[],
+  preferredDestinationId?: string | null
+): {
+  primary: ConvertDestination[];
+  secondary: ConvertDestination[];
+} {
+  if (
+    preferredDestinationId === 'image-to-pdf' &&
+    files.length > 0 &&
+    files.every(isImageSourceFile) &&
+    !isToolDisabled('image-to-pdf')
+  ) {
+    const imageDest = getConvertDestinationById('image-to-pdf');
+    if (imageDest) {
+      return { primary: [imageDest], secondary: [] };
+    }
+  }
+  return getSharedDestinations(files, { isToolDisabled });
+}
+
+export function resolveAutoSelectedDestinationId(
+  files: File[],
+  currentSelectedId: string | null = null
+): string | null {
+  if (files.length === 0) {
+    return currentSelectedId;
+  }
+
+  const { primary, secondary } = getDestinationsForSources(
+    files,
+    currentSelectedId
+  );
+  const all = [...primary, ...secondary];
+  if (all.length === 0) return null;
+
+  if (currentSelectedId && all.some((dest) => dest.id === currentSelectedId)) {
+    return currentSelectedId;
+  }
+
+  // Non-PDF sources with a single shared Convert to PDF destination auto-select it.
+  if (all.length === 1 && all[0]?.producesPdf) {
+    return all[0].id;
+  }
+
+  return null;
 }
 
 /**
@@ -85,10 +160,15 @@ export function addConvertSources(
     added.push(file);
   }
 
-  // The same state object signals "nothing landed", which is what tells the
-  // page to explain why instead of re-rendering an unchanged selection.
   if (added.length === state.sourceFiles.length) return state;
-  return { step: 'destination', sourceFiles: added };
+  return {
+    step: 'destination',
+    sourceFiles: added,
+    selectedDestinationId: resolveAutoSelectedDestinationId(
+      added,
+      state.selectedDestinationId ?? null
+    ),
+  };
 }
 
 /**
@@ -122,7 +202,10 @@ export function replaceConvertSources(
   state: ConvertHubState,
   files: File[]
 ): ConvertHubState {
-  const next = createInitialConvertHubState(files);
+  const next = createInitialConvertHubState(
+    files,
+    state.selectedDestinationId ?? null
+  );
   return next.sourceFiles.length > 0 ? next : state;
 }
 
@@ -136,11 +219,24 @@ export function removeConvertSource(
   return {
     step: remaining.length > 0 ? 'destination' : 'source',
     sourceFiles: remaining,
+    selectedDestinationId:
+      remaining.length > 0
+        ? resolveAutoSelectedDestinationId(
+            remaining,
+            state.selectedDestinationId ?? null
+          )
+        : null,
   };
 }
 
-export function clearConvertSources(): ConvertHubState {
-  return { step: 'source', sourceFiles: [] };
+export function clearConvertSources(
+  initialDestinationId: string | null = null
+): ConvertHubState {
+  return {
+    step: 'source',
+    sourceFiles: [],
+    selectedDestinationId: initialDestinationId,
+  };
 }
 
 function sameSelection(left: File[], right: File[]): boolean {
@@ -154,13 +250,6 @@ function sameSelection(left: File[], right: File[]): boolean {
       );
     })
   );
-}
-
-export function getDestinationsForSources(files: File[]): {
-  primary: ConvertDestination[];
-  secondary: ConvertDestination[];
-} {
-  return getSharedDestinations(files, { isToolDisabled });
 }
 
 /**
@@ -204,18 +293,33 @@ export async function openConvertSourcePicker(
   });
 }
 
+export async function openDedicatedTextOrMarkdownEditor(
+  files: File[],
+  editorId: 'txt-to-pdf' | 'markdown-to-pdf',
+  root: Document = document
+): Promise<void> {
+  if (files.length === 0) return;
+  setWorkspaceFiles(files, root);
+  await persistWorkspaceOpenFile();
+  markOpenWithSelection();
+  window.location.assign(`${import.meta.env.BASE_URL}${editorId}.html`);
+}
+
+/**
+ * Selects a destination in-place on `pdf-converter.html` without navigating away,
+ * syncing Launch Context (`?entry=<id>`) and workspace files.
+ */
 export async function handoffConvertSourcesToTool(
   files: File[],
   destination: ConvertDestination,
   root: Document = document
 ): Promise<void> {
-  const handedOff = destination.acceptsMultiple ? files : files.slice(0, 1);
-  if (handedOff.length === 0) return;
+  if (files.length === 0) return;
 
-  setWorkspaceFiles(handedOff, root);
+  setWorkspaceFiles(files, root);
   await persistWorkspaceOpenFile();
 
-  const pdfs = handedOff.filter(isPdfFile);
+  const pdfs = files.filter(isPdfFile);
   if (pdfs.length > 0) {
     for (const pdf of pdfs) {
       await addPdfToLibrary(pdf, 'upload');
@@ -223,11 +327,18 @@ export async function handoffConvertSourcesToTool(
     await syncHomeLibraryFromStore(root);
   }
 
+  setLaunchContext(destination.id, root);
+  const fileInput = root.getElementById(
+    'file-input'
+  ) as HTMLInputElement | null;
+  if (fileInput) {
+    fileInput.multiple = true;
+  }
+
   track(PDF_ENGINE_EVENTS.toolUsed, {
     tool_id: getToolIdFromPath(window.location.pathname || '/'),
     result: 'success',
   });
-  window.location.assign(resolveDestinationHref(handedOff[0], destination));
 }
 
 function describeOutput(
@@ -237,7 +348,6 @@ function describeOutput(
   const first = files[0];
   if (!first) return '';
   if (files.length === 1) return getOutputFilename(first.name, destination);
-  if (!destination.acceptsMultiple) return 'One file at a time';
   return `${files.length} files → .${destination.outputExtension}`;
 }
 
@@ -245,22 +355,15 @@ function createDestinationButton(
   root: Document,
   files: File[],
   destination: ConvertDestination,
+  isSelected: boolean,
   onSelect: (destination: ConvertDestination) => void
 ): HTMLButtonElement {
   const button = root.createElement('button');
   button.type = 'button';
   button.className = 'shift-convert-destination';
   button.dataset.destinationId = destination.id;
-
-  // Handing a batch to a single-file tool would keep one file and drop the rest
-  // without saying so, so the destination is offered only once the selection
-  // fits what it can take.
-  const tooManyFiles = files.length > 1 && !destination.acceptsMultiple;
-  button.disabled = tooManyFiles;
-  if (tooManyFiles) {
-    button.classList.add('is-unavailable');
-    button.title = `${destination.name} converts one file at a time.`;
-  }
+  button.classList.toggle('is-selected', isSelected);
+  button.setAttribute('aria-pressed', String(isSelected));
 
   const icon = root.createElement('i');
   icon.className = `ph ${destination.icon} shift-convert-destination-icon`;
@@ -279,9 +382,7 @@ function createDestinationButton(
 
   info.append(name, output);
   button.append(icon, info);
-  if (!tooManyFiles) {
-    button.addEventListener('click', () => onSelect(destination));
-  }
+  button.addEventListener('click', () => onSelect(destination));
   return button;
 }
 
@@ -332,8 +433,8 @@ function ensureConvertDestinationSearch(
   if (input.dataset.searchBound !== 'true') {
     input.dataset.searchBound = 'true';
     input.addEventListener('input', () => {
-      destinationSearchQuery = input.value;
-      onQuery(input.value);
+      destinationSearchQuery = input!.value;
+      onQuery(input!.value);
     });
   }
 
@@ -348,14 +449,40 @@ function renderDestinationGrid(
   container: HTMLElement,
   files: File[],
   destinations: ConvertDestination[],
+  selectedDestinationId: string | null,
   onSelect: (destination: ConvertDestination) => void
 ): void {
-  container.replaceChildren();
+  const existingById = new Map<string, HTMLButtonElement>();
+  container
+    .querySelectorAll<HTMLButtonElement>(
+      ':scope > button.shift-convert-destination[data-destination-id]'
+    )
+    .forEach((btn) => {
+      const id = btn.dataset.destinationId;
+      if (id) existingById.set(id, btn);
+    });
+
+  const nextNodes: HTMLButtonElement[] = [];
   for (const destination of destinations) {
-    container.appendChild(
-      createDestinationButton(root, files, destination, onSelect)
-    );
+    const isSelected = destination.id === selectedDestinationId;
+    const existing = existingById.get(destination.id);
+    if (existing) {
+      existing.classList.toggle('is-selected', isSelected);
+      existing.setAttribute('aria-pressed', String(isSelected));
+      const output = existing.querySelector<HTMLElement>(
+        '.shift-convert-destination-output'
+      );
+      if (output) {
+        output.textContent = describeOutput(files, destination);
+      }
+      nextNodes.push(existing);
+    } else {
+      nextNodes.push(
+        createDestinationButton(root, files, destination, isSelected, onSelect)
+      );
+    }
   }
+  container.replaceChildren(...nextNodes);
 }
 
 function createSourceRow(
@@ -402,6 +529,11 @@ export function renderConvertHub(
     onDestinationSelected: (destination: ConvertDestination) => void;
     onToggleMore: () => void;
     onSearch?: (query: string) => void;
+    onFormatOptionsChange?: (options: ConvertFormatOptions) => void;
+    onOpenDedicatedEditor?: (
+      editorId: 'txt-to-pdf' | 'markdown-to-pdf'
+    ) => void;
+    formatOptions?: ConvertFormatOptions;
     showMore: boolean;
   }
 ): void {
@@ -427,6 +559,13 @@ export function renderConvertHub(
   if (!first) {
     unsupportedMessage?.classList.add('hidden');
     sourceList?.replaceChildren();
+    renderConvertFormatOptions(root, {
+      destinationId: null,
+      sourceFiles: [],
+      options: handlers.formatOptions ?? createDefaultConvertFormatOptions(),
+      onOptionsChange: (next) => handlers.onFormatOptionsChange?.(next),
+      onOpenDedicatedEditor: handlers.onOpenDedicatedEditor,
+    });
     return;
   }
 
@@ -469,7 +608,11 @@ export function renderConvertHub(
     handlers.onSearch?.(query);
   });
 
-  const { primary, secondary } = getDestinationsForSources(files);
+  const selectedId = resolveAutoSelectedDestinationId(
+    files,
+    state.selectedDestinationId ?? null
+  );
+  const { primary, secondary } = getDestinationsForSources(files, selectedId);
   const visiblePrimary = filterConvertDestinations(
     primary,
     destinationSearchQuery
@@ -487,13 +630,18 @@ export function renderConvertHub(
       : 'That file type is not supported for conversion yet. Try a PDF or another common document format.';
   }
 
-  const showSecondary = handlers.showMore || isSearching;
+  const selectedInSecondary = Boolean(
+    selectedId && secondary.some((dest) => dest.id === selectedId)
+  );
+  const showSecondary = handlers.showMore || isSearching || selectedInSecondary;
+
   if (primaryGrid) {
     renderDestinationGrid(
       root,
       primaryGrid,
       files,
       visiblePrimary,
+      selectedId,
       (destination) => {
         handlers.onDestinationSelected(destination);
       }
@@ -507,11 +655,20 @@ export function renderConvertHub(
       secondaryGrid,
       files,
       visibleSecondary,
+      selectedId,
       (destination) => {
         handlers.onDestinationSelected(destination);
       }
     );
   }
+
+  renderConvertFormatOptions(root, {
+    destinationId: selectedId,
+    sourceFiles: files,
+    options: handlers.formatOptions ?? createDefaultConvertFormatOptions(),
+    onOptionsChange: (next) => handlers.onFormatOptionsChange?.(next),
+    onOpenDedicatedEditor: handlers.onOpenDedicatedEditor,
+  });
 
   let searchEmpty = root.getElementById(CONVERT_DESTINATION_SEARCH_EMPTY_ID);
   if (!searchEmpty && destinationStep) {
@@ -533,7 +690,7 @@ export function renderConvertHub(
   if (showMoreButton) {
     const hasSecondary = secondary.length > 0 && sourceKind === 'pdf';
     showMoreButton.classList.toggle('hidden', !hasSecondary || isSearching);
-    showMoreButton.textContent = handlers.showMore ? 'Show less' : 'Show more';
+    showMoreButton.textContent = showSecondary ? 'Show less' : 'Show more';
     showMoreButton.onclick = () => handlers.onToggleMore();
   }
 
@@ -554,8 +711,15 @@ export function renderConvertHub(
 }
 
 export function initConvertHubPage(root: Document = document): void {
-  let state = createInitialConvertHubState();
+  const initialLaunchCtx = applyLaunchContextToDom(root);
+  const initialEntryDestination = initialLaunchCtx.isConsolidatedEntry
+    ? getConvertDestinationById(initialLaunchCtx.entryId)
+    : null;
+  const initialDestinationId = initialEntryDestination?.id ?? null;
+
+  let state = createInitialConvertHubState([], initialDestinationId);
   let showMore = false;
+  let formatOptions = createDefaultConvertFormatOptions();
 
   const fileInput = root.getElementById(
     'file-input'
@@ -564,9 +728,98 @@ export function initConvertHubPage(root: Document = document): void {
   const unsupportedMessage = root.getElementById('convert-unsupported-message');
 
   if (fileInput) {
-    fileInput.accept = buildConvertSourceAccept();
+    fileInput.accept = initialLaunchCtx.isConsolidatedEntry
+      ? initialLaunchCtx.accept
+      : buildConvertSourceAccept();
     fileInput.multiple = true;
   }
+
+  initShiftPdfSave(root);
+
+  const resolveActiveDestination = (): ConvertDestination | null => {
+    const activeId =
+      state.sourceFiles.length > 0
+        ? resolveAutoSelectedDestinationId(
+            state.sourceFiles,
+            state.selectedDestinationId ?? null
+          )
+        : (state.selectedDestinationId ?? null);
+    if (!activeId) return null;
+    if (state.sourceFiles.length > 0) {
+      const { primary, secondary } = getDestinationsForSources(
+        state.sourceFiles,
+        activeId
+      );
+      const match = [...primary, ...secondary].find((d) => d.id === activeId);
+      if (match) return match;
+    }
+    return getConvertDestinationById(activeId);
+  };
+
+  const resolveCurrentOutputKind = (): ToolOutputKind => {
+    const dest = resolveActiveDestination();
+    if (dest) {
+      if (!dest.producesPdf) return 'non-pdf';
+      const liveOptions = readConvertFormatOptionsFromDom(root, formatOptions);
+      if (state.sourceFiles.length > 1) {
+        if (
+          IMAGE_TO_PDF_DESTINATION_ID_SET.has(dest.id) &&
+          liveOptions.imageCombineMode !== 'separate'
+        ) {
+          return 'pdf';
+        }
+        return 'multi-pdf-zip';
+      }
+      return 'pdf';
+    }
+    if (state.sourceFiles.length > 0 && state.sourceFiles.every(isPdfFile)) {
+      return 'non-pdf';
+    }
+    return 'pdf';
+  };
+
+  const resetHub = async () => {
+    state = clearConvertSources(initialDestinationId);
+    showMore = false;
+    destinationSearchQuery = '';
+    formatOptions = createDefaultConvertFormatOptions();
+    if (!initialDestinationId && fileInput) {
+      fileInput.accept = buildConvertSourceAccept();
+      fileInput.multiple = true;
+    }
+    clearLatestPdfOutput(root);
+    await clearWorkspaceOpenFile(root);
+    refresh();
+  };
+
+  registerToolOutputSession(
+    {
+      outputKind: () => resolveCurrentOutputKind(),
+      canSave: () => {
+        const dest = resolveActiveDestination();
+        return Boolean(
+          state.sourceFiles.length > 0 && dest && dest.producesPdf
+        );
+      },
+      canDownload: () => {
+        const dest = resolveActiveDestination();
+        return Boolean(state.sourceFiles.length > 0 && dest);
+      },
+      canReset: () => state.sourceFiles.length > 0,
+      reset: () => resetHub(),
+      apply: async () => {
+        const dest = resolveActiveDestination();
+        if (!dest || state.sourceFiles.length === 0) return;
+        const liveOptions = readConvertFormatOptionsFromDom(
+          root,
+          formatOptions
+        );
+        formatOptions = liveOptions;
+        await runInPlaceConversion(state.sourceFiles, dest, liveOptions);
+      },
+    },
+    root
+  );
 
   const addSources = (files: File[]) => {
     const next = addConvertSources(state, files);
@@ -593,14 +846,9 @@ export function initConvertHubPage(root: Document = document): void {
     renderConvertHub(root, state, {
       onSourceSelected: (file) => addSources([file]),
       onChangeSource: () => {
-        state = clearConvertSources();
-        showMore = false;
-        destinationSearchQuery = '';
-        void clearWorkspaceOpenFile(root).then(refresh);
+        void resetHub();
       },
       onAddSource: () => {
-        // The library only holds PDFs, so offering it alongside a batch of
-        // images or documents would show nothing that could join them.
         if (!state.sourceFiles.every(isPdfFile)) {
           fileInput?.click();
           return;
@@ -618,8 +866,15 @@ export function initConvertHubPage(root: Document = document): void {
         refresh();
       },
       onDestinationSelected: (destination) => {
-        if (state.sourceFiles.length === 0) return;
-        void handoffConvertSourcesToTool(state.sourceFiles, destination, root);
+        state = {
+          ...state,
+          selectedDestinationId: destination.id,
+        };
+        setLaunchContext(destination.id, root);
+        if (fileInput) {
+          fileInput.multiple = true;
+        }
+        refresh();
       },
       onToggleMore: () => {
         showMore = !showMore;
@@ -629,8 +884,21 @@ export function initConvertHubPage(root: Document = document): void {
         destinationSearchQuery = query;
         refresh();
       },
+      onFormatOptionsChange: (nextOptions) => {
+        formatOptions = nextOptions;
+        syncToolOutputToolbar(root);
+      },
+      onOpenDedicatedEditor: (editorId) => {
+        void openDedicatedTextOrMarkdownEditor(
+          state.sourceFiles,
+          editorId,
+          root
+        );
+      },
+      formatOptions,
       showMore,
     });
+    syncToolOutputToolbar(root);
     createIcons({ icons });
   };
 

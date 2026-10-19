@@ -171,6 +171,8 @@
             class="shift-convert-destination-grid hidden"
           ></div>
 
+          <div id="convert-format-options" class="hidden mt-6 space-y-4"></div>
+
           <p
             id="convert-unsupported-message"
             class="hidden mt-4 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-100"
@@ -178,6 +180,40 @@
             That file type is not supported for conversion yet.
           </p>
         </div>
+      </div>
+    </div>
+
+    <div
+      id="loader-modal"
+      class="hidden fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-800 p-8 rounded-lg flex flex-col items-center gap-4 border border-gray-700 shadow-xl"
+      >
+        <div class="solid-spinner"></div>
+        <p id="loader-text" class="text-white text-lg font-medium">
+          Processing...
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="alert-modal"
+      class="fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 hidden"
+    >
+      <div
+        class="bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full border border-gray-700"
+      >
+        <h3 id="alert-title" class="text-xl font-bold text-white mb-2">
+          Alert
+        </h3>
+        <p id="alert-message" class="text-gray-300 mb-6"></p>
+        <button
+          id="alert-ok"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+        >
+          OK
+        </button>
       </div>
     </div>
 

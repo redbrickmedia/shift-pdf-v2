@@ -7,7 +7,7 @@ import {
   PRUNED_TOOL_ID_SET,
 } from '@/js/config/tools';
 import { shiftToolIcons } from '@/js/config/shift-tool-icons';
-import { SINGLE_FILE_DESTINATION_IDS } from '@/js/config/convert-destinations';
+import { getPdfDestinations } from '@/js/config/convert-destinations';
 import { describe, it, expect } from 'vitest';
 
 describe('Tool Categories Configuration', () => {
@@ -69,12 +69,14 @@ describe('Tool Categories Configuration', () => {
   it('prunes all 18 retired niche tools from the catalog, icons, and destination maps', () => {
     expect(PRUNED_TOOL_IDS).toHaveLength(18);
     const allToolIds = categories.flatMap((c) => c.tools.map((t) => t.id));
+    const { primary, secondary } = getPdfDestinations();
+    const pdfDestIds = new Set([...primary, ...secondary].map((d) => d.id));
     for (const prunedId of PRUNED_TOOL_IDS) {
       expect(PRUNED_TOOL_ID_SET.has(prunedId)).toBe(true);
       expect(allToolIds).not.toContain(prunedId);
       expect(getCatalogEntryById(prunedId)).toBeUndefined();
       expect(shiftToolIcons).not.toHaveProperty(prunedId);
-      expect(SINGLE_FILE_DESTINATION_IDS.has(prunedId)).toBe(false);
+      expect(pdfDestIds.has(prunedId)).toBe(false);
     }
   });
 
