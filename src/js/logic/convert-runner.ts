@@ -493,29 +493,27 @@ async function renderPdfPageToBlob(
   canvas.height = viewport.height;
   canvas.width = viewport.width;
   const context = canvas.getContext('2d');
-
-  if (context) {
-    await page.render({
-      canvasContext: context,
-      viewport,
-      canvas,
-    }).promise;
-  } else if (typeof page.render === 'function') {
-    await page.render({
-      canvasContext: {} as CanvasRenderingContext2D,
-      viewport,
-      canvas,
-    }).promise;
+  if (!context) {
+    throw new Error('Canvas 2D context is unavailable.');
   }
 
-  if (context && typeof canvas.toBlob === 'function') {
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, mimeType, quality)
-    );
-    if (blob) return blob;
+  await page.render({
+    canvasContext: context,
+    viewport,
+    canvas,
+  }).promise;
+
+  if (typeof canvas.toBlob !== 'function') {
+    throw new Error(`Canvas encoding for ${mimeType} is unavailable.`);
   }
 
-  return new Blob([`rendered-${mimeType}`], { type: mimeType });
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, mimeType, quality)
+  );
+  if (!blob) {
+    throw new Error(`Failed to encode PDF page as ${mimeType}.`);
+  }
+  return blob;
 }
 
 async function renderSinglePdfToImageBlobs(
@@ -526,51 +524,20 @@ async function renderSinglePdfToImageBlobs(
   scale: number,
   quality?: number
 ): Promise<Blob[] | null> {
+  const loaded = await loadPdfWithPasswordPrompt(file, files, fileIdx);
+  if (!loaded) return null;
+  const { pdf } = loaded;
   try {
-    const loaded = await loadPdfWithPasswordPrompt(file, files, fileIdx);
-    if (!loaded) return null;
-    const { pdf } = loaded;
-    try {
-      const blobs: Blob[] = [];
-      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        blobs.push(await renderPdfPageToBlob(page, mimeType, scale, quality));
-      }
-      return blobs;
-    } finally {
-      if (typeof pdf.destroy === 'function') {
-        await pdf.destroy();
-      }
+    const blobs: Blob[] = [];
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      blobs.push(await renderPdfPageToBlob(page, mimeType, scale, quality));
     }
-  } catch (err) {
-    // Fallback to PyMuPDF when PDF.js cannot parse stubbed bytes in tests
-    const pymupdf = await loadPyMuPDF();
-    if (typeof pymupdf.renderPageToImage === 'function') {
-      const pageCount =
-        typeof pymupdf.getPageCount === 'function'
-          ? await pymupdf.getPageCount(file)
-          : 1;
-      const blobs: Blob[] = [];
-      for (let i = 1; i <= pageCount; i++) {
-        blobs.push(await pymupdf.renderPageToImage(file, i, scale));
-      }
-      return blobs;
+    return blobs;
+  } finally {
+    if (typeof pdf.destroy === 'function') {
+      await pdf.destroy();
     }
-    if (typeof pymupdf.open === 'function') {
-      const doc = await pymupdf.open(file);
-      const blobs: Blob[] = [];
-      for (let i = 0; i < doc.pageCount; i++) {
-        const page = doc.getPage(i);
-        if (typeof page.toPixmap === 'function') {
-          const pixmap = page.toPixmap({ dpi: Math.round(scale * 72) });
-          blobs.push(pixmap.toBlob(mimeType, quality));
-        } else {
-          blobs.push(new Blob([`page-${i + 1}`], { type: mimeType }));
-        }
-      }
-      return blobs;
-    }
-    throw err;
   }
 }
 
@@ -624,6 +591,7 @@ async function runPdfToRasterImages(
 
   const zip = new JSZip();
   const usedNames = new Set<string>();
+  let addedAny = false;
   for (let f = 0; f < files.length; f++) {
     const file = files[f]!;
     const pageBlobs = await renderSinglePdfToImageBlobs(
@@ -634,7 +602,8 @@ async function runPdfToRasterImages(
       scale,
       quality
     );
-    if (!pageBlobs) continue;
+    if (!pageBlobs || pageBlobs.length === 0) continue;
+    addedAny = true;
     const baseName = getCleanPdfFilename(file.name);
     if (pageBlobs.length === 1) {
       const entryName = deduplicateFileName(
@@ -652,23 +621,148 @@ async function runPdfToRasterImages(
       });
     }
   }
+  if (!addedAny) return;
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   downloadFile(zipBlob, `${destinationId}.zip`);
 }
 
 let vipsInstance: typeof Vips | null = null;
-async function loadVipsOrNull(): Promise<typeof Vips | null> {
+async function getVips(): Promise<typeof Vips> {
   if (vipsInstance) return vipsInstance;
+  const VipsInit = (await import('wasm-vips')).default;
+  vipsInstance = await VipsInit({
+    dynamicLibraries: [],
+    locateFile: (fileName: string) =>
+      fileName.endsWith('.wasm') ? wasmUrl : fileName,
+  });
+  return vipsInstance;
+}
+
+async function renderPageToRgba(
+  page: PDFPageProxy,
+  dpi: number
+): Promise<{ rgba: Uint8ClampedArray; width: number; height: number }> {
+  const scale = dpi / 72;
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.height = viewport.height;
+  canvas.width = viewport.width;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Canvas 2D context is unavailable.');
+  }
+
+  await page.render({ canvasContext: context, viewport, canvas }).promise;
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  return { rgba: imageData.data, width: canvas.width, height: canvas.height };
+}
+
+function createVipsTiffPageImage(
+  vips: typeof Vips,
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options: ConvertFormatOptions
+): Vips.Image {
+  let image = vips.Image.newFromMemory(
+    new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength),
+    width,
+    height,
+    4,
+    vips.BandFormat.uchar
+  );
+  image = image.copy();
+  const pixelsPerMm = options.tiffDpi / 25.4;
+  image.setDouble('xres', pixelsPerMm);
+  image.setDouble('yres', pixelsPerMm);
+
+  const colorMode = options.tiffColorMode.toLowerCase();
+  if (
+    colorMode === 'greyscale' ||
+    colorMode === 'grayscale' ||
+    colorMode === 'bw'
+  ) {
+    if (image.bands === 4) {
+      image = image.flatten({ background: [255, 255, 255] });
+    }
+    image = image.colourspace(vips.Interpretation.b_w);
+  } else if (image.bands === 4) {
+    image = image.flatten({ background: [255, 255, 255] });
+  }
+  return image;
+}
+
+function buildTiffSaveOptions(
+  vips: typeof Vips,
+  options: ConvertFormatOptions,
+  pageHeight?: number
+): Parameters<Vips.Image['tiffsaveBuffer']>[0] {
+  const compression = options.tiffCompression.toLowerCase();
+  const colorMode = options.tiffColorMode.toLowerCase();
+  const tiffOptions: Parameters<Vips.Image['tiffsaveBuffer']>[0] = {
+    compression: compression as Vips.Enum,
+    resunit: vips.ForeignTiffResunit.inch,
+    xres: options.tiffDpi / 25.4,
+    yres: options.tiffDpi / 25.4,
+    predictor:
+      compression === 'lzw' || compression === 'deflate'
+        ? vips.ForeignTiffPredictor.horizontal
+        : vips.ForeignTiffPredictor.none,
+  };
+  if (pageHeight !== undefined) {
+    tiffOptions.page_height = pageHeight;
+  }
+  if (colorMode === 'bw') {
+    tiffOptions.bitdepth = 1;
+  }
+  if (compression === 'jpeg') {
+    tiffOptions.Q = 85;
+  }
+  return tiffOptions;
+}
+
+function encodeSinglePageTiffBuffer(
+  vips: typeof Vips,
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options: ConvertFormatOptions
+): Uint8Array {
+  const image = createVipsTiffPageImage(vips, rgba, width, height, options);
+  const buffer = image.tiffsaveBuffer(buildTiffSaveOptions(vips, options));
+  image.delete();
+  return buffer;
+}
+
+async function encodeMultiPageTiffBuffer(
+  vips: typeof Vips,
+  pdf: { numPages: number; getPage: (n: number) => Promise<PDFPageProxy> },
+  options: ConvertFormatOptions
+): Promise<Uint8Array> {
+  const pages: Vips.Image[] = [];
   try {
-    const VipsInit = (await import('wasm-vips')).default;
-    vipsInstance = await VipsInit({
-      dynamicLibraries: [],
-      locateFile: (fileName: string) =>
-        fileName.endsWith('.wasm') ? wasmUrl : fileName,
-    });
-    return vipsInstance;
-  } catch {
-    return null;
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const { rgba, width, height } = await renderPageToRgba(
+        page,
+        options.tiffDpi
+      );
+      pages.push(createVipsTiffPageImage(vips, rgba, width, height, options));
+    }
+    const firstPage = pages[0]!;
+    const joined =
+      pages.length > 1 ? vips.Image.arrayjoin(pages, { across: 1 }) : firstPage;
+    const buffer = joined.tiffsaveBuffer(
+      buildTiffSaveOptions(vips, options, firstPage.height)
+    );
+    if (joined !== firstPage) {
+      joined.delete();
+    }
+    return buffer;
+  } finally {
+    for (const p of pages) {
+      if (!p.isDeleted()) p.delete();
+    }
   }
 }
 
@@ -676,129 +770,133 @@ async function runPdfToTiff(
   files: File[],
   options: ConvertFormatOptions
 ): Promise<void> {
-  const scale = options.tiffDpi / 72;
-  const vips = await loadVipsOrNull();
-
-  const encodeRgbaOrFallback = async (page: PDFPageProxy): Promise<Blob> => {
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    const context = canvas.getContext('2d');
-
-    if (context && vips) {
-      await page.render({ canvasContext: context, viewport, canvas }).promise;
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const rgba = imageData.data;
-      let image = vips.Image.newFromMemory(
-        new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength),
-        canvas.width,
-        canvas.height,
-        4,
-        vips.BandFormat.uchar
-      );
-      image = image.copy();
-      const colorMode = options.tiffColorMode.toLowerCase();
-      if (
-        colorMode === 'greyscale' ||
-        colorMode === 'grayscale' ||
-        colorMode === 'bw'
-      ) {
-        if (image.bands === 4) {
-          image = image.flatten({ background: [255, 255, 255] });
-        }
-        image = image.colourspace(vips.Interpretation.b_w);
-      } else if (image.bands === 4) {
-        image = image.flatten({ background: [255, 255, 255] });
-      }
-      const compression = options.tiffCompression.toLowerCase();
-      const buffer = image.tiffsaveBuffer({
-        compression: compression as Vips.Enum,
-        resunit: vips.ForeignTiffResunit.inch,
-        xres: options.tiffDpi / 25.4,
-        yres: options.tiffDpi / 25.4,
-      });
-      image.delete();
-      return new Blob([new Uint8Array(buffer)], { type: 'image/tiff' });
-    }
-
-    return renderPdfPageToBlob(page, 'image/tiff', scale);
-  };
+  showLoader('Loading image processor...');
+  const vips = await getVips();
+  hideLoader();
 
   if (files.length === 1) {
     const file = files[0]!;
     const baseName = getCleanPdfFilename(file.name);
+    const loaded = await loadPdfWithPasswordPrompt(file, files, 0);
+    if (!loaded) return;
+    const { pdf } = loaded;
     try {
-      const loaded = await loadPdfWithPasswordPrompt(file, files, 0);
-      if (!loaded) return;
-      const { pdf } = loaded;
-      try {
-        const pageBlobs: Blob[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          pageBlobs.push(await encodeRgbaOrFallback(page));
-        }
-        if (pageBlobs.length === 1 || options.tiffMultiPage) {
-          downloadFile(
-            new Blob(pageBlobs, { type: 'image/tiff' }),
-            `${baseName}.tiff`
-          );
-          return;
-        }
-        const zip = new JSZip();
-        pageBlobs.forEach((blob, idx) => {
-          zip.file(`page_${idx + 1}.tiff`, blob);
-        });
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        downloadFile(zipBlob, `${baseName}_tiffs.zip`);
-        return;
-      } finally {
-        if (typeof pdf.destroy === 'function') {
-          await pdf.destroy();
-        }
-      }
-    } catch {
-      const pymupdf = await loadPyMuPDF();
-      const doc = await pymupdf.open(file);
-      if (doc.pageCount <= 1 || options.tiffMultiPage) {
+      showLoader('Converting to TIFF...');
+      if (options.tiffMultiPage && pdf.numPages > 1) {
+        const buffer = await encodeMultiPageTiffBuffer(vips, pdf, options);
         downloadFile(
-          new Blob(['TIFF'], { type: 'image/tiff' }),
+          new Blob([new Uint8Array(buffer)], { type: 'image/tiff' }),
           `${baseName}.tiff`
         );
         return;
       }
-      const zip = new JSZip();
-      for (let i = 0; i < doc.pageCount; i++) {
-        zip.file(
-          `page_${i + 1}.tiff`,
-          new Blob(['TIFF'], { type: 'image/tiff' })
+      if (pdf.numPages === 1) {
+        const page = await pdf.getPage(1);
+        const { rgba, width, height } = await renderPageToRgba(
+          page,
+          options.tiffDpi
         );
+        const buffer = encodeSinglePageTiffBuffer(
+          vips,
+          rgba,
+          width,
+          height,
+          options
+        );
+        downloadFile(
+          new Blob([new Uint8Array(buffer)], { type: 'image/tiff' }),
+          `${baseName}.tiff`
+        );
+        return;
+      }
+
+      const zip = new JSZip();
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const { rgba, width, height } = await renderPageToRgba(
+          page,
+          options.tiffDpi
+        );
+        const buffer = encodeSinglePageTiffBuffer(
+          vips,
+          rgba,
+          width,
+          height,
+          options
+        );
+        zip.file(`page_${i}.tiff`, new Uint8Array(buffer));
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, `${baseName}_tiffs.zip`);
       return;
+    } finally {
+      if (typeof pdf.destroy === 'function') {
+        await pdf.destroy();
+      }
     }
   }
 
   const zip = new JSZip();
   const usedNames = new Set<string>();
+  let addedAny = false;
   for (let f = 0; f < files.length; f++) {
     const file = files[f]!;
     const baseName = getCleanPdfFilename(file.name);
-    const entryName = deduplicateFileName(`${baseName}.tiff`, usedNames);
+    const loaded = await loadPdfWithPasswordPrompt(file, files, f);
+    if (!loaded) continue;
+    const { pdf } = loaded;
     try {
-      const loaded = await loadPdfWithPasswordPrompt(file, files, f);
-      if (!loaded) continue;
-      const page = await loaded.pdf.getPage(1);
-      const blob = await encodeRgbaOrFallback(page);
-      zip.file(entryName, blob);
-      if (typeof loaded.pdf.destroy === 'function') {
-        await loaded.pdf.destroy();
+      showLoader(`Converting ${f + 1}/${files.length}: ${file.name}...`);
+      if (options.tiffMultiPage && pdf.numPages > 1) {
+        const buffer = await encodeMultiPageTiffBuffer(vips, pdf, options);
+        const entryName = deduplicateFileName(`${baseName}.tiff`, usedNames);
+        zip.file(entryName, new Uint8Array(buffer));
+        addedAny = true;
+      } else if (pdf.numPages === 1) {
+        const page = await pdf.getPage(1);
+        const { rgba, width, height } = await renderPageToRgba(
+          page,
+          options.tiffDpi
+        );
+        const buffer = encodeSinglePageTiffBuffer(
+          vips,
+          rgba,
+          width,
+          height,
+          options
+        );
+        const entryName = deduplicateFileName(`${baseName}.tiff`, usedNames);
+        zip.file(entryName, new Uint8Array(buffer));
+        addedAny = true;
+      } else {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const { rgba, width, height } = await renderPageToRgba(
+            page,
+            options.tiffDpi
+          );
+          const buffer = encodeSinglePageTiffBuffer(
+            vips,
+            rgba,
+            width,
+            height,
+            options
+          );
+          const entryName = deduplicateFileName(
+            `${baseName}_page_${i}.tiff`,
+            usedNames
+          );
+          zip.file(entryName, new Uint8Array(buffer));
+          addedAny = true;
+        }
       }
-    } catch {
-      zip.file(entryName, new Blob(['TIFF'], { type: 'image/tiff' }));
+    } finally {
+      if (typeof pdf.destroy === 'function') {
+        await pdf.destroy();
+      }
     }
   }
+  if (!addedAny) return;
   const zipBlob = await zip.generateAsync({ type: 'blob' });
   downloadFile(zipBlob, 'pdf-to-tiff.zip');
 }
