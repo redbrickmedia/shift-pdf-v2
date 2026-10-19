@@ -542,8 +542,21 @@ function recordCurrentCropFromCropper(): void {
 function applySavedCropToCropper(pageNum: number): void {
   if (!cropInstance) return;
   const savedCrop = cropHistory.pageCrops[pageNum];
-  if (!savedCrop) return;
   const imageData = cropInstance.getImageData();
+  if (!savedCrop) {
+    const resettable = cropInstance as unknown as { reset?: () => void };
+    if (typeof resettable.reset === 'function') {
+      resettable.reset();
+    } else if (imageData.naturalWidth && imageData.naturalHeight) {
+      cropInstance.setData({
+        x: 0,
+        y: 0,
+        width: imageData.naturalWidth,
+        height: imageData.naturalHeight,
+      });
+    }
+    return;
+  }
   cropInstance.setData({
     x: savedCrop.x * imageData.naturalWidth,
     y: savedCrop.y * imageData.naturalHeight,
@@ -773,7 +786,12 @@ async function applyEditedPdf(): Promise<void> {
     }
 
     if (activeMode === 'crop') {
-      if (cropInstance && !cropHistory.hasCrops()) {
+      if (
+        cropInstance &&
+        !cropHistory.hasCrops() &&
+        !cropHistory.canUndo() &&
+        !cropHistory.canRedo()
+      ) {
         recordCurrentCropFromCropper();
       }
       if (!cropPdfDoc) return;

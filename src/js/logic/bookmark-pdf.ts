@@ -2060,11 +2060,45 @@ async function applyBookmarkOrTocOutput(): Promise<void> {
         }
       );
 
+      const previousPageCount = pdfJsDoc ? pdfJsDoc.numPages : 0;
       pdfLibDoc = await loadPdfDocument(generatedBytes, {
         ignoreEncryption: true,
       });
       const loadingTask = getPDFDocument({ data: generatedBytes.slice(0) });
       pdfJsDoc = (await loadingTask.promise) as PDFDocumentProxy;
+      const insertedTocPages =
+        previousPageCount > 0
+          ? Math.max(0, pdfJsDoc.numPages - previousPageCount)
+          : 0;
+
+      const extractedAfterToc = await extractExistingBookmarks();
+      if (extractedAfterToc.length > 0) {
+        bookmarkTree = extractedAfterToc;
+      } else if (insertedTocPages > 0) {
+        const shiftBookmarkPages = (nodes: BookmarkTree): BookmarkTree =>
+          nodes.map((node) => ({
+            ...node,
+            page: node.page + insertedTocPages,
+            children: shiftBookmarkPages(node.children || []),
+          }));
+        bookmarkTree = shiftBookmarkPages(bookmarkTree);
+        if (addBookmark) {
+          bookmarkTree.unshift({
+            id: Date.now(),
+            title,
+            page: 1,
+            children: [],
+            color: null,
+            style: null,
+            destX: null,
+            destY: null,
+            zoom: null,
+          });
+        }
+      }
+      saveState();
+      renderBookmarkTree();
+
       if (gotoPageInput) gotoPageInput.max = String(pdfJsDoc.numPages);
       currentPage = Math.min(currentPage, pdfJsDoc.numPages);
       await renderPage(currentPage);
@@ -2741,7 +2775,15 @@ export function initializeBookmarkPage(): void {
   registerToolOutputSession({
     undo,
     redo,
-    reset: resetToUploader,
+    reset: async () => {
+      if (historyIndex > 0 && modalContainer) {
+        const confirmed = await showConfirmModal(
+          'Reset and go back to file uploader? All unsaved changes will be lost.'
+        );
+        if (!confirmed) return;
+      }
+      resetToUploader();
+    },
     apply: applyBookmarkOrTocOutput,
     canUndo: () => historyIndex > 0,
     canRedo: () => historyIndex < history.length - 1,
