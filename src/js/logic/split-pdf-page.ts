@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
@@ -354,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) as HTMLInputElement | null
       )?.value === 'separate';
 
-    showResultLoader('Splitting PDF...');
+    showLoader('Splitting PDF...');
 
     let qpdf: QpdfInstanceExtended | null = null;
     const inputPath = '/split-input.pdf';
@@ -513,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
             groupFilename(outputGroups[0])
           );
         } else {
-          showResultLoader('Creating ZIP file...');
+          showLoader('Creating ZIP file...');
           const zip = new JSZip();
           const usedNames = new Map<string, number>();
           for (const group of outputGroups) {

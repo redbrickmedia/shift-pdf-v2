@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
@@ -1048,7 +1047,7 @@ async function processTimestamp(): Promise<void> {
     throw error;
   }
 
-  showResultLoader('Applying timestamp...');
+  showLoader('Applying timestamp...');
   try {
     const timestampedBytes = await timestampPdf(state.pdfBytes, tsaUrl);
     const blob = new Blob([new Uint8Array(timestampedBytes)], {
@@ -1186,7 +1185,7 @@ async function processSignature(): Promise<void> {
     throw error;
   }
 
-  showResultLoader(t('tools:digitalSignPdf.applyingSignature'));
+  showLoader(t('tools:digitalSignPdf.applyingSignature'));
 
   try {
     const signedPdfBytes = await signPdf(state.pdfBytes, state.certData, {

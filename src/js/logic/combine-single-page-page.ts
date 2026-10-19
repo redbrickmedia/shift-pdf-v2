@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import {
@@ -131,7 +130,7 @@ async function combineToSinglePage() {
   const backgroundColor = hexToRgb(backgroundColorHex);
   const separatorColor = hexToRgb(separatorColorHex);
 
-  showResultLoader('Combining pages...');
+  showLoader('Combining pages...');
 
   try {
     const sourceDoc = pageState.pdfDoc;
@@ -179,7 +178,7 @@ async function combineToSinglePage() {
     let currentY = finalHeight;
 
     for (let i = 0; i < sourcePages.length; i++) {
-      showResultLoader(`Processing page ${i + 1} of ${sourcePages.length}...`);
+      showLoader(`Processing page ${i + 1} of ${sourcePages.length}...`);
       const sourcePage = sourcePages[i];
       const { width, height } = sourcePage.getSize();
 

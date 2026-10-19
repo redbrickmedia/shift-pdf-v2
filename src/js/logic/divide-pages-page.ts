@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { DividePagesState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
@@ -146,7 +145,7 @@ async function dividePages() {
     }
   }
 
-  showResultLoader('Splitting PDF pages...');
+  showLoader('Splitting PDF pages...');
 
   try {
     const newPdfDoc = await PDFLibDocument.create();
@@ -157,7 +156,7 @@ async function dividePages() {
       const originalPage = pages[i];
       const { width, height } = originalPage.getSize();
 
-      showResultLoader(`Processing page ${pageNum} of ${pages.length}...`);
+      showLoader(`Processing page ${pageNum} of ${pages.length}...`);
 
       if (pagesToDivide.has(pageNum)) {
         const [page1] = await newPdfDoc.copyPages(pageState.pdfDoc, [i]);

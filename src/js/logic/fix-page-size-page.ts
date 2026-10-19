@@ -1,6 +1,5 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
-import { hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import {
   convertPoints,
@@ -411,7 +410,7 @@ async function fixPageSize() {
   const backgroundColor = hexToRgb(
     (document.getElementById('background-color') as HTMLInputElement).value
   );
-  showResultLoader('Standardizing pages...');
+  showLoader('Standardizing pages...');
 
   try {
     const customWidth =

@@ -76,13 +76,6 @@ describe('pdfjs viewer filename bridge', () => {
         decodeURIComponent(formSrc.split('file=')[1])
       )
     ).toBe('tax-form.pdf');
-
-    const stampsSrc = `pdfjs-annotation-viewer/web/viewer.html?file=${encodePdfjsViewerFileParam(blobUrl, 'stamped.pdf')}#ae_username=Ada`;
-    const stampsFile = decodeURIComponent(
-      stampsSrc.split('file=')[1].split('#')[0]
-    );
-    expect(getPdfFilenameFromViewerFileUrl(stampsFile)).toBe('stamped.pdf');
-    expect(stampsSrc.endsWith('#ae_username=Ada')).toBe(true);
   });
 
   it('pins contentDispositionFilename on a loaded viewer application', () => {
@@ -116,27 +109,14 @@ describe('pdfjs viewer filename bridge', () => {
     );
   });
 
-  it('wires the filename bridge into Sign, Form Filler, and Stamps viewers', () => {
-    const sign = readSrc('src/js/logic/sign-pdf-page.ts');
-    expect(sign).toContain('withPdfViewerFilename(signState.blobUrl');
-    expect(sign).toContain(
-      'applyPdfViewerDownloadFilename(app, signState.file'
+  it('wires the filename bridge into Edit PDF (Fill & Sign) and View PDF viewers', () => {
+    const edit = readSrc('src/js/logic/edit-pdf-page.ts');
+    expect(edit).toContain('withPdfViewerFilename(fillSignBlobUrl');
+    expect(edit).toContain(
+      'applyPdfViewerDownloadFilename(app, currentFileName)'
     );
 
-    const form = readSrc('src/js/logic/form-filler-page.ts');
-    expect(form).toContain(
-      'encodePdfjsViewerFileParam(blobUrl, currentFile.name)'
-    );
-    expect(form).toContain(
-      'applyPdfViewerDownloadFilename(app, currentFile?.name)'
-    );
-
-    const stamps = readSrc('src/js/logic/add-stamps.ts');
-    expect(stamps).toContain(
-      'encodePdfjsViewerFileParam(currentBlobUrl, file.name)'
-    );
-    expect(stamps).toContain(
-      'applyPdfViewerDownloadFilename(app, sourceFilename)'
-    );
+    const view = readSrc('src/js/logic/pdf-viewer-page.ts');
+    expect(view).toContain('encodePdfjsViewerFileParam(');
   });
 });

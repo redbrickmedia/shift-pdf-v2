@@ -66,7 +66,7 @@ describe('production CSP and static HTML', () => {
 
   it('loads the sign viewer directly, without an inline redirect shim', async () => {
     const page = await readFile(
-      join(repoRoot, 'src/js/logic/sign-pdf-page.ts'),
+      join(repoRoot, 'src/js/logic/edit-pdf-page.ts'),
       'utf8'
     );
 

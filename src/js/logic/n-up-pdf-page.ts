@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers.js';
@@ -123,7 +122,7 @@ async function nUpTool() {
     (document.getElementById('border-color') as HTMLInputElement).value
   );
 
-  showResultLoader('Creating N-Up PDF...');
+  showLoader('Creating N-Up PDF...');
 
   try {
     const sourceDoc = pageState.pdfDoc;
@@ -158,7 +157,7 @@ async function nUpTool() {
     const usableHeight = pageHeight - margin * 2;
 
     for (let i = 0; i < sourcePages.length; i += n) {
-      showResultLoader(`Processing sheet ${Math.floor(i / n) + 1}...`);
+      showLoader(`Processing sheet ${Math.floor(i / n) + 1}...`);
       const chunk = sourcePages.slice(i, i + n);
       const outputPage = newDoc.addPage([pageWidth, pageHeight]);
 

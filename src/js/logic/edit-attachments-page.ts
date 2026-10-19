@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { AttachmentInfo } from '@/types';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
@@ -595,7 +594,7 @@ async function applyAttachmentOutput() {
   const cpdfUrl = WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js';
 
   if (pageState.activeMode === 'extract') {
-    showResultLoader('Extracting attachments...');
+    showLoader('Extracting attachments...');
     try {
       const decryptedFiles = await batchDecryptIfNeeded(pageState.files);
       pageState.files = decryptedFiles;
@@ -704,7 +703,7 @@ async function applyAttachmentOutput() {
     }
   }
 
-  showResultLoader('Processing attachments...');
+  showLoader('Processing attachments...');
   try {
     const rawAddBuffers: ArrayBuffer[] = [];
     const attachmentNames: string[] = [];

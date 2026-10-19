@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -25,19 +26,9 @@ describe('vendored PDF.js alignment', () => {
     expect(viewerWorker).toContain(`pdfjsVersion = ${locked}`);
   });
 
-  it('records and verifies the annotation viewer legacy exception', async () => {
-    const [alignment, core, viewer] = await Promise.all([
-      readJson('public/pdfjs-annotation-viewer/pdfjs-alignment.json'),
-      readText('public/pdfjs-annotation-viewer/build/pdf.mjs'),
-      readText('public/pdfjs-annotation-viewer/web/viewer.mjs'),
-    ]);
-
-    expect(alignment).toMatchObject({
-      pdfjsVersion: '4.3.136',
-      status: 'pinned-legacy-exception',
-    });
-    expect(alignment.reason).toMatch(/not published|artifact/i);
-    expect(core).toContain(`pdfjsVersion = "${alignment.pdfjsVersion}"`);
-    expect(viewer).toContain(`pdfjsVersion = "${alignment.pdfjsVersion}"`);
+  it('retires the legacy pdfjs-annotation-viewer bundle', () => {
+    expect(
+      existsSync(resolve(process.cwd(), 'public/pdfjs-annotation-viewer'))
+    ).toBe(false);
   });
 });

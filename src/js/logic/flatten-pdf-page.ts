@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 
@@ -281,7 +280,7 @@ async function flattenPdfFiles() {
 
   try {
     if (pageState.files.length === 1) {
-      showResultLoader('Flattening PDF...');
+      showLoader('Flattening PDF...');
       const file = pageState.files[0];
       const newPdfBytes = await flattenSingleDoc(file, doForms, doAnnotations);
       downloadFile(
@@ -290,7 +289,7 @@ async function flattenPdfFiles() {
       );
       hideLoader();
     } else {
-      showResultLoader('Flattening multiple PDFs...');
+      showLoader('Flattening multiple PDFs...');
 
       const zip = new JSZip();
       const usedNames = new Set<string>();
@@ -298,7 +297,7 @@ async function flattenPdfFiles() {
 
       for (let i = 0; i < pageState.files.length; i++) {
         const file = pageState.files[i];
-        showResultLoader(
+        showLoader(
           `Flattening ${i + 1}/${pageState.files.length}: ${file.name}...`
         );
 
@@ -361,13 +360,13 @@ async function rasterizePdfFiles() {
 
     hideLoader();
     pageState.files = await batchDecryptIfNeeded(pageState.files);
-    showResultLoader('Rasterizing...');
+    showLoader('Rasterizing...');
 
     const total = pageState.files.length;
 
     if (total === 1) {
       const file = pageState.files[0];
-      showResultLoader(`Rasterizing ${file.name}...`);
+      showLoader(`Rasterizing ${file.name}...`);
 
       const rasterizedBlob = await (pymupdf as PyMuPDFInstance).rasterizePdf(
         file,
@@ -389,9 +388,7 @@ async function rasterizePdfFiles() {
       for (let fi = 0; fi < pageState.files.length; fi++) {
         try {
           const file = pageState.files[fi];
-          showResultLoader(
-            `Rasterizing ${file.name} (${completed + 1}/${total})...`
-          );
+          showLoader(`Rasterizing ${file.name} (${completed + 1}/${total})...`);
 
           const rasterizedBlob = await (
             pymupdf as PyMuPDFInstance
@@ -414,7 +411,7 @@ async function rasterizePdfFiles() {
       }
 
       if (completed > 0) {
-        showResultLoader('Creating ZIP archive...');
+        showLoader('Creating ZIP archive...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         downloadFile(zipBlob, 'rasterized-pdfs.zip');
       } else {

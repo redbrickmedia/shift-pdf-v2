@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
@@ -172,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (let i = 0; i < state.files.length; i++) {
         const file = state.files[i];
-        showResultLoader(`Extracting images from ${file.name}...`);
+        showLoader(`Extracting images from ${file.name}...`);
 
         const doc = await pymupdf.open(file);
         const pageCount = doc.pageCount;
@@ -226,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (extractedImages.length === 0) return;
 
-    showResultLoader('Creating ZIP archive...');
+    showLoader('Creating ZIP archive...');
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
 

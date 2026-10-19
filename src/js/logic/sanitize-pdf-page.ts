@@ -1,6 +1,5 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
-import { hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
@@ -195,7 +194,7 @@ async function runSanitize() {
     showAlert('Error', 'No PDF document loaded.');
     return;
   }
-  showResultLoader('Sanitizing PDF...');
+  showLoader('Sanitizing PDF...');
 
   try {
     const options = getSelectedOptions();
@@ -215,7 +214,7 @@ async function runSanitize() {
       hideLoader();
       return;
     }
-    showResultLoader('Sanitizing PDF...');
+    showLoader('Sanitizing PDF...');
     loaded.pdf.destroy();
     pageState.file = loaded.file;
     const result = await sanitizePdf(new Uint8Array(loaded.bytes), options);

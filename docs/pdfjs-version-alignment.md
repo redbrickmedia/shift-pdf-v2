@@ -10,15 +10,8 @@ Shift's form and signature viewer files,
 signature fonts, and signature controls are preserved when the distribution is
 refreshed.
 
-`public/pdfjs-annotation-viewer` remains pinned to PDF.js 4.3.136. Its Shift
-annotation extension has no published npm distribution or safe upstream
-6.2.108 refresh artifact. Replacing only its PDF.js files would create an
-untested mixed bundle and could break signing. The pinned version is recorded
-in `pdfjs-alignment.json` and checked by `npm run check:pdfjs`.
-
 `npm run check:pdfjs` verifies the declared, locked, installed, core, worker,
-and viewer versions. It also verifies both annotation-viewer bundles against
-the documented legacy exception.
+and viewer versions.
 
 ## Shift Chromium verification
 

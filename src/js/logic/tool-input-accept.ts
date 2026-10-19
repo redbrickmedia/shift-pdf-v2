@@ -46,6 +46,7 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
     '.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jpx,.jp2,.psd,.svg,.heic,.heif,.webp',
   'invert-colors': 'application/pdf',
   'jpg-to-pdf': 'image/jpeg, image/jpg, image/jp2, .jp2, .jpx, .jpeg, .jpg',
+  'markdown-to-pdf': '.md,.markdown,text/markdown,text/plain',
   'merge-pdf': 'application/pdf',
   'mobi-to-pdf': '.mobi,application/x-mobipocket-ebook',
   'n-up-pdf': 'application/pdf',

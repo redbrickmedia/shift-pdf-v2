@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 import {
@@ -373,7 +372,7 @@ async function processFilesWithQpdf() {
       const inputPath = `/input_${i}.pdf`;
       const outputPath = `/output_${i}.pdf`;
 
-      showResultLoader(
+      showLoader(
         pageState.activeMode === 'protect'
           ? `Processing ${file.name}...`
           : `Unlocking ${file.name}...`

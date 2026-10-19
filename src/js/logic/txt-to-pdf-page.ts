@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 
@@ -125,7 +124,7 @@ async function convert() {
       textContent = textInput.value;
     }
 
-    showResultLoader('Creating PDF...');
+    showLoader('Creating PDF...');
 
     const pdfBlob = await pymupdf.textToPdf(textContent, {
       fontSize,
