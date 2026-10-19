@@ -689,17 +689,11 @@ export async function exportWorkingPdfBytes(): Promise<Uint8Array | null> {
       isApplyToAllCropChecked()
     );
     if (Object.keys(effectiveCrops).length > 0) {
-      const exported = isDestructiveCropChecked()
-        ? await performFlatteningCrop(
-            workingPdfBytes,
-            cropPdfDoc,
-            effectiveCrops
-          )
-        : await performMetadataCrop(
-            workingPdfBytes,
-            cropPdfDoc,
-            effectiveCrops
-          );
+      const exported = await performMetadataCrop(
+        workingPdfBytes,
+        cropPdfDoc,
+        effectiveCrops
+      );
       workingPdfBytes = new Uint8Array(exported);
       return workingPdfBytes;
     }

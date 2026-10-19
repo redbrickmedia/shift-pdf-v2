@@ -23,6 +23,7 @@ import {
   WasmProvider,
 } from '../utils/wasm-provider.js';
 import { hideLoader, showLoader } from '../ui.js';
+import { printPdfBlob } from '../utils/pdfjs-viewer-print.js';
 import { applyLaunchContextToDom, setLaunchContext } from './launch-context.js';
 import {
   registerToolOutputSession,
@@ -2786,6 +2787,14 @@ export function initializeBookmarkPage(): void {
       resetToUploader();
     },
     apply: applyBookmarkOrTocOutput,
+    print: async () => {
+      if (!pdfLibDoc) return;
+      writeOutlinesToPdfDoc(pdfLibDoc, bookmarkTree);
+      const pdfBytes = await pdfLibDoc.save();
+      await printPdfBlob(
+        new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+      );
+    },
     canUndo: () => historyIndex > 0,
     canRedo: () => historyIndex < history.length - 1,
     canReset: () => pdfLibDoc !== null,
