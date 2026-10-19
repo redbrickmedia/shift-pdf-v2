@@ -9,6 +9,7 @@ import {
   type ConvertDestination,
 } from '../config/convert-destinations.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { beginToolUse, endToolUse } from '../host/analytics.js';
 import { showResultLoader } from './tool-success.js';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
 import { downloadFile, getCleanPdfFilename } from '../utils/helpers.js';
@@ -1290,6 +1291,7 @@ export async function runInPlaceConversion(
 ): Promise<void> {
   if (files.length === 0) return;
   const id = destination.id;
+  beginToolUse();
 
   try {
     if (IMAGE_TO_PDF_DESTINATION_ID_SET.has(id)) {
@@ -1379,5 +1381,6 @@ export async function runInPlaceConversion(
     );
   } finally {
     hideLoader();
+    endToolUse('cancelled');
   }
 }
