@@ -475,12 +475,28 @@ async function loadAttachmentsForAllFiles() {
         [fileBuffer]
       );
 
+      if (response.status === 'error') {
+        showAlert(
+          'Error',
+          String(
+            response.message || `Failed to read attachments from ${file.name}.`
+          )
+        );
+        continue;
+      }
+
       if (
         response.status === 'success' &&
         Array.isArray(response.attachments)
       ) {
-        if (i === 0 && typeof response.totalPages === 'number') {
-          pageState.totalPages = response.totalPages;
+        if (
+          typeof response.totalPages === 'number' &&
+          response.totalPages > 0
+        ) {
+          pageState.totalPages = Math.max(
+            pageState.totalPages,
+            response.totalPages
+          );
           const totalPagesSpan = document.getElementById(
             'attachment-total-pages'
           );

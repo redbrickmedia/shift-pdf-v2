@@ -618,6 +618,18 @@ async function saveMetadata() {
     return;
   }
 
+  if (
+    resolveLaunchContext().entryId === 'view-metadata' &&
+    !pageState.isDirty
+  ) {
+    const rawBuffer = await pageState.file.arrayBuffer();
+    downloadFile(
+      new Blob([rawBuffer], { type: 'application/pdf' }),
+      pageState.file.name
+    );
+    return;
+  }
+
   showLoader('Updating metadata...');
 
   try {
@@ -661,21 +673,32 @@ async function saveMetadata() {
       }
     }
 
-    pageState.pdfDoc.setTitle(titleInput?.value ?? '');
-    pageState.pdfDoc.setAuthor(authorInput?.value ?? '');
-    pageState.pdfDoc.setSubject(subjectInput?.value ?? '');
-    pageState.pdfDoc.setCreator(creatorInput?.value ?? '');
-    pageState.pdfDoc.setProducer(producerInput?.value ?? '');
+    if (!pageState.clearedAll || titleInput?.value) {
+      pageState.pdfDoc.setTitle(titleInput?.value ?? '');
+    }
+    if (!pageState.clearedAll || authorInput?.value) {
+      pageState.pdfDoc.setAuthor(authorInput?.value ?? '');
+    }
+    if (!pageState.clearedAll || subjectInput?.value) {
+      pageState.pdfDoc.setSubject(subjectInput?.value ?? '');
+    }
+    if (!pageState.clearedAll || creatorInput?.value) {
+      pageState.pdfDoc.setCreator(creatorInput?.value ?? '');
+    }
+    if (!pageState.clearedAll || producerInput?.value) {
+      pageState.pdfDoc.setProducer(producerInput?.value ?? '');
+    }
 
     const keywords = keywordsInput?.value ?? '';
-    pageState.pdfDoc.setKeywords(
-      keywords
-        .split(',')
-        .map(function (k) {
-          return k.trim();
-        })
-        .filter(Boolean)
-    );
+    const parsedKeywords = keywords
+      .split(',')
+      .map(function (k) {
+        return k.trim();
+      })
+      .filter(Boolean);
+    if (!pageState.clearedAll || parsedKeywords.length > 0) {
+      pageState.pdfDoc.setKeywords(parsedKeywords);
+    }
 
     if (creationDateInput?.value) {
       pageState.pdfDoc.setCreationDate(new Date(creationDateInput.value));

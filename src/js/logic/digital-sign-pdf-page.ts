@@ -1004,8 +1004,20 @@ function displayValidationResults(): void {
   state.results.forEach((result, index) => {
     const card = document.createElement('div');
     card.className = 'bg-gray-700 rounded-lg p-4 border border-gray-600 mb-4';
-    const statusText = result.isValid ? 'Valid Signature' : 'Invalid Signature';
-    const statusColor = result.isValid ? 'text-green-400' : 'text-red-400';
+    const isFullyValid =
+      result.isValid && !result.isExpired && result.isTrusted;
+    const statusText = isFullyValid
+      ? 'Valid Signature'
+      : !result.isValid
+        ? 'Invalid Signature'
+        : result.isExpired
+          ? 'Expired Certificate'
+          : 'Untrusted Certificate';
+    const statusColor = isFullyValid
+      ? 'text-green-400'
+      : !result.isValid
+        ? 'text-red-400'
+        : 'text-yellow-400';
 
     card.innerHTML = `
       <div class="flex items-start justify-between mb-3">

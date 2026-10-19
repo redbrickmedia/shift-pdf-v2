@@ -783,8 +783,11 @@ export function initConvertHubPage(root: Document = document): void {
     showMore = false;
     destinationSearchQuery = '';
     formatOptions = createDefaultConvertFormatOptions();
-    if (!initialDestinationId && fileInput) {
-      fileInput.accept = buildConvertSourceAccept();
+    setLaunchContext(initialDestinationId ?? 'pdf-converter', root);
+    if (fileInput) {
+      if (!initialDestinationId) {
+        fileInput.accept = buildConvertSourceAccept();
+      }
       fileInput.multiple = true;
     }
     clearLatestPdfOutput(root);
