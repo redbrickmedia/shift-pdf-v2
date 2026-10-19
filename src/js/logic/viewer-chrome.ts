@@ -62,6 +62,20 @@ export const STATEFUL_UNDO_REDO_SURFACE_IDS = new Set([
 export const NON_PDF_OUTPUT_SURFACE_IDS = new Set([
   'extract-images',
   'pdf-to-zip',
+  'pdf-to-jpg',
+  'pdf-to-png',
+  'pdf-to-webp',
+  'pdf-to-bmp',
+  'pdf-to-tiff',
+  'pdf-to-svg',
+  'pdf-to-docx',
+  'pdf-to-pptx',
+  'pdf-to-excel',
+  'pdf-to-csv',
+  'pdf-to-text',
+  'pdf-to-markdown',
+  'extract-tables',
+  'extract-attachments',
 ]);
 
 export const VIEWER_CHROME_PRESETS: Record<
@@ -176,7 +190,12 @@ export function resolveViewerChromeFeatures(
     if (options.features?.redo === undefined) {
       features.redo = isUndoRedoSupportedOnSurface(surfaceId, root);
     }
-    if (NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId)) {
+    const entryId =
+      root.documentElement.dataset.launchEntry?.trim().toLowerCase() ?? '';
+    if (
+      NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId) ||
+      (entryId && NON_PDF_OUTPUT_SURFACE_IDS.has(entryId))
+    ) {
       if (options.features?.save === undefined) features.save = false;
       if (options.features?.print === undefined) features.print = false;
     }
