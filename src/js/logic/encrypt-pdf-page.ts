@@ -272,12 +272,6 @@ function buildProtectArgs(inputPath: string, outputPath: string): string[] {
     args.push(`--password=${currentPassword}`);
   }
 
-  const shouldEncrypt = Boolean(userPassword || ownerPasswordInput);
-  if (!shouldEncrypt) {
-    args.push('--decrypt', '--', outputPath);
-    return args;
-  }
-
   const finalUserPassword = userPassword;
   const finalOwnerPassword = ownerPasswordInput || userPassword;
   args.push('--encrypt', finalUserPassword, finalOwnerPassword, '256');
@@ -285,8 +279,12 @@ function buildProtectArgs(inputPath: string, outputPath: string): string[] {
   const perms = getPermissionCheckboxStates();
   const anyUnchecked = Object.values(perms).some((v) => !v);
 
-  if (ownerPasswordInput) {
-    if (!anyUnchecked && resolveLaunchContext().entryId === 'encrypt-pdf') {
+  if (finalOwnerPassword) {
+    if (
+      !anyUnchecked &&
+      ownerPasswordInput &&
+      resolveLaunchContext().entryId === 'encrypt-pdf'
+    ) {
       args.push(
         '--modify=none',
         '--extract=n',
@@ -297,7 +295,7 @@ function buildProtectArgs(inputPath: string, outputPath: string): string[] {
         '--form=n',
         '--modify-other=n'
       );
-    } else {
+    } else if (anyUnchecked) {
       if (!perms.allowModifying) {
         args.push('--modify=none', '--modify-other=n');
       }
@@ -316,9 +314,9 @@ function buildProtectArgs(inputPath: string, outputPath: string): string[] {
       if (!perms.allowFillingForms) {
         args.push('--form=n');
       }
+    } else if (!ownerPasswordInput && finalUserPassword) {
+      args.push('--allow-insecure');
     }
-  } else if (finalUserPassword) {
-    args.push('--allow-insecure');
   }
 
   args.push('--', outputPath);
@@ -458,12 +456,6 @@ function canCommitSecurityOutput(): boolean {
           'owner-password-input'
         ) as HTMLInputElement | null
       )?.value || '';
-    const currentPw =
-      (document.getElementById('current-password') as HTMLInputElement | null)
-        ?.value || '';
-    if (entryId === 'change-permissions') {
-      return Boolean(userPw || ownerPw || currentPw || pageState.files.length);
-    }
     return Boolean(userPw || ownerPw);
   }
 
@@ -513,9 +505,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   for (const id of PERMISSION_CHECKBOX_IDS) {
     document.getElementById(id)?.addEventListener('change', () => {
-      if (resolveLaunchContext().entryId === 'encrypt-pdf') {
-        setLaunchContext('change-permissions');
-      }
       syncToolOutputToolbar();
     });
   }

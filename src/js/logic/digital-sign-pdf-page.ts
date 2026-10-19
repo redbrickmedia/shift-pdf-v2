@@ -243,6 +243,10 @@ async function handleSignPdfHandoff(e: Event): Promise<void> {
 }
 
 function initializePage(): void {
+  const host = getElement<HTMLElement>('tool-uploader') ?? document.body;
+  if (host.dataset.digitalSignBound === 'true') return;
+  host.dataset.digitalSignBound = 'true';
+
   state.pdfFile = null;
   state.pdfBytes = null;
   state.certFile = null;
@@ -1222,7 +1226,9 @@ async function processSignature(): Promise<void> {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initializePage);
-if (document.readyState !== 'loading') {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializePage);
+} else {
   initializePage();
+  document.addEventListener('DOMContentLoaded', initializePage);
 }
