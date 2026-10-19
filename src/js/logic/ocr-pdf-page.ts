@@ -1,7 +1,7 @@
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { tesseractLanguages } from '../config/tesseract-languages.js';
 import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { downloadBlob, downloadFile, formatBytes } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { icons, createIcons } from 'lucide';
 import { OcrState } from '@/types';
@@ -12,11 +12,17 @@ import {
   UnsupportedOcrLanguageError,
 } from '../utils/tesseract-language-availability.js';
 import { initI18n, t } from '../i18n/index.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 const pageState: OcrState = {
   file: null,
   searchablePdfBytes: null,
 };
+
+let lastOcrConfigKey = '';
 
 const whitelistPresets: Record<string, string> = {
   alphanumeric:
@@ -28,6 +34,31 @@ const whitelistPresets: Record<string, string> = {
   forms:
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,()-_/@#:',
 };
+
+function getSelectedLangs(): string[] {
+  return Array.from(document.querySelectorAll('.lang-checkbox:checked')).map(
+    (cb) => (cb as HTMLInputElement).value
+  );
+}
+
+function getCurrentOcrConfigKey(): string {
+  const langs = getSelectedLangs().join('+');
+  const scale =
+    (document.getElementById('ocr-resolution') as HTMLSelectElement | null)
+      ?.value ?? '3.0';
+  const binarize = Boolean(
+    (document.getElementById('ocr-binarize') as HTMLInputElement | null)
+      ?.checked
+  );
+  const embedFullFonts = Boolean(
+    (document.getElementById('ocr-embed-full-fonts') as HTMLInputElement | null)
+      ?.checked
+  );
+  const whitelist =
+    (document.getElementById('ocr-whitelist') as HTMLInputElement | null)
+      ?.value ?? '';
+  return `${pageState.file?.name ?? ''}:${pageState.file?.size ?? 0}:${langs}:${scale}:${binarize}:${embedFullFonts}:${whitelist}`;
+}
 
 function updateProgress(status: string, progress: number) {
   const progressBar = document.getElementById('progress-bar');
@@ -47,6 +78,7 @@ function updateProgress(status: string, progress: number) {
 function resetState() {
   pageState.file = null;
   pageState.searchablePdfBytes = null;
+  lastOcrConfigKey = '';
 
   const fileDisplayArea = document.getElementById('file-display-area');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
@@ -70,9 +102,8 @@ function resetState() {
   if (fileInput) fileInput.value = '';
 
   // Reset selected languages
-  const langCheckboxes = document.querySelectorAll(
-    '.lang-checkbox'
-  ) as NodeListOf<HTMLInputElement>;
+  const langCheckboxes =
+    document.querySelectorAll<HTMLInputElement>('.lang-checkbox');
   langCheckboxes.forEach(function (cb) {
     cb.checked = false;
   });
@@ -88,6 +119,7 @@ function resetState() {
     'process-btn'
   ) as HTMLButtonElement;
   if (processBtn) processBtn.disabled = true;
+  syncToolOutputToolbar();
 }
 
 function updateLanguageAvailabilityNotice() {
@@ -115,24 +147,32 @@ function updateLanguageAvailabilityNotice() {
   });
 }
 
+function stageSearchablePdf(): void {
+  if (!pageState.searchablePdfBytes) return;
+  downloadFile(
+    new Blob([new Uint8Array(pageState.searchablePdfBytes)], {
+      type: 'application/pdf',
+    }),
+    pageState.file?.name || 'document.pdf'
+  );
+}
+
 async function runOCR() {
-  const selectedLangs = Array.from(
-    document.querySelectorAll('.lang-checkbox:checked')
-  ).map(function (cb) {
-    return (cb as HTMLInputElement).value;
-  });
+  const selectedLangs = getSelectedLangs();
 
   const scale = parseFloat(
-    (document.getElementById('ocr-resolution') as HTMLSelectElement).value
+    (document.getElementById('ocr-resolution') as HTMLSelectElement)?.value ||
+      '3.0'
   );
-  const binarize = (document.getElementById('ocr-binarize') as HTMLInputElement)
-    .checked;
-  const embedFullFonts = (
-    document.getElementById('ocr-embed-full-fonts') as HTMLInputElement
-  ).checked;
-  const whitelist = (
-    document.getElementById('ocr-whitelist') as HTMLInputElement
-  ).value;
+  const binarize = Boolean(
+    (document.getElementById('ocr-binarize') as HTMLInputElement)?.checked
+  );
+  const embedFullFonts = Boolean(
+    (document.getElementById('ocr-embed-full-fonts') as HTMLInputElement)
+      ?.checked
+  );
+  const whitelist =
+    (document.getElementById('ocr-whitelist') as HTMLInputElement)?.value ?? '';
 
   if (selectedLangs.length === 0) {
     showAlert(
@@ -168,6 +208,7 @@ async function runOCR() {
     });
 
     pageState.searchablePdfBytes = result.pdfBytes;
+    lastOcrConfigKey = getCurrentOcrConfigKey();
 
     const ocrResults = document.getElementById('ocr-results');
     if (ocrProgress) ocrProgress.classList.add('hidden');
@@ -179,6 +220,9 @@ async function runOCR() {
       'ocr-text-output'
     ) as HTMLTextAreaElement;
     if (textOutput) textOutput.value = result.fullText.trim();
+
+    stageSearchablePdf();
+    syncToolOutputToolbar();
   } catch (e) {
     console.error(e);
     if (e instanceof UnsupportedOcrLanguageError) {
@@ -191,6 +235,15 @@ async function runOCR() {
     }
     if (toolOptions) toolOptions.classList.remove('hidden');
     if (ocrProgress) ocrProgress.classList.add('hidden');
+  }
+}
+
+async function applyOcrOutput(): Promise<void> {
+  const currentConfigKey = getCurrentOcrConfigKey();
+  if (!pageState.searchablePdfBytes || lastOcrConfigKey !== currentConfigKey) {
+    await runOCR();
+  } else {
+    stageSearchablePdf();
   }
 }
 
@@ -239,6 +292,7 @@ async function updateUI() {
   } else {
     if (toolOptions) toolOptions.classList.add('hidden');
   }
+  syncToolOutputToolbar();
 }
 
 async function handleFileSelect(files: FileList | null) {
@@ -252,7 +306,9 @@ async function handleFileSelect(files: FileList | null) {
       if (!result) return;
       result.pdf.destroy();
       pageState.file = result.file;
-      updateUI();
+      pageState.searchablePdfBytes = null;
+      lastOcrConfigKey = '';
+      await updateUI();
     }
   }
 }
@@ -315,9 +371,21 @@ document.addEventListener('DOMContentLoaded', async function () {
   populateLanguageList();
   updateLanguageAvailabilityNotice();
 
+  registerToolOutputSession({
+    apply: () => applyOcrOutput(),
+    reset: () => resetState(),
+    canSave: () =>
+      Boolean(
+        pageState.searchablePdfBytes ||
+        (pageState.file !== null && getSelectedLangs().length > 0)
+      ),
+    canReset: () =>
+      pageState.file !== null || pageState.searchablePdfBytes !== null,
+  });
+
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {
-      handleFileSelect((e.target as HTMLInputElement).files);
+      void handleFileSelect((e.target as HTMLInputElement).files);
     });
 
     dropZone.addEventListener('dragover', function (e) {
@@ -344,7 +412,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (pdfFiles.length > 0) {
           const dataTransfer = new DataTransfer();
           dataTransfer.items.add(pdfFiles[0]);
-          handleFileSelect(dataTransfer.files);
+          void handleFileSelect(dataTransfer.files);
         }
       }
     });
@@ -384,6 +452,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       if (processBtn) {
         processBtn.disabled = selected.length === 0;
       }
+      syncToolOutputToolbar();
     });
   }
 
@@ -442,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
   }
 
-  // Download txt
+  // Download txt (secondary inline export: uses downloadBlob so it does not overwrite the PDF Output Session)
   if (downloadTxtBtn) {
     downloadTxtBtn.addEventListener('click', function () {
       const textOutput = document.getElementById(
@@ -450,7 +519,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       ) as HTMLTextAreaElement;
       if (textOutput) {
         const blob = new Blob([textOutput.value], { type: 'text/plain' });
-        downloadFile(blob, 'ocr-text.txt');
+        downloadBlob(blob, 'ocr-text.txt');
       }
     });
   }
@@ -458,14 +527,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   // Download PDF
   if (downloadPdfBtn) {
     downloadPdfBtn.addEventListener('click', function () {
-      if (pageState.searchablePdfBytes) {
-        downloadFile(
-          new Blob([new Uint8Array(pageState.searchablePdfBytes)], {
-            type: 'application/pdf',
-          }),
-          pageState.file?.name || 'document.pdf'
-        );
-      }
+      stageSearchablePdf();
     });
   }
 });
