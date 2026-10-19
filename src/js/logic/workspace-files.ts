@@ -1895,6 +1895,7 @@ function createHomeFileRow(
   const row = root.createElement('tr');
   row.className = 'shift-my-pdfs-row';
   row.classList.toggle('is-selected', isSelected);
+  if (file.id) row.dataset.fileId = file.id;
   row.dataset.fileName = file.name;
   row.dataset.source = file.source;
 

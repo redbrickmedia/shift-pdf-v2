@@ -420,9 +420,13 @@ describe('workspace library ghosts', () => {
       document.querySelectorAll<HTMLButtonElement>(
         '#shift-my-pdfs-body .shift-my-pdfs-delete'
       )
-    ).find((button) =>
-      button.closest('tr')?.textContent?.includes(String(drop.size))
-    );
+    ).find((button) => {
+      const row = button.closest('tr');
+      return (
+        row?.dataset.fileId === drop.id ||
+        row?.textContent?.includes(`${drop.size} B`)
+      );
+    });
     dropButton?.click();
     document.querySelector<HTMLButtonElement>('.shift-confirm-accept')?.click();
     await vi.waitFor(async () => {
