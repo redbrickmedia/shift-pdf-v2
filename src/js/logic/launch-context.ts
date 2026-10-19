@@ -166,11 +166,14 @@ export function applyLaunchContextToDom(
   root.documentElement.dataset.launchEntry = context.entryId;
   root.documentElement.dataset.launchSurface = context.surfaceId;
 
-  const input = root.querySelector<HTMLInputElement>('input#file-input');
-  if (input) {
-    input.accept = context.accept;
-    input.multiple = context.multiple;
-  }
+  root
+    .querySelectorAll<HTMLInputElement>(
+      'input#file-input, input#pdf-file-input'
+    )
+    .forEach((input) => {
+      input.accept = context.accept;
+      input.multiple = context.multiple;
+    });
 
   const shouldUpdateCopy =
     context.isConsolidatedEntry ||

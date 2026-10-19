@@ -140,29 +140,37 @@ describe('shared chrome', () => {
     expect(rule).toMatch(/width:\s*100%/);
   });
 
-  it('routes the multi-tool page through the shared action row', () => {
+  it('routes the multi-tool page through the shared viewer header and manipulation sub-toolbar', () => {
     const page = readFileSync(
       resolve(process.cwd(), 'src/pages/pdf-multi-tool.html'),
       'utf8'
     );
+    expect(page).toContain('class="shift-pdf-viewer-header"');
+    expect(page).toContain('class="shift-pdf-viewer-heading"');
+    expect(page).toContain('data-shift-viewer-actions');
+    const headerIndex = page.indexOf('class="shift-pdf-viewer-header"');
+    const toolbarIndex = page.indexOf('class="toolbar-container');
+    expect(headerIndex).toBeGreaterThan(-1);
+    expect(headerIndex).toBeLessThan(toolbarIndex);
+
     const toolbar = page.slice(
-      page.indexOf('class="toolbar-container'),
+      toolbarIndex,
       page.indexOf('id="main-scroll-container"')
     );
     expect(toolbar).toContain('class="shift-action-row"');
     expect(toolbar).toContain('role="group"');
     expect(toolbar).toContain('aria-labelledby="multi-tool-rotate-caption"');
     expect(toolbar).toContain('aria-label="Left"');
+    expect(toolbar).toContain('id="reverse-pages-btn"');
+    expect(toolbar).not.toContain('id="export-pdf-btn"');
+    expect(toolbar).not.toContain('id="undo-btn"');
+    expect(toolbar).not.toContain('id="redo-btn"');
+    expect(toolbar).not.toContain('id="reset-btn"');
     expect(toolbar).not.toContain('role="toolbar"');
     expect(toolbar).not.toMatch(/bg-gray-|text-gray-/);
-    const history = toolbar.indexOf('data-shift-action-group="history"');
     const output = toolbar.indexOf('data-shift-action-group="output"');
     const extras = toolbar.indexOf('data-shift-action-group="extras"');
-    expect(history).toBeLessThan(output);
     expect(output).toBeLessThan(extras);
-    expect(toolbar.indexOf('id="undo-btn"')).toBeLessThan(
-      toolbar.indexOf('id="bulk-download-btn"')
-    );
     expect(toolbar.indexOf('id="bulk-download-btn"')).toBeLessThan(
       toolbar.indexOf('id="upload-pdfs-btn"')
     );

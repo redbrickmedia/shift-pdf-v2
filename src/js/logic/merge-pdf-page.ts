@@ -2,11 +2,18 @@ import { showResultLoader } from './tool-success.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
-import type { MergeFile, MergeJob, MergeMessage, MergeResponse } from '@/types';
+import type {
+  InterleaveFile,
+  MergeFile,
+  MergeJob,
+  MergeMessage,
+  MergeResponse,
+} from '@/types';
 import { listenForShiftFileHandoff } from '../embedder/shift-file-handoff.js';
 import { abandonToolUse, endToolUse } from '../host/analytics.js';
 import { state } from '../state.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
+import { interleavePdfs } from '../utils/alternate-merge.js';
 import { BoundedHistory } from '../utils/bounded-history.js';
 import { isCpdfAvailable } from '../utils/cpdf-helper.js';
 import { downloadFile } from '../utils/helpers.js';
@@ -31,6 +38,11 @@ import {
   mergeFileIdentityKey,
 } from './merge-file-identity.js';
 import { openAddMoreLibraryPicker } from './add-more-files.js';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+  setLaunchContext,
+} from './launch-context.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
 import {
   clearWorkspaceOpenFile,
@@ -42,12 +54,13 @@ import {
   syncToolOutputToolbar,
 } from './tool-output-toolbar.js';
 
-type MergeMode = 'file' | 'page';
+type MergeMode = 'file' | 'page' | 'alternate';
 
 interface MergeSource {
   id: string;
   file: File;
   range: string;
+  reverse: boolean;
 }
 
 interface MergePage {
@@ -100,6 +113,8 @@ const mergeWorker = new Worker(
 );
 let completionPanel: ToolCompletionPanel | null = null;
 let activeMergeOperation = 0;
+let moduleListenersBound = false;
+let unregisterOutputSession: (() => void) | null = null;
 
 function generateId(): string {
   return (
@@ -145,6 +160,19 @@ async function releaseRuntimeDocuments(): Promise<void> {
   await Promise.allSettled(documents.map((document) => document.destroy()));
 }
 
+function defaultMergeMode(): MergeMode {
+  return resolveLaunchContext().entryId === 'alternate-merge'
+    ? 'alternate'
+    : 'file';
+}
+
+function syncLaunchContextFromMode(mode: MergeMode): void {
+  setLaunchContext(
+    mode === 'alternate' ? 'alternate-merge' : 'merge-pdf',
+    document
+  );
+}
+
 async function resetState(): Promise<void> {
   if (activeMergeOperation !== 0) {
     showAlert('Merge in progress', 'Wait for the current merge to finish.');
@@ -153,21 +181,23 @@ async function resetState(): Promise<void> {
   runtime.renderVersion++;
   destroySortables();
   cleanupLazyRendering();
-  await releaseRuntimeDocuments();
   history.clear();
+  applyLaunchContextToDom(document);
   mergeModel = {
     files: [],
     pageOrder: [],
-    activeMode: 'file',
+    activeMode: defaultMergeMode(),
     retainPageLabels: false,
   };
   state.files = [];
   state.pdfDoc = null;
+  renderMode();
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   if (fileInput) fileInput.value = '';
   document.getElementById('file-list')?.replaceChildren();
   document.getElementById('page-merge-preview')?.replaceChildren();
+  await releaseRuntimeDocuments();
   await clearWorkspaceOpenFile();
   await renderMergeUI();
 }
@@ -217,7 +247,12 @@ async function addFiles(files: File[]): Promise<boolean> {
   try {
     const decrypted = await batchDecryptIfNeeded(unique);
     for (const file of decrypted) {
-      const source = { id: generateId(), file, range: '' };
+      const source: MergeSource = {
+        id: generateId(),
+        file,
+        range: '',
+        reverse: false,
+      };
       await loadRuntimeSource(source);
       added.push(source);
     }
@@ -339,23 +374,47 @@ function renderFileList(): void {
     controls.className = 'mt-2 flex items-center gap-2';
     const inputWrapper = document.createElement('div');
     inputWrapper.className = 'flex-1';
-    const label = document.createElement('label');
-    label.htmlFor = `range-${source.id}`;
-    label.className = 'text-xs text-gray-400';
-    label.textContent = `Pages (e.g., 1-3, 5) - Total: ${pdfDocument?.numPages ?? 'N/A'}`;
-    const input = document.createElement('input');
-    input.id = `range-${source.id}`;
-    input.type = 'text';
-    input.value = source.range;
-    input.placeholder = 'Leave blank for all pages';
-    input.className =
-      'w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm mt-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
-    input.addEventListener('change', () => {
-      if (input.value === source.range) return;
-      snapshot();
-      source.range = input.value;
-    });
-    inputWrapper.append(label, input);
+
+    if (mergeModel.activeMode === 'alternate') {
+      const reverseLabel = document.createElement('label');
+      reverseLabel.htmlFor = `reverse-${source.id}`;
+      reverseLabel.className =
+        'inline-flex items-center gap-2 text-xs text-gray-300 cursor-pointer';
+      const reverseCheckbox = document.createElement('input');
+      reverseCheckbox.id = `reverse-${source.id}`;
+      reverseCheckbox.type = 'checkbox';
+      reverseCheckbox.checked = Boolean(source.reverse);
+      reverseCheckbox.dataset.reverseToggle = source.id;
+      reverseCheckbox.className =
+        'w-4 h-4 rounded text-indigo-600 bg-gray-800 border-gray-600';
+      reverseCheckbox.addEventListener('change', () => {
+        if (reverseCheckbox.checked === source.reverse) return;
+        snapshot();
+        source.reverse = reverseCheckbox.checked;
+      });
+      const reverseText = document.createElement('span');
+      reverseText.textContent = `Reverse page order (${pdfDocument?.numPages ?? 'N/A'} pages)`;
+      reverseLabel.append(reverseCheckbox, reverseText);
+      inputWrapper.append(reverseLabel);
+    } else {
+      const label = document.createElement('label');
+      label.htmlFor = `range-${source.id}`;
+      label.className = 'text-xs text-gray-400';
+      label.textContent = `Pages (e.g., 1-3, 5) - Total: ${pdfDocument?.numPages ?? 'N/A'}`;
+      const input = document.createElement('input');
+      input.id = `range-${source.id}`;
+      input.type = 'text';
+      input.value = source.range;
+      input.placeholder = 'Leave blank for all pages';
+      input.className =
+        'w-full bg-gray-800 border border-gray-600 text-white rounded-md p-2 text-sm mt-1 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+      input.addEventListener('change', () => {
+        if (input.value === source.range) return;
+        snapshot();
+        source.range = input.value;
+      });
+      inputWrapper.append(label, input);
+    }
 
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -470,17 +529,31 @@ async function renderPageThumbnails(): Promise<void> {
 function renderMode(): void {
   const fileButton = document.getElementById('file-mode-btn');
   const pageButton = document.getElementById('page-mode-btn');
+  const alternateButton = document.getElementById('alternate-mode-btn');
   const filePanel = document.getElementById('file-mode-panel');
   const pagePanel = document.getElementById('page-mode-panel');
+  const alternatePanel = document.getElementById('alternate-mode-panel');
+  const fileList = document.getElementById('file-list');
+
   const inFileMode = mergeModel.activeMode === 'file';
+  const inPageMode = mergeModel.activeMode === 'page';
+  const inAlternateMode = mergeModel.activeMode === 'alternate';
+
   filePanel?.classList.toggle('hidden', !inFileMode);
-  pagePanel?.classList.toggle('hidden', inFileMode);
+  pagePanel?.classList.toggle('hidden', !inPageMode);
+  alternatePanel?.classList.toggle('hidden', !inAlternateMode);
+  fileList?.classList.toggle('hidden', inPageMode);
+
   fileButton?.classList.toggle('bg-indigo-600', inFileMode);
   fileButton?.classList.toggle('text-white', inFileMode);
-  pageButton?.classList.toggle('bg-indigo-600', !inFileMode);
-  pageButton?.classList.toggle('text-white', !inFileMode);
+  pageButton?.classList.toggle('bg-indigo-600', inPageMode);
+  pageButton?.classList.toggle('text-white', inPageMode);
+  alternateButton?.classList.toggle('bg-indigo-600', inAlternateMode);
+  alternateButton?.classList.toggle('text-white', inAlternateMode);
+
   fileButton?.setAttribute('aria-pressed', String(inFileMode));
-  pageButton?.setAttribute('aria-pressed', String(!inFileMode));
+  pageButton?.setAttribute('aria-pressed', String(inPageMode));
+  alternateButton?.setAttribute('aria-pressed', String(inAlternateMode));
 }
 
 async function renderMergeUI(syncWorkspace = true): Promise<void> {
@@ -516,6 +589,7 @@ async function renderMergeUI(syncWorkspace = true): Promise<void> {
 
 async function restore(snapshotToRestore: MergeSnapshot): Promise<void> {
   mergeModel = cloneSnapshot(snapshotToRestore);
+  syncLaunchContextFromMode(mergeModel.activeMode);
   syncSharedFiles();
   showResultLoader('Restoring merge state...');
   try {
@@ -659,6 +733,69 @@ export async function merge(): Promise<void> {
     return;
   }
 
+  const processButton = document.getElementById(
+    'process-btn'
+  ) as HTMLButtonElement | null;
+
+  if (mergeModel.activeMode === 'alternate') {
+    const filesToInterleave: InterleaveFile[] = [];
+    const reverseFlags: boolean[] = [];
+    for (const source of mergeModel.files) {
+      const bytes = runtime.pdfBytes.get(source.id);
+      if (!bytes) {
+        fail(`${source.file.name} is not loaded.`);
+        return;
+      }
+      filesToInterleave.push({
+        name: source.id,
+        data: bytes.slice(0),
+        reverse: Boolean(source.reverse),
+      });
+      reverseFlags.push(Boolean(source.reverse));
+    }
+
+    showResultLoader('Alternating and mixing pages...');
+    const operationId = Date.now() + Math.random();
+    activeMergeOperation = operationId;
+    if (processButton) processButton.disabled = true;
+    try {
+      const mergedBytes = await interleavePdfs({
+        files: filesToInterleave,
+        reverseFlags,
+        retainPageLabels: mergeModel.retainPageLabels,
+      });
+      if (activeMergeOperation !== operationId) return;
+      activeMergeOperation = 0;
+      if (processButton) processButton.disabled = mergeModel.files.length < 2;
+      hideLoader();
+      const blob = new Blob([new Uint8Array(mergedBytes)], {
+        type: 'application/pdf',
+      });
+      downloadFile(blob, 'alternated-mixed.pdf');
+      completionPanel?.show({
+        blob,
+        filename: 'alternated-mixed.pdf',
+        summary: `Alternated and mixed ${inputCount} PDFs into one document.`,
+        timing: completionTiming(startedAt),
+      });
+    } catch (error) {
+      if (activeMergeOperation === operationId) {
+        activeMergeOperation = 0;
+        if (processButton) processButton.disabled = mergeModel.files.length < 2;
+      }
+      hideLoader();
+      console.error('Alternate merge error:', error);
+      endToolUse('error');
+      showAlert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : 'Failed to alternate and mix PDFs.'
+      );
+    }
+    return;
+  }
+
   const prepared = buildMergeJobs();
   if (prepared.error) {
     fail(prepared.error);
@@ -675,9 +812,6 @@ export async function merge(): Promise<void> {
   };
   const operationId = Date.now() + Math.random();
   activeMergeOperation = operationId;
-  const processButton = document.getElementById(
-    'process-btn'
-  ) as HTMLButtonElement | null;
   if (processButton) processButton.disabled = true;
   const finishWorkerOperation = () => {
     if (activeMergeOperation !== operationId) return false;
@@ -743,7 +877,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   completionPanel = createDefaultToolCompletionPanel(resetState);
-  const unregisterOutputSession = registerToolOutputSession({
+  unregisterOutputSession?.();
+  unregisterOutputSession = registerToolOutputSession({
     apply: merge,
     reset: resetState,
     undo,
@@ -752,7 +887,6 @@ document.addEventListener('DOMContentLoaded', () => {
     canUndo: () => history.status.canUndo,
     canRedo: () => history.status.canRedo,
   });
-  window.addEventListener('pagehide', unregisterOutputSession, { once: true });
   fileInput?.addEventListener('change', () => {
     void addFiles(Array.from(fileInput.files ?? []));
   });
@@ -763,9 +897,6 @@ document.addEventListener('DOMContentLoaded', () => {
     void openAddMoreLibraryPicker({
       exclude: currentMergeIdentities(),
     });
-  });
-  onToolFilesSeeded(() => {
-    void addFiles(state.files.slice());
   });
   document.getElementById('clear-files-btn')?.addEventListener('click', () => {
     void resetState();
@@ -783,14 +914,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mergeModel.activeMode === 'file') return;
     snapshot();
     mergeModel.activeMode = 'file';
+    syncLaunchContextFromMode('file');
     void renderMergeUI();
   });
   document.getElementById('page-mode-btn')?.addEventListener('click', () => {
     if (mergeModel.activeMode === 'page') return;
     snapshot();
     mergeModel.activeMode = 'page';
+    syncLaunchContextFromMode('page');
     void renderMergeUI();
   });
+  document
+    .getElementById('alternate-mode-btn')
+    ?.addEventListener('click', () => {
+      if (mergeModel.activeMode === 'alternate') return;
+      snapshot();
+      mergeModel.activeMode = 'alternate';
+      syncLaunchContextFromMode('alternate');
+      void renderMergeUI();
+    });
   document
     .getElementById('retain-page-labels')
     ?.addEventListener('change', (event) => {
@@ -818,23 +960,39 @@ document.addEventListener('DOMContentLoaded', () => {
     void addFiles(files);
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    const key = event.key.toLowerCase();
-    if (key === 'z' && !event.shiftKey) {
-      event.preventDefault();
-      void undo();
-    } else if ((key === 'z' && event.shiftKey) || key === 'y') {
-      event.preventDefault();
-      void redo();
-    }
-  });
+  if (!moduleListenersBound) {
+    moduleListenersBound = true;
+    window.addEventListener(
+      'pagehide',
+      () => {
+        unregisterOutputSession?.();
+        unregisterOutputSession = null;
+      },
+      { once: true }
+    );
+    onToolFilesSeeded(() => {
+      void addFiles(state.files.slice());
+    });
+    document.addEventListener('keydown', (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        void undo();
+      } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+        event.preventDefault();
+        void redo();
+      }
+    });
+    listenForShiftFileHandoff({
+      onFile: (file) => {
+        markFileFromHandoff(file);
+        return addFiles([file]);
+      },
+    });
+  }
 
+  applyLaunchContextToDom(document);
+  mergeModel.activeMode = defaultMergeMode();
   void renderMergeUI(false);
-  listenForShiftFileHandoff({
-    onFile: (file) => {
-      markFileFromHandoff(file);
-      return addFiles([file]);
-    },
-  });
 });
