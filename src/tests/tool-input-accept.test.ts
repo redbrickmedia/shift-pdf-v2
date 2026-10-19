@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { PRUNED_TOOL_IDS, PRUNED_TOOL_ID_SET } from '../js/config/tools';
 import { TOOL_INPUT_ACCEPT } from '../js/logic/tool-input-accept';
 
 const pagesDir = resolve(__dirname, '../pages');
@@ -24,13 +25,14 @@ function primaryAccept(html: string): string | null {
 }
 
 describe('tool input accept map', () => {
-  it('matches each tool page primary file input', () => {
+  it('matches each active tool page primary file input and excludes pruned tools', () => {
     const mismatches: string[] = [];
     const seen = new Set<string>();
 
     for (const name of readdirSync(pagesDir)) {
       if (!name.endsWith('.html')) continue;
       const id = name.replace(/\.html$/, '');
+      if (PRUNED_TOOL_ID_SET.has(id)) continue;
       const html = readFileSync(resolve(pagesDir, name), 'utf8');
       const accept = primaryAccept(html);
       if (accept === null) continue;
@@ -46,5 +48,8 @@ describe('tool input accept map', () => {
     const extra = Object.keys(TOOL_INPUT_ACCEPT).filter((id) => !seen.has(id));
     expect(mismatches).toEqual([]);
     expect(extra).toEqual([]);
+    for (const prunedId of PRUNED_TOOL_IDS) {
+      expect(TOOL_INPUT_ACCEPT).not.toHaveProperty(prunedId);
+    }
   });
 });

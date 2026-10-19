@@ -31,7 +31,7 @@ import {
 } from './my-pdfs-search.js';
 import { findToolFileInput } from './tool-file-seed.js';
 import { loadFavoriteRailSnapshot } from './tool-favorites.js';
-import { categories } from '../config/tools.js';
+import { categories, extractCatalogEntryIdFromHref } from '../config/tools.js';
 import { isPdfFile } from '../utils/pdf-file.js';
 import {
   createShiftBrowserEmpty,
@@ -885,17 +885,7 @@ function syncOpenWithTooltip(link: HTMLAnchorElement, text: string): void {
 }
 
 function openWithToolId(href: string): string {
-  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
-  if (entryMatch?.[1]) {
-    return decodeURIComponent(entryMatch[1]);
-  }
-  return (
-    href
-      .split('?')[0]
-      ?.split('/')
-      .pop()
-      ?.replace(/\.html$/, '') ?? href
-  );
+  return extractCatalogEntryIdFromHref(href) || href;
 }
 
 /**

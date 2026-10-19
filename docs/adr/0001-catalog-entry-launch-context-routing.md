@@ -1,0 +1,3 @@
+# Route consolidated Catalog Entries to shared Tool Surfaces via Launch Context (`?entry=<id>`)
+
+Consolidated Catalog Entries in `All tools` share a single canonical Tool Surface `.html` build input and pass their identity via `?entry=<catalog-entry-id>` (the **Launch Context**), while retired standalone `src/pages/<entry>.html` pages are removed from the build without redirect stubs. On load, the Tool Surface uses the Launch Context to adapt the header `<h1>`, subtitle, `<title>`, `#file-input.accept`, pre-selected mode or destination format, sidebar active-link matching, and telemetry `tool_id` (preserving all sibling controls on the surface and syncing `?entry=` via `history.replaceState` when the user explicitly switches to another mapped mode or format).

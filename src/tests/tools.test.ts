@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   categories,
   getCatalogEntriesForSurface,
@@ -5,6 +6,8 @@ import {
   PRUNED_TOOL_IDS,
   PRUNED_TOOL_ID_SET,
 } from '@/js/config/tools';
+import { shiftToolIcons } from '@/js/config/shift-tool-icons';
+import { SINGLE_FILE_DESTINATION_IDS } from '@/js/config/convert-destinations';
 import { describe, it, expect } from 'vitest';
 
 describe('Tool Categories Configuration', () => {
@@ -63,17 +66,19 @@ describe('Tool Categories Configuration', () => {
     });
   });
 
-  it('prunes all 18 retired niche tools from the catalog', () => {
+  it('prunes all 18 retired niche tools from the catalog, icons, and destination maps', () => {
     expect(PRUNED_TOOL_IDS).toHaveLength(18);
     const allToolIds = categories.flatMap((c) => c.tools.map((t) => t.id));
     for (const prunedId of PRUNED_TOOL_IDS) {
       expect(PRUNED_TOOL_ID_SET.has(prunedId)).toBe(true);
       expect(allToolIds).not.toContain(prunedId);
       expect(getCatalogEntryById(prunedId)).toBeUndefined();
+      expect(shiftToolIcons).not.toHaveProperty(prunedId);
+      expect(SINGLE_FILE_DESTINATION_IDS.has(prunedId)).toBe(false);
     }
   });
 
-  it('applies category moves and renames', () => {
+  it('applies category moves and renames (including English locale translation)', () => {
     const byCategory = new Map(
       categories.map((c) => [c.name, c.tools.map((t) => t.id)])
     );
@@ -100,6 +105,11 @@ describe('Tool Categories Configuration', () => {
       .find((c) => c.name === 'Popular Tools')
       ?.tools.find((t) => t.id === 'organize-pdf');
     expect(popularOrganize?.name).toBe('Organize & Duplicate');
+
+    const enTools = JSON.parse(
+      readFileSync('public/locales/en/tools.json', 'utf8')
+    ) as { duplicateOrganize?: { name?: string } };
+    expect(enTools.duplicateOrganize?.name).toBe('Organize & Duplicate');
   });
 
   it('maps consolidated entries to their target surfaces and cardinalities', () => {

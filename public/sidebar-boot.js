@@ -716,28 +716,161 @@
     subtree: true,
   });
 
+  /* Keep in step with PRUNED_TOOL_IDS and SURFACE_BY_ENTRY_ID in
+     src/js/config/tools.ts; tool-favorites.test.ts asserts they match. */
+  var PRUNED_TOOL_IDS = {
+    'rotate-custom': 1,
+    'posterize-pdf': 1,
+    'pdf-booklet': 1,
+    'json-to-pdf': 1,
+    'pdf-to-json': 1,
+    'prepare-pdf-for-ai': 1,
+    'wpd-to-pdf': 1,
+    'wps-to-pdf': 1,
+    'fb2-to-pdf': 1,
+    'cbz-to-pdf': 1,
+    'pdf-to-cbz': 1,
+    'scanner-effect': 1,
+    'add-page-labels': 1,
+    'linearize-pdf': 1,
+    'font-to-outline': 1,
+    'pdf-layers': 1,
+    'pdf-workflow': 1,
+    'overlay-pdf': 1,
+  };
+  var CONSOLIDATED_SURFACE_BY_ENTRY = {
+    'organize-pdf': 'pdf-multi-tool',
+    'delete-pages': 'pdf-multi-tool',
+    'rotate-pdf': 'pdf-multi-tool',
+    'add-blank-page': 'pdf-multi-tool',
+    'reverse-pages': 'pdf-multi-tool',
+    'alternate-merge': 'merge-pdf',
+    'extract-pages': 'split-pdf',
+    'image-to-pdf': 'pdf-converter',
+    'jpg-to-pdf': 'pdf-converter',
+    'png-to-pdf': 'pdf-converter',
+    'webp-to-pdf': 'pdf-converter',
+    'svg-to-pdf': 'pdf-converter',
+    'bmp-to-pdf': 'pdf-converter',
+    'heic-to-pdf': 'pdf-converter',
+    'tiff-to-pdf': 'pdf-converter',
+    'psd-to-pdf': 'pdf-converter',
+    'word-to-pdf': 'pdf-converter',
+    'excel-to-pdf': 'pdf-converter',
+    'powerpoint-to-pdf': 'pdf-converter',
+    'odt-to-pdf': 'pdf-converter',
+    'ods-to-pdf': 'pdf-converter',
+    'odp-to-pdf': 'pdf-converter',
+    'odg-to-pdf': 'pdf-converter',
+    'rtf-to-pdf': 'pdf-converter',
+    'pages-to-pdf': 'pdf-converter',
+    'pub-to-pdf': 'pdf-converter',
+    'vsd-to-pdf': 'pdf-converter',
+    'epub-to-pdf': 'pdf-converter',
+    'mobi-to-pdf': 'pdf-converter',
+    'xps-to-pdf': 'pdf-converter',
+    'csv-to-pdf': 'pdf-converter',
+    'xml-to-pdf': 'pdf-converter',
+    'email-to-pdf': 'pdf-converter',
+    'pdf-to-jpg': 'pdf-converter',
+    'pdf-to-png': 'pdf-converter',
+    'pdf-to-webp': 'pdf-converter',
+    'pdf-to-bmp': 'pdf-converter',
+    'pdf-to-tiff': 'pdf-converter',
+    'pdf-to-svg': 'pdf-converter',
+    'pdf-to-docx': 'pdf-converter',
+    'pdf-to-pptx': 'pdf-converter',
+    'pdf-to-text': 'pdf-converter',
+    'pdf-to-markdown': 'pdf-converter',
+    'pdf-to-excel': 'pdf-converter',
+    'pdf-to-csv': 'pdf-converter',
+    'extract-tables': 'pdf-converter',
+    'add-stamps': 'edit-pdf',
+    'sign-pdf': 'edit-pdf',
+    'form-filler': 'edit-pdf',
+    'crop-pdf': 'edit-pdf',
+    'table-of-contents': 'bookmark',
+    'remove-annotations': 'sanitize-pdf',
+    'remove-metadata': 'sanitize-pdf',
+    'view-metadata': 'edit-metadata',
+    'add-attachments': 'edit-attachments',
+    'extract-attachments': 'edit-attachments',
+    'change-permissions': 'encrypt-pdf',
+    'decrypt-pdf': 'encrypt-pdf',
+    'remove-restrictions': 'encrypt-pdf',
+    'validate-signature-pdf': 'digital-sign-pdf',
+    'timestamp-pdf': 'digital-sign-pdf',
+    'rasterize-pdf': 'flatten-pdf',
+    'pdf-to-greyscale': 'adjust-colors',
+    'invert-colors': 'adjust-colors',
+    'background-color': 'adjust-colors',
+    'text-color': 'adjust-colors',
+    'header-footer': 'page-numbers',
+    'bates-numbering': 'page-numbers',
+    'page-dimensions': 'fix-page-size',
+  };
+
   function pageId(pathname) {
     var file = pathname.replace(/\/+$/, '').split('/').pop() || '';
-    var page = file.replace(/\.html$/, '');
+    var page = file.replace(/\.html$/i, '').toLowerCase();
     return page === '' || page === 'index' ? 'index' : page;
   }
 
-  function activeEntryId(pathname, search) {
+  function extractBootToolId(href) {
+    var entryMatch = href.match(/[?&]entry=([^&#]+)/);
+    if (entryMatch && entryMatch[1]) {
+      try {
+        return decodeURIComponent(entryMatch[1]).trim().toLowerCase();
+      } catch (_decodeErr) {
+        return entryMatch[1].trim().toLowerCase();
+      }
+    }
+    var cleanHref = (href.split('#')[0] || href).split('?')[0] || href;
+    return pageId(cleanHref);
+  }
+
+  function migrateBootPinHref(href) {
+    var toolId = extractBootToolId(href);
+    if (toolId && PRUNED_TOOL_IDS[toolId]) {
+      return { pruned: true, href: href, changed: true };
+    }
+    var surface = toolId && CONSOLIDATED_SURFACE_BY_ENTRY[toolId];
+    if (surface) {
+      var rewritten = href.replace(
+        new RegExp('(^|/)' + toolId + '\\.html(?:\\?[^#]*)?', 'i'),
+        '$1' + surface + '.html?entry=' + toolId
+      );
+      if (rewritten !== href) {
+        return { pruned: false, href: rewritten, changed: true };
+      }
+    }
+    return { pruned: false, href: href, changed: false };
+  }
+
+  function resolveBootTarget(pathname, search) {
+    var surfaceId = pageId(pathname);
     if (search) {
       try {
         var params = new URLSearchParams(search);
-        var entry = params.get('entry');
-        if (entry && entry.trim()) return entry.trim();
+        var entry = (params.get('entry') || '').trim().toLowerCase();
+        if (entry && CONSOLIDATED_SURFACE_BY_ENTRY[entry] === surfaceId) {
+          return surfaceId + '?' + entry;
+        }
       } catch (_entryErr) {
-        // Fall back to pageId when query parsing fails.
+        // Fall back to surfaceId when query parsing fails.
       }
     }
-    return pageId(pathname);
+    if (!search && CONSOLIDATED_SURFACE_BY_ENTRY[surfaceId]) {
+      return CONSOLIDATED_SURFACE_BY_ENTRY[surfaceId] + '?' + surfaceId;
+    }
+    return surfaceId + '?' + surfaceId;
   }
 
   function render(rail) {
-    var current = activeEntryId(location.pathname, location.search);
+    var current = resolveBootTarget(location.pathname, location.search);
     var rendered = 0;
+    var migratedPins = [];
+    var mutated = false;
 
     for (var i = 0; i < pins.length && i < MAX_PINS; i++) {
       var pin = pins[i];
@@ -749,10 +882,14 @@
         continue;
       }
 
+      var migration = migrateBootPinHref(pin.href);
+      if (migration.changed) mutated = true;
+      if (migration.pruned) continue;
+
       var url;
       try {
-        url = new URL(pin.href, location.href);
-      } catch {
+        url = new URL(migration.href, location.href);
+      } catch (_urlErr) {
         continue;
       }
       // Cached values are only ever written by this app, but a pin is a link:
@@ -762,13 +899,19 @@
         continue;
       }
 
+      migratedPins.push({
+        name: pin.name,
+        href: migration.href,
+        icon: typeof pin.icon === 'string' ? pin.icon : '',
+      });
+
       var item = document.createElement('div');
       item.className = 'shift-favorite-item';
 
       var link = document.createElement('a');
       link.href = url.href;
       link.className = 'shift-nav-link shift-favorite-link';
-      if (activeEntryId(url.pathname, url.search) === current) {
+      if (resolveBootTarget(url.pathname, url.search) === current) {
         link.className += ' is-active';
         link.setAttribute('aria-current', 'page');
       }
@@ -792,6 +935,14 @@
       item.appendChild(link);
       rail.appendChild(item);
       rendered++;
+    }
+
+    if (mutated) {
+      try {
+        localStorage.setItem(RAIL_KEY, JSON.stringify(migratedPins));
+      } catch (_writeErr) {
+        // Storage can be blocked in private browsing.
+      }
     }
 
     // No remove button here on purpose: it needs a click handler to mean

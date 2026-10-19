@@ -1,4 +1,5 @@
-import { categories } from './config/tools.js';
+import { categories, extractCatalogEntryIdFromHref } from './config/tools.js';
+import type { FavoriteRailPin } from '@/types';
 import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
@@ -34,7 +35,6 @@ import {
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
-  type FavoriteRailPin,
 } from './logic/tool-favorites.js';
 import { attachShiftTooltip } from './logic/shift-tooltip.js';
 import { initHomeFiles } from './logic/home-files.js';
@@ -78,7 +78,10 @@ import {
 } from './logic/promise-banner.js';
 import { initToolBackNavigation } from './logic/tool-back.js';
 import { initToolBackMenu } from './logic/tool-back-menu.js';
-import { applyLaunchContextToDom } from './logic/launch-context.js';
+import {
+  applyLaunchContextToDom,
+  syncActiveToolNavLinks,
+} from './logic/launch-context.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -129,10 +132,7 @@ function getShellScroller(): HTMLElement {
 function getToolId(tool: { id?: string; href?: string }): string {
   if (tool.id) return tool.id;
   if (tool.href) {
-    const entryMatch = tool.href.match(/[?&]entry=([^&#]+)/);
-    if (entryMatch?.[1]) return decodeURIComponent(entryMatch[1]);
-    const match = tool.href.split('?')[0]?.match(/\/([^/]+)\.html$/);
-    return match ? match[1] : tool.href;
+    return extractCatalogEntryIdFromHref(tool.href) || tool.href;
   }
   return 'unknown';
 }
@@ -260,39 +260,11 @@ function initShiftShell() {
   markActiveNavLinks();
 }
 
-function navPageId(pathname: string): string {
-  const file = pathname.replace(/\/+$/, '').split('/').pop() || '';
-  const page = file.replace(/\.html$/, '');
-  return page === '' || page === 'index' ? 'index' : page;
-}
-
-function navEntryId(pathname: string, search: string): string {
-  const params = new URLSearchParams(
-    search.startsWith('?') ? search.slice(1) : search
-  );
-  const entry = params.get('entry')?.trim();
-  return entry || navPageId(pathname);
-}
-
 /* Authored nav links (All tools, My PDFs) are keyed by data-nav because some
    hrefs are aliased. Favourite pins come from the catalog and only have an
-   href, so they are matched by entry/page instead. Both routes only add, so
-   neither clears what the other marked. */
+   href, so they are matched by surface + validated Launch Context entry. */
 function markActiveNavLinks() {
-  const current = navEntryId(window.location.pathname, window.location.search);
-  document
-    .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
-    .forEach((link) => {
-      // Every selected-file row points at the viewer, so matching by page
-      // would mark all of them current. renderWorkspaceFiles marks the one
-      // file the viewer is actually showing.
-      if (link.classList.contains('shift-open-file-item')) return;
-      const url = new URL(link.href, window.location.href);
-      const target = navEntryId(url.pathname, url.search);
-      if (target !== current) return;
-      link.classList.add('is-active');
-      link.setAttribute('aria-current', 'page');
-    });
+  syncActiveToolNavLinks(document);
 }
 
 /*
@@ -324,6 +296,7 @@ const i18nReady = initI18n();
 void Promise.all([domReady, i18nReady])
   .then(() => {
     applyTranslations();
+    applyLaunchContextToDom(document);
     rewriteLinks();
   })
   .catch(() => {
@@ -350,6 +323,7 @@ const init = async () => {
   await loadRuntimeConfig();
   injectLanguageSwitcher();
   applyTranslations();
+  applyLaunchContextToDom(document);
 
   initToolEmptyState();
   initAddMoreLibraryPicker();

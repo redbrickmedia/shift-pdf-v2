@@ -36,7 +36,6 @@ const PRIMARY_PDF_DESTINATION_IDS = [
 export const SINGLE_FILE_DESTINATION_IDS: ReadonlySet<string> = new Set([
   'extract-tables',
   'pdf-to-bmp',
-  'pdf-to-cbz',
   'pdf-to-csv',
   'pdf-to-excel',
   'pdf-to-greyscale',
@@ -48,13 +47,11 @@ export const SINGLE_FILE_DESTINATION_IDS: ReadonlySet<string> = new Set([
 
 const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   bmp: 'bmp-to-pdf',
-  cbz: 'cbz-to-pdf',
   csv: 'csv-to-pdf',
   doc: 'word-to-pdf',
   docx: 'word-to-pdf',
   eml: 'email-to-pdf',
   epub: 'epub-to-pdf',
-  fb2: 'fb2-to-pdf',
   gif: 'image-to-pdf',
   heic: 'heic-to-pdf',
   heif: 'heic-to-pdf',
@@ -91,15 +88,12 @@ const EXTENSION_TO_TOOL_ID: Record<string, string> = {
   vsd: 'vsd-to-pdf',
   vsdx: 'vsd-to-pdf',
   webp: 'webp-to-pdf',
-  wpd: 'wpd-to-pdf',
-  wps: 'wps-to-pdf',
   xls: 'excel-to-pdf',
   xlsb: 'excel-to-pdf',
   xlsx: 'excel-to-pdf',
   xltx: 'excel-to-pdf',
   xml: 'xml-to-pdf',
   xps: 'xps-to-pdf',
-  json: 'json-to-pdf',
 };
 
 const SUPPORTED_TO_PDF_EXTENSIONS = new Set(Object.keys(EXTENSION_TO_TOOL_ID));

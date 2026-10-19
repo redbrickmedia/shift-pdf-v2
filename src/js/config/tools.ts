@@ -1,21 +1,8 @@
 // This file centralizes the definition of all available tools, organized by category.
 
-export type ToolCardinality = 'single' | 'dual' | 'batch';
+import type { CatalogEntry, ToolCardinality, ToolCategory } from '@/types';
 
-export interface CatalogEntry {
-  id: string;
-  surface: string;
-  href: string;
-  cardinality: ToolCardinality;
-  name: string;
-  icon: string;
-  subtitle: string;
-}
-
-export interface ToolCategory {
-  name: string;
-  tools: CatalogEntry[];
-}
+export type { CatalogEntry, ToolCardinality, ToolCategory } from '@/types';
 
 export const PRUNED_TOOL_IDS = [
   'rotate-custom',
@@ -40,7 +27,7 @@ export const PRUNED_TOOL_IDS = [
 
 export const PRUNED_TOOL_ID_SET: ReadonlySet<string> = new Set(PRUNED_TOOL_IDS);
 
-const SURFACE_BY_ENTRY_ID: Record<string, string> = {
+export const SURFACE_BY_ENTRY_ID: Readonly<Record<string, string>> = {
   // pdf-multi-tool
   'pdf-multi-tool': 'pdf-multi-tool',
   'organize-pdf': 'pdf-multi-tool',
@@ -985,4 +972,69 @@ export function getCatalogEntriesForSurface(surfaceId: string): CatalogEntry[] {
     }
   }
   return entries;
+}
+
+const SPECIAL_I18N_PREFIX_BY_ENTRY_ID: Readonly<Record<string, string | null>> =
+  {
+    'pdf-converter': null,
+    'view-pdf': null,
+    'edit-pdf': 'tools:pdfEditor',
+    'organize-pdf': 'tools:duplicateOrganize',
+    bookmark: 'tools:editBookmarks',
+    'text-color': 'tools:changeTextColor',
+    'form-filler': 'tools:pdfFormFiller',
+    'form-creator': 'tools:createPdfForm',
+    'txt-to-pdf': 'tools:textToPdf',
+    'pdf-to-docx': 'tools:pdfToWord',
+    'combine-single-page': 'tools:combineToSinglePage',
+    'pdf-to-zip': 'tools:pdfsToZip',
+  };
+
+/**
+ * Resolves the `tools:<camelKey>` i18n namespace prefix for a Catalog Entry ID
+ * (e.g. `'sign-pdf'` -> `'tools:signPdf'`, `'edit-pdf'` -> `'tools:pdfEditor'`),
+ * or `null` if the entry does not map to a `tools:*` translation key.
+ */
+export function getCatalogEntryI18nPrefix(entryId: string): string | null {
+  const normalized = entryId.trim().toLowerCase();
+  if (!normalized || PRUNED_TOOL_ID_SET.has(normalized)) {
+    return null;
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      SPECIAL_I18N_PREFIX_BY_ENTRY_ID,
+      normalized
+    )
+  ) {
+    return SPECIAL_I18N_PREFIX_BY_ENTRY_ID[normalized] ?? null;
+  }
+  if (!catalogEntriesById.has(normalized)) {
+    return null;
+  }
+  const camelKey = normalized.replace(/-([a-z0-9])/g, (_, char: string) =>
+    char.toUpperCase()
+  );
+  return `tools:${camelKey}`;
+}
+
+/**
+ * Extracts a Catalog Entry or surface slug from a tool href or bare ID string,
+ * preferring `?entry=<id>` when present and otherwise stripping any path,
+ * query, hash, and `.html` suffix.
+ */
+export function extractCatalogEntryIdFromHref(href: string): string {
+  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
+  if (entryMatch?.[1]) {
+    return decodeURIComponent(entryMatch[1]).trim().toLowerCase();
+  }
+  const cleanHref = href.split('#')[0]?.split('?')[0] ?? href;
+  return (
+    cleanHref
+      .replace(/\/+$/, '')
+      .split('/')
+      .pop()
+      ?.replace(/\.html$/i, '') ?? ''
+  )
+    .trim()
+    .toLowerCase();
 }

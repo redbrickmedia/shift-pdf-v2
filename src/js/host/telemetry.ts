@@ -1,6 +1,9 @@
 import packageJson from '../../../package.json';
-import { getCatalogEntryById } from '../config/tools.js';
 import { supportedLanguages } from '../i18n/i18n.js';
+import {
+  parseSurfaceAndSearch,
+  resolveLaunchContext,
+} from '../logic/launch-context.js';
 import { getHostAnalytics } from './bridge.js';
 import {
   classifyAlertTitle,
@@ -78,38 +81,20 @@ export function getToolIdFromPath(
   pathname = currentPathname(),
   search?: string
 ): string {
-  const qIndex = pathname.indexOf('?');
-  const cleanPathname = qIndex >= 0 ? pathname.slice(0, qIndex) : pathname;
-  const embeddedSearch = qIndex >= 0 ? pathname.slice(qIndex) : '';
-  const effectiveSearch =
-    search !== undefined
-      ? search
-      : embeddedSearch ||
-        (typeof window !== 'undefined' && pathname === window.location.pathname
-          ? window.location.search
-          : '');
-
-  const segment = cleanPathname.replace(/\/+$/, '').split('/').pop() ?? '';
-  const id = segment.replace(/\.html$/i, '').toLowerCase();
-  if (!id || id === 'index' || LOCALE_HOME_SEGMENTS.has(id)) return 'home';
-  if (!SLUG.test(id)) return 'unknown';
-
-  if (effectiveSearch) {
-    const params = new URLSearchParams(
-      effectiveSearch.startsWith('?')
-        ? effectiveSearch.slice(1)
-        : effectiveSearch
-    );
-    const entryParam = params.get('entry')?.trim().toLowerCase() ?? '';
-    if (entryParam && SLUG.test(entryParam)) {
-      const catalogEntry = getCatalogEntryById(entryParam);
-      if (catalogEntry && catalogEntry.surface === id) {
-        return catalogEntry.id;
-      }
-    }
+  const { surfaceId, effectiveSearch } = parseSurfaceAndSearch(
+    pathname,
+    search
+  );
+  if (
+    !surfaceId ||
+    surfaceId === 'index' ||
+    LOCALE_HOME_SEGMENTS.has(surfaceId)
+  ) {
+    return 'home';
   }
+  if (!SLUG.test(surfaceId)) return 'unknown';
 
-  return id;
+  return resolveLaunchContext(pathname, effectiveSearch).entryId;
 }
 
 function currentPathname(): string {

@@ -93,7 +93,7 @@
     "subtitle": "Save a selection of pages as new files."
   },
   "duplicateOrganize": {
-    "name": "Duplicate & Organize",
+    "name": "Organize & Duplicate",
     "subtitle": "Duplicate, reorder, and delete pages.",
     "saveChanges": "Save Changes"
   },

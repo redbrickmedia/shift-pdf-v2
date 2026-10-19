@@ -1,4 +1,11 @@
-import { getCatalogEntryById, PRUNED_TOOL_ID_SET } from '../config/tools.js';
+import {
+  extractCatalogEntryIdFromHref,
+  getCatalogEntryById,
+  PRUNED_TOOL_ID_SET,
+} from '../config/tools.js';
+import type { FavoriteRailPin } from '@/types';
+
+export type { FavoriteRailPin } from '@/types';
 
 export const TOOL_FAVORITES_STORAGE_KEY = 'shiftPdfFavoriteToolIds';
 
@@ -27,12 +34,6 @@ export const DEFAULT_FAVORITE_TOOL_IDS = [
   'sign-pdf',
 ] as const;
 
-export interface FavoriteRailPin {
-  name: string;
-  href: string;
-  icon: string;
-}
-
 const MAX_FAVORITES = 40;
 const MAX_STORED_LENGTH = 4096;
 
@@ -50,34 +51,52 @@ export function parseFavoriteToolIds(
   storedValue: string | null,
   validToolIds: ReadonlySet<string>
 ): string[] {
-  if (!storedValue || storedValue.length > MAX_STORED_LENGTH) return [];
+  return parseFavoriteToolIdsInternal(storedValue, validToolIds).favoriteIds;
+}
+
+function parseFavoriteToolIdsInternal(
+  storedValue: string | null,
+  validToolIds: ReadonlySet<string>
+): { favoriteIds: string[]; mutated: boolean } {
+  if (!storedValue || storedValue.length > MAX_STORED_LENGTH) {
+    return { favoriteIds: [], mutated: false };
+  }
 
   try {
     const parsed: unknown = JSON.parse(storedValue);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return { favoriteIds: [], mutated: false };
 
     const favoriteIds: string[] = [];
     const seen = new Set<string>();
+    let mutated = false;
 
     for (const value of parsed) {
+      if (typeof value !== 'string') {
+        mutated = true;
+        continue;
+      }
+      const normalized = extractCatalogEntryIdFromHref(value) || value.trim();
+      if (normalized !== value) {
+        mutated = true;
+      }
       if (
-        typeof value !== 'string' ||
-        PRUNED_TOOL_ID_SET.has(value) ||
-        !validToolIds.has(value) ||
-        seen.has(value)
+        PRUNED_TOOL_ID_SET.has(normalized) ||
+        !validToolIds.has(normalized) ||
+        seen.has(normalized)
       ) {
+        mutated = true;
         continue;
       }
 
-      favoriteIds.push(value);
-      seen.add(value);
+      favoriteIds.push(normalized);
+      seen.add(normalized);
       if (favoriteIds.length === MAX_FAVORITES) break;
     }
 
-    return favoriteIds;
+    return { favoriteIds, mutated };
   } catch (error) {
     console.warn('Ignored invalid saved PDF tool favorites.', error);
-    return [];
+    return { favoriteIds: [], mutated: false };
   }
 }
 
@@ -130,7 +149,10 @@ export function loadFavoriteToolIds(
       return defaults;
     }
 
-    const existing = parseFavoriteToolIds(raw, validToolIds);
+    const { favoriteIds: existing, mutated } = parseFavoriteToolIdsInternal(
+      raw,
+      validToolIds
+    );
     const clearedAll = raw.trim() === '[]';
 
     // An explicit empty list is "Clear all". Do not merge the former
@@ -152,20 +174,8 @@ export function loadFavoriteToolIds(
       markFavoritesMigrated(storage as StorageWriter);
     }
 
-    if (migrated && canWrite) {
-      try {
-        const rawParsed: unknown = JSON.parse(raw);
-        if (
-          Array.isArray(rawParsed) &&
-          rawParsed.some(
-            (item) => typeof item === 'string' && PRUNED_TOOL_ID_SET.has(item)
-          )
-        ) {
-          writeFavoriteToolIds(existing, storage as StorageWriter);
-        }
-      } catch {
-        // Ignore parse failure; parseFavoriteToolIds already handled it.
-      }
+    if (migrated && canWrite && mutated) {
+      writeFavoriteToolIds(existing, storage as StorageWriter);
     }
 
     return existing;
@@ -210,26 +220,12 @@ export function saveFavoriteRailSnapshot(
   }
 }
 
-function extractPinToolId(href: string): string {
-  const entryMatch = href.match(/[?&]entry=([^&#]+)/);
-  if (entryMatch?.[1]) {
-    return decodeURIComponent(entryMatch[1]);
-  }
-  const cleanHref = href.split('#')[0]?.split('?')[0] ?? href;
-  const slug =
-    cleanHref
-      .split('/')
-      .pop()
-      ?.replace(/\.html$/i, '') ?? '';
-  return slug;
-}
-
 function migratePinHref(href: string): {
   pruned: boolean;
   href: string;
   changed: boolean;
 } {
-  const toolId = extractPinToolId(href);
+  const toolId = extractCatalogEntryIdFromHref(href);
   if (toolId && PRUNED_TOOL_ID_SET.has(toolId)) {
     return { pruned: true, href, changed: true };
   }

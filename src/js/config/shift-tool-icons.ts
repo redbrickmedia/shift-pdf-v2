@@ -85,11 +85,6 @@ export const shiftToolIcons: Record<string, ShiftToolIcon> = {
     grid: 16,
     svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.75.75 15.25 5l-4.5 4.25"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.25 5H4.75a4 4 0 0 0-4 4v6.25"></path></svg>',
   },
-  // RedoIcon
-  'rotate-custom': {
-    grid: 16,
-    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.75.75 15.25 5l-4.5 4.25"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.25 5H4.75a4 4 0 0 0-4 4v6.25"></path></svg>',
-  },
   // GridIcon
   'n-up-pdf': {
     grid: 16,
@@ -244,11 +239,6 @@ export const shiftToolIcons: Record<string, ShiftToolIcon> = {
     grid: 24,
     svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.75 15.25v-3m0 0v-3.5h1.5a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1zM11.25 8.75h-1.5v6.5h1.5a2 2 0 0 0 2-2v-2.5a2 2 0 0 0-2-2M18.25 8.75h-2.5v3m0 0v3.5m0-3.5h2.5"></path></svg>',
   },
-  // AiSparkleIcon
-  'prepare-pdf-for-ai': {
-    grid: 64,
-    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 88 88"><path fill="var(--action-text-link-active)" d="M48.512 25.19c.357-1.587 2.619-1.587 2.976 0l1.798 7.98c.173.77.775 1.37 1.545 1.544l7.978 1.798c1.588.357 1.588 2.619 0 2.976l-7.978 1.798a2.04 2.04 0 0 0-1.545 1.545l-1.798 7.978c-.357 1.588-2.619 1.588-2.976 0l-1.798-7.978a2.04 2.04 0 0 0-1.545-1.545l-7.978-1.798c-1.588-.357-1.588-2.619 0-2.976l7.978-1.798a2.04 2.04 0 0 0 1.545-1.545z" shape-rendering="geometricPrecision"></path><path fill="var(--action-text-link-hover)" d="M32.937 44.85c.255-1.133 1.87-1.133 2.126 0l1.284 5.7c.124.55.553.98 1.103 1.103l5.7 1.284c1.133.255 1.133 1.87 0 2.126l-5.7 1.284a1.46 1.46 0 0 0-1.103 1.103l-1.284 5.7c-.255 1.133-1.87 1.133-2.126 0l-1.284-5.7a1.46 1.46 0 0 0-1.103-1.103l-5.7-1.284c-1.133-.255-1.133-1.87 0-2.126l5.7-1.284a1.46 1.46 0 0 0 1.103-1.103z" shape-rendering="geometricPrecision"></path></svg>',
-  },
   // ScanPdfIcon
   'ocr-pdf': {
     grid: 24,
@@ -258,11 +248,6 @@ export const shiftToolIcons: Record<string, ShiftToolIcon> = {
   'repair-pdf': {
     grid: 24,
     svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.464 8.95a1 1 0 0 1 0-1.414l2.37-2.37a4.25 4.25 0 0 0-5.67 5.67l-6 6a1.414 1.414 0 1 0 2 2l6.001-6.001a4.25 4.25 0 0 0 5.68-5.648L16.48 9.55a1 1 0 0 1-1.414 0z"></path></svg>',
-  },
-  // SpeedIcon
-  'linearize-pdf': {
-    grid: 16,
-    svg: '<svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16"><path fill="currentColor" fill-rule="evenodd" d="M8 1.5a6.5 6.5 0 0 0-4.358 11.323c.417-.528.99-.93 1.595-1.215A6.6 6.6 0 0 1 8 11c.933 0 1.918.21 2.763.608.605.285 1.178.687 1.595 1.215A6.5 6.5 0 0 0 8 1.5m0 13a6.5 6.5 0 0 1-3.134-.804c.233-.273.574-.525 1.01-.731.636-.3 1.4-.465 2.124-.465.723 0 1.488.165 2.123.465.437.206.778.458 1.01.731A6.5 6.5 0 0 1 8 14.5M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m10.78-1.72a.75.75 0 1 0-1.06-1.06l-2.5 2.5a.75.75 0 0 0 1.06 1.06z" clip-rule="evenodd"></path></svg>',
   },
   // InfoIcon
   'view-metadata': {

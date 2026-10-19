@@ -19,7 +19,7 @@ import {
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { TOOL_FAVORITES_RAIL_KEY } from '../js/logic/tool-favorites';
-import { categories } from '../js/config/tools';
+import { categories, extractCatalogEntryIdFromHref } from '../js/config/tools';
 import {
   clearWorkspaceOpenFile,
   copyFileOrigin,
@@ -1492,17 +1492,8 @@ describe('workspace files sidebar', () => {
     // Favorites then the popular tools, and nothing beyond them: this is a
     // shortlist, so a tool from another category appearing here would mean
     // the whole catalog had leaked back in.
-    const pageOf = (href: string): string => {
-      const entryMatch = href.match(/[?&]entry=([^&#]+)/);
-      if (entryMatch?.[1]) return decodeURIComponent(entryMatch[1]);
-      return (
-        href
-          .split('?')[0]
-          ?.split('/')
-          .pop()
-          ?.replace(/\.html$/, '') ?? href
-      );
-    };
+    const pageOf = (href: string): string =>
+      extractCatalogEntryIdFromHref(href) || href;
     const rendered = new Set(
       Array.from(
         list?.querySelectorAll<HTMLAnchorElement>('[data-tool]') ?? []

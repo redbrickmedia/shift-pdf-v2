@@ -1,5 +1,13 @@
 import { WasmProvider } from './wasm-provider';
+import { t } from '../i18n/i18n';
 import type { WindowWithCoherentPdf, CpdfInstance } from '@/types';
+
+export function formatCpdfWorkerError(
+  key: string,
+  params?: Record<string, string | number>
+): string {
+  return t(`tools:pdfWorkflow.errors.${key}`, params);
+}
 
 let cpdfLoaded = false;
 let cpdfLoadPromise: Promise<void> | null = null;

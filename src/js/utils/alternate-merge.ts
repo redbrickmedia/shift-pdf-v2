@@ -1,27 +1,20 @@
 import { WasmProvider } from './wasm-provider';
-import { t } from '../i18n/i18n';
+import { formatCpdfWorkerError } from './cpdf-helper';
+import type { InterleaveFile } from '@/types';
 
-const wfError = (
-  key: string,
-  params?: Record<string, string | number>
-): string => t(`tools:pdfWorkflow.errors.${key}`, params);
-
-export interface InterleaveFile {
-  name: string;
-  data: ArrayBuffer;
-}
+export type { InterleaveFile } from '@/types';
 
 export async function interleavePdfs(
   files: InterleaveFile[],
   options?: { retainPageLabels?: boolean }
 ): Promise<Uint8Array> {
   if (files.length < 2) {
-    throw new Error(wfError('alternateMergeNeedsTwo'));
+    throw new Error(formatCpdfWorkerError('alternateMergeNeedsTwo'));
   }
 
   const cpdfBaseUrl = WasmProvider.getUrl('cpdf');
   if (!cpdfBaseUrl) {
-    throw new Error(wfError('cpdfNotConfigured'));
+    throw new Error(formatCpdfWorkerError('cpdfNotConfigured'));
   }
 
   return new Promise<Uint8Array>((resolve, reject) => {
@@ -36,7 +29,8 @@ export async function interleavePdfs(
       } else {
         reject(
           new Error(
-            e.data.message || wfError('workerError', { message: 'unknown' })
+            e.data.message ||
+              formatCpdfWorkerError('workerError', { message: 'unknown' })
           )
         );
       }
@@ -46,7 +40,9 @@ export async function interleavePdfs(
       worker.terminate();
       reject(
         new Error(
-          wfError('alternateMergeWorkerError', { message: err.message })
+          formatCpdfWorkerError('alternateMergeWorkerError', {
+            message: err.message,
+          })
         )
       );
     };

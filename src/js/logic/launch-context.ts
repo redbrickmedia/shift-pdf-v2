@@ -1,32 +1,27 @@
 import {
   getCatalogEntryById,
-  type CatalogEntry,
-  type ToolCardinality,
+  getCatalogEntryI18nPrefix,
 } from '../config/tools.js';
+import i18next from '../i18n/i18n.js';
 import { acceptForToolId } from './tool-input-accept.js';
+import type { LaunchContext, ToolCardinality } from '@/types';
 
-export interface LaunchContext {
-  surfaceId: string;
-  entryId: string;
-  entry: CatalogEntry | null;
-  canonicalEntry: CatalogEntry | null;
-  isConsolidatedEntry: boolean;
-  name: string;
-  subtitle: string;
-  icon: string;
-  accept: string;
-  cardinality: ToolCardinality;
-  multiple: boolean;
-}
+export type { LaunchContext } from '@/types';
 
-function parseSurfaceAndSearch(
+export function parseSurfaceAndSearch(
   pathname: string,
   search?: string
 ): { surfaceId: string; effectiveSearch: string } {
   const qIndex = pathname.indexOf('?');
   const cleanPathname = qIndex >= 0 ? pathname.slice(0, qIndex) : pathname;
   const embeddedSearch = qIndex >= 0 ? pathname.slice(qIndex) : '';
-  const effectiveSearch = search !== undefined ? search : embeddedSearch;
+  const effectiveSearch =
+    search !== undefined
+      ? search
+      : embeddedSearch ||
+        (typeof window !== 'undefined' && pathname === window.location.pathname
+          ? (window.location.search ?? '')
+          : '');
 
   const segment = cleanPathname.replace(/\/+$/, '').split('/').pop() ?? '';
   const surfaceId = segment.replace(/\.html$/i, '').toLowerCase();
@@ -47,11 +42,7 @@ export function resolveLaunchContext(
 ): LaunchContext {
   const { surfaceId, effectiveSearch } = parseSurfaceAndSearch(
     pathname,
-    search !== undefined
-      ? search
-      : typeof window !== 'undefined' && pathname === window.location.pathname
-        ? window.location.search
-        : ''
+    search
   );
 
   const params = new URLSearchParams(
@@ -86,18 +77,90 @@ export function resolveLaunchContext(
     icon: activeEntry?.icon ?? '',
     accept: acceptForToolId(entryId),
     cardinality,
-    multiple: cardinality === 'batch',
+    multiple: cardinality === 'dual' || cardinality === 'batch',
   };
+}
+
+export function resolveNavTarget(
+  pathname: string,
+  search?: string
+): { surfaceId: string; entryId: string } {
+  const { surfaceId: rawSurfaceId, effectiveSearch } = parseSurfaceAndSearch(
+    pathname,
+    search
+  );
+  const surfaceId = rawSurfaceId === '' ? 'index' : rawSurfaceId;
+  const ctx = resolveLaunchContext(pathname, effectiveSearch);
+  if (ctx.entry && ctx.entry.surface !== surfaceId && !effectiveSearch) {
+    return { surfaceId: ctx.entry.surface, entryId: ctx.entry.id };
+  }
+  return {
+    surfaceId,
+    entryId: ctx.entry ? ctx.entryId : surfaceId,
+  };
+}
+
+export function syncActiveToolNavLinks(
+  root: Document = document,
+  context: LaunchContext = resolveLaunchContext()
+): void {
+  const currentSurfaceId =
+    context.surfaceId === '' ? 'index' : context.surfaceId;
+  const currentEntryId = context.entry ? context.entryId : currentSurfaceId;
+  const baseHref =
+    typeof window !== 'undefined' ? window.location.href : 'http://localhost/';
+
+  root
+    .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
+    .forEach((link) => {
+      if (
+        link.classList.contains('shift-open-file-item') ||
+        link.hasAttribute('data-nav')
+      ) {
+        return;
+      }
+      let url: URL;
+      try {
+        url = new URL(link.href, baseHref);
+      } catch (error) {
+        console.warn('Ignored invalid nav link URL.', error);
+        return;
+      }
+      const target = resolveNavTarget(url.pathname, url.search);
+      const isActive =
+        target.surfaceId === currentSurfaceId &&
+        target.entryId === currentEntryId;
+      link.classList.toggle('is-active', isActive);
+      if (isActive) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+}
+
+function resolveLocalizedCopy(
+  i18nKey: string | null,
+  fallback: string
+): string {
+  if (i18nKey && i18next.isInitialized) {
+    const translated = i18next.t(i18nKey);
+    if (translated && translated !== i18nKey) {
+      return translated;
+    }
+  }
+  return fallback;
 }
 
 /**
  * Applies the resolved Launch Context to the document header, document title,
- * and primary `#file-input` (`accept` and `multiple` attributes).
+ * sidebar active links, and primary `#file-input` (`accept` and `multiple`).
  */
 export function applyLaunchContextToDom(
   root: Document = document,
   context: LaunchContext = resolveLaunchContext()
 ): LaunchContext {
+  syncActiveToolNavLinks(root, context);
   if (!context.entry) return context;
 
   root.documentElement.dataset.launchEntry = context.entryId;
@@ -114,28 +177,47 @@ export function applyLaunchContextToDom(
     root.documentElement.hasAttribute('data-launch-context-applied');
 
   if (shouldUpdateCopy) {
+    const i18nPrefix = getCatalogEntryI18nPrefix(context.entryId);
+    const nameI18nKey = i18nPrefix ? `${i18nPrefix}.name` : null;
+    const subtitleI18nKey = i18nPrefix ? `${i18nPrefix}.subtitle` : null;
+    const localizedName = resolveLocalizedCopy(nameI18nKey, context.name);
+    const localizedSubtitle = resolveLocalizedCopy(
+      subtitleI18nKey,
+      context.subtitle
+    );
+
     const heading =
       root.querySelector<HTMLElement>('.shift-pdf-viewer-header h1') ??
       root.querySelector<HTMLElement>('#tool-uploader h1');
-    if (heading && context.name) {
-      heading.textContent = context.name;
+    if (heading && localizedName) {
+      if (nameI18nKey) {
+        heading.setAttribute('data-i18n', nameI18nKey);
+      } else {
+        heading.removeAttribute('data-i18n');
+      }
+      heading.textContent = localizedName;
     }
 
     const subtitle =
       root.querySelector<HTMLElement>(
         '.shift-pdf-viewer-header [data-viewer-chrome="subtitle"]'
       ) ?? root.querySelector<HTMLElement>('#tool-uploader h1 + p');
-    if (subtitle && context.subtitle) {
-      subtitle.textContent = context.subtitle;
+    if (subtitle && localizedSubtitle) {
+      if (subtitleI18nKey) {
+        subtitle.setAttribute('data-i18n', subtitleI18nKey);
+      } else {
+        subtitle.removeAttribute('data-i18n');
+      }
+      subtitle.textContent = localizedSubtitle;
     }
 
-    if (context.name) {
+    if (localizedName) {
       const brandSeparatorIndex = root.title.indexOf(' | ');
       const brandSuffix =
         brandSeparatorIndex >= 0
           ? root.title.slice(brandSeparatorIndex)
           : ' | Shift PDF';
-      root.title = `${context.name}${brandSuffix}`;
+      root.title = `${localizedName}${brandSuffix}`;
     }
 
     root.documentElement.setAttribute('data-launch-context-applied', 'true');
@@ -155,10 +237,11 @@ export function setLaunchContext(
   root: Document = document
 ): LaunchContext {
   const pathname =
-    typeof window !== 'undefined' ? window.location.pathname : '/';
+    typeof window !== 'undefined' ? (window.location.pathname ?? '/') : '/';
   const currentSearch =
-    typeof window !== 'undefined' ? window.location.search : '';
-  const currentHash = typeof window !== 'undefined' ? window.location.hash : '';
+    typeof window !== 'undefined' ? (window.location.search ?? '') : '';
+  const currentHash =
+    typeof window !== 'undefined' ? (window.location.hash ?? '') : '';
 
   const { surfaceId } = parseSurfaceAndSearch(pathname, currentSearch);
   const candidate = getCatalogEntryById(entryId.trim().toLowerCase());
