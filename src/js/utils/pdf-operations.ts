@@ -345,8 +345,10 @@ export async function addPageNumbers(
   const targetIndices = options.pageIndices
     ? new Set(options.pageIndices)
     : null;
-  const totalDisplay = totalPages + startingNumber - 1;
+  const stampedCount = targetIndices ? targetIndices.size : totalPages;
+  const totalDisplay = stampedCount + startingNumber - 1;
 
+  let stampedOffset = 0;
   for (let i = 0; i < totalPages; i++) {
     if (targetIndices && !targetIndices.has(i)) continue;
 
@@ -359,7 +361,8 @@ export async function addPageNumbers(
     const xOffset = bounds.x || 0;
     const yOffset = bounds.y || 0;
 
-    const currentNumber = i + startingNumber;
+    const currentNumber = stampedOffset + startingNumber;
+    stampedOffset++;
     const pageNumText =
       options.format === 'page_x_of_y'
         ? `${currentNumber} / ${totalDisplay}`
