@@ -59,14 +59,14 @@ const pageState: {
   totalPages: 0,
 };
 
-let pendingWorkerResolver: ((data: Record<string, unknown>) => void) | null =
-  null;
+const pendingWorkerResolvers: Array<(data: Record<string, unknown>) => void> =
+  [];
+let workerCallQueue: Promise<void> = Promise.resolve();
 
 worker.onmessage = function (e: MessageEvent) {
   const data = e.data as Record<string, unknown>;
-  if (pendingWorkerResolver) {
-    const resolve = pendingWorkerResolver;
-    pendingWorkerResolver = null;
+  const resolve = pendingWorkerResolvers.shift();
+  if (resolve) {
     resolve(data);
     return;
   }
@@ -80,9 +80,8 @@ worker.onmessage = function (e: MessageEvent) {
 worker.onerror = function (error) {
   hideLoader();
   console.error('Worker error:', error);
-  if (pendingWorkerResolver) {
-    const resolve = pendingWorkerResolver;
-    pendingWorkerResolver = null;
+  const resolve = pendingWorkerResolvers.shift();
+  if (resolve) {
     resolve({
       status: 'error',
       message: 'Worker error occurred. Check console for details.',
@@ -96,10 +95,18 @@ function callWorker(
   message: Record<string, unknown>,
   transfer: ArrayBuffer[] = []
 ): Promise<Record<string, unknown>> {
-  return new Promise((resolve) => {
-    pendingWorkerResolver = resolve;
-    worker.postMessage(message, transfer);
-  });
+  const next = workerCallQueue.then(
+    (): Promise<Record<string, unknown>> =>
+      new Promise<Record<string, unknown>>((resolve) => {
+        pendingWorkerResolvers.push(resolve);
+        worker.postMessage(message, transfer);
+      })
+  );
+  workerCallQueue = next.then(
+    (): void => {},
+    (): void => {}
+  );
+  return next;
 }
 
 function getInitialModeFromContext(): AttachmentMode {
