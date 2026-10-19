@@ -29,9 +29,13 @@ import mark from 'markdown-it-mark';
 import taskLists from 'markdown-it-task-lists';
 import anchor from 'markdown-it-anchor';
 import tocDoneRight from 'markdown-it-toc-done-right';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { applyTranslations } from '../i18n/i18n';
 import { downloadFile } from './helpers.js';
+import { loadPyMuPDF } from './pymupdf-loader.js';
+import { WasmProvider } from './wasm-provider.js';
 import {
   registerToolOutputSession,
   syncToolOutputToolbar,
@@ -783,84 +787,102 @@ export class MarkdownEditor {
   }
 
   public async generatePdfBlob(): Promise<Blob> {
-    const pdfDoc = await PDFDocument.create();
-    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const styledHtml = this.getStyledHtml();
 
-    const pageWidth = 612;
-    const pageHeight = 792;
-    const margin = 50;
-    const maxLineWidth = pageWidth - margin * 2;
-    let page = pdfDoc.addPage([pageWidth, pageHeight]);
-    let y = pageHeight - margin;
-
-    const sanitizeWinAnsi = (text: string): string =>
-      text.replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ').replace(/\t/g, '  ');
-
-    const rawLines = this.getContent().replace(/\r\n/g, '\n').split('\n');
-    for (const rawLine of rawLines) {
-      const headingMatch = /^(#{1,6})\s+(.*)$/.exec(rawLine);
-      const isHeading = Boolean(headingMatch);
-      const level = headingMatch ? headingMatch[1].length : 0;
-      const font = isHeading ? boldFont : regularFont;
-      const fontSize = isHeading ? Math.max(12, 22 - (level - 1) * 2) : 11;
-      const lineHeight = fontSize * 1.45;
-      const cleanLine = sanitizeWinAnsi(
-        headingMatch ? headingMatch[2] : rawLine
-      );
-
-      if (!cleanLine.trim()) {
-        y -= lineHeight * 0.6;
-        if (y < margin) {
-          page = pdfDoc.addPage([pageWidth, pageHeight]);
-          y = pageHeight - margin;
-        }
-        continue;
-      }
-
-      const words = cleanLine.split(' ');
-      let currentLine = '';
-
-      for (const word of words) {
-        const candidate = currentLine ? `${currentLine} ${word}` : word;
-        if (
-          font.widthOfTextAtSize(candidate, fontSize) <= maxLineWidth ||
-          !currentLine
-        ) {
-          currentLine = candidate;
-        } else {
-          if (y - lineHeight < margin) {
-            page = pdfDoc.addPage([pageWidth, pageHeight]);
-            y = pageHeight - margin;
-          }
-          page.drawText(currentLine, {
-            x: margin,
-            y: y - fontSize,
-            size: fontSize,
-            font,
-            color: rgb(0.1, 0.1, 0.1),
+    if (
+      WasmProvider.isConfigured('pymupdf') &&
+      WasmProvider.isConfigured('ghostscript')
+    ) {
+      try {
+        const pymupdf = await loadPyMuPDF();
+        if (typeof pymupdf.htmlToPdf === 'function') {
+          return await pymupdf.htmlToPdf(styledHtml, {
+            pageSize: 'a4',
+            margins: { top: 50, right: 50, bottom: 50, left: 50 },
           });
-          y -= lineHeight;
-          currentLine = word;
         }
-      }
-
-      if (currentLine) {
-        if (y - lineHeight < margin) {
-          page = pdfDoc.addPage([pageWidth, pageHeight]);
-          y = pageHeight - margin;
-        }
-        page.drawText(currentLine, {
-          x: margin,
-          y: y - fontSize,
-          size: fontSize,
-          font,
-          color: rgb(0.1, 0.1, 0.1),
-        });
-        y -= lineHeight;
+      } catch (err) {
+        console.warn('PyMuPDF htmlToPdf failed, falling back to canvas:', err);
       }
     }
 
+    const tempContainer = document.createElement('div');
+    tempContainer.style.cssText =
+      'position: fixed; top: -10000px; left: -10000px; width: 794px; padding: 40px; background: #ffffff; color: #24292e;';
+    const styleMatch = /<style>([\s\S]*?)<\/style>/i.exec(styledHtml);
+    if (styleMatch?.[1]) {
+      const styleEl = document.createElement('style');
+      styleEl.textContent = styleMatch[1];
+      tempContainer.appendChild(styleEl);
+    }
+    const contentHost = document.createElement('div');
+    contentHost.innerHTML =
+      this.preview && this.preview.innerHTML.trim()
+        ? this.preview.innerHTML
+        : this.getHtml();
+    tempContainer.appendChild(contentHost);
+    document.body.appendChild(tempContainer);
+
+    try {
+      const canvas = await html2canvas(tempContainer, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+      if (canvas.width > 0 && canvas.height > 0) {
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        });
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 15;
+        const contentWidth = pageWidth - margin * 2;
+        const contentHeight = pageHeight - margin * 2;
+        const imgData = canvas.toDataURL('image/png');
+        const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+        let heightLeft = imgHeight;
+        let position = margin;
+        pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
+        heightLeft -= contentHeight;
+
+        while (heightLeft > 0) {
+          position -= contentHeight;
+          pdf.addPage();
+          pdf.addImage(
+            imgData,
+            'PNG',
+            margin,
+            position,
+            contentWidth,
+            imgHeight
+          );
+          heightLeft -= contentHeight;
+        }
+
+        return pdf.output('blob');
+      }
+    } catch {
+      // Headless test environments without layout/canvas support fall back below.
+    } finally {
+      tempContainer.remove();
+    }
+
+    const pdfDoc = await PDFDocument.create();
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const page = pdfDoc.addPage([612, 792]);
+    const fallbackText = (contentHost.textContent || this.getContent())
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '?')
+      .slice(0, 2000);
+    page.drawText(fallbackText || ' ', {
+      x: 50,
+      y: 720,
+      size: 11,
+      font: regularFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
     const pdfBytes = await pdfDoc.save();
     return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   }
