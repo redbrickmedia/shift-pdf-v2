@@ -1,8 +1,10 @@
+import { buildConvertSourceAccept } from '../config/convert-destinations.js';
+import { extractCatalogEntryIdFromHref } from '../config/tools.js';
+
 /** Accept strings copied from each tool page's primary file input. */
 export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'add-attachments': 'application/pdf',
   'add-blank-page': 'application/pdf',
-  'add-page-labels': 'application/pdf',
   'add-stamps': 'application/pdf',
   'add-watermark': 'application/pdf',
   'adjust-colors': 'application/pdf',
@@ -11,8 +13,6 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'bates-numbering': 'application/pdf',
   'bmp-to-pdf': 'image/bmp,.bmp',
   bookmark: '.pdf',
-  'cbz-to-pdf':
-    '.cbz,.cbr,application/x-cbz,application/x-cbr,application/vnd.comicbook+zip,application/vnd.comicbook-rar',
   'change-permissions': 'application/pdf',
   'combine-single-page': 'application/pdf',
   'compare-pdfs': 'application/pdf',
@@ -36,10 +36,8 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'extract-images': 'application/pdf',
   'extract-pages': 'application/pdf',
   'extract-tables': 'application/pdf',
-  'fb2-to-pdf': '.fb2,application/x-fictionbook+xml,text/xml',
   'fix-page-size': 'application/pdf',
   'flatten-pdf': 'application/pdf',
-  'font-to-outline': 'application/pdf',
   'form-creator': 'application/pdf',
   'form-filler': 'application/pdf',
   'header-footer': 'application/pdf',
@@ -48,8 +46,6 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
     '.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jpx,.jp2,.psd,.svg,.heic,.heif,.webp',
   'invert-colors': 'application/pdf',
   'jpg-to-pdf': 'image/jpeg, image/jpg, image/jp2, .jp2, .jpx, .jpeg, .jpg',
-  'json-to-pdf': 'application/json',
-  'linearize-pdf': 'application/pdf',
   'merge-pdf': 'application/pdf',
   'mobi-to-pdf': '.mobi,application/x-mobipocket-ebook',
   'n-up-pdf': 'application/pdf',
@@ -59,22 +55,17 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'ods-to-pdf': '.ods',
   'odt-to-pdf': '.odt,application/vnd.oasis.opendocument.text',
   'organize-pdf': 'application/pdf',
-  'overlay-pdf': 'application/pdf',
   'page-dimensions': 'application/pdf',
   'page-numbers': 'application/pdf',
   'pages-to-pdf': '.pages',
-  'pdf-booklet': 'application/pdf',
-  'pdf-layers': 'application/pdf',
   'pdf-multi-tool':
     'application/pdf,image/*,.heic,.heif,.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.webp,.svg,.psd,.jp2,.jpx,.jxr,.pnm,.pgm,.pbm,.ppm,.pam',
   'pdf-to-bmp': 'application/pdf',
-  'pdf-to-cbz': 'application/pdf',
   'pdf-to-csv': 'application/pdf',
   'pdf-to-docx': 'application/pdf',
   'pdf-to-excel': 'application/pdf',
   'pdf-to-greyscale': 'application/pdf',
   'pdf-to-jpg': 'application/pdf',
-  'pdf-to-json': 'application/pdf',
   'pdf-to-markdown': 'application/pdf',
   'pdf-to-pdfa': 'application/pdf',
   'pdf-to-png': 'application/pdf',
@@ -85,10 +76,8 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'pdf-to-webp': 'application/pdf',
   'pdf-to-zip': 'application/pdf',
   'png-to-pdf': 'image/png',
-  'posterize-pdf': 'application/pdf',
   'powerpoint-to-pdf':
     '.ppt,.pptx,.odp,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.oasis.opendocument.presentation',
-  'prepare-pdf-for-ai': 'application/pdf',
   'psd-to-pdf': '.psd',
   'pub-to-pdf': '.pub',
   'rasterize-pdf': 'application/pdf',
@@ -98,11 +87,9 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'remove-restrictions': 'application/pdf',
   'repair-pdf': '.pdf',
   'reverse-pages': 'application/pdf',
-  'rotate-custom': 'application/pdf',
   'rotate-pdf': 'application/pdf',
   'rtf-to-pdf': '.rtf,text/rtf,application/rtf',
   'sanitize-pdf': 'application/pdf',
-  'scanner-effect': 'application/pdf',
   'sign-pdf': 'application/pdf',
   'split-pdf': 'application/pdf',
   'svg-to-pdf': 'image/svg+xml,.svg',
@@ -118,17 +105,15 @@ export const TOOL_INPUT_ACCEPT: Record<string, string> = {
   'webp-to-pdf': 'image/webp',
   'word-to-pdf':
     '.doc,.docx,.odt,.rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.oasis.opendocument.text,text/rtf,application/rtf',
-  'wpd-to-pdf': '.wpd',
-  'wps-to-pdf': '.wps',
   'xml-to-pdf': '.xml',
   'xps-to-pdf': '.xps,.oxps,application/vnd.ms-xpsdocument,application/oxps',
 };
 
-export function acceptForToolHref(href: string): string {
-  const id =
-    href
-      .split('/')
-      .pop()
-      ?.replace(/\.html.*$/, '') ?? href;
+export function acceptForToolId(id: string): string {
+  if (id === 'pdf-converter') return buildConvertSourceAccept();
   return TOOL_INPUT_ACCEPT[id] ?? 'application/pdf';
+}
+
+export function acceptForToolHref(href: string): string {
+  return acceptForToolId(extractCatalogEntryIdFromHref(href) || href);
 }

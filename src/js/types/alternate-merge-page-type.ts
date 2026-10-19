@@ -5,3 +5,8 @@ export interface AlternateMergeState {
   pdfBytes: Map<string, ArrayBuffer>;
   pdfDocs: Map<string, PDFDocumentProxy>;
 }
+
+export interface InterleaveFile {
+  name: string;
+  data: ArrayBuffer;
+}

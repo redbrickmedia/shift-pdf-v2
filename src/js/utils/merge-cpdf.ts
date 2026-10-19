@@ -1,22 +1,22 @@
 import { WasmProvider } from './wasm-provider';
-import { wfError } from '../workflow/errors';
+import { formatCpdfWorkerError } from './cpdf-helper';
+import type { MergeFile } from '@/types';
 
-export interface MergeFile {
-  name: string;
-  data: ArrayBuffer;
-}
+export type { MergeFile } from '@/types';
 
 export async function mergePdfsCpdf(
   files: MergeFile[],
   options?: { retainPageLabels?: boolean }
 ): Promise<Uint8Array> {
   if (files.length === 0) {
-    throw new Error(wfError('noPdfsConnected', { node: 'Merge' }));
+    throw new Error(
+      formatCpdfWorkerError('noPdfsConnected', { node: 'Merge' })
+    );
   }
 
   const cpdfBaseUrl = WasmProvider.getUrl('cpdf');
   if (!cpdfBaseUrl) {
-    throw new Error(wfError('cpdfNotConfigured'));
+    throw new Error(formatCpdfWorkerError('cpdfNotConfigured'));
   }
 
   const jobs = files.map((f) => ({
@@ -36,7 +36,8 @@ export async function mergePdfsCpdf(
       } else {
         reject(
           new Error(
-            e.data.message || wfError('workerError', { message: 'unknown' })
+            e.data.message ||
+              formatCpdfWorkerError('workerError', { message: 'unknown' })
           )
         );
       }
@@ -44,7 +45,11 @@ export async function mergePdfsCpdf(
 
     worker.onerror = (err) => {
       worker.terminate();
-      reject(new Error(wfError('workerError', { message: err.message })));
+      reject(
+        new Error(
+          formatCpdfWorkerError('workerError', { message: err.message })
+        )
+      );
     };
 
     worker.postMessage(

@@ -31,7 +31,7 @@ import {
 } from './my-pdfs-search.js';
 import { findToolFileInput } from './tool-file-seed.js';
 import { loadFavoriteRailSnapshot } from './tool-favorites.js';
-import { categories } from '../config/tools.js';
+import { categories, extractCatalogEntryIdFromHref } from '../config/tools.js';
 import { isPdfFile } from '../utils/pdf-file.js';
 import {
   createShiftBrowserEmpty,
@@ -885,12 +885,7 @@ function syncOpenWithTooltip(link: HTMLAnchorElement, text: string): void {
 }
 
 function openWithToolId(href: string): string {
-  return (
-    href
-      .split('/')
-      .pop()
-      ?.replace(/\.html$/, '') ?? href
-  );
+  return extractCatalogEntryIdFromHref(href) || href;
 }
 
 /**
@@ -1900,6 +1895,7 @@ function createHomeFileRow(
   const row = root.createElement('tr');
   row.className = 'shift-my-pdfs-row';
   row.classList.toggle('is-selected', isSelected);
+  if (file.id) row.dataset.fileId = file.id;
   row.dataset.fileName = file.name;
   row.dataset.source = file.source;
 

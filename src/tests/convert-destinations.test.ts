@@ -139,15 +139,15 @@ describe('destination batch capability', () => {
     expect(
       getOutputFilename('basicapi.pdf', byId.get('pdf-to-markdown')!)
     ).toBe('basicapi.md');
-    expect(
-      getOutputFilename('basicapi.pdf', byId.get('pdf-to-greyscale')!)
-    ).toBe('basicapi.pdf');
+    expect(getOutputFilename('basicapi.pdf', byId.get('extract-tables')!)).toBe(
+      'basicapi.csv'
+    );
     expect(getOutputFilename('basicapi.pdf', byId.get('extract-images')!)).toBe(
       'basicapi.zip'
     );
-    expect(
-      getOutputFilename('notes.pdf', byId.get('prepare-pdf-for-ai')!)
-    ).toBe('notes.json');
+    expect(getOutputFilename('notes.pdf', byId.get('pdf-to-csv')!)).toBe(
+      'notes.csv'
+    );
     expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-docx')!)).toBe(
       'basicapi.docx'
     );

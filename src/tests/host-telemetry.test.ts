@@ -373,6 +373,18 @@ describe('pdf telemetry', () => {
     expect(getToolIdFromPath('/zh-TW/')).toBe('home');
     expect(getToolIdFromPath('/es/my-pdfs.html')).toBe('my-pdfs');
     expect(getToolIdFromPath('/tmp/invoice-secret.pdf')).toBe('unknown');
+    expect(getToolIdFromPath('/pdf-multi-tool.html', '?entry=rotate-pdf')).toBe(
+      'rotate-pdf'
+    );
+    expect(getToolIdFromPath('/pdf-converter.html?entry=jpg-to-pdf')).toBe(
+      'jpg-to-pdf'
+    );
+    expect(getToolIdFromPath('/pdf-multi-tool.html', '?entry=sign-pdf')).toBe(
+      'pdf-multi-tool'
+    );
+    expect(
+      getToolIdFromPath('/pdf-multi-tool.html', '?entry=rotate-custom')
+    ).toBe('pdf-multi-tool');
   });
 
   it('buckets sizes and classifies pdf bytes without returning page text', () => {

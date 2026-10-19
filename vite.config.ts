@@ -725,7 +725,6 @@ export default defineConfig(({ mode }) => {
           'header-footer': resolve(__dirname, 'src/pages/header-footer.html'),
           'invert-colors': resolve(__dirname, 'src/pages/invert-colors.html'),
           'scanner-effect': resolve(__dirname, 'src/pages/scanner-effect.html'),
-          'pdf-workflow': resolve(__dirname, 'src/pages/pdf-workflow.html'),
           'adjust-colors': resolve(__dirname, 'src/pages/adjust-colors.html'),
           'background-color': resolve(
             __dirname,

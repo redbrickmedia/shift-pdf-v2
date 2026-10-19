@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { PRUNED_TOOL_IDS, SURFACE_BY_ENTRY_ID } from '../js/config/tools';
 import {
   DEFAULT_FAVORITE_TOOL_IDS,
   FAVORITE_CATALOG_COPY_ATTR,
   getDefaultFavoriteToolIds,
+  loadFavoriteRailSnapshot,
   loadFavoriteToolIds,
+  parseFavoriteRailSnapshot,
   parseFavoriteToolIds,
   partitionToolIdsByFavorites,
   placeFavoriteToolCards,
@@ -368,6 +371,117 @@ describe('tool favorites', () => {
     expect(storage.setItem).toHaveBeenCalledWith(
       TOOL_FAVORITES_STORAGE_KEY,
       JSON.stringify(['split-pdf'])
+    );
+  });
+
+  it('strips pruned tool IDs and normalizes legacy .html entries in saved favorites', () => {
+    const storage = {
+      getItem: vi.fn((key: string) => {
+        if (key === TOOL_FAVORITES_STORAGE_KEY) {
+          return JSON.stringify([
+            'pdf-workflow',
+            '/merge-pdf.html',
+            'scanner-effect',
+            '/edit-pdf.html?entry=sign-pdf',
+            'split-pdf.html',
+          ]);
+        }
+        if (key === TOOL_FAVORITES_MIGRATED_KEY) return '1';
+        return null;
+      }),
+      setItem: vi.fn(),
+    };
+
+    expect(loadFavoriteToolIds(validToolIds, storage)).toEqual([
+      'merge-pdf',
+      'sign-pdf',
+      'split-pdf',
+    ]);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_STORAGE_KEY,
+      JSON.stringify(['merge-pdf', 'sign-pdf', 'split-pdf'])
+    );
+  });
+
+  it('keeps sidebar-boot.js pruned IDs and consolidated surface map in sync with tools.ts', () => {
+    const bootSource = readFileSync('public/sidebar-boot.js', 'utf8');
+    const prunedBlock =
+      /var PRUNED_TOOL_IDS = \{([\s\S]*?)\};/.exec(bootSource)?.[1] ?? '';
+    const bootPrunedIds = Array.from(
+      prunedBlock.matchAll(/'([^']+)':\s*1/g),
+      (m) => m[1]
+    );
+    expect(bootPrunedIds.sort()).toEqual([...PRUNED_TOOL_IDS].sort());
+
+    const surfaceBlock =
+      /var CONSOLIDATED_SURFACE_BY_ENTRY = \{([\s\S]*?)\};/.exec(
+        bootSource
+      )?.[1] ?? '';
+    const bootEntries = Object.fromEntries(
+      Array.from(
+        surfaceBlock.matchAll(/^\s*'?([a-z0-9-]+)'?:\s*'([a-z0-9-]+)'/gm),
+        (m) => [m[1], m[2]]
+      )
+    );
+    const expectedEntries = Object.fromEntries(
+      Object.entries(SURFACE_BY_ENTRY_ID).filter(
+        ([entryId, surfaceId]) => entryId !== surfaceId
+      )
+    );
+    expect(bootEntries).toEqual(expectedEntries);
+  });
+
+  it('prunes retired pins and rewrites consolidated pin hrefs in shiftPdfFavoriteRail', () => {
+    const rawPins = JSON.stringify([
+      {
+        name: 'PDF Workflow Builder',
+        href: '/pdf-workflow.html',
+        icon: 'ph-tree-structure',
+      },
+      {
+        name: 'Sign PDF',
+        href: '/sign-pdf.html',
+        icon: 'ph-pen-nib',
+      },
+      {
+        name: 'Rotate PDF',
+        href: 'rotate-pdf.html',
+        icon: 'ph-arrow-clockwise',
+      },
+      {
+        name: 'Merge PDF',
+        href: '/merge-pdf.html',
+        icon: 'ph-browsers',
+      },
+    ]);
+
+    expect(parseFavoriteRailSnapshot(rawPins)).toEqual([
+      {
+        name: 'Sign PDF',
+        href: '/edit-pdf.html?entry=sign-pdf',
+        icon: 'ph-pen-nib',
+      },
+      {
+        name: 'Rotate PDF',
+        href: 'pdf-multi-tool.html?entry=rotate-pdf',
+        icon: 'ph-arrow-clockwise',
+      },
+      {
+        name: 'Merge PDF',
+        href: '/merge-pdf.html',
+        icon: 'ph-browsers',
+      },
+    ]);
+
+    const storage = {
+      getItem: vi.fn(() => rawPins),
+      setItem: vi.fn(),
+    };
+    const migrated = loadFavoriteRailSnapshot(storage);
+    expect(migrated).toHaveLength(3);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      TOOL_FAVORITES_RAIL_KEY,
+      JSON.stringify(migrated)
     );
   });
 });

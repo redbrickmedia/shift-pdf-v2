@@ -19,7 +19,7 @@ import {
   readPdfLibrary,
 } from '../js/logic/pdf-library-store';
 import { TOOL_FAVORITES_RAIL_KEY } from '../js/logic/tool-favorites';
-import { categories } from '../js/config/tools';
+import { categories, extractCatalogEntryIdFromHref } from '../js/config/tools';
 import {
   clearWorkspaceOpenFile,
   copyFileOrigin,
@@ -1352,7 +1352,7 @@ describe('workspace files sidebar', () => {
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       'split-pdf.html',
-      'crop-pdf.html',
+      'edit-pdf.html?entry=crop-pdf',
     ]);
     expect(links.map((link) => link.dataset.tool)).toEqual([
       'split-pdf',
@@ -1493,10 +1493,7 @@ describe('workspace files sidebar', () => {
     // shortlist, so a tool from another category appearing here would mean
     // the whole catalog had leaked back in.
     const pageOf = (href: string): string =>
-      href
-        .split('/')
-        .pop()
-        ?.replace(/\.html$/, '') ?? href;
+      extractCatalogEntryIdFromHref(href) || href;
     const rendered = new Set(
       Array.from(
         list?.querySelectorAll<HTMLAnchorElement>('[data-tool]') ?? []

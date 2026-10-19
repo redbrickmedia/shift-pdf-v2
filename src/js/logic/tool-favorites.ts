@@ -1,3 +1,12 @@
+import {
+  extractCatalogEntryIdFromHref,
+  getCatalogEntryById,
+  PRUNED_TOOL_ID_SET,
+} from '../config/tools.js';
+import type { FavoriteRailPin } from '@/types';
+
+export type { FavoriteRailPin } from '@/types';
+
 export const TOOL_FAVORITES_STORAGE_KEY = 'shiftPdfFavoriteToolIds';
 
 /**
@@ -25,12 +34,6 @@ export const DEFAULT_FAVORITE_TOOL_IDS = [
   'sign-pdf',
 ] as const;
 
-export interface FavoriteRailPin {
-  name: string;
-  href: string;
-  icon: string;
-}
-
 const MAX_FAVORITES = 40;
 const MAX_STORED_LENGTH = 4096;
 
@@ -48,33 +51,52 @@ export function parseFavoriteToolIds(
   storedValue: string | null,
   validToolIds: ReadonlySet<string>
 ): string[] {
-  if (!storedValue || storedValue.length > MAX_STORED_LENGTH) return [];
+  return parseFavoriteToolIdsInternal(storedValue, validToolIds).favoriteIds;
+}
+
+function parseFavoriteToolIdsInternal(
+  storedValue: string | null,
+  validToolIds: ReadonlySet<string>
+): { favoriteIds: string[]; mutated: boolean } {
+  if (!storedValue || storedValue.length > MAX_STORED_LENGTH) {
+    return { favoriteIds: [], mutated: false };
+  }
 
   try {
     const parsed: unknown = JSON.parse(storedValue);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return { favoriteIds: [], mutated: false };
 
     const favoriteIds: string[] = [];
     const seen = new Set<string>();
+    let mutated = false;
 
     for (const value of parsed) {
+      if (typeof value !== 'string') {
+        mutated = true;
+        continue;
+      }
+      const normalized = extractCatalogEntryIdFromHref(value) || value.trim();
+      if (normalized !== value) {
+        mutated = true;
+      }
       if (
-        typeof value !== 'string' ||
-        !validToolIds.has(value) ||
-        seen.has(value)
+        PRUNED_TOOL_ID_SET.has(normalized) ||
+        !validToolIds.has(normalized) ||
+        seen.has(normalized)
       ) {
+        mutated = true;
         continue;
       }
 
-      favoriteIds.push(value);
-      seen.add(value);
+      favoriteIds.push(normalized);
+      seen.add(normalized);
       if (favoriteIds.length === MAX_FAVORITES) break;
     }
 
-    return favoriteIds;
+    return { favoriteIds, mutated };
   } catch (error) {
     console.warn('Ignored invalid saved PDF tool favorites.', error);
-    return [];
+    return { favoriteIds: [], mutated: false };
   }
 }
 
@@ -127,7 +149,10 @@ export function loadFavoriteToolIds(
       return defaults;
     }
 
-    const existing = parseFavoriteToolIds(raw, validToolIds);
+    const { favoriteIds: existing, mutated } = parseFavoriteToolIdsInternal(
+      raw,
+      validToolIds
+    );
     const clearedAll = raw.trim() === '[]';
 
     // An explicit empty list is "Clear all". Do not merge the former
@@ -147,6 +172,10 @@ export function loadFavoriteToolIds(
 
     if (clearedAll && !migrated && canWrite) {
       markFavoritesMigrated(storage as StorageWriter);
+    }
+
+    if (migrated && canWrite && mutated) {
+      writeFavoriteToolIds(existing, storage as StorageWriter);
     }
 
     return existing;
@@ -191,6 +220,28 @@ export function saveFavoriteRailSnapshot(
   }
 }
 
+function migratePinHref(href: string): {
+  pruned: boolean;
+  href: string;
+  changed: boolean;
+} {
+  const toolId = extractCatalogEntryIdFromHref(href);
+  if (toolId && PRUNED_TOOL_ID_SET.has(toolId)) {
+    return { pruned: true, href, changed: true };
+  }
+  const entry = toolId ? getCatalogEntryById(toolId) : undefined;
+  if (entry && entry.id !== entry.surface) {
+    const rewritten = href.replace(
+      new RegExp(`(^|/)${entry.id}\\.html(?:\\?[^#]*)?`, 'i'),
+      `$1${entry.surface}.html?entry=${entry.id}`
+    );
+    if (rewritten !== href) {
+      return { pruned: false, href: rewritten, changed: true };
+    }
+  }
+  return { pruned: false, href, changed: false };
+}
+
 /**
  * Read the rail snapshot written by the sidebar. The Open-with row needs a
  * favorite's name and link, and only the deferred catalog knows those, so it
@@ -199,13 +250,23 @@ export function saveFavoriteRailSnapshot(
 export function parseFavoriteRailSnapshot(
   storedValue: string | null
 ): FavoriteRailPin[] {
-  if (!storedValue || storedValue.length > MAX_STORED_LENGTH * 4) return [];
+  return parseFavoriteRailSnapshotInternal(storedValue).pins;
+}
+
+function parseFavoriteRailSnapshotInternal(storedValue: string | null): {
+  pins: FavoriteRailPin[];
+  mutated: boolean;
+} {
+  if (!storedValue || storedValue.length > MAX_STORED_LENGTH * 4) {
+    return { pins: [], mutated: false };
+  }
 
   try {
     const parsed: unknown = JSON.parse(storedValue);
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return { pins: [], mutated: false };
 
     const pins: FavoriteRailPin[] = [];
+    let mutated = false;
 
     for (const value of parsed) {
       if (!value || typeof value !== 'object') continue;
@@ -213,24 +274,37 @@ export function parseFavoriteRailSnapshot(
       if (typeof name !== 'string' || typeof href !== 'string') continue;
       if (!name.trim() || !href.trim()) continue;
 
-      pins.push({ name, href, icon: typeof icon === 'string' ? icon : '' });
+      const migration = migratePinHref(href);
+      if (migration.changed) mutated = true;
+      if (migration.pruned) continue;
+
+      pins.push({
+        name,
+        href: migration.href,
+        icon: typeof icon === 'string' ? icon : '',
+      });
       if (pins.length === MAX_FAVORITES) break;
     }
 
-    return pins;
+    return { pins, mutated };
   } catch (error) {
     console.warn('Ignored an invalid PDF favorites rail cache.', error);
-    return [];
+    return { pins: [], mutated: false };
   }
 }
 
 export function loadFavoriteRailSnapshot(
-  storage: StorageReader | undefined = getLocalStorage()
+  storage: StorageLike | undefined = getLocalStorage()
 ): FavoriteRailPin[] {
   if (!storage) return [];
 
   try {
-    return parseFavoriteRailSnapshot(storage.getItem(TOOL_FAVORITES_RAIL_KEY));
+    const raw = storage.getItem(TOOL_FAVORITES_RAIL_KEY);
+    const { pins, mutated } = parseFavoriteRailSnapshotInternal(raw);
+    if (mutated && typeof storage.setItem === 'function') {
+      saveFavoriteRailSnapshot(pins, storage as StorageWriter);
+    }
+    return pins;
   } catch (error) {
     console.warn('PDF favorites rail cache is unavailable.', error);
     return [];

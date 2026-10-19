@@ -1,4 +1,5 @@
-import { categories } from './config/tools.js';
+import { categories, extractCatalogEntryIdFromHref } from './config/tools.js';
+import type { FavoriteRailPin } from '@/types';
 import { dom, switchView, hideAlert } from './ui.js';
 import { ShortcutsManager } from './logic/shortcuts.js';
 import { createIcons, icons } from 'lucide';
@@ -34,7 +35,6 @@ import {
   saveFavoriteRailSnapshot,
   saveFavoriteToolIds,
   toggleFavoriteToolId,
-  type FavoriteRailPin,
 } from './logic/tool-favorites.js';
 import { attachShiftTooltip } from './logic/shift-tooltip.js';
 import { initHomeFiles } from './logic/home-files.js';
@@ -78,6 +78,10 @@ import {
 } from './logic/promise-banner.js';
 import { initToolBackNavigation } from './logic/tool-back.js';
 import { initToolBackMenu } from './logic/tool-back-menu.js';
+import {
+  applyLaunchContextToDom,
+  syncActiveToolNavLinks,
+} from './logic/launch-context.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -128,8 +132,7 @@ function getShellScroller(): HTMLElement {
 function getToolId(tool: { id?: string; href?: string }): string {
   if (tool.id) return tool.id;
   if (tool.href) {
-    const match = tool.href.match(/\/([^/]+)\.html$/);
-    return match ? match[1] : tool.href;
+    return extractCatalogEntryIdFromHref(tool.href) || tool.href;
   }
   return 'unknown';
 }
@@ -165,6 +168,7 @@ function createInlineIcon(pathData: string): SVGSVGElement {
 }
 
 function initShiftShell() {
+  applyLaunchContextToDom(document);
   // sidebar-boot.js usually applied these before first paint; re-apply so a
   // missed boot (or tests) still hide the empty drop zone once main loads.
   applyOpenFileFlagClasses(document, {
@@ -256,32 +260,11 @@ function initShiftShell() {
   markActiveNavLinks();
 }
 
-function navPageId(pathname: string): string {
-  const file = pathname.replace(/\/+$/, '').split('/').pop() || '';
-  const page = file.replace(/\.html$/, '');
-  return page === '' || page === 'index' ? 'index' : page;
-}
-
 /* Authored nav links (All tools, My PDFs) are keyed by data-nav because some
    hrefs are aliased. Favourite pins come from the catalog and only have an
-   href, so they are matched by page instead. Both routes only add, so neither
-   clears what the other marked. */
+   href, so they are matched by surface + validated Launch Context entry. */
 function markActiveNavLinks() {
-  const current = navPageId(window.location.pathname);
-  document
-    .querySelectorAll<HTMLAnchorElement>('.shift-nav-link[href]')
-    .forEach((link) => {
-      // Every selected-file row points at the viewer, so matching by page
-      // would mark all of them current. renderWorkspaceFiles marks the one
-      // file the viewer is actually showing.
-      if (link.classList.contains('shift-open-file-item')) return;
-      const target = navPageId(
-        new URL(link.href, window.location.href).pathname
-      );
-      if (target !== current) return;
-      link.classList.add('is-active');
-      link.setAttribute('aria-current', 'page');
-    });
+  syncActiveToolNavLinks(document);
 }
 
 /*
@@ -312,6 +295,7 @@ const i18nReady = initI18n();
 
 void Promise.all([domReady, i18nReady])
   .then(() => {
+    applyLaunchContextToDom(document);
     applyTranslations();
     rewriteLinks();
   })
@@ -325,6 +309,7 @@ const init = async () => {
   // round-trips, and awaiting them before seeding left the card showing a
   // placeholder for several frames.
   await domReady;
+  applyLaunchContextToDom(document);
   initShiftShell();
   initHomeFiles();
   initDownloadedPdfLibrary();
@@ -338,6 +323,7 @@ const init = async () => {
   await i18nReady;
   await loadRuntimeConfig();
   injectLanguageSwitcher();
+  applyLaunchContextToDom(document);
   applyTranslations();
 
   initToolEmptyState();

@@ -1,5 +1,9 @@
 import packageJson from '../../../package.json';
 import { supportedLanguages } from '../i18n/i18n.js';
+import {
+  parseSurfaceAndSearch,
+  resolveLaunchContext,
+} from '../logic/launch-context.js';
 import { getHostAnalytics } from './bridge.js';
 import {
   classifyAlertTitle,
@@ -73,12 +77,24 @@ export function resetTelemetryState(): void {
   pdfContext = {};
 }
 
-export function getToolIdFromPath(pathname = currentPathname()): string {
-  const segment = pathname.replace(/\/+$/, '').split('/').pop() ?? '';
-  const id = segment.replace(/\.html$/i, '').toLowerCase();
-  if (!id || id === 'index' || LOCALE_HOME_SEGMENTS.has(id)) return 'home';
-  if (!SLUG.test(id)) return 'unknown';
-  return id;
+export function getToolIdFromPath(
+  pathname = currentPathname(),
+  search?: string
+): string {
+  const { surfaceId, effectiveSearch } = parseSurfaceAndSearch(
+    pathname,
+    search
+  );
+  if (
+    !surfaceId ||
+    surfaceId === 'index' ||
+    LOCALE_HOME_SEGMENTS.has(surfaceId)
+  ) {
+    return 'home';
+  }
+  if (!SLUG.test(surfaceId)) return 'unknown';
+
+  return resolveLaunchContext(pathname, effectiveSearch).entryId;
 }
 
 function currentPathname(): string {
