@@ -72,12 +72,14 @@ describe('Tool Categories Configuration', () => {
     const allToolIds = categories.flatMap((c) => c.tools.map((t) => t.id));
     const { primary, secondary } = getPdfDestinations();
     const pdfDestIds = new Set([...primary, ...secondary].map((d) => d.id));
+    const docsToolsDir = resolve(process.cwd(), 'docs/tools');
     for (const prunedId of PRUNED_TOOL_IDS) {
       expect(PRUNED_TOOL_ID_SET.has(prunedId)).toBe(true);
       expect(allToolIds).not.toContain(prunedId);
       expect(getCatalogEntryById(prunedId)).toBeUndefined();
       expect(shiftToolIcons).not.toHaveProperty(prunedId);
       expect(pdfDestIds.has(prunedId)).toBe(false);
+      expect(existsSync(resolve(docsToolsDir, `${prunedId}.md`))).toBe(false);
     }
   });
 

@@ -41,6 +41,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Type check
+        run: npm run type-check
+
+      - name: Check PDF.js alignment
+        run: npm run check:pdfjs
+
   format:
     name: Format
     runs-on: ubuntu-latest
