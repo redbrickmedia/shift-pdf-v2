@@ -824,33 +824,28 @@ export class MarkdownEditor {
     document.body.appendChild(tempContainer);
 
     try {
-      const canvas = await html2canvas(tempContainer, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-      });
-      if (canvas.width > 0 && canvas.height > 0) {
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
+      if (tempContainer.offsetWidth > 0 && tempContainer.offsetHeight > 0) {
+        const canvas = await html2canvas(tempContainer, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
         });
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const margin = 15;
-        const contentWidth = pageWidth - margin * 2;
-        const contentHeight = pageHeight - margin * 2;
-        const imgData = canvas.toDataURL('image/png');
-        const imgHeight = (canvas.height * contentWidth) / canvas.width;
+        if (canvas.width > 0 && canvas.height > 0) {
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+          const pageWidth = 210;
+          const pageHeight = 297;
+          const margin = 15;
+          const contentWidth = pageWidth - margin * 2;
+          const contentHeight = pageHeight - margin * 2;
+          const imgData = canvas.toDataURL('image/png');
+          const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
-        let heightLeft = imgHeight;
-        let position = margin;
-        pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
-        heightLeft -= contentHeight;
-
-        while (heightLeft > 0) {
-          position -= contentHeight;
-          pdf.addPage();
+          let heightLeft = imgHeight;
+          let position = margin;
           pdf.addImage(
             imgData,
             'PNG',
@@ -860,9 +855,23 @@ export class MarkdownEditor {
             imgHeight
           );
           heightLeft -= contentHeight;
-        }
 
-        return pdf.output('blob');
+          while (heightLeft > 0) {
+            position -= contentHeight;
+            pdf.addPage();
+            pdf.addImage(
+              imgData,
+              'PNG',
+              margin,
+              position,
+              contentWidth,
+              imgHeight
+            );
+            heightLeft -= contentHeight;
+          }
+
+          return pdf.output('blob');
+        }
       }
     } catch {
       // Headless test environments without layout/canvas support fall back below.
