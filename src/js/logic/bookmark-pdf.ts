@@ -2100,7 +2100,8 @@ async function applyBookmarkOrTocOutput(): Promise<void> {
       renderBookmarkTree();
 
       if (gotoPageInput) gotoPageInput.max = String(pdfJsDoc.numPages);
-      currentPage = Math.min(currentPage, pdfJsDoc.numPages);
+      currentPage = Math.min(currentPage + insertedTocPages, pdfJsDoc.numPages);
+      if (gotoPageInput) gotoPageInput.value = String(currentPage);
       await renderPage(currentPage);
 
       const blob = new Blob([new Uint8Array(generatedBytes)], {
