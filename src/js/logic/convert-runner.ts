@@ -189,15 +189,15 @@ async function convertSingleImageToPdfBlob(
   destinationId: string,
   quality: ImageQuality
 ): Promise<Blob> {
-  const prepared = await prepareImageFileForPdf(file, quality);
   const mupdf = await loadPyMuPDF();
   if (
     (destinationId === 'psd-to-pdf' ||
       file.name.toLowerCase().endsWith('.psd')) &&
     typeof mupdf.imageToPdf === 'function'
   ) {
-    return mupdf.imageToPdf(prepared, { imageType: 'psd' });
+    return mupdf.imageToPdf(file, { imageType: 'psd' });
   }
+  const prepared = await prepareImageFileForPdf(file, quality);
   return mupdf.imagesToPdf([prepared]);
 }
 
@@ -244,9 +244,16 @@ async function runImagesToPdf(
 
   const processedFiles: File[] = [];
   for (const file of files) {
-    processedFiles.push(
-      await prepareImageFileForPdf(file, options.imageQuality)
-    );
+    if (
+      destinationId === 'psd-to-pdf' ||
+      file.name.toLowerCase().endsWith('.psd')
+    ) {
+      processedFiles.push(file);
+    } else {
+      processedFiles.push(
+        await prepareImageFileForPdf(file, options.imageQuality)
+      );
+    }
   }
   const pdfBlob = await mupdf.imagesToPdf(processedFiles);
   const outName =
@@ -902,11 +909,23 @@ async function runPdfToTiff(
   downloadFile(zipBlob, 'pdf-to-tiff.zip');
 }
 
+function extractPageSvgOrThrow(page: { toSvg?: () => string }): string {
+  if (typeof page.toSvg !== 'function') {
+    throw new Error('SVG conversion is unavailable in the loaded PDF engine.');
+  }
+  const svgContent = page.toSvg();
+  if (!svgContent || !svgContent.trim()) {
+    throw new Error('Failed to render PDF page to SVG.');
+  }
+  return svgContent;
+}
+
 async function runPdfToSvg(files: File[]): Promise<void> {
   showLoader('Loading Engine...');
   const pymupdf = await loadPyMuPDF();
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
   showResultLoader('Converting to SVG...');
 
   if (decrypted.length === 1) {
@@ -917,7 +936,7 @@ async function runPdfToSvg(files: File[]): Promise<void> {
 
     if (pageCount === 1) {
       const page = doc.getPage(0);
-      const svgContent = page.toSvg ? page.toSvg() : '<svg></svg>';
+      const svgContent = extractPageSvgOrThrow(page);
       const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
       downloadFile(svgBlob, `${baseName}.svg`);
       return;
@@ -926,7 +945,7 @@ async function runPdfToSvg(files: File[]): Promise<void> {
     const zip = new JSZip();
     for (let i = 0; i < pageCount; i++) {
       const page = doc.getPage(i);
-      const svgContent = page.toSvg ? page.toSvg() : '<svg></svg>';
+      const svgContent = extractPageSvgOrThrow(page);
       zip.file(`page_${i + 1}.svg`, svgContent);
     }
     const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -941,7 +960,7 @@ async function runPdfToSvg(files: File[]): Promise<void> {
     const baseName = getFilenameWithoutExtension(file.name);
     for (let i = 0; i < pageCount; i++) {
       const page = doc.getPage(i);
-      const svgContent = page.toSvg ? page.toSvg() : '<svg></svg>';
+      const svgContent = extractPageSvgOrThrow(page);
       const entryName =
         pageCount === 1 ? `${baseName}.svg` : `${baseName}_page_${i + 1}.svg`;
       zip.file(entryName, svgContent);
@@ -956,6 +975,7 @@ async function runPdfToDocx(files: File[]): Promise<void> {
   const pymupdf = await loadPyMuPDF();
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
@@ -987,6 +1007,7 @@ async function runPdfToPptx(files: File[]): Promise<void> {
   const { pdfToPptx } = await import('../utils/pdf-to-pptx.js');
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
 
   if (decrypted.length === 1) {
     const file = decrypted[0]!;
@@ -1091,6 +1112,7 @@ async function runPdfToTables(
   const pymupdf = await loadPyMuPDF();
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
   showResultLoader('Extracting tables...');
 
   const format =
@@ -1226,6 +1248,7 @@ async function runPdfToText(files: File[]): Promise<void> {
   const mupdf = await loadPyMuPDF();
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
   showResultLoader('Extracting text...');
 
   if (decrypted.length === 1) {
@@ -1257,6 +1280,7 @@ async function runPdfToMarkdown(
   const pymupdf = await loadPyMuPDF();
   hideLoader();
   const decrypted = await batchDecryptIfNeeded(files);
+  if (decrypted.length === 0) return;
   showResultLoader('Converting to Markdown...');
 
   if (decrypted.length === 1) {
