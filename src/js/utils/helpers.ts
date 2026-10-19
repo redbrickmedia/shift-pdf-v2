@@ -75,32 +75,12 @@ export const PDF_OUTPUT_DOWNLOADED_EVENT = 'shift:pdf-output-downloaded';
 /** Fired when a PDF tool output is ready for optional Save to Shift PDF. */
 export const PDF_OUTPUT_READY_EVENT = 'shift:pdf-output-ready';
 
-export type PdfOutputInterceptor = (
-  blob: Blob,
-  filename: string
-) => Promise<boolean>;
-
-let pdfOutputInterceptor: PdfOutputInterceptor | undefined;
-
-export function registerPdfOutputInterceptor(
-  interceptor: PdfOutputInterceptor
-): void {
-  pdfOutputInterceptor = interceptor;
-}
-
-function isPdfOutput(blob: Blob, filename: string): boolean {
-  return (
-    blob.type === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')
-  );
-}
-
 /**
- * Publish a completed tool result to the shared output toolbar.
+ * Publish a completed tool result to the active Output Session.
  *
- * Kept under the legacy `downloadFile` name while page modules migrate so
- * every existing tool stops auto-downloading in one release. A registered
- * interceptor may still write a handled PDF in place; it does not start a
- * browser download.
+ * Pure staging: dispatches `PDF_OUTPUT_READY_EVENT` and records analytics
+ * without auto-saving to My PDFs, without prompting a disk handle write,
+ * and without opening `#shift-tool-success`.
  */
 export const downloadFile = (
   blob: Blob,
@@ -114,15 +94,6 @@ export const downloadFile = (
   if (summary) detail.summary = summary;
   document.dispatchEvent(new CustomEvent(PDF_OUTPUT_READY_EVENT, { detail }));
   endToolUse('success');
-  void (async () => {
-    if (
-      isPdfOutput(blob, filename) &&
-      pdfOutputInterceptor &&
-      (await pdfOutputInterceptor(blob, filename))
-    ) {
-      return;
-    }
-  })();
 };
 
 /** Download an already-published result without changing the active output. */

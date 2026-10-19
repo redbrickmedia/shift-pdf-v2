@@ -85,10 +85,14 @@
   <body class="antialiased bg-gray-900">
     {{> navbar }}
 
-    <div class="min-h-screen py-8 px-4">
-      <div class="max-w-7xl mx-auto">
+    <div
+      id="uploader"
+      class="min-h-screen flex flex-col items-center justify-start py-8 px-4 bg-gray-900"
+    >
+      <div class="max-w-7xl mx-auto w-full">
         <div
-          class="bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-700"
+          id="tool-uploader"
+          class="bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-700 w-full"
         >
           <h1
             class="text-2xl font-bold text-white mb-2"

@@ -9,26 +9,27 @@ import {
   canSaveToShiftPdf,
   clearLatestPdfOutput,
   getLatestPdfOutput,
+  isPdfOutput,
+  isZipOutput,
   overwriteToShiftPdf,
   saveToShiftPdf,
   TOOL_OUTPUT_STATE_EVENT,
 } from './shift-pdf-save.js';
-import { isViewerToolDocument } from './tool-viewer-layout.js';
 import {
   createShiftActionButton,
   arrangeShiftActionRow,
 } from './shift-action-row.js';
 import {
+  NON_PDF_OUTPUT_SURFACE_IDS,
   VIEWER_CHROME_FEATURE_ATTR,
+  VIEWER_CHROME_HEADER_CLASS,
   applyViewerChromeFeatures,
+  detectActiveSurfaceId,
   mountViewerChrome,
   resolveViewerChromeFeatures,
   type ViewerChromeFeature,
 } from './viewer-chrome.js';
-import {
-  getPrimaryLibrarySaveTarget,
-  openLibraryFileInViewer,
-} from './workspace-files.js';
+import { getPrimaryLibrarySaveTarget } from './workspace-files.js';
 
 export const TOOL_OUTPUT_TOOLBAR_ID = 'shift-tool-output-toolbar';
 export const TOOL_OUTPUT_UNDO_ID = 'shift-tool-output-undo';
@@ -41,6 +42,12 @@ export const TOOL_OUTPUT_DOWNLOAD_ID = 'shift-tool-output-download';
 export const TOOL_OUTPUT_PRINT_ID = 'shift-tool-output-print';
 export const TOOL_OUTPUT_SAVE_MENU_HIDE_MS = 280;
 
+export type ToolOutputKind =
+  | 'pdf'
+  | 'multi-pdf-zip'
+  | 'non-pdf'
+  | 'inspection-only';
+
 export interface ToolOutputSession {
   reset?: () => void | Promise<void>;
   undo?: () => void | Promise<void>;
@@ -51,7 +58,9 @@ export interface ToolOutputSession {
   canRedo?: () => boolean;
   canReset?: () => boolean;
   canSave?: () => boolean;
+  canDownload?: () => boolean;
   canPrint?: () => boolean;
+  outputKind?: ToolOutputKind | (() => ToolOutputKind);
 }
 
 let boundRoot: Document | null = null;
@@ -125,7 +134,53 @@ export function registerToolOutputSession(
   };
 }
 
+function resolveSessionOutputKind(root: Document = document): ToolOutputKind {
+  if (session?.outputKind) {
+    return typeof session.outputKind === 'function'
+      ? session.outputKind()
+      : session.outputKind;
+  }
+  const surfaceId = detectActiveSurfaceId(root);
+  if (NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId)) {
+    return 'non-pdf';
+  }
+  const output = getLatestPdfOutput();
+  if (output && isZipOutput(output.blob, output.filename)) {
+    return 'multi-pdf-zip';
+  }
+  return 'pdf';
+}
+
+function syncHeaderFeaturesForOutputKind(root: Document): void {
+  const header = root.querySelector<HTMLElement>(
+    `.${VIEWER_CHROME_HEADER_CLASS}`
+  );
+  if (!header) return;
+  const kind = resolveSessionOutputKind(root);
+  const featureOverrides: Partial<Record<ViewerChromeFeature, boolean>> = {};
+  if (kind === 'non-pdf') {
+    featureOverrides.save = false;
+    featureOverrides.print = false;
+  } else if (kind === 'inspection-only') {
+    featureOverrides.save = false;
+  }
+  if (session?.undo || session?.redo) {
+    featureOverrides.undo = true;
+    featureOverrides.redo = true;
+  }
+  applyViewerChromeFeatures(
+    header,
+    resolveViewerChromeFeatures(
+      { preset: 'tool', features: featureOverrides },
+      root
+    )
+  );
+}
+
 export function syncToolOutputToolbar(root: Document = document): void {
+  hideLegacyOutputActions(root);
+  syncHeaderFeaturesForOutputKind(root);
+
   const output = getLatestPdfOutput();
   const undo = getButton(root, TOOL_OUTPUT_UNDO_ID);
   const redo = getButton(root, TOOL_OUTPUT_REDO_ID);
@@ -156,26 +211,45 @@ export function syncToolOutputToolbar(root: Document = document): void {
   if (reset)
     setButtonDisabled(reset, !hasResettableState(root, output !== null));
   if (save) {
-    setButtonDisabled(save, saveInFlight || !canSaveOutput());
+    setButtonDisabled(save, saveInFlight || !canSaveOutput(root));
   }
   if (overwrite) {
-    const canOverwrite = canOverwriteOutput();
+    const canOverwrite = canOverwriteOutput(root);
     overwrite.hidden = !canOverwrite;
     setButtonDisabled(overwrite, saveInFlight || !canOverwrite);
   }
   if (download) {
-    setButtonDisabled(download, saveInFlight || !canDownloadOutput());
+    setButtonDisabled(download, saveInFlight || !canDownloadOutput(root));
   }
   if (print) {
     setButtonDisabled(print, !canPrintOutput(root));
   }
-  syncSaveDisclosure(root, canSaveOutput() || Boolean(output));
+  const kind = resolveSessionOutputKind(root);
+  syncSaveDisclosure(
+    root,
+    kind !== 'non-pdf' &&
+      kind !== 'inspection-only' &&
+      (canSaveOutput(root) || Boolean(output))
+  );
   hideEmbeddedViewerPrintControls(root);
 }
 
-function canSaveOutput(): boolean {
+function hasReadyProcessButton(root: Document): boolean {
+  const processBtn = findProcessButton(root);
+  if (!processBtn) return false;
+  if (!processBtn.disabled) return true;
+  return false;
+}
+
+function canSaveOutput(root: Document = document): boolean {
+  const kind = resolveSessionOutputKind(root);
+  if (kind === 'non-pdf' || kind === 'inspection-only') return false;
   if (session?.canSave) return session.canSave();
-  return canSaveToShiftPdf(getLatestPdfOutput());
+  if (hasReadyProcessButton(root)) return true;
+  const output = getLatestPdfOutput();
+  return canSaveToShiftPdf(output, {
+    allowMultiPdfZip: kind === 'multi-pdf-zip',
+  });
 }
 
 function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
@@ -190,20 +264,33 @@ function syncSaveDisclosure(root: Document, canDisclose: boolean): void {
   }
 }
 
-function canDownloadOutput(): boolean {
+function canDownloadOutput(root: Document = document): boolean {
+  if (session?.canDownload) return session.canDownload();
+  if (session?.canSave) return session.canSave();
+  if (hasReadyProcessButton(root)) return true;
   if (getLatestPdfOutput()) return true;
-  return canSaveOutput();
+  return canSaveOutput(root);
 }
 
-function canOverwriteOutput(): boolean {
-  return canSaveOutput() && Boolean(getPrimaryLibrarySaveTarget());
+function canOverwriteOutput(root: Document = document): boolean {
+  const kind = resolveSessionOutputKind(root);
+  if (kind !== 'pdf') return false;
+  const output = getLatestPdfOutput();
+  if (output && !isPdfOutput(output.blob, output.filename)) return false;
+  return canSaveOutput(root) && Boolean(getPrimaryLibrarySaveTarget());
 }
 
-function canPrintOutput(root: Document): boolean {
+function canPrintOutput(root: Document = document): boolean {
+  const kind = resolveSessionOutputKind(root);
+  if (kind === 'non-pdf' || kind === 'multi-pdf-zip') return false;
   if (session?.print) return session.canPrint?.() ?? true;
+  if (session?.canPrint) return session.canPrint();
   if (findPrintableViewerFrame(root)) return true;
-  if (canSaveToShiftPdf(getLatestPdfOutput())) return true;
-  return Boolean(session?.apply && canSaveOutput());
+  const output = getLatestPdfOutput();
+  if (output && isZipOutput(output.blob, output.filename)) return false;
+  if (canSaveToShiftPdf(output)) return true;
+  if (hasReadyProcessButton(root)) return true;
+  return Boolean(session?.apply && canSaveOutput(root));
 }
 
 function isNonToolPage(root: Document): boolean {
@@ -353,16 +440,27 @@ function createViewerActionButton(
 }
 
 async function saveOutput(root: Document): Promise<void> {
-  if (saveInFlight || !canSaveOutput()) return;
+  if (saveInFlight || !canSaveOutput(root)) return;
   saveInFlight = true;
+  closeOutputMenu(root);
   syncToolOutputToolbar(root);
   try {
     await applyToolOutput(root);
     const output = getLatestPdfOutput();
-    if (!output || !canSaveToShiftPdf(output)) return;
-    const result = await saveToShiftPdf(output.blob, output.filename, root);
+    const kind = resolveSessionOutputKind(root);
+    const allowMultiPdfZip =
+      kind === 'multi-pdf-zip' ||
+      (kind === 'pdf' &&
+        Boolean(output && isZipOutput(output.blob, output.filename)));
+    if (!output || !canSaveToShiftPdf(output, { allowMultiPdfZip })) return;
+    const result = await saveToShiftPdf(output.blob, output.filename, root, {
+      allowMultiPdfZip,
+    });
     if (result === 'added') {
-      showAlert('Saved', 'A copy was saved to My PDFs.', 'success');
+      const message = output.summary
+        ? `${output.summary} Saved to My PDFs.`
+        : 'A copy was saved to My PDFs.';
+      showAlert('Saved', message, 'success');
     }
   } finally {
     saveInFlight = false;
@@ -372,35 +470,26 @@ async function saveOutput(root: Document): Promise<void> {
 
 export async function overwriteOutput(
   root: Document = document,
-  assignLocation: (href: string) => void = (href) =>
-    window.location.assign(href)
+  _assignLocation?: (href: string) => void
 ): Promise<void> {
-  if (saveInFlight || !canOverwriteOutput()) return;
+  if (saveInFlight || !canOverwriteOutput(root)) return;
   saveInFlight = true;
   closeOutputMenu(root);
   syncToolOutputToolbar(root);
   try {
     await applyToolOutput(root);
     const output = getLatestPdfOutput();
-    if (!output || !canSaveToShiftPdf(output)) return;
-    const target = getPrimaryLibrarySaveTarget();
+    if (!output || !isPdfOutput(output.blob, output.filename)) return;
     const result = await overwriteToShiftPdf(
       output.blob,
       output.filename,
       root
     );
     if (result === 'replaced') {
-      if (
-        target &&
-        (await openLibraryFileInViewer(
-          { id: target.id, name: target.name, source: 'upload' },
-          root,
-          assignLocation
-        ))
-      ) {
-        return;
-      }
-      showAlert('Saved', 'The original PDF was updated in My PDFs.', 'success');
+      const message = output.summary
+        ? `${output.summary} The original PDF was updated in My PDFs.`
+        : 'The original PDF was updated in My PDFs.';
+      showAlert('Saved', message, 'success');
       return;
     }
     showAlert(
@@ -413,14 +502,83 @@ export async function overwriteOutput(
   }
 }
 
+const PROCESS_BUTTON_WAIT_TIMEOUT_MS = 15000;
+
 async function applyToolOutput(root: Document): Promise<void> {
   if (session?.apply) {
     await session.apply();
     return;
   }
-  if (isViewerToolDocument(root)) {
-    findProcessButton(root)?.click();
-  }
+  const processBtn = findProcessButton(root);
+  if (!processBtn) return;
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timer !== null) clearTimeout(timer);
+      if (pollTimer !== null) clearInterval(pollTimer);
+      root.removeEventListener(PDF_OUTPUT_READY_EVENT, onReady);
+      if (root !== document) {
+        document.removeEventListener(PDF_OUTPUT_READY_EVENT, onReady);
+      }
+      resolve();
+    };
+
+    const onReady = () => {
+      finish();
+    };
+
+    root.addEventListener(PDF_OUTPUT_READY_EVENT, onReady, { once: true });
+    if (root !== document) {
+      document.addEventListener(PDF_OUTPUT_READY_EVENT, onReady, {
+        once: true,
+      });
+    }
+
+    processBtn.click();
+
+    // If clicking processBtn synchronously dispatched PDF_OUTPUT_READY_EVENT,
+    // `settled` is already true. Otherwise wait briefly for async completion,
+    // or resolve early if no async work was started (e.g., a test stub with no listener).
+    if (settled) return;
+
+    const alertModal = root.getElementById('alert-modal');
+    const errorModal = root.getElementById('errorModal');
+    const loader = root.querySelector('.shift-loader.is-active');
+    const startedAsyncWork =
+      processBtn.disabled ||
+      Boolean(loader) ||
+      Boolean(root.querySelector('[aria-busy="true"]'));
+
+    if (!startedAsyncWork) {
+      // Allow microtasks from an async click handler to run before resolving
+      queueMicrotask(() => {
+        setTimeout(() => {
+          const nowBusy =
+            processBtn.disabled ||
+            Boolean(root.querySelector('.shift-loader.is-active')) ||
+            Boolean(root.querySelector('[aria-busy="true"]'));
+          if (!nowBusy) finish();
+        }, 25);
+      });
+    }
+
+    pollTimer = setInterval(() => {
+      if (
+        (alertModal && !alertModal.classList.contains('hidden')) ||
+        (errorModal && !errorModal.classList.contains('hidden'))
+      ) {
+        finish();
+      }
+    }, 50);
+
+    timer = setTimeout(finish, PROCESS_BUTTON_WAIT_TIMEOUT_MS);
+  });
 }
 
 function findProcessButton(root: Document): HTMLButtonElement | null {
@@ -437,14 +595,12 @@ function findProcessButton(root: Document): HTMLButtonElement | null {
 }
 
 async function downloadOutput(root: Document): Promise<void> {
-  if (saveInFlight || !canDownloadOutput()) return;
+  if (saveInFlight || !canDownloadOutput(root)) return;
   closeOutputMenu(root);
   saveInFlight = true;
   syncToolOutputToolbar(root);
   try {
-    if (!getLatestPdfOutput() || Boolean(session?.canSave?.())) {
-      await applyToolOutput(root);
-    }
+    await applyToolOutput(root);
     const output = getLatestPdfOutput();
     if (!output) return;
     downloadBlob(output.blob, output.filename);
@@ -467,9 +623,7 @@ async function printOutput(root: Document): Promise<void> {
       await printPdfJsViewerFrame(frame);
       return;
     }
-    if (!getLatestPdfOutput() || Boolean(session?.canSave?.())) {
-      await applyToolOutput(root);
-    }
+    await applyToolOutput(root);
     const output = getLatestPdfOutput();
     if (output && canSaveToShiftPdf(output)) {
       await printPdfBlob(output.blob, root);
@@ -545,6 +699,7 @@ function clickFirstLegacyReset(root: Document): void {
 function hasResettableState(root: Document, hasOutput: boolean): boolean {
   if (session?.canReset) return session.canReset();
   if (hasOutput || session?.reset) return true;
+  if (hasReadyProcessButton(root)) return true;
   return Boolean(
     root.querySelector(
       '#file-display-area:not(:empty), #file-list:not(:empty), #signature-editor:not(.hidden)'
@@ -554,6 +709,14 @@ function hasResettableState(root: Document, hasOutput: boolean): boolean {
 
 function hideLegacyOutputActions(root: Document): void {
   const ids = [
+    'process-btn',
+    'export-pdf-btn',
+    'download-btn',
+    'downloadBtn',
+    'download-searchable-pdf',
+    'export-dropdown-wrapper',
+    'mdExport',
+    'download-all-btn',
     'completion-download',
     'completion-start-over',
     'completion-save-shift',
@@ -568,11 +731,7 @@ function hideLegacyOutputActions(root: Document): void {
     'redo-btn',
     'reset-btn',
     'save-stamped-btn',
-    'export-dropdown-wrapper',
   ];
-  if (isViewerToolDocument(root)) {
-    ids.push('process-btn');
-  }
   for (const id of ids) {
     const control = root.getElementById(id);
     if (control instanceof HTMLElement) {

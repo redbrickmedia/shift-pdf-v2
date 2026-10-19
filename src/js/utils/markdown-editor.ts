@@ -29,7 +29,13 @@ import mark from 'markdown-it-mark';
 import taskLists from 'markdown-it-task-lists';
 import anchor from 'markdown-it-anchor';
 import tocDoneRight from 'markdown-it-toc-done-right';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { applyTranslations } from '../i18n/i18n';
+import { downloadFile } from './helpers.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from '../logic/tool-output-toolbar.js';
 import type {
   WindowWithLucide,
   WindowWithI18next,
@@ -269,6 +275,7 @@ export class MarkdownEditor {
   private syncScroll: boolean = false;
   private isSyncing: boolean = false;
   private mermaidInitialized: boolean = false;
+  private unregisterOutputSession?: () => void;
   private mdOptions: MarkdownItOptions = {
     html: true,
     breaks: false,
@@ -291,6 +298,16 @@ export class MarkdownEditor {
     } else {
       this.setContent(DEFAULT_MARKDOWN);
     }
+
+    this.unregisterOutputSession = registerToolOutputSession(
+      {
+        apply: () => this.exportPdf(),
+        reset: () => this.reset(),
+        canSave: () => this.hasContent(),
+        canReset: () => this.hasContent(),
+      },
+      this.container.ownerDocument
+    );
   }
 
   private initMermaid(): void {
@@ -561,7 +578,7 @@ export class MarkdownEditor {
 
     // Export PDF
     document.getElementById('mdExport')?.addEventListener('click', () => {
-      this.exportPdf();
+      void this.exportPdf();
     });
 
     // Keyboard shortcuts
@@ -569,7 +586,7 @@ export class MarkdownEditor {
       // Ctrl/Cmd + S to export
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        this.exportPdf();
+        void this.exportPdf();
       }
       // Tab key for indentation
       if (e.key === 'Tab') {
@@ -697,6 +714,7 @@ export class MarkdownEditor {
       ADD_ATTR: ['target'],
     });
     this.renderMermaidDiagrams();
+    syncToolOutputToolbar(this.container.ownerDocument);
   }
 
   private async renderMermaidDiagrams(): Promise<void> {
@@ -746,15 +764,111 @@ export class MarkdownEditor {
     return this.editor?.value || '';
   }
 
+  public hasContent(): boolean {
+    return this.getContent().trim().length > 0;
+  }
+
+  public reset(): void {
+    this.setContent('');
+    const fileInput = document.getElementById(
+      'mdFileInput'
+    ) as HTMLInputElement | null;
+    if (fileInput) fileInput.value = '';
+  }
+
   public getHtml(): string {
     return DOMPurify.sanitize(this.md.render(this.getContent()), {
       ADD_ATTR: ['target'],
     });
   }
 
-  private exportPdf(): void {
-    // Use browser's native print functionality
-    window.print();
+  public async generatePdfBlob(): Promise<Blob> {
+    const pdfDoc = await PDFDocument.create();
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const pageWidth = 612;
+    const pageHeight = 792;
+    const margin = 50;
+    const maxLineWidth = pageWidth - margin * 2;
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+
+    const sanitizeWinAnsi = (text: string): string =>
+      text.replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ').replace(/\t/g, '  ');
+
+    const rawLines = this.getContent().replace(/\r\n/g, '\n').split('\n');
+    for (const rawLine of rawLines) {
+      const headingMatch = /^(#{1,6})\s+(.*)$/.exec(rawLine);
+      const isHeading = Boolean(headingMatch);
+      const level = headingMatch ? headingMatch[1].length : 0;
+      const font = isHeading ? boldFont : regularFont;
+      const fontSize = isHeading ? Math.max(12, 22 - (level - 1) * 2) : 11;
+      const lineHeight = fontSize * 1.45;
+      const cleanLine = sanitizeWinAnsi(
+        headingMatch ? headingMatch[2] : rawLine
+      );
+
+      if (!cleanLine.trim()) {
+        y -= lineHeight * 0.6;
+        if (y < margin) {
+          page = pdfDoc.addPage([pageWidth, pageHeight]);
+          y = pageHeight - margin;
+        }
+        continue;
+      }
+
+      const words = cleanLine.split(' ');
+      let currentLine = '';
+
+      for (const word of words) {
+        const candidate = currentLine ? `${currentLine} ${word}` : word;
+        if (
+          font.widthOfTextAtSize(candidate, fontSize) <= maxLineWidth ||
+          !currentLine
+        ) {
+          currentLine = candidate;
+        } else {
+          if (y - lineHeight < margin) {
+            page = pdfDoc.addPage([pageWidth, pageHeight]);
+            y = pageHeight - margin;
+          }
+          page.drawText(currentLine, {
+            x: margin,
+            y: y - fontSize,
+            size: fontSize,
+            font,
+            color: rgb(0.1, 0.1, 0.1),
+          });
+          y -= lineHeight;
+          currentLine = word;
+        }
+      }
+
+      if (currentLine) {
+        if (y - lineHeight < margin) {
+          page = pdfDoc.addPage([pageWidth, pageHeight]);
+          y = pageHeight - margin;
+        }
+        page.drawText(currentLine, {
+          x: margin,
+          y: y - fontSize,
+          size: fontSize,
+          font,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+        y -= lineHeight;
+      }
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+  }
+
+  public async exportPdf(): Promise<void> {
+    if (!this.hasContent()) return;
+    const blob = await this.generatePdfBlob();
+    downloadFile(blob, 'markdown-document.pdf');
   }
 
   private getStyledHtml(): string {
@@ -1026,6 +1140,8 @@ ${content}
   }
 
   public destroy(): void {
+    this.unregisterOutputSession?.();
+    this.unregisterOutputSession = undefined;
     this.container.innerHTML = '';
   }
 }

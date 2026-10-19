@@ -685,42 +685,54 @@ export async function merge(): Promise<void> {
     if (processButton) processButton.disabled = mergeModel.files.length < 2;
     return true;
   };
-  mergeWorker.onmessage = (event: MessageEvent<MergeResponse>) => {
-    if (!finishWorkerOperation()) return;
-    hideLoader();
-    if (event.data.status !== 'success') {
+  await new Promise<void>((resolve) => {
+    mergeWorker.onmessage = (event: MessageEvent<MergeResponse>) => {
+      if (!finishWorkerOperation()) {
+        resolve();
+        return;
+      }
+      hideLoader();
+      if (event.data.status !== 'success') {
+        endToolUse('error');
+        showAlert('Error', event.data.message || 'Failed to merge PDFs.');
+        resolve();
+        return;
+      }
+      const blob = new Blob([event.data.pdfBytes], { type: 'application/pdf' });
+      downloadFile(blob, 'merged.pdf');
+      completionPanel?.show({
+        blob,
+        filename: 'merged.pdf',
+        summary: `Merged ${inputCount} PDFs into one document.`,
+        timing: completionTiming(startedAt),
+      });
+      resolve();
+    };
+    mergeWorker.onerror = (error) => {
+      if (!finishWorkerOperation()) {
+        resolve();
+        return;
+      }
+      hideLoader();
+      console.error('Worker error:', error);
       endToolUse('error');
-      showAlert('Error', event.data.message || 'Failed to merge PDFs.');
-      return;
+      showAlert('Error', 'An unexpected error occurred in the merge worker.');
+      resolve();
+    };
+    try {
+      mergeWorker.postMessage(
+        message,
+        prepared.files.map(({ data }) => data)
+      );
+    } catch (error) {
+      finishWorkerOperation();
+      hideLoader();
+      console.error('Failed to start merge worker:', error);
+      endToolUse('error');
+      showAlert('Error', 'Could not start the merge operation.');
+      resolve();
     }
-    const blob = new Blob([event.data.pdfBytes], { type: 'application/pdf' });
-    downloadFile(blob, 'merged.pdf');
-    completionPanel?.show({
-      blob,
-      filename: 'merged.pdf',
-      summary: `Merged ${inputCount} PDFs into one document.`,
-      timing: completionTiming(startedAt),
-    });
-  };
-  mergeWorker.onerror = (error) => {
-    if (!finishWorkerOperation()) return;
-    hideLoader();
-    console.error('Worker error:', error);
-    endToolUse('error');
-    showAlert('Error', 'An unexpected error occurred in the merge worker.');
-  };
-  try {
-    mergeWorker.postMessage(
-      message,
-      prepared.files.map(({ data }) => data)
-    );
-  } catch (error) {
-    finishWorkerOperation();
-    hideLoader();
-    console.error('Failed to start merge worker:', error);
-    endToolUse('error');
-    showAlert('Error', 'Could not start the merge operation.');
-  }
+  });
 }
 
 export async function refreshMergeUI(): Promise<void> {
@@ -732,9 +744,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const dropZone = document.getElementById('drop-zone');
   completionPanel = createDefaultToolCompletionPanel(resetState);
   const unregisterOutputSession = registerToolOutputSession({
+    apply: merge,
     reset: resetState,
     undo,
     redo,
+    canSave: () => mergeModel.files.length >= 2 && activeMergeOperation === 0,
     canUndo: () => history.status.canUndo,
     canRedo: () => history.status.canRedo,
   });
