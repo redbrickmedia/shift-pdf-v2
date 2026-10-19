@@ -150,10 +150,75 @@
                 </h3>
                 <button
                   id="reset-settings-btn"
+                  type="button"
                   class="text-xs text-gray-300 hover:text-white border border-gray-600 hover:border-gray-500 px-3 py-1 rounded-lg transition-colors"
                 >
                   Reset
                 </button>
+              </div>
+
+              <div
+                class="p-3 bg-gray-900 rounded-lg border border-gray-700 space-y-3"
+              >
+                <label class="flex items-center justify-between cursor-pointer">
+                  <span class="text-sm text-gray-300">Greyscale</span>
+                  <input
+                    type="checkbox"
+                    id="toggle-greyscale"
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                </label>
+
+                <label class="flex items-center justify-between cursor-pointer">
+                  <span class="text-sm text-gray-300"
+                    >Invert Colors (Dark Mode)</span
+                  >
+                  <input
+                    type="checkbox"
+                    id="toggle-invert"
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                </label>
+
+                <div class="flex items-center justify-between gap-2">
+                  <label
+                    for="toggle-background-color"
+                    class="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="toggle-background-color"
+                      class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                    />
+                    <span class="text-sm text-gray-300">Background Color</span>
+                  </label>
+                  <input
+                    type="color"
+                    id="background-color"
+                    aria-label="Background Color"
+                    value="#FFFFCC"
+                  />
+                </div>
+
+                <div class="flex items-center justify-between gap-2">
+                  <label
+                    for="toggle-text-color"
+                    class="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      id="toggle-text-color"
+                      class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                    />
+                    <span class="text-sm text-gray-300">Text Color</span>
+                  </label>
+                  <input
+                    type="color"
+                    id="text-color-input"
+                    aria-label="Text Color"
+                    value="#0000FF"
+                  />
+                </div>
               </div>
 
               <div>

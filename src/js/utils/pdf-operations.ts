@@ -320,11 +320,16 @@ export type PageNumberPosition =
   | 'top-right';
 export type PageNumberFormat = 'simple' | 'page_x_of_y';
 
+export type PageNumberFontFamily = 'Helvetica' | 'TimesRoman' | 'Courier';
+
 export interface PageNumberOptions {
   position: PageNumberPosition;
   fontSize: number;
   format: PageNumberFormat;
   color: { r: number; g: number; b: number };
+  fontFamily?: PageNumberFontFamily;
+  startingNumber?: number;
+  pageIndices?: number[];
 }
 
 export async function addPageNumbers(
@@ -332,11 +337,19 @@ export async function addPageNumbers(
   options: PageNumberOptions
 ): Promise<Uint8Array> {
   const pdfDoc = await loadPdfDocument(pdfBytes);
-  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontKey: PageNumberFontFamily = options.fontFamily || 'Helvetica';
+  const font = await pdfDoc.embedFont(StandardFonts[fontKey]);
   const pages = pdfDoc.getPages();
   const totalPages = pages.length;
+  const startingNumber = options.startingNumber ?? 1;
+  const targetIndices = options.pageIndices
+    ? new Set(options.pageIndices)
+    : null;
+  const totalDisplay = totalPages + startingNumber - 1;
 
   for (let i = 0; i < totalPages; i++) {
+    if (targetIndices && !targetIndices.has(i)) continue;
+
     const page = pages[i];
     const mediaBox = page.getMediaBox();
     const cropBox = page.getCropBox();
@@ -346,15 +359,13 @@ export async function addPageNumbers(
     const xOffset = bounds.x || 0;
     const yOffset = bounds.y || 0;
 
+    const currentNumber = i + startingNumber;
     const pageNumText =
       options.format === 'page_x_of_y'
-        ? `${i + 1} / ${totalPages}`
-        : `${i + 1}`;
+        ? `${currentNumber} / ${totalDisplay}`
+        : `${currentNumber}`;
 
-    const textWidth = helveticaFont.widthOfTextAtSize(
-      pageNumText,
-      options.fontSize
-    );
+    const textWidth = font.widthOfTextAtSize(pageNumText, options.fontSize);
     const textHeight = options.fontSize;
 
     const minMargin = 8;
@@ -431,7 +442,7 @@ export async function addPageNumbers(
     page.drawText(pageNumText, {
       x,
       y,
-      font: helveticaFont,
+      font,
       size: options.fontSize,
       color: rgb(options.color.r, options.color.g, options.color.b),
     });
@@ -487,7 +498,6 @@ export async function fixPageSize(
 
   for (const sourcePage of sourceDoc.getPages()) {
     const { width: sourceWidth, height: sourceHeight } = sourcePage.getSize();
-    const embeddedPage = await outputDoc.embedPage(sourcePage);
 
     let pageTargetWidth = targetWidth;
     let pageTargetHeight = targetHeight;
@@ -515,6 +525,12 @@ export async function fixPageSize(
         options.backgroundColor.b
       ),
     });
+
+    if (!sourcePage.node.Contents()) {
+      continue;
+    }
+
+    const embeddedPage = await outputDoc.embedPage(sourcePage);
 
     const scaleX = pageTargetWidth / sourceWidth;
     const scaleY = pageTargetHeight / sourceHeight;
