@@ -165,9 +165,7 @@ function annotateHasEdits(): boolean {
 }
 
 function fillSignHasEdits(): boolean {
-  return (
-    fillSignEditorHistory.hasEdits || fillSignFormDirty || isFlattenChecked()
-  );
+  return fillSignEditorHistory.hasEdits || fillSignFormDirty;
 }
 
 function cropHasEdits(): boolean {
@@ -181,7 +179,11 @@ function currentModeHasEdits(): boolean {
 }
 
 function editorHasEdits(): boolean {
-  return hasAccumulatedModeEdits || currentModeHasEdits();
+  return (
+    hasAccumulatedModeEdits ||
+    currentModeHasEdits() ||
+    (activeMode === 'fill-sign' && isFlattenChecked())
+  );
 }
 
 function hasLoadedDocument(): boolean {
@@ -671,10 +673,7 @@ export async function exportWorkingPdfBytes(): Promise<Uint8Array | null> {
   if (activeMode === 'fill-sign') {
     const app = getFillSignViewerApplication();
     if (fillSignViewerReady && app?.pdfDocument && fillSignHasEdits()) {
-      const shouldFlatten = isFlattenChecked();
-      const exported = shouldFlatten
-        ? await exportFlattenedSignedPdf(app.pdfDocument)
-        : await exportPdfJsAnnotations(app.pdfDocument);
+      const exported = await exportPdfJsAnnotations(app.pdfDocument);
       workingPdfBytes = new Uint8Array(exported);
       return workingPdfBytes;
     }
