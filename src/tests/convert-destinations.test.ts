@@ -1,28 +1,16 @@
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import * as convertDestinations from '../js/config/convert-destinations';
 import {
   filterConvertDestinations,
+  getConvertDestinationById,
   getOutputFilename,
   getPdfDestinations,
   getSharedDestinations,
   getToPdfDestination,
-  SINGLE_FILE_DESTINATION_IDS,
 } from '../js/config/convert-destinations';
-
-const repoRoot = path.resolve(__dirname, '../..');
 
 function pdf(name: string): File {
   return new File(['%PDF-1.4'], name, { type: 'application/pdf' });
-}
-
-function pageFor(toolId: string): string | null {
-  return (
-    [
-      path.join(repoRoot, `${toolId}.html`),
-      path.join(repoRoot, 'src/pages', `${toolId}.html`),
-    ].find((candidate) => existsSync(candidate)) ?? null
-  );
 }
 
 describe('shared convert destinations', () => {
@@ -46,9 +34,22 @@ describe('shared convert destinations', () => {
     ]);
 
     expect(shared.primary.map((entry) => entry.id)).toEqual(['jpg-to-pdf']);
+    expect(shared.primary[0]?.producesPdf).toBe(true);
+    expect(shared.primary[0]?.acceptsMultiple).toBe(true);
   });
 
-  it('finds nothing in common for a mixed selection', () => {
+  it('resolves image-to-pdf when a batch mixes different image formats', () => {
+    const shared = getSharedDestinations([
+      new File(['a'], 'one.jpg', { type: 'image/jpeg' }),
+      new File(['b'], 'two.png', { type: 'image/png' }),
+    ]);
+
+    expect(shared.primary.map((entry) => entry.id)).toEqual(['image-to-pdf']);
+    expect(shared.primary[0]?.producesPdf).toBe(true);
+    expect(shared.primary[0]?.acceptsMultiple).toBe(true);
+  });
+
+  it('finds nothing in common for a mixed selection of PDF and non-PDF', () => {
     const shared = getSharedDestinations([
       pdf('one.pdf'),
       new File(['b'], 'two.docx', {
@@ -65,43 +66,103 @@ describe('shared convert destinations', () => {
   });
 });
 
-describe('destination batch capability', () => {
-  // The hub disables a destination once the selection outgrows it, so the flag
-  // has to match the page it links to. Anything else silently drops files: the
-  // shared seed path keeps one file for a single-file input.
-  it('matches the multiple attribute on every destination page', () => {
+describe('destination batch capability and in-place routing', () => {
+  it('retires SINGLE_FILE_DESTINATION_IDS so every destination accepts multiple files', () => {
+    expect('SINGLE_FILE_DESTINATION_IDS' in convertDestinations).toBe(false);
+
     const { primary, secondary } = getPdfDestinations();
-    const mismatches: string[] = [];
+    const allPdfDestinations = [...primary, ...secondary];
 
-    for (const destination of [...primary, ...secondary]) {
-      const page = pageFor(destination.id);
-      if (!page) continue;
-
-      const markup = readFileSync(page, 'utf8');
-      const input = /<input[^>]*id="file-input"[^>]*>/.exec(markup)?.[0] ?? '';
-      const pageAcceptsMultiple = /\smultiple[\s/>]/.test(input);
-
-      if (pageAcceptsMultiple !== destination.acceptsMultiple) {
-        mismatches.push(
-          `${destination.id}: page says ${pageAcceptsMultiple ? 'multiple' : 'single'}, config says ${destination.acceptsMultiple ? 'multiple' : 'single'}`
-        );
-      }
+    expect(allPdfDestinations).toHaveLength(13);
+    for (const destination of allPdfDestinations) {
+      expect(destination.acceptsMultiple).toBe(true);
+      expect(destination.producesPdf).toBe(false);
+      expect(destination.href).toMatch(
+        new RegExp(`pdf-converter\\.html\\?entry=${destination.id}$`)
+      );
     }
-
-    expect(mismatches).toEqual([]);
   });
 
-  it('marks the known single-file destinations', () => {
+  it('returns the exact 13 in-place Convert from PDF destinations and excludes standalone extract-images', () => {
     const { primary, secondary } = getPdfDestinations();
-    const byId = new Map(
-      [...primary, ...secondary].map((entry) => [entry.id, entry])
-    );
+    const allIds = [...primary, ...secondary].map((entry) => entry.id);
 
-    for (const id of SINGLE_FILE_DESTINATION_IDS) {
-      expect(byId.get(id)?.acceptsMultiple ?? false).toBe(false);
+    expect(allIds).not.toContain('extract-images');
+    expect(allIds.sort()).toEqual(
+      [
+        'pdf-to-jpg',
+        'pdf-to-png',
+        'pdf-to-webp',
+        'pdf-to-bmp',
+        'pdf-to-tiff',
+        'pdf-to-svg',
+        'pdf-to-docx',
+        'pdf-to-pptx',
+        'pdf-to-excel',
+        'pdf-to-csv',
+        'pdf-to-text',
+        'pdf-to-markdown',
+        'extract-tables',
+      ].sort()
+    );
+  });
+
+  it('resolves all 26 Convert to PDF and 13 Convert from PDF destinations by id with producesPdf and in-place href', () => {
+    const toPdfIds = [
+      'image-to-pdf',
+      'jpg-to-pdf',
+      'png-to-pdf',
+      'webp-to-pdf',
+      'svg-to-pdf',
+      'bmp-to-pdf',
+      'heic-to-pdf',
+      'tiff-to-pdf',
+      'psd-to-pdf',
+      'word-to-pdf',
+      'excel-to-pdf',
+      'powerpoint-to-pdf',
+      'odt-to-pdf',
+      'ods-to-pdf',
+      'odp-to-pdf',
+      'odg-to-pdf',
+      'rtf-to-pdf',
+      'pages-to-pdf',
+      'pub-to-pdf',
+      'vsd-to-pdf',
+      'epub-to-pdf',
+      'mobi-to-pdf',
+      'xps-to-pdf',
+      'csv-to-pdf',
+      'xml-to-pdf',
+      'email-to-pdf',
+    ];
+
+    for (const id of toPdfIds) {
+      const dest = getConvertDestinationById(id);
+      expect(dest, `Expected destination for ${id}`).not.toBeNull();
+      expect(dest?.producesPdf).toBe(true);
+      expect(dest?.acceptsMultiple).toBe(true);
+      expect(dest?.outputExtension).toBe('pdf');
+      expect(dest?.href).toMatch(
+        new RegExp(`pdf-converter\\.html\\?entry=${id}$`)
+      );
     }
-    expect(byId.get('pdf-to-docx')?.acceptsMultiple).toBe(true);
-    expect(byId.get('pdf-to-pptx')?.acceptsMultiple).toBe(true);
+
+    const txtDest = getToPdfDestination(
+      new File(['hello'], 'notes.txt', { type: 'text/plain' })
+    );
+    expect(txtDest?.id).toBe('txt-to-pdf');
+    expect(txtDest?.producesPdf).toBe(true);
+    expect(txtDest?.acceptsMultiple).toBe(true);
+    expect(txtDest?.href).toMatch(/pdf-converter\.html\?entry=txt-to-pdf$/);
+
+    const mdDest = getToPdfDestination(
+      new File(['# Title'], 'readme.md', { type: 'text/markdown' })
+    );
+    expect(mdDest?.id).toBe('markdown-to-pdf');
+    expect(mdDest?.producesPdf).toBe(true);
+    expect(mdDest?.acceptsMultiple).toBe(true);
+    expect(mdDest?.href).toMatch(/pdf-converter\.html\?entry=markdown-to-pdf$/);
   });
 
   it('filters destinations by name, subtitle, or extension', () => {
@@ -129,7 +190,6 @@ describe('destination batch capability', () => {
       [...primary, ...secondary].map((entry) => [entry.id, entry])
     );
 
-    // Live hub showed basicapi.excel for PDF to Excel.
     expect(getOutputFilename('basicapi.pdf', byId.get('pdf-to-excel')!)).toBe(
       'basicapi.xlsx'
     );
@@ -141,9 +201,6 @@ describe('destination batch capability', () => {
     ).toBe('basicapi.md');
     expect(getOutputFilename('basicapi.pdf', byId.get('extract-tables')!)).toBe(
       'basicapi.csv'
-    );
-    expect(getOutputFilename('basicapi.pdf', byId.get('extract-images')!)).toBe(
-      'basicapi.zip'
     );
     expect(getOutputFilename('notes.pdf', byId.get('pdf-to-csv')!)).toBe(
       'notes.csv'
@@ -161,5 +218,6 @@ describe('destination batch capability', () => {
       new File(['a'], 'photo.jpg', { type: 'image/jpeg' })
     );
     expect(destination?.acceptsMultiple).toBe(true);
+    expect(destination?.producesPdf).toBe(true);
   });
 });

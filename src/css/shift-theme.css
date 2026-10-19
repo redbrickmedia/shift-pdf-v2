@@ -5783,7 +5783,8 @@ tr:not(.is-selected) + .shift-my-pdfs-row.is-selected > td:last-child {
 }
 
 .shift-convert-destination:hover,
-.shift-convert-destination:focus-visible {
+.shift-convert-destination:focus-visible,
+.shift-convert-destination.is-selected {
   border-color: var(--action-button-surface-primary-default);
   background: var(--action-controls-surface-primary-hover);
   outline: none;
