@@ -4,6 +4,7 @@ import * as analytics from '../js/host/analytics';
 import {
   armViewerDownload,
   finishViewerDownload,
+  initPdfViewerPage,
   isPdf,
   launchViewerTool,
   loadViewerDocumentFromUrl,
@@ -39,7 +40,16 @@ import {
 function mountViewer(): void {
   document.body.innerHTML = `
     <main id="shift-pdf-viewer">
-      <h1 id="shift-pdf-viewer-title">PDF</h1>
+      <header class="shift-pdf-viewer-header">
+        <div class="shift-pdf-viewer-heading">
+          <h1 id="shift-pdf-viewer-title">PDF</h1>
+        </div>
+        <div class="shift-pdf-viewer-actions" data-shift-viewer-actions>
+          <span data-viewer-chrome="launchers"></span>
+          <button id="shift-pdf-viewer-download" type="button" data-viewer-chrome="download">Download</button>
+          <button id="shift-pdf-viewer-print" type="button" data-viewer-chrome="print">Print</button>
+        </div>
+      </header>
       <iframe id="shift-pdf-viewer-frame"></iframe>
       <div id="shift-pdf-viewer-empty"></div>
     </main>
@@ -58,7 +68,35 @@ afterEach(async () => {
 });
 
 describe('PDF viewer page', () => {
-  it('maps the six header tools to the existing PDF destinations', () => {
+  it('mounts the unified Open with dropdown in View PDF beside Download and Print instead of the 4 hardcoded tool buttons', () => {
+    mountViewer();
+    initPdfViewerPage(document);
+
+    const button = document.getElementById(
+      'shift-pdf-viewer-open-with'
+    ) as HTMLButtonElement | null;
+    const menu = document.getElementById('shift-pdf-viewer-open-with-menu');
+    expect(button).not.toBeNull();
+    expect(menu).not.toBeNull();
+    expect(button?.textContent?.trim()).toBe('Open with');
+    expect(document.querySelectorAll('[data-viewer-tool]')).toHaveLength(0);
+
+    const items = Array.from(
+      menu?.querySelectorAll<HTMLAnchorElement>(
+        '.shift-my-pdfs-more-tools-list .shift-my-pdfs-more-tools-item'
+      ) ?? []
+    ).map((item) => item.dataset.tool);
+    expect(items.slice(0, 4)).toEqual([
+      'compress-pdf',
+      'merge-pdf',
+      'pdf-converter',
+      'sign-pdf',
+    ]);
+    const browse = menu?.querySelector('.shift-my-pdfs-more-tools-browse');
+    expect(browse?.textContent).toBe('Browse all tools…');
+  });
+
+  it('maps the legacy viewer tool target constants to their destinations', () => {
     expect(VIEWER_TOOL_TARGETS).toEqual({
       lock: 'encrypt-pdf.html',
       convert: 'pdf-converter.html',

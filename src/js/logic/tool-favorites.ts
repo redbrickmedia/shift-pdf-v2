@@ -3,6 +3,7 @@ import {
   getCatalogEntryById,
   PRUNED_TOOL_ID_SET,
 } from '../config/tools.js';
+import { clearOpenWithSelection } from './open-file-store.js';
 import type { FavoriteRailPin } from '@/types';
 
 export type { FavoriteRailPin } from '@/types';
@@ -34,6 +35,7 @@ export const DEFAULT_FAVORITE_TOOL_IDS = [
   'sign-pdf',
 ] as const;
 
+export const SIDEBAR_FAVORITE_LIMIT = 6;
 const MAX_FAVORITES = 40;
 const MAX_STORED_LENGTH = 4096;
 
@@ -206,7 +208,7 @@ export function saveFavoriteRailSnapshot(
     storage.setItem(
       TOOL_FAVORITES_RAIL_KEY,
       JSON.stringify(
-        pins.slice(0, MAX_FAVORITES).map((pin) => ({
+        pins.slice(0, SIDEBAR_FAVORITE_LIMIT).map((pin) => ({
           name: pin.name,
           href: pin.href,
           icon: pin.icon,
@@ -283,7 +285,7 @@ function parseFavoriteRailSnapshotInternal(storedValue: string | null): {
         href: migration.href,
         icon: typeof icon === 'string' ? icon : '',
       });
-      if (pins.length === MAX_FAVORITES) break;
+      if (pins.length === SIDEBAR_FAVORITE_LIMIT) break;
     }
 
     return { pins, mutated };
@@ -365,45 +367,94 @@ export function partitionToolIdsByFavorites(
 export const FAVORITE_CATALOG_COPY_ATTR = 'data-favorite-catalog-copy';
 
 /**
- * Move one card per favorited tool into the favorites category. Extra catalog
- * copies of that same ID stay in their original sections and are hidden, so a
- * tool listed in Popular and Organize still appears in Organize when it is not
- * a favorite.
+ * Render an independent clone of one card per favorited Catalog Entry inside
+ * the `Favorites` spotlight container while keeping every original card
+ * visible in its home domain category below.
  */
 export function placeFavoriteToolCards(
   cardsByToolId: ReadonlyMap<string, readonly HTMLElement[]>,
   originalContainers: ReadonlyMap<HTMLElement, HTMLElement>,
   favoriteIds: readonly string[],
-  favoritesContainer: HTMLElement
+  favoritesContainer: HTMLElement,
+  options?: {
+    onToggleFavorite?: (toolId: string) => void;
+  }
 ): void {
   const partition = partitionToolIdsByFavorites(
     [...cardsByToolId.keys()],
     favoriteIds
   );
 
-  partition.favoriteIds.forEach((toolId) => {
-    const cards = cardsByToolId.get(toolId) ?? [];
-    cards.forEach((card, index) => {
-      if (index === 0) {
-        card.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
-        card.hidden = false;
-        favoritesContainer.appendChild(card);
-        return;
-      }
-
-      card.setAttribute(FAVORITE_CATALOG_COPY_ATTR, 'hidden');
-      card.hidden = true;
-      originalContainers.get(card)?.appendChild(card);
-    });
-  });
-
-  partition.catalogIds.forEach((toolId) => {
-    for (const card of cardsByToolId.get(toolId) ?? []) {
-      card.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
-      card.hidden = false;
-      originalContainers.get(card)?.appendChild(card);
+  // Remove any previously cloned favorite cards from favoritesContainer while
+  // keeping non-card children (such as `.shift-favorites-empty`).
+  Array.from(favoritesContainer.children).forEach((child) => {
+    if (
+      child instanceof HTMLElement &&
+      (child.classList.contains('tool-card') || child.dataset.toolId)
+    ) {
+      child.remove();
     }
   });
+
+  // Ensure every domain card stays visible in its original home container.
+  for (const cards of cardsByToolId.values()) {
+    for (const card of cards) {
+      card.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
+      card.hidden = false;
+      const original = originalContainers.get(card);
+      if (original && card.parentElement !== original) {
+        original.appendChild(card);
+      }
+    }
+  }
+
+  partition.favoriteIds.forEach((toolId) => {
+    const sourceCard = cardsByToolId.get(toolId)?.[0];
+    if (!sourceCard) return;
+
+    const clone = sourceCard.cloneNode(true) as HTMLElement;
+    clone.removeAttribute(FAVORITE_CATALOG_COPY_ATTR);
+    clone.hidden = false;
+
+    const favButton = clone.querySelector<HTMLButtonElement>(
+      '.shift-tool-favorite'
+    );
+    if (favButton && options?.onToggleFavorite) {
+      favButton.addEventListener('click', () =>
+        options.onToggleFavorite?.(toolId)
+      );
+    }
+
+    favoritesContainer.appendChild(clone);
+  });
+}
+
+const sidebarGuardBoundDocs = new WeakSet<Document>();
+
+/**
+ * Global navigation in the Left Sidebar (`#shift-favorite-tools a` or
+ * `[data-nav="home"]` / `[data-nav="all-tools"]`) always opens a fresh, empty
+ * Tool Surface by clearing `shiftOpenWithSelection`.
+ */
+export function bindSidebarGlobalLauncherGuard(
+  root: Document = document
+): void {
+  if (sidebarGuardBoundDocs.has(root)) return;
+  sidebarGuardBoundDocs.add(root);
+
+  root.addEventListener(
+    'click',
+    (event) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest<HTMLAnchorElement>(
+        '#shift-favorite-tools a, a[data-nav="home"], a[data-nav="all-tools"]'
+      );
+      if (link) {
+        clearOpenWithSelection();
+      }
+    },
+    true
+  );
 }
 
 function getLocalStorage(): Storage | undefined {

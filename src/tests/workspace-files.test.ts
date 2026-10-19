@@ -1237,33 +1237,7 @@ describe('workspace files sidebar', () => {
               aria-label="Open with"
               hidden
             >
-              <span>Open with</span>
-              <div class="shift-open-file-tools-toggle">
-                <a
-                  href="compress-pdf.html"
-                  class="shift-open-file-tool-btn"
-                  data-tool="compress"
-                  >Compress</a
-                >
-                <a
-                  href="merge-pdf.html"
-                  class="shift-open-file-tool-btn"
-                  data-tool="merge"
-                  >Merge</a
-                >
-                <a
-                  href="pdf-converter.html"
-                  class="shift-open-file-tool-btn"
-                  data-tool="convert"
-                  >Convert</a
-                >
-                <a
-                  href="sign-pdf.html"
-                  class="shift-open-file-tool-btn"
-                  data-tool="esign"
-                  >E-sign</a
-                >
-              </div>
+              <div class="shift-open-file-tools-toggle"></div>
             </div>
             <div class="shift-open-file-view-by" role="group" aria-label="View by">
               <span>View by</span>
@@ -1283,23 +1257,16 @@ describe('workspace files sidebar', () => {
     expect(tools?.getAttribute('aria-label')).toBe('Open with');
     expect(tools?.classList.contains('shift-open-file-tools')).toBe(true);
 
-    const links = Array.from(
-      tools?.querySelectorAll<HTMLAnchorElement>(
-        'a.shift-open-file-tool-btn'
-      ) ?? []
-    );
-    expect(links.map((link) => link.textContent?.trim())).toEqual([
-      'Compress',
-      'Merge',
-      'Convert',
-      'E-sign',
-    ]);
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      'compress-pdf.html',
-      'merge-pdf.html',
-      'pdf-converter.html',
-      'sign-pdf.html',
-    ]);
+    // Inline favorite links are replaced by a single Open with dropdown button
+    expect(
+      tools?.querySelectorAll('a.shift-open-file-tool-btn') ?? []
+    ).toHaveLength(0);
+    const openWithBtn = document.getElementById(
+      'shift-my-pdfs-more-tools'
+    ) as HTMLButtonElement | null;
+    expect(openWithBtn).not.toBeNull();
+    expect(openWithBtn?.textContent?.trim()).toBe('Open with');
+    expect(openWithBtn?.disabled).toBe(false);
     expect(
       tools?.querySelector('.shift-open-file-tools-toggle')
     ).not.toBeNull();
@@ -1314,129 +1281,25 @@ describe('workspace files sidebar', () => {
         .getElementById('shift-open-file-tools')
         ?.getAttribute('aria-disabled')
     ).toBe('true');
+    expect(openWithBtn?.disabled).toBe(true);
     expect(tools?.classList.contains('shift-enter')).toBe(false);
   });
 
-  it('rebuilds the Open with row from saved favorites', () => {
+  it('populates the unified Open with menu with all Favorites, deduped Popular Tools, and Browse all tools… before Delete', () => {
     localStorage.setItem(
-      TOOL_FAVORITES_RAIL_KEY,
+      'shiftPdfFavoriteToolIds',
       JSON.stringify([
-        { name: 'Split PDF', href: 'split-pdf.html', icon: 'ph-scissors' },
-        { name: 'Crop PDF', href: 'crop-pdf.html', icon: 'ph-crop' },
+        'rotate-pdf',
+        'jpg-to-pdf',
+        'compare-pdfs',
+        'split-pdf',
+        'merge-pdf',
+        'compress-pdf',
+        'pdf-converter',
+        'sign-pdf',
       ])
     );
-    document.body.innerHTML = `
-      <section id="shift-my-pdfs" data-view="thumbnail">
-        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
-          <div class="shift-open-file-tools-toggle">
-            <a href="compress-pdf.html" class="shift-open-file-tool-btn">Compress</a>
-            <a href="merge-pdf.html" class="shift-open-file-tool-btn">Merge</a>
-            <a href="pdf-converter.html" class="shift-open-file-tool-btn">Convert</a>
-            <a href="sign-pdf.html" class="shift-open-file-tool-btn">E-sign</a>
-          </div>
-        </div>
-        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
-        <table><tbody id="shift-my-pdfs-body"></tbody></table>
-        <div id="shift-my-pdfs-thumbs"></div>
-      </section>
-    `;
-
-    setHomeLibraryFiles([]);
-
-    const links = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
-    );
-    expect(links.map((link) => link.textContent)).toEqual([
-      'Split PDF',
-      'Crop PDF',
-    ]);
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      'split-pdf.html',
-      'edit-pdf.html?entry=crop-pdf',
-    ]);
-    expect(links.map((link) => link.dataset.tool)).toEqual([
-      'split-pdf',
-      'crop-pdf',
-    ]);
-    // Delete is appended to the same row, so favorites must stay ahead of it.
-    const toggle = document.querySelector('.shift-open-file-tools-toggle');
-    expect(toggle?.lastElementChild?.id).toBe('shift-my-pdfs-delete-selected');
-  });
-
-  it('keeps the markup fallback when no favorites are cached', () => {
-    localStorage.removeItem(TOOL_FAVORITES_RAIL_KEY);
-    document.body.innerHTML = `
-      <section id="shift-my-pdfs" data-view="thumbnail">
-        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
-          <div class="shift-open-file-tools-toggle">
-            <a href="compress-pdf.html" class="shift-open-file-tool-btn">Compress</a>
-            <a href="merge-pdf.html" class="shift-open-file-tool-btn">Merge</a>
-          </div>
-        </div>
-        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
-        <table><tbody id="shift-my-pdfs-body"></tbody></table>
-        <div id="shift-my-pdfs-thumbs"></div>
-      </section>
-    `;
-
-    setHomeLibraryFiles([]);
-
-    expect(
-      Array.from(
-        document.querySelectorAll<HTMLAnchorElement>(
-          'a.shift-open-file-tool-btn'
-        )
-      ).map((link) => link.textContent)
-    ).toEqual(['Compress', 'Merge']);
-  });
-
-  it('shows at most three favorites beside Delete', () => {
-    localStorage.setItem(
-      TOOL_FAVORITES_RAIL_KEY,
-      JSON.stringify(
-        ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({
-          name: id.toUpperCase(),
-          href: `${id}.html`,
-          icon: '',
-        }))
-      )
-    );
-    document.body.innerHTML = `
-      <section id="shift-my-pdfs" data-view="thumbnail">
-        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
-          <div class="shift-open-file-tools-toggle"></div>
-        </div>
-        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
-        <table><tbody id="shift-my-pdfs-body"></tbody></table>
-        <div id="shift-my-pdfs-thumbs"></div>
-      </section>
-    `;
-
-    setHomeLibraryFiles([]);
-
-    const pinned = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
-    ).map((link) => link.textContent);
-    expect(pinned).toEqual(['A', 'B', 'C']);
-  });
-
-  /**
-   * The three-favorite cap above is only tolerable if the rest stay reachable
-   * from the row, so the overflow menu is the other half of that rule: it has
-   * to sit between the last tool and Delete, and it has to actually list the
-   * pins the row dropped rather than just linking to the catalog.
-   */
-  it('offers the dropped favorites from a More tools button before Delete', () => {
-    localStorage.setItem(
-      TOOL_FAVORITES_RAIL_KEY,
-      JSON.stringify(
-        ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({
-          name: id.toUpperCase(),
-          href: `${id}.html`,
-          icon: '',
-        }))
-      )
-    );
+    localStorage.setItem('shiftPdfFavoritesMigratedV1', '1');
     document.body.innerHTML = `
       <section id="shift-my-pdfs" data-view="thumbnail">
         <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
@@ -1451,6 +1314,11 @@ describe('workspace files sidebar', () => {
     const pdf = new File(['a'], 'selected.pdf', { type: 'application/pdf' });
     setHomeLibraryFiles([pdf]);
     setWorkspaceFiles([pdf]);
+
+    // No inline favorite links in the toggle bar
+    expect(
+      document.querySelectorAll('a.shift-open-file-tool-btn')
+    ).toHaveLength(0);
 
     const button = document.getElementById(
       'shift-my-pdfs-more-tools'
@@ -1463,19 +1331,13 @@ describe('workspace files sidebar', () => {
 
     expect(button).not.toBeNull();
     expect(button?.disabled).toBe(false);
-    // Secondary like Delete, not one of the blue tool shortcuts: it opens a
-    // menu rather than acting on the selected file.
-    expect(button?.classList.contains('shift-button')).toBe(true);
-    expect(button?.classList.contains('shift-open-file-tool-btn')).toBe(false);
     expect(
       button?.querySelector('.shift-my-pdfs-more-tools-caret')
     ).not.toBeNull();
-    expect(button?.textContent?.trim()).toBe('More');
-    expect(button?.getAttribute('aria-label')).toBe('More tools');
-    expect(button?.hasAttribute('title')).toBe(false);
+    expect(button?.textContent?.trim()).toBe('Open with');
+    expect(button?.getAttribute('aria-label')).toBe('Open with');
     expect(wrap?.nextElementSibling).toBe(deleteSelected);
 
-    // Closed until asked for, and it says so.
     expect(menu?.hidden).toBe(true);
     expect(button?.getAttribute('aria-expanded')).toBe('false');
 
@@ -1484,21 +1346,32 @@ describe('workspace files sidebar', () => {
       list?.querySelectorAll<HTMLAnchorElement>(
         '.shift-my-pdfs-more-tools-item'
       ) ?? []
-    ).map((item) => item.textContent);
-    // D, E and F are the three the row had no room for; A–C are already listed.
-    expect(items.slice(0, 3)).toEqual(['D', 'E', 'F']);
-    expect(items).not.toContain('A');
+    );
+    // All 8 favorites appear first in saved order (not capped to 6)
+    expect(items.slice(0, 8).map((item) => item.dataset.tool)).toEqual([
+      'rotate-pdf',
+      'jpg-to-pdf',
+      'compare-pdfs',
+      'split-pdf',
+      'merge-pdf',
+      'compress-pdf',
+      'pdf-converter',
+      'sign-pdf',
+    ]);
 
-    // Favorites then the popular tools, and nothing beyond them: this is a
-    // shortlist, so a tool from another category appearing here would mean
-    // the whole catalog had leaked back in.
+    // Non-PDF favorite (jpg-to-pdf) stays visible in position but disabled with tooltip
+    const jpgItem = items.find((item) => item.dataset.tool === 'jpg-to-pdf');
+    expect(jpgItem?.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      jpgItem
+        ?.closest('.shift-open-file-tool-wrap')
+        ?.getAttribute('data-shift-tooltip')
+    ).toBe("This tool doesn't accept PDF files.");
+
+    // Popular tools follow, deduped against favorites
     const pageOf = (href: string): string =>
       extractCatalogEntryIdFromHref(href) || href;
-    const rendered = new Set(
-      Array.from(
-        list?.querySelectorAll<HTMLAnchorElement>('[data-tool]') ?? []
-      ).map((item) => item.dataset.tool)
-    );
+    const rendered = new Set(items.map((item) => item.dataset.tool));
     const popular = categories.find(
       (category) => category.name === 'Popular Tools'
     );
@@ -1507,19 +1380,9 @@ describe('workspace files sidebar', () => {
       expect(rendered).toContain(pageOf(tool.href));
     }
 
-    const popularPages = new Set(
-      (popular?.tools ?? []).map((tool) => pageOf(tool.href))
-    );
-    const elsewhere = categories
-      .filter((category) => category.name !== 'Popular Tools')
-      .flatMap((category) => category.tools.map((tool) => pageOf(tool.href)))
-      .filter((page) => !popularPages.has(page));
-    for (const page of elsewhere) expect(rendered).not.toContain(page);
-
-    // Browse all tools is pinned outside the scroll area, not the last row
-    // of it, so it stays visible however far down the list you are.
+    // Browse all tools… is pinned outside the scroll area
     const browse = menu?.querySelector('.shift-my-pdfs-more-tools-browse');
-    expect(browse?.textContent).toBe('Browse all tools');
+    expect(browse?.textContent).toBe('Browse all tools…');
     expect(browse?.parentElement).toBe(menu);
     expect(list?.contains(browse ?? null)).toBe(false);
 
@@ -1529,9 +1392,63 @@ describe('workspace files sidebar', () => {
 
     button?.click();
     expect(menu?.hidden).toBe(true);
+
+    localStorage.removeItem('shiftPdfFavoriteToolIds');
+    localStorage.removeItem('shiftPdfFavoritesMigratedV1');
   });
 
-  it('closes and disables More tools once no file is selected', () => {
+  it('disables single-file entries when > 1 PDF is selected and Compare PDFs when > 2 PDFs are selected', () => {
+    localStorage.setItem(
+      'shiftPdfFavoriteToolIds',
+      JSON.stringify(['split-pdf', 'compare-pdfs', 'merge-pdf'])
+    );
+    localStorage.setItem('shiftPdfFavoritesMigratedV1', '1');
+    document.body.innerHTML = `
+      <section id="shift-my-pdfs" data-view="thumbnail">
+        <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
+          <div class="shift-open-file-tools-toggle"></div>
+        </div>
+        <h2 id="shift-my-pdfs-heading">My PDFs</h2>
+        <table><tbody id="shift-my-pdfs-body"></tbody></table>
+        <div id="shift-my-pdfs-thumbs"></div>
+      </section>
+    `;
+
+    const pdf1 = new File(['a'], 'one.pdf', { type: 'application/pdf' });
+    const pdf2 = new File(['b'], 'two.pdf', { type: 'application/pdf' });
+    const pdf3 = new File(['c'], 'three.pdf', { type: 'application/pdf' });
+    setHomeLibraryFiles([pdf1, pdf2, pdf3]);
+    setWorkspaceFiles([pdf1, pdf2]);
+
+    const menu = document.getElementById('shift-my-pdfs-more-tools-menu');
+    const getItem = (toolId: string) =>
+      menu?.querySelector<HTMLAnchorElement>(`[data-tool="${toolId}"]`);
+
+    // 2 PDFs selected: split-pdf (single) disabled, compare-pdfs (dual) enabled, merge-pdf (batch) enabled
+    expect(getItem('split-pdf')?.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      getItem('split-pdf')
+        ?.closest('.shift-open-file-tool-wrap')
+        ?.getAttribute('data-shift-tooltip')
+    ).toBe('Select a single PDF to use this tool.');
+    expect(getItem('compare-pdfs')?.getAttribute('aria-disabled')).toBeNull();
+    expect(getItem('merge-pdf')?.getAttribute('aria-disabled')).toBeNull();
+
+    // 3 PDFs selected: compare-pdfs (dual) disabled with tooltip
+    setWorkspaceFiles([pdf1, pdf2, pdf3]);
+    expect(getItem('compare-pdfs')?.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      getItem('compare-pdfs')
+        ?.closest('.shift-open-file-tool-wrap')
+        ?.getAttribute('data-shift-tooltip')
+    ).toBe('Select 1 or 2 PDFs to compare.');
+    expect(getItem('merge-pdf')?.getAttribute('aria-disabled')).toBeNull();
+
+    localStorage.removeItem('shiftPdfFavoriteToolIds');
+    localStorage.removeItem('shiftPdfFavoritesMigratedV1');
+  });
+
+  it('closes and disables Open with once no file is selected', () => {
     document.body.innerHTML = `
       <section id="shift-my-pdfs" data-view="thumbnail">
         <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
@@ -1554,8 +1471,6 @@ describe('workspace files sidebar', () => {
     button?.click();
     expect(menu?.hidden).toBe(false);
 
-    // Its items open the selected PDF, so an empty selection leaves nothing
-    // for the menu to act on — and an open menu would outlive its subject.
     setWorkspaceFiles([]);
 
     expect(button?.disabled).toBe(true);
@@ -1563,282 +1478,23 @@ describe('workspace files sidebar', () => {
     expect(button?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  /**
-   * A narrow window used to wrap the controls under the selection count.
-   * The pins collapse into the overflow menu instead, so the row keeps one
-   * line — and a collapsed pin has to turn up in that menu, or narrowing the
-   * window would simply lose the shortcut.
-   */
-  describe('pinned favorite overflow', () => {
-    const realResizeObserver = global.ResizeObserver;
-    let resizeCallbacks: ResizeObserverCallback[] = [];
+  it('holds the controls row on one line', () => {
+    const css = readFileSync('src/css/shift-theme.css', 'utf8');
+    const rule = (selector: string): string => {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(`(?<=\\n)(?<!,\\n)${escaped} \\{`).exec(css);
+      if (!match) throw new Error(`No rule found for ${selector}`);
+      return css.slice(match.index, css.indexOf('\n}', match.index));
+    };
 
-    /** The row is watched, not polled, so a test resize has to come from it. */
-    function recordResizeObservers(): void {
-      resizeCallbacks = [];
-      global.ResizeObserver = class {
-        constructor(callback: ResizeObserverCallback) {
-          resizeCallbacks.push(callback);
-        }
-        observe(): void {}
-        unobserve(): void {}
-        disconnect(): void {}
-      } as unknown as typeof ResizeObserver;
-    }
-
-    function resize(): void {
-      for (const callback of resizeCallbacks) {
-        callback([], {} as ResizeObserver);
-      }
-    }
-
-    /**
-     * jsdom has no layout: the row reports the width under test, and a
-     * content width that grows by one pin-worth for every pin still shown.
-     */
-    function stubRowLayout(available: number): void {
-      const row = document.querySelector(
-        '.shift-my-pdfs-controls-row'
-      ) as HTMLElement;
-      Object.defineProperty(row, 'clientWidth', {
-        configurable: true,
-        get: () => available,
-      });
-      Object.defineProperty(row, 'scrollWidth', {
-        configurable: true,
-        get: () =>
-          200 +
-          document.querySelectorAll('a.shift-open-file-tool-btn:not([hidden])')
-            .length *
-            100,
-      });
-    }
-
-    function mountFavorites(): void {
-      localStorage.setItem(
-        TOOL_FAVORITES_RAIL_KEY,
-        JSON.stringify(
-          ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({
-            name: id.toUpperCase(),
-            href: `${id}.html`,
-            icon: '',
-          }))
-        )
-      );
-      document.body.innerHTML = `
-        <section id="shift-my-pdfs" data-view="thumbnail">
-          <div id="shift-open-file-tools" class="shift-open-file-tools" hidden>
-            <div class="shift-open-file-tools-toggle"></div>
-          </div>
-          <h2 id="shift-my-pdfs-heading">My PDFs</h2>
-          <table><tbody id="shift-my-pdfs-body"></tbody></table>
-          <div id="shift-my-pdfs-thumbs"></div>
-        </section>
-      `;
-
-      const pdf = new File(['a'], 'selected.pdf', { type: 'application/pdf' });
-      setHomeLibraryFiles([pdf]);
-      setWorkspaceFiles([pdf]);
-    }
-
-    function visiblePins(): (string | null)[] {
-      return Array.from(
-        document.querySelectorAll<HTMLAnchorElement>(
-          'a.shift-open-file-tool-btn'
-        )
-      )
-        .filter((link) => !link.hidden)
-        .map((link) => link.textContent);
-    }
-
-    function menuItems(): (string | null)[] {
-      return Array.from(
-        document.querySelectorAll<HTMLAnchorElement>(
-          '.shift-my-pdfs-more-tools-list .shift-my-pdfs-more-tools-item'
-        )
-      ).map((item) => item.textContent);
-    }
-
-    afterEach(() => {
-      global.ResizeObserver = realResizeObserver;
-    });
-
-    it('drops pins from the end until the controls fit one line', () => {
-      recordResizeObservers();
-      mountFavorites();
-
-      // Room for two pins beside Delete, More tools and View by.
-      stubRowLayout(420);
-      resize();
-
-      expect(visiblePins()).toEqual(['A', 'B']);
-      // C is collapsed, not gone: it leads the menu, ahead of the pins the
-      // three-favorite cap had already dropped.
-      expect(menuItems().slice(0, 4)).toEqual(['C', 'D', 'E', 'F']);
-    });
-
-    it('collapses every pin when only the secondary controls fit', () => {
-      recordResizeObservers();
-      mountFavorites();
-
-      stubRowLayout(260);
-      resize();
-
-      expect(visiblePins()).toEqual([]);
-      // Delete and More tools survive: the menu is the only way to a tool now.
-      expect(menuItems().slice(0, 3)).toEqual(['A', 'B', 'C']);
-      expect(
-        (
-          document.getElementById(
-            'shift-my-pdfs-more-tools'
-          ) as HTMLButtonElement | null
-        )?.disabled
-      ).toBe(false);
-    });
-
-    it('restores collapsed pins when the row widens again', () => {
-      recordResizeObservers();
-      mountFavorites();
-
-      stubRowLayout(260);
-      resize();
-      expect(visiblePins()).toEqual([]);
-
-      stubRowLayout(900);
-      resize();
-
-      expect(visiblePins()).toEqual(['A', 'B', 'C']);
-      // Back in the row means back out of the menu — no tool listed twice.
-      expect(menuItems().slice(0, 3)).toEqual(['D', 'E', 'F']);
-    });
-
-    /**
-     * The row cannot wrap, so it does not overflow either — the selection
-     * count shrinks instead. Cutting that count short is the only sign the
-     * pins have overrun the row, so it is what collapsing keys off, and a
-     * count with room to spare must leave every pin alone.
-     */
-    describe('selection count as the fit signal', () => {
-      /** Room the count has left once the pins have taken theirs. */
-      function stubCountLayout(roomForCount: number): void {
-        const row = document.querySelector(
-          '.shift-my-pdfs-controls-row'
-        ) as HTMLElement;
-        // Wide enough that the row itself never overflows.
-        Object.defineProperty(row, 'clientWidth', {
-          configurable: true,
-          get: () => 900,
-        });
-        Object.defineProperty(row, 'scrollWidth', {
-          configurable: true,
-          get: () => 900,
-        });
-
-        const count = document.getElementById(
-          'shift-my-pdfs-selection-count'
-        ) as HTMLElement;
-        // "1 of 8 selected" needs 120px to render in full.
-        Object.defineProperty(count, 'scrollWidth', {
-          configurable: true,
-          get: () => 120,
-        });
-        Object.defineProperty(count, 'clientWidth', {
-          configurable: true,
-          get: () =>
-            roomForCount -
-            document.querySelectorAll(
-              'a.shift-open-file-tool-btn:not([hidden])'
-            ).length *
-              40,
-        });
-      }
-
-      it('keeps every pin while the count still renders in full', () => {
-        recordResizeObservers();
-        mountFavorites();
-
-        // 240 - 3 pins x 40 = 120: exactly the count's natural width.
-        stubCountLayout(240);
-        resize();
-
-        expect(visiblePins()).toEqual(['A', 'B', 'C']);
-      });
-
-      it('collapses only as many pins as the count needs back', () => {
-        recordResizeObservers();
-        mountFavorites();
-
-        // 200 leaves the count 80px with three pins and 120px with two, so
-        // exactly one pin has to go — collapsing a second would be greedy.
-        stubCountLayout(200);
-        resize();
-
-        expect(visiblePins()).toEqual(['A', 'B']);
-        expect(menuItems().slice(0, 1)).toEqual(['C']);
-      });
-    });
-
-    /**
-     * An unmeasured row reports zero for everything, which reads as "nothing
-     * fits". Collapsing on that would empty the row on a wide screen before
-     * the first paint, so it has to be treated as "no measurement yet".
-     */
-    it('keeps every pin while the row has no layout', () => {
-      recordResizeObservers();
-      mountFavorites();
-
-      const row = document.querySelector(
-        '.shift-my-pdfs-controls-row'
-      ) as HTMLElement;
-      Object.defineProperty(row, 'clientWidth', {
-        configurable: true,
-        get: () => 0,
-      });
-      Object.defineProperty(row, 'scrollWidth', {
-        configurable: true,
-        get: () => 5000,
-      });
-      resize();
-
-      expect(visiblePins()).toEqual(['A', 'B', 'C']);
-    });
-
-    it('takes collapsed pins out of the row layout', () => {
-      const css = readFileSync('src/css/shift-theme.css', 'utf8');
-      const match = /\.shift-open-file-tool-btn\[hidden\] \{([^}]*)\}/.exec(
-        css
-      );
-
-      // `display: inline-flex` on the pins is unlayered, so it outranks
-      // Preflight's `[hidden]`: without this rule collapsing changes nothing.
-      expect(match?.[1]).toMatch(/display:\s*none/);
-    });
-
-    /**
-     * Collapsing replaces wrapping: the tools stay beside the count rather
-     * than dropping under it, and the count is the half that gives.
-     */
-    it('holds the controls row on one line', () => {
-      const css = readFileSync('src/css/shift-theme.css', 'utf8');
-      const rule = (selector: string): string => {
-        const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const match = new RegExp(`(?<=\\n)(?<!,\\n)${escaped} \\{`).exec(css);
-        if (!match) throw new Error(`No rule found for ${selector}`);
-        return css.slice(match.index, css.indexOf('\n}', match.index));
-      };
-
-      expect(rule('.shift-my-pdfs-controls-row')).toMatch(
-        /flex-wrap:\s*nowrap/
-      );
-      // The tools hold their width; the count shrinks and ellipses instead.
-      expect(rule('.shift-my-pdfs-controls-cluster')).toMatch(/flex:\s*none/);
-      const selection = rule('.shift-my-pdfs-selection');
-      expect(selection).toMatch(/flex:\s*1 1 auto/);
-      expect(selection).toMatch(/min-width:\s*0/);
-      const count = rule('.shift-my-pdfs-selection-count');
-      expect(count).toMatch(/min-width:\s*0/);
-      expect(count).toMatch(/text-overflow:\s*ellipsis/);
-    });
+    expect(rule('.shift-my-pdfs-controls-row')).toMatch(/flex-wrap:\s*nowrap/);
+    expect(rule('.shift-my-pdfs-controls-cluster')).toMatch(/flex:\s*none/);
+    const selection = rule('.shift-my-pdfs-selection');
+    expect(selection).toMatch(/flex:\s*1 1 auto/);
+    expect(selection).toMatch(/min-width:\s*0/);
+    const count = rule('.shift-my-pdfs-selection-count');
+    expect(count).toMatch(/min-width:\s*0/);
+    expect(count).toMatch(/text-overflow:\s*ellipsis/);
   });
 
   describe('list row selection styling', () => {

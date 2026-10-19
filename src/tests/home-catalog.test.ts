@@ -123,19 +123,14 @@ describe('home catalog visibility', () => {
     ).toBe(true);
   });
 
-  it('places the All tools chip first in the toolbar order', () => {
+  it('places the All tools chip first in the toolbar order and excludes Popular Tools', () => {
     expect(
       getCategoryChipOrder([
         'Popular Tools',
         'Edit & Annotate',
         'Convert to PDF',
       ])
-    ).toEqual([
-      ALL_TOOLS_CATEGORY_ID,
-      'Popular Tools',
-      'Edit & Annotate',
-      'Convert to PDF',
-    ]);
+    ).toEqual([ALL_TOOLS_CATEGORY_ID, 'Edit & Annotate', 'Convert to PDF']);
   });
 
   it('defaults to All tools when no stored category preference exists', () => {

@@ -21,6 +21,7 @@ import {
   persistWorkspaceOpenFile,
   setWorkspaceFiles,
 } from './workspace-files.js';
+import { createOpenWithDropdown } from './open-with-menu.js';
 
 export const VIEWER_TOOL_TARGETS = {
   lock: 'encrypt-pdf.html',
@@ -248,11 +249,53 @@ function clearDownloadTimer(): void {
   downloadTimer = null;
 }
 
+const VIEWER_OPEN_WITH_ID = 'shift-pdf-viewer-open-with';
+const VIEWER_OPEN_WITH_MENU_ID = 'shift-pdf-viewer-open-with-menu';
+
+function ensureViewerOpenWithDropdown(root: Document): void {
+  let host = root.querySelector<HTMLElement>(
+    '[data-viewer-chrome="launchers"]'
+  );
+  if (!host) {
+    const actions = root.querySelector<HTMLElement>(
+      '[data-shift-viewer-actions], .shift-pdf-viewer-actions'
+    );
+    if (!actions) return;
+    host = root.createElement('span');
+    host.setAttribute('data-viewer-chrome', 'launchers');
+    actions.prepend(host);
+  }
+
+  if (root.getElementById(VIEWER_OPEN_WITH_ID)) return;
+
+  // Replace any legacy hardcoded [data-viewer-tool] buttons inside launchers
+  host.replaceChildren();
+
+  const { wrap } = createOpenWithDropdown(root, {
+    buttonId: VIEWER_OPEN_WITH_ID,
+    menuId: VIEWER_OPEN_WITH_MENU_ID,
+    buttonClassName:
+      'shift-button shift-open-file-tool-btn shift-my-pdfs-more-tools',
+    label: 'Open with',
+    ariaLabel: 'Open with',
+    disabled: false,
+    getSelectedPdfCount: () => 1,
+    onSelectTool: (href, event) => {
+      event.preventDefault();
+      void launchViewerTool(href, root);
+    },
+  });
+
+  host.appendChild(wrap);
+}
+
 function bindViewerActions(root: Document): void {
   const frame = root.getElementById(
     'shift-pdf-viewer-frame'
   ) as HTMLIFrameElement | null;
   if (!frame) return;
+
+  ensureViewerOpenWithDropdown(root);
 
   root
     .querySelectorAll<HTMLButtonElement>('[data-viewer-tool]')
