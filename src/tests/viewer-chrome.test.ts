@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  STATEFUL_UNDO_REDO_SURFACE_IDS,
   VIEWER_CHROME_ACTIONS_ATTR,
   VIEWER_CHROME_ACTIONS_CLASS,
   VIEWER_CHROME_FEATURE_ATTR,
@@ -27,6 +28,10 @@ function readPage(name: string): string {
 describe('viewer chrome', () => {
   beforeEach(() => {
     resetPdfViewerPageForTests();
+    document.documentElement.removeAttribute('data-launch-surface');
+    document.documentElement.removeAttribute('data-launch-entry');
+    document.documentElement.removeAttribute('data-launch-context-applied');
+    window.history.replaceState({}, '', '/');
     document.body.innerHTML = '';
   });
 
@@ -42,6 +47,72 @@ describe('viewer chrome', () => {
     expect(resolveViewerChromeFeatures({ preset: 'tool' })).toEqual(
       VIEWER_CHROME_PRESETS.tool
     );
+  });
+
+  it('shows Undo and Redo only on the 6 stateful interactive Tool Surfaces and hides them on option/batch Tool Surfaces', () => {
+    const statefulSurfaces = [
+      'edit-pdf',
+      'pdf-multi-tool',
+      'merge-pdf',
+      'bookmark',
+      'form-creator',
+      'add-watermark',
+    ];
+    for (const surface of statefulSurfaces) {
+      expect(STATEFUL_UNDO_REDO_SURFACE_IDS.has(surface)).toBe(true);
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.undo).toBe(true);
+      expect(features.redo).toBe(true);
+    }
+
+    const nonStatefulSurfaces = [
+      'compress-pdf',
+      'split-pdf',
+      'pdf-converter',
+      'markdown-to-pdf',
+      'txt-to-pdf',
+      'repair-pdf',
+      'pdf-to-pdfa',
+      'deskew-pdf',
+      'ocr-pdf',
+      'flatten-pdf',
+      'encrypt-pdf',
+      'digital-sign-pdf',
+      'sanitize-pdf',
+      'edit-metadata',
+      'edit-attachments',
+      'adjust-colors',
+      'page-numbers',
+      'fix-page-size',
+      'remove-blank-pages',
+      'divide-pages',
+      'n-up-pdf',
+      'combine-single-page',
+      'compare-pdfs',
+      'extract-images',
+      'pdf-to-zip',
+    ];
+    for (const surface of nonStatefulSurfaces) {
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.undo).toBe(false);
+      expect(features.redo).toBe(false);
+      expect(features.reset).toBe(true);
+    }
+  });
+
+  it('hides Save and Print on non-PDF output surfaces (extract-images and pdf-to-zip)', () => {
+    for (const surface of ['extract-images', 'pdf-to-zip']) {
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.save).toBe(false);
+      expect(features.print).toBe(false);
+      expect(features.download).toBe(true);
+      expect(features.reset).toBe(true);
+      expect(features.undo).toBe(false);
+      expect(features.redo).toBe(false);
+    }
   });
 
   it('lets a page hide or show a feature without changing the preset', () => {

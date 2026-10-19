@@ -1,4 +1,5 @@
 import { showLoader, hideLoader, showAlert } from '../ui.ts';
+import { applyTranslations } from '../i18n/i18n.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { icons, createIcons } from 'lucide';
 
@@ -702,6 +703,95 @@ function setViewMode(mode: 'overlay' | 'side-by-side') {
   if (pageState.pdfDoc1 && pageState.pdfDoc2) {
     renderBothPages();
   }
+  syncToolOutputToolbar();
+}
+
+function resetCompareDropZoneDisplay(
+  displayId: string,
+  hintI18nKey: string,
+  hintFallback: string
+): void {
+  const displayDiv = document.getElementById(displayId);
+  if (!displayDiv) return;
+  displayDiv.replaceChildren();
+
+  const icon = document.createElement('i');
+  icon.setAttribute('data-lucide', 'circle-arrow-up');
+  icon.className = 'w-10 h-10 mb-3 text-gray-400';
+
+  const promptP = document.createElement('p');
+  promptP.className = 'mb-2 text-sm text-gray-400';
+  const selectSpan = document.createElement('span');
+  selectSpan.className = 'font-semibold';
+  selectSpan.setAttribute('data-i18n', 'upload.clickToSelect');
+  selectSpan.textContent = 'Click to select a file';
+  const dragSpan = document.createElement('span');
+  dragSpan.setAttribute('data-i18n', 'upload.orDragAndDrop');
+  dragSpan.textContent = 'or drag and drop';
+  promptP.append(selectSpan, ' ', dragSpan);
+
+  const hintP = document.createElement('p');
+  hintP.className = 'text-xs text-gray-500';
+  hintP.setAttribute('data-i18n', hintI18nKey);
+  hintP.textContent = hintFallback;
+
+  const privacyP = document.createElement('p');
+  privacyP.className = 'text-xs text-gray-500';
+  privacyP.setAttribute('data-i18n', 'upload.filesNeverLeave');
+  privacyP.textContent = 'Your files never leave your device.';
+
+  displayDiv.append(icon, promptP, hintP, privacyP);
+}
+
+function resetCompareState(): void {
+  renderGeneration++;
+  void pageState.pdfDoc1?.destroy();
+  void pageState.pdfDoc2?.destroy();
+  pageState.pdfDoc1 = null;
+  pageState.pdfDoc2 = null;
+  pageState.currentPage = 1;
+  pageState.currentComparison = null;
+  pageState.activeChangeIndex = 0;
+  pageState.pagePairs = [];
+  pageState.changeSearchQuery = '';
+  documentNames.left = 'first.pdf';
+  documentNames.right = 'second.pdf';
+
+  caches.pageModelCache.clear();
+  caches.comparisonCache.clear();
+  caches.comparisonResultsCache.clear();
+  caches.ocrModelCache.clear();
+
+  const fileInput1 = document.getElementById(
+    'file-input-1'
+  ) as HTMLInputElement | null;
+  const fileInput2 = document.getElementById(
+    'file-input-2'
+  ) as HTMLInputElement | null;
+  if (fileInput1) fileInput1.value = '';
+  if (fileInput2) fileInput2.value = '';
+
+  resetCompareDropZoneDisplay(
+    'file-display-1',
+    'tools:comparePdfs.firstPdf',
+    'First PDF'
+  );
+  resetCompareDropZoneDisplay(
+    'file-display-2',
+    'tools:comparePdfs.secondPdf',
+    'Second PDF'
+  );
+  applyTranslations();
+
+  const compareViewer = document.getElementById('compare-viewer');
+  if (compareViewer) compareViewer.classList.add('hidden');
+
+  const searchInput = getElement<HTMLInputElement>('compare-search-input');
+  if (searchInput) searchInput.value = '';
+
+  renderComparisonUI();
+  createIcons({ icons });
+  syncToolOutputToolbar();
 }
 
 async function handleFileInput(
@@ -766,6 +856,7 @@ async function handleFileInput(
         await buildPagePairs();
         await renderBothPages();
       }
+      syncToolOutputToolbar();
     } catch (e) {
       showAlert(
         'Error',
@@ -844,7 +935,12 @@ async function runCompareExport(mode: ComparePdfExportMode): Promise<void> {
 document.addEventListener('DOMContentLoaded', function () {
   registerToolOutputSession({
     apply: () => runCompareExport(getCompareExportMode()),
+    reset: () => resetCompareState(),
     canSave: () => pageState.pagePairs.length > 0,
+    canReset: () =>
+      Boolean(
+        pageState.pdfDoc1 || pageState.pdfDoc2 || pageState.pagePairs.length > 0
+      ),
   });
 
   handleFileInput('file-input-1', 'pdfDoc1', 'file-display-1');

@@ -4,7 +4,10 @@
  * second header. Button order lives in the shared action row.
  */
 import { arrangeShiftActionRow } from './shift-action-row.js';
-import { applyLaunchContextToDom } from './launch-context.js';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+} from './launch-context.js';
 export const VIEWER_CHROME_HEADER_CLASS = 'shift-pdf-viewer-header';
 export const VIEWER_CHROME_HEADING_CLASS = 'shift-pdf-viewer-heading';
 export const VIEWER_CHROME_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
@@ -40,6 +43,40 @@ export interface ViewerChrome {
   actions: HTMLElement;
   features: ViewerChromeFeatureMap;
 }
+
+export const STATEFUL_UNDO_REDO_SURFACE_IDS = new Set([
+  'edit-pdf',
+  'pdf-multi-tool',
+  'merge-pdf',
+  'bookmark',
+  'form-creator',
+  'add-watermark',
+  // Legacy standalone surfaces that consolidate into edit-pdf/bookmark:
+  'sign-pdf',
+  'add-stamps',
+  'form-filler',
+  'crop-pdf',
+  'table-of-contents',
+]);
+
+export const NON_PDF_OUTPUT_SURFACE_IDS = new Set([
+  'extract-images',
+  'pdf-to-zip',
+  'pdf-to-jpg',
+  'pdf-to-png',
+  'pdf-to-webp',
+  'pdf-to-bmp',
+  'pdf-to-tiff',
+  'pdf-to-svg',
+  'pdf-to-docx',
+  'pdf-to-pptx',
+  'pdf-to-excel',
+  'pdf-to-csv',
+  'pdf-to-text',
+  'pdf-to-markdown',
+  'extract-tables',
+  'extract-attachments',
+]);
 
 export const VIEWER_CHROME_PRESETS: Record<
   ViewerChromePreset,
@@ -79,6 +116,63 @@ export function detectViewerChromePreset(
   return root.getElementById('shift-pdf-viewer') ? 'launchpad' : 'tool';
 }
 
+export function detectActiveSurfaceId(root: Document = document): string {
+  const datasetSurface =
+    root.documentElement?.dataset?.launchSurface?.trim().toLowerCase() ?? '';
+  if (datasetSurface) return datasetSurface;
+  const ctx = resolveLaunchContext();
+  if (ctx.surfaceId && ctx.surfaceId !== 'index') return ctx.surfaceId;
+  return '';
+}
+
+export function isUndoRedoSupportedOnSurface(
+  surfaceId: string,
+  root: Document = document
+): boolean {
+  if (!surfaceId) {
+    // When running in unit tests without a pathname or dataset, check if the
+    // heading or DOM matches a known non-stateful surface, otherwise default true
+    // so generic preset tests continue to work unless a surface is resolved.
+    const heading =
+      root
+        .querySelector('.shift-pdf-viewer-header h1, #tool-uploader h1')
+        ?.textContent?.trim()
+        .toLowerCase() ?? '';
+    if (!heading) return true;
+    const statefulHeadings = [
+      'pdf editor',
+      'edit pdf',
+      'sign pdf',
+      'add stamps',
+      'pdf form filler',
+      'crop pdf',
+      'pdf multi tool',
+      'organize & duplicate',
+      'delete pages',
+      'rotate pdf',
+      'add blank page',
+      'reverse pages',
+      'merge pdf',
+      'alternate & mix pages',
+      'edit bookmarks',
+      'table of contents',
+      'create pdf form',
+      'form creator',
+      'add watermark',
+    ];
+    if (statefulHeadings.includes(heading)) return true;
+    if (
+      root.getElementById('undo-btn') ||
+      root.getElementById('undo-merge-btn') ||
+      root.getElementById('signature-editor')
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return STATEFUL_UNDO_REDO_SURFACE_IDS.has(surfaceId);
+}
+
 export function resolveViewerChromeFeatures(
   options: ViewerChromeOptions = {},
   root: Document = document
@@ -88,6 +182,24 @@ export function resolveViewerChromeFeatures(
     ...VIEWER_CHROME_PRESETS[preset],
     ...options.features,
   };
+  if (preset === 'tool') {
+    const surfaceId = detectActiveSurfaceId(root);
+    if (options.features?.undo === undefined) {
+      features.undo = isUndoRedoSupportedOnSurface(surfaceId, root);
+    }
+    if (options.features?.redo === undefined) {
+      features.redo = isUndoRedoSupportedOnSurface(surfaceId, root);
+    }
+    const entryId =
+      root.documentElement.dataset.launchEntry?.trim().toLowerCase() ?? '';
+    if (
+      NON_PDF_OUTPUT_SURFACE_IDS.has(surfaceId) ||
+      (entryId && NON_PDF_OUTPUT_SURFACE_IDS.has(entryId))
+    ) {
+      if (options.features?.save === undefined) features.save = false;
+      if (options.features?.print === undefined) features.print = false;
+    }
+  }
   if (
     options.features?.flatten === undefined &&
     hasAuthoredFeature(root, 'flatten')
@@ -137,7 +249,6 @@ export function mountViewerChrome(
   root: Document = document,
   options: ViewerChromeOptions = {}
 ): ViewerChrome | null {
-  const features = resolveViewerChromeFeatures(options, root);
   const header = ensureHeader(root);
   if (!header) return null;
 
@@ -149,9 +260,10 @@ export function mountViewerChrome(
     header.querySelector<HTMLElement>(`.${VIEWER_CHROME_ACTIONS_CLASS}`);
   if (!actions) return null;
 
+  applyLaunchContextToDom(root);
+  const features = resolveViewerChromeFeatures(options, root);
   arrangeShiftActionRow(actions);
   applyViewerChromeFeatures(header, features);
-  applyLaunchContextToDom(root);
   return { header, heading, actions, features };
 }
 

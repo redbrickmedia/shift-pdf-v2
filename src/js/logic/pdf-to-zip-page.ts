@@ -6,6 +6,10 @@ import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
 import { deduplicateFileName } from '../utils/deduplicate-filename.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 interface PdfToZipState {
   files: File[];
@@ -26,6 +30,7 @@ function resetState() {
 
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   if (fileInput) fileInput.value = '';
+  syncToolOutputToolbar();
 }
 
 function updateUI() {
@@ -79,6 +84,7 @@ function updateUI() {
   } else {
     if (toolOptions) toolOptions.classList.add('hidden');
   }
+  syncToolOutputToolbar();
 }
 
 async function createZipArchive() {
@@ -107,15 +113,6 @@ async function createZipArchive() {
     const zipBlob = await zip.generateAsync({ type: 'blob' });
 
     downloadFile(zipBlob, 'pdfs_archive.zip');
-
-    showAlert(
-      'Success',
-      'ZIP archive created successfully!',
-      'success',
-      function () {
-        resetState();
-      }
-    );
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Could not create ZIP archive.');
@@ -142,6 +139,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
+
+  registerToolOutputSession({
+    outputKind: 'non-pdf',
+    apply: () => createZipArchive(),
+    reset: () => resetState(),
+    canDownload: () => pageState.files.length > 0,
+    canReset: () => pageState.files.length > 0,
+  });
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {
