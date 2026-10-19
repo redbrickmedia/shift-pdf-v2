@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { pdfjsLib, getPDFDocument } from '@/js/utils/pdfjs.js';
 import { PDFDocument } from 'pdf-lib';
 
@@ -148,7 +147,7 @@ async function detectBlankPages() {
   const sensitivityPercent = parseInt(sensitivitySlider?.value || '80');
   const maxNonWhitePercent = 5 - (sensitivityPercent / 100) * 4.9;
 
-  showResultLoader('Detecting blank pages...');
+  showLoader('Detecting blank pages...');
   try {
     const pdfData = await pageState.file.arrayBuffer();
     const pdfDoc = await getPDFDocument({ data: pdfData }).promise;
@@ -258,7 +257,7 @@ async function processRemoveBlankPages() {
     return;
   }
 
-  showResultLoader(`Removing ${selectedPages.length} blank page(s)...`);
+  showLoader(`Removing ${selectedPages.length} blank page(s)...`);
   try {
     const newPdf = await PDFDocument.create();
     const pages = pageState.pdfDoc.getPages();

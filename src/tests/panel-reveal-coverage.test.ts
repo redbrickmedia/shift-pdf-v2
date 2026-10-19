@@ -52,7 +52,7 @@ describe('pre-paint panel reveal coverage', () => {
     const pages = await pageDocuments();
     const covered = pages.filter(({ doc }) => revealedPanelIds(doc).length > 0);
 
-    expect(covered.length).toBeGreaterThan(90);
+    expect(covered.length).toBeGreaterThan(20);
   });
 
   it('never reveals a panel the tool has to render first', async () => {

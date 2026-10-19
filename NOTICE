@@ -41,12 +41,3 @@ License: Apache License 2.0
 Source: https://github.com/mozilla/pdf.js
 Notes: Official legacy full viewer matching the version pinned in
 package.json. See docs/pdfjs-version-alignment.md.
-
-PDF.js (annotation viewer)
---------------------------
-Version: 4.3.136
-Files: public/pdfjs-annotation-viewer/
-License: Apache License 2.0
-Source: https://github.com/mozilla/pdf.js
-Notes: Pinned separately; the annotation extension has no published npm
-refresh to 6.2.108. See docs/pdfjs-version-alignment.md.

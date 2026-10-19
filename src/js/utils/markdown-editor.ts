@@ -29,7 +29,17 @@ import mark from 'markdown-it-mark';
 import taskLists from 'markdown-it-task-lists';
 import anchor from 'markdown-it-anchor';
 import tocDoneRight from 'markdown-it-toc-done-right';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { applyTranslations } from '../i18n/i18n';
+import { downloadFile } from './helpers.js';
+import { loadPyMuPDF } from './pymupdf-loader.js';
+import { WasmProvider } from './wasm-provider.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from '../logic/tool-output-toolbar.js';
 import type {
   WindowWithLucide,
   WindowWithI18next,
@@ -269,6 +279,7 @@ export class MarkdownEditor {
   private syncScroll: boolean = false;
   private isSyncing: boolean = false;
   private mermaidInitialized: boolean = false;
+  private unregisterOutputSession?: () => void;
   private mdOptions: MarkdownItOptions = {
     html: true,
     breaks: false,
@@ -291,6 +302,16 @@ export class MarkdownEditor {
     } else {
       this.setContent(DEFAULT_MARKDOWN);
     }
+
+    this.unregisterOutputSession = registerToolOutputSession(
+      {
+        apply: () => this.exportPdf(),
+        reset: () => this.reset(),
+        canSave: () => this.hasContent(),
+        canReset: () => this.hasContent(),
+      },
+      this.container.ownerDocument
+    );
   }
 
   private initMermaid(): void {
@@ -561,7 +582,7 @@ export class MarkdownEditor {
 
     // Export PDF
     document.getElementById('mdExport')?.addEventListener('click', () => {
-      this.exportPdf();
+      void this.exportPdf();
     });
 
     // Keyboard shortcuts
@@ -569,7 +590,7 @@ export class MarkdownEditor {
       // Ctrl/Cmd + S to export
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        this.exportPdf();
+        void this.exportPdf();
       }
       // Tab key for indentation
       if (e.key === 'Tab') {
@@ -697,6 +718,7 @@ export class MarkdownEditor {
       ADD_ATTR: ['target'],
     });
     this.renderMermaidDiagrams();
+    syncToolOutputToolbar(this.container.ownerDocument);
   }
 
   private async renderMermaidDiagrams(): Promise<void> {
@@ -746,15 +768,138 @@ export class MarkdownEditor {
     return this.editor?.value || '';
   }
 
+  public hasContent(): boolean {
+    return this.getContent().trim().length > 0;
+  }
+
+  public reset(): void {
+    this.setContent('');
+    const fileInput = document.getElementById(
+      'mdFileInput'
+    ) as HTMLInputElement | null;
+    if (fileInput) fileInput.value = '';
+  }
+
   public getHtml(): string {
     return DOMPurify.sanitize(this.md.render(this.getContent()), {
       ADD_ATTR: ['target'],
     });
   }
 
-  private exportPdf(): void {
-    // Use browser's native print functionality
-    window.print();
+  public async generatePdfBlob(): Promise<Blob> {
+    const styledHtml = this.getStyledHtml();
+
+    if (
+      WasmProvider.isConfigured('pymupdf') &&
+      WasmProvider.isConfigured('ghostscript')
+    ) {
+      try {
+        const pymupdf = await loadPyMuPDF();
+        if (typeof pymupdf.htmlToPdf === 'function') {
+          return await pymupdf.htmlToPdf(styledHtml, {
+            pageSize: 'a4',
+            margins: { top: 50, right: 50, bottom: 50, left: 50 },
+          });
+        }
+      } catch (err) {
+        console.warn('PyMuPDF htmlToPdf failed, falling back to canvas:', err);
+      }
+    }
+
+    const tempContainer = document.createElement('div');
+    tempContainer.style.cssText =
+      'position: fixed; top: -10000px; left: -10000px; width: 794px; padding: 40px; background: #ffffff; color: #24292e;';
+    const styleMatch = /<style>([\s\S]*?)<\/style>/i.exec(styledHtml);
+    if (styleMatch?.[1]) {
+      const styleEl = document.createElement('style');
+      styleEl.textContent = styleMatch[1];
+      tempContainer.appendChild(styleEl);
+    }
+    const contentHost = document.createElement('div');
+    contentHost.innerHTML =
+      this.preview && this.preview.innerHTML.trim()
+        ? this.preview.innerHTML
+        : this.getHtml();
+    tempContainer.appendChild(contentHost);
+    document.body.appendChild(tempContainer);
+
+    try {
+      if (tempContainer.offsetWidth > 0 && tempContainer.offsetHeight > 0) {
+        const canvas = await html2canvas(tempContainer, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+        });
+        if (canvas.width > 0 && canvas.height > 0) {
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+          const pageWidth = 210;
+          const pageHeight = 297;
+          const margin = 15;
+          const contentWidth = pageWidth - margin * 2;
+          const contentHeight = pageHeight - margin * 2;
+          const imgData = canvas.toDataURL('image/png');
+          const imgHeight = (canvas.height * contentWidth) / canvas.width;
+
+          let heightLeft = imgHeight;
+          let position = margin;
+          pdf.addImage(
+            imgData,
+            'PNG',
+            margin,
+            position,
+            contentWidth,
+            imgHeight
+          );
+          heightLeft -= contentHeight;
+
+          while (heightLeft > 0) {
+            position -= contentHeight;
+            pdf.addPage();
+            pdf.addImage(
+              imgData,
+              'PNG',
+              margin,
+              position,
+              contentWidth,
+              imgHeight
+            );
+            heightLeft -= contentHeight;
+          }
+
+          return pdf.output('blob');
+        }
+      }
+    } catch {
+      // Headless test environments without layout/canvas support fall back below.
+    } finally {
+      tempContainer.remove();
+    }
+
+    const pdfDoc = await PDFDocument.create();
+    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const page = pdfDoc.addPage([612, 792]);
+    const fallbackText = (contentHost.textContent || this.getContent())
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, '?')
+      .slice(0, 2000);
+    page.drawText(fallbackText || ' ', {
+      x: 50,
+      y: 720,
+      size: 11,
+      font: regularFont,
+      color: rgb(0.1, 0.1, 0.1),
+    });
+    const pdfBytes = await pdfDoc.save();
+    return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+  }
+
+  public async exportPdf(): Promise<void> {
+    if (!this.hasContent()) return;
+    const blob = await this.generatePdfBlob();
+    downloadFile(blob, 'markdown-document.pdf');
   }
 
   private getStyledHtml(): string {
@@ -1026,6 +1171,8 @@ ${content}
   }
 
   public destroy(): void {
+    this.unregisterOutputSession?.();
+    this.unregisterOutputSession = undefined;
     this.container.innerHTML = '';
   }
 }

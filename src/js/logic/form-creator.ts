@@ -38,6 +38,10 @@ import {
 import { extractExistingFields as extractExistingPdfFields } from './form-creator-extraction.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
 import { syncSeededToolFiles } from './tool-file-seed.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 let fields: FormField[] = [];
 let selectedField: FormField | null = null;
@@ -52,6 +56,7 @@ let pendingFieldExtraction = false;
 let pages: PageData[] = [];
 let currentPageIndex = 0;
 let uploadedPdfDoc: PDFDocument | null = null;
+let uploadedPdfBytes: ArrayBuffer | null = null;
 let uploadedPdfjsDoc: PDFDocumentProxy | null = null;
 let uploadedFileName: string | null = null;
 let pageSize: { width: number; height: number } = { width: 612, height: 792 };
@@ -2096,11 +2101,13 @@ document.addEventListener('keydown', (e) => {
 
 // Update field count
 function updateFieldCount(): void {
-  fieldCountDisplay.textContent = fields.length.toString();
+  if (fieldCountDisplay) {
+    fieldCountDisplay.textContent = fields.length.toString();
+  }
+  syncToolOutputToolbar();
 }
 
-// Download PDF
-downloadBtn.addEventListener('click', async () => {
+export async function generateFormPdf(): Promise<void> {
   // Check for duplicate field names before generating PDF
   const nameCount = new Map<string, number>();
   const duplicates: string[] = [];
@@ -2163,7 +2170,9 @@ downloadBtn.addEventListener('click', async () => {
   try {
     let pdfDoc: PDFDocument;
 
-    if (uploadedPdfDoc) {
+    if (uploadedPdfBytes) {
+      pdfDoc = await loadPdfDocument(uploadedPdfBytes.slice(0));
+    } else if (uploadedPdfDoc) {
       pdfDoc = uploadedPdfDoc;
     } else {
       pdfDoc = await PDFDocument.create();
@@ -2699,15 +2708,6 @@ downloadBtn.addEventListener('click', async () => {
       type: 'application/pdf',
     });
     downloadFile(blob, uploadedFileName || 'document.pdf');
-    showModal(
-      'Success',
-      'Your PDF has been downloaded successfully.',
-      'info',
-      () => {
-        resetToInitial();
-      },
-      'Okay'
-    );
   } catch (error) {
     console.error('Error generating PDF:', error);
     const errorMessage = (error as Error).message;
@@ -2735,6 +2735,10 @@ downloadBtn.addEventListener('click', async () => {
       showModal('Error', 'Error generating PDF: ' + errorMessage, 'error');
     }
   }
+}
+
+downloadBtn?.addEventListener('click', () => {
+  void generateFormPdf();
 });
 
 function getPageDimensions(size: string): { width: number; height: number } {
@@ -2775,21 +2779,29 @@ function resetToInitial(): void {
   pages = [];
   currentPageIndex = 0;
   uploadedPdfDoc = null;
+  uploadedPdfBytes = null;
+  uploadedPdfjsDoc = null;
+  uploadedFileName = null;
   selectedField = null;
   extractedFieldNames.clear();
+  existingFieldNames.clear();
+  existingRadioGroups.clear();
   pendingFieldExtraction = false;
 
-  canvas.innerHTML = '';
+  if (canvas) canvas.innerHTML = '';
 
-  propertiesPanel.innerHTML =
-    '<p class="text-gray-500 text-sm">Select a field to edit properties</p>';
+  if (propertiesPanel) {
+    propertiesPanel.innerHTML =
+      '<p class="text-gray-500 text-sm">Select a field to edit properties</p>';
+  }
 
   updateFieldCount();
 
   // Show upload area and hide tool container
-  uploadArea.classList.remove('hidden');
-  toolContainer.classList.add('hidden');
-  pageSizeSelector.classList.add('hidden');
+  uploadArea?.classList.remove('hidden');
+  toolContainer?.classList.add('hidden');
+  pageSizeSelector?.classList.add('hidden');
+  syncToolOutputToolbar();
   setTimeout(() => createIcons({ icons }), 100);
 }
 
@@ -2800,6 +2812,7 @@ function createBlankPage(): void {
     height: pageSize.height,
   });
   updatePageNavigation();
+  syncToolOutputToolbar();
 }
 
 function switchToPage(pageIndex: number): void {
@@ -2995,6 +3008,7 @@ async function handlePdfUpload(file: File) {
       return;
     }
     const arrayBuffer = result.bytes;
+    uploadedPdfBytes = arrayBuffer.slice(0);
     uploadedPdfjsDoc = result.pdf;
     uploadedPdfDoc = await loadPdfDocument(arrayBuffer);
     uploadedFileName = file.name;
@@ -3059,6 +3073,7 @@ async function handlePdfUpload(file: File) {
     // Hide upload area and show tool container
     uploadArea.classList.add('hidden');
     toolContainer.classList.remove('hidden');
+    syncToolOutputToolbar();
 
     // Init icons
     setTimeout(() => createIcons({ icons }), 100);
@@ -3150,5 +3165,13 @@ if (errorModal) {
     }
   });
 }
+
+registerToolOutputSession({
+  apply: () => generateFormPdf(),
+  reset: () => resetToInitial(),
+  canSave: () => pages.length > 0 && fields.length > 0,
+  canReset: () =>
+    pages.length > 0 || fields.length > 0 || uploadedPdfDoc !== null,
+});
 
 initializeGlobalShortcuts();

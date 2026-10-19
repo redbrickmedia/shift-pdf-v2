@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import JSZip from 'jszip';
 import {
   initToolOutputToolbar,
   overwriteOutput,
@@ -16,6 +17,7 @@ import {
 } from '../js/logic/tool-output-toolbar';
 import {
   clearLatestPdfOutput,
+  initShiftPdfSave,
   setLatestPdfOutput,
 } from '../js/logic/shift-pdf-save';
 import {
@@ -28,6 +30,9 @@ import {
   resetWorkspaceFileIndicator,
   setWorkspaceFiles,
 } from '../js/logic/workspace-files';
+import { downloadFile } from '../js/utils/helpers';
+import { showAlert } from '../js/ui.js';
+import { MarkdownEditor } from '../js/utils/markdown-editor';
 
 vi.mock('../js/ui.js', () => ({
   showAlert: vi.fn(),
@@ -41,6 +46,10 @@ function button(id: string): HTMLButtonElement {
 }
 
 beforeEach(() => {
+  document.documentElement.removeAttribute('data-launch-surface');
+  document.documentElement.removeAttribute('data-launch-entry');
+  document.documentElement.removeAttribute('data-launch-context-applied');
+  window.history.replaceState({}, '', '/');
   document.body.className = '';
   document.body.innerHTML = `
     <main>
@@ -51,6 +60,7 @@ beforeEach(() => {
       </div>
     </main>
   `;
+  initShiftPdfSave();
   initToolOutputToolbar();
 });
 
@@ -58,6 +68,10 @@ afterEach(async () => {
   clearLatestPdfOutput();
   await clearPdfLibrary();
   resetWorkspaceFileIndicator();
+  document.documentElement.removeAttribute('data-launch-surface');
+  document.documentElement.removeAttribute('data-launch-entry');
+  document.documentElement.removeAttribute('data-launch-context-applied');
+  window.history.replaceState({}, '', '/');
   document.body.innerHTML = '';
   vi.restoreAllMocks();
 });
@@ -191,50 +205,131 @@ describe('tool output toolbar', () => {
     );
   });
 
-  it('puts inline Save in the viewer header and discloses Overwrite, Download, and Print', () => {
+  it('hides in-card #process-btn and legacy primary export buttons universally across all Tool Surfaces', () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
-          <div class="shift-pdf-viewer-header">
-            <div class="shift-pdf-viewer-heading"><h1>Sign PDF</h1></div>
-            <div data-shift-viewer-actions></div>
-          </div>
-          <div id="signature-editor"></div>
-          <button id="process-btn" type="button">Apply signatures</button>
-          <button id="save-stamped-btn" type="button">Save Stamped PDF</button>
+          <h1>Compress PDF</h1>
+          <button id="process-btn" type="button" disabled>Process</button>
+          <button id="export-pdf-btn" type="button">Export PDF</button>
+          <button id="download-btn" type="button">Download</button>
+          <button id="downloadBtn" type="button">Download Form</button>
+          <button id="download-searchable-pdf" type="button">Download Searchable PDF</button>
+          <div id="export-dropdown-wrapper"></div>
+          <button id="mdExport" type="button">Export Markdown PDF</button>
+          <button id="download-all-btn" type="button">Download All (ZIP)</button>
         </div>
       </main>
     `;
     initToolOutputToolbar();
 
-    const card = document.getElementById('tool-uploader');
-    const bar = document.querySelector('.shift-pdf-viewer-header');
-    const actions = document.querySelector('[data-shift-viewer-actions]');
-    const menu = document.getElementById(
-      TOOL_OUTPUT_MENU_ID
-    ) as HTMLElement | null;
-    expect(card?.contains(bar)).toBe(false);
-    expect(bar?.nextElementSibling).toBe(card);
-    expect(document.getElementById(TOOL_OUTPUT_TOOLBAR_ID)).toBeNull();
-    expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
-    expect(
-      button(TOOL_OUTPUT_SAVE_ID).classList.contains('shift-action-button')
-    ).toBe(true);
-    expect(menu?.className).toBe('shift-tool-viewer-save');
-    expect(menu?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
-    expect(menu?.contains(button(TOOL_OUTPUT_OVERWRITE_ID))).toBe(true);
-    expect(menu?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(false);
-    expect(menu?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(false);
+    for (const id of [
+      'process-btn',
+      'export-pdf-btn',
+      'download-btn',
+      'downloadBtn',
+      'download-searchable-pdf',
+      'export-dropdown-wrapper',
+      'mdExport',
+      'download-all-btn',
+    ]) {
+      const el = document.getElementById(id);
+      expect(el?.hidden).toBe(true);
+      expect(el?.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('bridges tools that use #process-btn internally: reports readiness from !processBtn.disabled and clicks #process-btn on commit', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <h1>Compress PDF</h1>
+          <p>Reduce file size.</p>
+          <button id="process-btn" type="button" disabled>Process</button>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const processBtn = document.getElementById(
+      'process-btn'
+    ) as HTMLButtonElement;
+    expect(processBtn.hidden).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
-    expect(menu?.classList.contains('is-ready')).toBe(false);
-    expect(document.getElementById('process-btn')?.hidden).toBe(true);
-    expect(document.getElementById('save-stamped-btn')?.hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+
+    let callCount = 0;
+    processBtn.addEventListener('click', () => {
+      callCount += 1;
+      downloadFile(
+        new Blob([`compressed-${callCount}`], { type: 'application/pdf' }),
+        `compressed-${callCount}.pdf`,
+        'Reduced by 35%.'
+      );
+    });
+
+    processBtn.disabled = false;
+    syncToolOutputToolbar();
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
+
+    button(TOOL_OUTPUT_SAVE_ID).click();
+
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('compressed-1.pdf');
+    });
+    expect(callCount).toBe(1);
+    expect(showAlert).toHaveBeenCalledWith(
+      'Saved',
+      'Reduced by 35%. Saved to My PDFs.',
+      'success'
+    );
+  });
+
+  it('re-runs applyToolOutput fresh on every Save, Overwrite, Download, or Print commit', async () => {
+    document.body.innerHTML = `
+      <main>
+        <div id="tool-uploader">
+          <h1>Compress PDF</h1>
+          <button id="process-btn" type="button">Process</button>
+        </div>
+      </main>
+    `;
+    initToolOutputToolbar();
+
+    const processBtn = document.getElementById(
+      'process-btn'
+    ) as HTMLButtonElement;
+    let version = 0;
+    processBtn.addEventListener('click', () => {
+      version += 1;
+      downloadFile(
+        new Blob([`v${version}`], { type: 'application/pdf' }),
+        `doc-v${version}.pdf`
+      );
+    });
+
+    // First commit via Save
+    button(TOOL_OUTPUT_SAVE_ID).click();
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('doc-v1.pdf');
+    });
+
+    // Second commit via Save after option change must re-run applyToolOutput and save v2
+    button(TOOL_OUTPUT_SAVE_ID).click();
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries).toHaveLength(2);
+      expect(entries.map((e) => e.name)).toContain('doc-v2.pdf');
+    });
+    expect(version).toBe(2);
   });
 
   it('keeps viewer Save, hover, Undo, and Redo off until the PDF changes', () => {
@@ -243,7 +338,7 @@ describe('tool output toolbar', () => {
         <div id="tool-uploader">
           <div data-shift-viewer-actions></div>
           <div id="signature-editor"></div>
-          <button id="process-btn" type="button">Apply signatures</button>
+          <button id="process-btn" type="button" disabled>Apply signatures</button>
         </div>
       </main>
     `;
@@ -285,7 +380,7 @@ describe('tool output toolbar', () => {
     unregister();
   });
 
-  it('shows Overwrite beside Save only when overwrite is the save action', () => {
+  it('shows Overwrite beside Save only when a single My PDFs entry is targeted and output is a single PDF', async () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -340,7 +435,7 @@ describe('tool output toolbar', () => {
     unregister();
   });
 
-  it('applies then overwrites the original library PDF from the viewer menu', async () => {
+  it('applies then overwrites the original library PDF and its FileSystemFileHandle in place while staying on the active Tool Surface', async () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -351,15 +446,39 @@ describe('tool output toolbar', () => {
     `;
     initToolOutputToolbar();
 
+    const writable = {
+      write: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    const handle = {
+      createWritable: vi.fn().mockResolvedValue(writable),
+      queryPermission: vi.fn().mockResolvedValue('granted'),
+      requestPermission: vi.fn().mockResolvedValue('granted'),
+      kind: 'file',
+      getFile: vi
+        .fn()
+        .mockResolvedValue(
+          new File(['before'], 'invoice.pdf', { type: 'application/pdf' })
+        ),
+    } as unknown as FileSystemFileHandle;
+
     const original = await addPdfToLibrary(
       new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
-      'upload'
+      'upload',
+      { handle }
     );
     setWorkspaceFiles([
-      markFileLibraryId(
-        new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
-        original.id
-      ),
+      {
+        id: original.id,
+        name: original.name,
+        size: original.size,
+        source: 'upload',
+        blob: markFileLibraryId(
+          new File(['before'], 'invoice.pdf', { type: 'application/pdf' }),
+          original.id
+        ),
+        handle,
+      },
     ]);
 
     const apply = vi.fn(() => {
@@ -383,10 +502,89 @@ describe('tool output toolbar', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.id).toBe(original.id);
     expect(entries[0]?.name).toBe('invoice.pdf');
-    await expect(entries[0]?.file.text()).resolves.toBe('signed');
-    expect(assignLocation).toHaveBeenCalledWith(
-      `view-pdf.html?file=${original.id}`
+    expect(writable.write).toHaveBeenCalledOnce();
+    expect(assignLocation).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(
+      'Saved',
+      'The original PDF was updated in My PDFs.',
+      'success'
     );
+    unregister();
+  });
+
+  it('unpacks all .pdf files from a multi-PDF .zip into My PDFs when Save is clicked', async () => {
+    const zip = new JSZip();
+    zip.file('part-1.pdf', 'pdf-1-bytes');
+    zip.file('nested/part-2.pdf', 'pdf-2-bytes');
+    zip.file('readme.txt', 'ignore');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+    const unregister = registerToolOutputSession({
+      outputKind: 'multi-pdf-zip',
+      apply: () => {
+        setLatestPdfOutput({
+          blob: zipBlob,
+          filename: 'split-pages.zip',
+          summary: 'Split into 2 PDFs.',
+        });
+      },
+      canSave: () => true,
+    });
+
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_OVERWRITE_ID).hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
+
+    button(TOOL_OUTPUT_SAVE_ID).click();
+
+    await vi.waitFor(async () => {
+      const entries = await readPdfLibrary();
+      expect(entries.map((e) => e.name).sort()).toEqual([
+        'part-1.pdf',
+        'part-2.pdf',
+      ]);
+    });
+    expect(showAlert).toHaveBeenCalledWith(
+      'Saved',
+      'Split into 2 PDFs. Saved to My PDFs.',
+      'success'
+    );
+    unregister();
+  });
+
+  it('hides Save, Overwrite, and Print when outputKind is non-pdf and keeps Download and Reset active', async () => {
+    const unregister = registerToolOutputSession({
+      outputKind: () => 'non-pdf',
+      apply: () => {
+        setLatestPdfOutput({
+          blob: new Blob(['zip'], { type: 'application/zip' }),
+          filename: 'extracted-images.zip',
+        });
+      },
+      canDownload: () => true,
+      canReset: () => true,
+    });
+
+    const saveGroup = document.getElementById(TOOL_OUTPUT_MENU_ID);
+    expect(saveGroup?.hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).hidden).toBe(false);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
+    expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(false);
+    unregister();
+  });
+
+  it('hides Save and Overwrite when outputKind is inspection-only', () => {
+    const unregister = registerToolOutputSession({
+      outputKind: () => 'inspection-only',
+      canDownload: () => true,
+      canPrint: () => true,
+    });
+
+    const saveGroup = document.getElementById(TOOL_OUTPUT_MENU_ID);
+    expect(saveGroup?.hidden).toBe(true);
+    expect(button(TOOL_OUTPUT_PRINT_ID).hidden).toBe(false);
+    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).hidden).toBe(false);
     unregister();
   });
 
@@ -425,7 +623,7 @@ describe('tool output toolbar', () => {
     unregister();
   });
 
-  it('applies then downloads from the viewer Download button', async () => {
+  it('applies then downloads from the viewer Download button without modifying My PDFs', async () => {
     document.body.innerHTML = `
       <main>
         <div id="tool-uploader">
@@ -461,31 +659,8 @@ describe('tool output toolbar', () => {
 
     await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce());
     await vi.waitFor(() => expect(clicked).toHaveBeenCalledOnce());
+    await expect(readPdfLibrary()).resolves.toHaveLength(0);
     unregister();
-  });
-
-  it('enables Save for PDF and Download for every output', () => {
-    setLatestPdfOutput({
-      blob: new Blob(['pdf'], { type: 'application/pdf' }),
-      filename: 'signed.pdf',
-    });
-    syncToolOutputToolbar();
-
-    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
-    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
-
-    setLatestPdfOutput({
-      blob: new Blob(['zip'], { type: 'application/zip' }),
-      filename: 'batch.zip',
-    });
-    syncToolOutputToolbar();
-
-    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_OVERWRITE_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
   });
 
   it('saves a PDF copy to My PDFs', async () => {
@@ -596,61 +771,44 @@ describe('tool output toolbar', () => {
     expect(document.getElementById(TOOL_OUTPUT_SAVE_ID)).not.toBeNull();
   });
 
-  it('keeps boxed Process visible and Save disabled until a result exists', () => {
+  it('wires MarkdownEditor to registerToolOutputSession and generates a PDF blob on Save', async () => {
     document.body.innerHTML = `
-      <main>
+      <div id="uploader">
         <div id="tool-uploader">
-          <h1>Compress PDF</h1>
-          <p>Reduce file size.</p>
-          <button id="process-btn" type="button">Process</button>
+          <h1>Markdown to PDF</h1>
+          <p>Write or paste Markdown.</p>
+          <div id="markdown-editor-container"></div>
         </div>
-      </main>
+      </div>
     `;
     initToolOutputToolbar();
 
-    expect(document.getElementById('process-btn')?.hidden).toBe(false);
-    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(true);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(true);
-
-    setLatestPdfOutput({
-      blob: new Blob(['pdf'], { type: 'application/pdf' }),
-      filename: 'compressed.pdf',
+    const container = document.getElementById(
+      'markdown-editor-container'
+    ) as HTMLElement;
+    const editor = new MarkdownEditor(container, {
+      initialContent: '# Quarterly Report\n\nRevenue grew by 20%.',
     });
-    syncToolOutputToolbar();
 
+    expect(document.getElementById('mdExport')?.hidden).toBe(true);
     expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(false);
-    expect(button(TOOL_OUTPUT_DOWNLOAD_ID).disabled).toBe(false);
-    expect(button(TOOL_OUTPUT_PRINT_ID).disabled).toBe(false);
-    expect(document.getElementById('process-btn')?.hidden).toBe(false);
-  });
+    expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(false);
 
-  it('does not click boxed Process when Save already has published output', async () => {
-    document.body.innerHTML = `
-      <main>
-        <div id="tool-uploader">
-          <h1>Compress PDF</h1>
-          <button id="process-btn" type="button">Process</button>
-        </div>
-      </main>
-    `;
-    initToolOutputToolbar();
-    const process = document.getElementById('process-btn') as HTMLButtonElement;
-    const processClick = vi.fn();
-    process.addEventListener('click', processClick);
-
-    setLatestPdfOutput({
-      blob: new Blob(['pdf'], { type: 'application/pdf' }),
-      filename: 'compressed.pdf',
-    });
-    syncToolOutputToolbar();
     button(TOOL_OUTPUT_SAVE_ID).click();
 
     await vi.waitFor(async () => {
       const entries = await readPdfLibrary();
       expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('markdown-document.pdf');
     });
-    expect(processClick).not.toHaveBeenCalled();
+
+    button(TOOL_OUTPUT_RESET_ID).click();
+    await vi.waitFor(() => {
+      expect(editor.getContent()).toBe('');
+    });
+    expect(button(TOOL_OUTPUT_SAVE_ID).disabled).toBe(true);
+
+    editor.destroy();
   });
 
   it('applies Compare output through the shared session before Save', async () => {

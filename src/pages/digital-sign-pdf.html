@@ -97,6 +97,22 @@
         </p>
 
         <div
+          class="bg-indigo-900/30 border border-indigo-700/60 rounded-lg p-3 mb-4 flex items-center justify-between gap-3"
+        >
+          <p class="text-sm text-gray-200">
+            Looking to draw, type, or place a visual signature on a page?
+          </p>
+          <a
+            id="sign-pdf-handoff"
+            href="edit-pdf.html?entry=sign-pdf"
+            class="shift-sign-handoff-link text-indigo-300 hover:text-white font-semibold text-sm whitespace-nowrap"
+          >
+            Open Fill &amp; Sign &rarr;
+          </a>
+        </div>
+
+        <div
+          id="sign-network-banner"
           class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-6 flex items-start gap-3"
           data-network-touchpoint="digital-sign-chain-fetch"
         >
@@ -156,405 +172,536 @@
 
         <div id="file-display-area" class="mt-4 space-y-2"></div>
 
-        <div id="certificate-section" class="hidden mt-6 space-y-4">
-          <h2
-            class="text-lg font-semibold text-white"
-            data-i18n="tools:digitalSignPdf.certificateSection"
-          >
-            Certificate
-          </h2>
-
+        <div id="tool-options" class="hidden mt-6 space-y-6">
           <div
-            id="cert-drop-zone"
-            class="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+            class="flex gap-2 p-1 rounded-lg bg-gray-900 border border-gray-700"
+            role="tablist"
+            aria-label="Digital signature modes"
           >
-            <div class="flex flex-col items-center justify-center py-4">
-              <i data-lucide="key" class="w-8 h-8 mb-2 text-gray-400"></i>
-              <p
-                class="text-sm text-gray-400"
-                data-i18n="tools:digitalSignPdf.uploadCert"
+            <button
+              id="tab-sign"
+              type="button"
+              class="flex-1 btn bg-indigo-600 text-white font-semibold py-2 rounded-md text-sm"
+              aria-pressed="true"
+            >
+              Sign with Certificate
+            </button>
+            <button
+              id="tab-validate"
+              type="button"
+              class="flex-1 btn text-gray-300 font-semibold py-2 rounded-md text-sm"
+              aria-pressed="false"
+            >
+              Validate Signatures
+            </button>
+            <button
+              id="tab-timestamp"
+              type="button"
+              class="flex-1 btn text-gray-300 font-semibold py-2 rounded-md text-sm"
+              aria-pressed="false"
+            >
+              RFC 3161 Timestamp
+            </button>
+          </div>
+
+          <div id="panel-sign" class="space-y-6">
+            <div id="certificate-section" class="space-y-4">
+              <h2
+                class="text-lg font-semibold text-white"
+                data-i18n="tools:digitalSignPdf.certificateSection"
               >
-                Upload certificate (.pfx, .p12, .pem)
-              </p>
-            </div>
-            <input
-              id="cert-input"
-              type="file"
-              class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-              accept=".pfx,.p12,.pem"
-            />
-          </div>
+                Certificate
+              </h2>
 
-          <div id="cert-display-area" class="space-y-2"></div>
-
-          <div id="cert-password-section" class="hidden">
-            <label
-              for="cert-password"
-              class="block text-sm font-medium text-gray-300 mb-2"
-              data-i18n="tools:digitalSignPdf.certPassword"
-              >Certificate Password</label
-            >
-            <input
-              type="password"
-              id="cert-password"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Enter certificate password"
-              data-i18n-placeholder="tools:digitalSignPdf.certPasswordPlaceholder"
-            />
-          </div>
-
-          <div id="cert-info" class="hidden bg-gray-700 rounded-lg p-4">
-            <h3
-              class="text-sm font-semibold text-white mb-2"
-              data-i18n="tools:digitalSignPdf.certInfo"
-            >
-              Certificate Information
-            </h3>
-            <div class="text-sm text-gray-300 space-y-1">
-              <p>
-                <span
-                  class="text-gray-400"
-                  data-i18n="tools:digitalSignPdf.certSubject"
-                  >Subject</span
-                >
-                <span id="cert-subject">-</span>
-              </p>
-              <p>
-                <span
-                  class="text-gray-400"
-                  data-i18n="tools:digitalSignPdf.certIssuer"
-                  >Issuer</span
-                >
-                <span id="cert-issuer">-</span>
-              </p>
-              <p>
-                <span
-                  class="text-gray-400"
-                  data-i18n="tools:digitalSignPdf.certValidity"
-                  >Valid</span
-                >
-                <span id="cert-validity">-</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div id="signature-options" class="hidden mt-6 space-y-4">
-          <h2
-            class="text-lg font-semibold text-white"
-            data-i18n="tools:digitalSignPdf.signatureDetails"
-          >
-            Signature Details (Optional)
-          </h2>
-
-          <div>
-            <label
-              for="sign-reason"
-              class="block text-sm font-medium text-gray-300 mb-2"
-              data-i18n="tools:digitalSignPdf.reason"
-              >Reason</label
-            >
-            <input
-              type="text"
-              id="sign-reason"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., I approve this document"
-              data-i18n-placeholder="tools:digitalSignPdf.reasonPlaceholder"
-            />
-          </div>
-
-          <div>
-            <label
-              for="sign-location"
-              class="block text-sm font-medium text-gray-300 mb-2"
-              data-i18n="tools:digitalSignPdf.location"
-              >Location</label
-            >
-            <input
-              type="text"
-              id="sign-location"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., New York, USA"
-              data-i18n-placeholder="tools:digitalSignPdf.locationPlaceholder"
-            />
-          </div>
-
-          <div>
-            <label
-              for="sign-contact"
-              class="block text-sm font-medium text-gray-300 mb-2"
-              data-i18n="tools:digitalSignPdf.contactInfo"
-              >Contact Info</label
-            >
-            <input
-              type="text"
-              id="sign-contact"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., email@example.com"
-              data-i18n-placeholder="tools:digitalSignPdf.contactPlaceholder"
-            />
-          </div>
-        </div>
-
-        <div id="visible-signature-section" class="hidden mt-6 space-y-4">
-          <div class="flex items-center justify-between">
-            <h2
-              class="text-lg font-semibold text-white"
-              data-i18n="tools:digitalSignPdf.visibleSignature"
-            >
-              Visible Signature
-            </h2>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                id="enable-visible-sig"
-                class="sr-only peer"
-              />
               <div
-                class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"
-              ></div>
-            </label>
-          </div>
-          <p
-            class="text-xs text-gray-500"
-            data-i18n="tools:digitalSignPdf.visibleSignatureDescription"
-          >
-            When enabled, a visible signature box appears on the PDF. You can
-            upload an image/logo or add text. If neither is provided, the
-            signer's name from the certificate will be shown automatically.
-          </p>
-
-          <div id="visible-sig-options" class="hidden space-y-4">
-            <div>
-              <label
-                class="block text-sm font-medium text-gray-300 mb-2"
-                data-i18n="tools:digitalSignPdf.signatureImage"
-                >Signature Image/Logo (Optional)</label
+                id="cert-drop-zone"
+                class="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
               >
-              <div
-                id="sig-image-drop-zone"
-                class="relative flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
-              >
-                <div class="flex flex-col items-center justify-center py-2">
-                  <i data-lucide="image" class="w-6 h-6 mb-1 text-gray-400"></i>
+                <div class="flex flex-col items-center justify-center py-4">
+                  <i data-lucide="key" class="w-8 h-8 mb-2 text-gray-400"></i>
                   <p
-                    class="text-xs text-gray-400"
-                    data-i18n="tools:digitalSignPdf.uploadSignatureImage"
+                    class="text-sm text-gray-400"
+                    data-i18n="tools:digitalSignPdf.uploadCert"
                   >
-                    Upload image (PNG, JPG, WebP)
+                    Upload certificate (.pfx, .p12, .pem)
                   </p>
                 </div>
                 <input
-                  id="sig-image-input"
+                  id="cert-input"
                   type="file"
                   class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept=".pfx,.p12,.pem"
                 />
               </div>
-              <div
-                id="sig-image-preview"
-                class="hidden mt-2 flex items-center gap-2"
+
+              <div id="cert-display-area" class="space-y-2"></div>
+
+              <div id="cert-password-section" class="hidden">
+                <label
+                  for="cert-password"
+                  class="block text-sm font-medium text-gray-300 mb-2"
+                  data-i18n="tools:digitalSignPdf.certPassword"
+                  >Certificate Password</label
+                >
+                <input
+                  type="password"
+                  id="cert-password"
+                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Enter certificate password"
+                  data-i18n-placeholder="tools:digitalSignPdf.certPasswordPlaceholder"
+                />
+              </div>
+
+              <div id="cert-info" class="hidden bg-gray-700 rounded-lg p-4">
+                <h3
+                  class="text-sm font-semibold text-white mb-2"
+                  data-i18n="tools:digitalSignPdf.certInfo"
+                >
+                  Certificate Information
+                </h3>
+                <div class="text-sm text-gray-300 space-y-1">
+                  <p>
+                    <span
+                      class="text-gray-400"
+                      data-i18n="tools:digitalSignPdf.certSubject"
+                      >Subject</span
+                    >
+                    <span id="cert-subject">-</span>
+                  </p>
+                  <p>
+                    <span
+                      class="text-gray-400"
+                      data-i18n="tools:digitalSignPdf.certIssuer"
+                      >Issuer</span
+                    >
+                    <span id="cert-issuer">-</span>
+                  </p>
+                  <p>
+                    <span
+                      class="text-gray-400"
+                      data-i18n="tools:digitalSignPdf.certValidity"
+                      >Valid</span
+                    >
+                    <span id="cert-validity">-</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div id="signature-options" class="hidden space-y-4">
+              <h2
+                class="text-lg font-semibold text-white"
+                data-i18n="tools:digitalSignPdf.signatureDetails"
               >
-                <img
-                  id="sig-image-thumb"
-                  class="h-12 w-auto rounded border border-gray-600"
-                  alt="Signature preview"
-                />
-                <button
-                  id="remove-sig-image"
-                  class="text-sm shift-tool-file-remove"
-                  data-i18n="tools:digitalSignPdf.remove"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
+                Signature Details (Optional)
+              </h2>
 
-            <div class="grid grid-cols-2 gap-4">
               <div>
                 <label
-                  for="sig-page"
+                  for="sign-reason"
                   class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.page"
-                  >Page</label
-                >
-                <select
-                  id="sig-page"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="0" data-i18n="tools:digitalSignPdf.firstPage">
-                    First page
-                  </option>
-                  <option
-                    value="last"
-                    data-i18n="tools:digitalSignPdf.lastPage"
-                  >
-                    Last page
-                  </option>
-                  <option value="all" data-i18n="tools:digitalSignPdf.allPages">
-                    All pages
-                  </option>
-                  <option
-                    value="custom"
-                    data-i18n="tools:digitalSignPdf.customPage"
-                  >
-                    Custom page #
-                  </option>
-                </select>
-              </div>
-              <div id="custom-page-wrapper" class="hidden">
-                <label
-                  for="sig-custom-page"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.pageNumber"
-                  >Page #</label
-                >
-                <input
-                  type="number"
-                  id="sig-custom-page"
-                  min="1"
-                  value="1"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  for="sig-x"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.xPosition"
-                  >X Position (left)</label
-                >
-                <input
-                  type="number"
-                  id="sig-x"
-                  min="0"
-                  value="25"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label
-                  for="sig-y"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.yPosition"
-                  >Y Position (top)</label
-                >
-                <input
-                  type="number"
-                  id="sig-y"
-                  min="0"
-                  value="700"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  for="sig-width"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.width"
-                  >Width</label
-                >
-                <input
-                  type="number"
-                  id="sig-width"
-                  min="20"
-                  value="150"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label
-                  for="sig-height"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.height"
-                  >Height</label
-                >
-                <input
-                  type="number"
-                  id="sig-height"
-                  min="20"
-                  value="70"
-                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div class="border-t border-gray-700 pt-4">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  id="enable-sig-text"
-                  class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
-                />
-                <span
-                  class="text-sm font-medium text-gray-300"
-                  data-i18n="tools:digitalSignPdf.addTextOverlay"
-                  >Add text overlay</span
-                >
-              </label>
-            </div>
-
-            <div id="sig-text-options" class="hidden space-y-4">
-              <div>
-                <label
-                  for="sig-text"
-                  class="block text-sm font-medium text-gray-300 mb-2"
-                  data-i18n="tools:digitalSignPdf.text"
-                  >Text</label
+                  data-i18n="tools:digitalSignPdf.reason"
+                  >Reason</label
                 >
                 <input
                   type="text"
-                  id="sig-text"
+                  id="sign-reason"
                   class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="e.g., Digitally signed by John Doe"
-                  data-i18n-placeholder="tools:digitalSignPdf.textPlaceholder"
+                  placeholder="e.g., I approve this document"
+                  data-i18n-placeholder="tools:digitalSignPdf.reasonPlaceholder"
                 />
               </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    for="sig-text-color"
-                    class="block text-sm font-medium text-gray-300 mb-2"
-                    data-i18n="tools:digitalSignPdf.textColor"
-                    >Text Color</label
-                  >
-                  <input type="color" id="sig-text-color" value="#000000" />
-                </div>
-                <div>
-                  <label
-                    for="sig-text-size"
-                    class="block text-sm font-medium text-gray-300 mb-2"
-                    data-i18n="tools:digitalSignPdf.fontSize"
-                    >Font Size</label
-                  >
+
+              <div>
+                <label
+                  for="sign-location"
+                  class="block text-sm font-medium text-gray-300 mb-2"
+                  data-i18n="tools:digitalSignPdf.location"
+                  >Location</label
+                >
+                <input
+                  type="text"
+                  id="sign-location"
+                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="e.g., New York, USA"
+                  data-i18n-placeholder="tools:digitalSignPdf.locationPlaceholder"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="sign-contact"
+                  class="block text-sm font-medium text-gray-300 mb-2"
+                  data-i18n="tools:digitalSignPdf.contactInfo"
+                  >Contact Info</label
+                >
+                <input
+                  type="text"
+                  id="sign-contact"
+                  class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="e.g., email@example.com"
+                  data-i18n-placeholder="tools:digitalSignPdf.contactPlaceholder"
+                />
+              </div>
+            </div>
+
+            <div id="visible-signature-section" class="hidden space-y-4">
+              <div class="flex items-center justify-between">
+                <h2
+                  class="text-lg font-semibold text-white"
+                  data-i18n="tools:digitalSignPdf.visibleSignature"
+                >
+                  Visible Signature
+                </h2>
+                <label class="relative inline-flex items-center cursor-pointer">
                   <input
-                    type="number"
-                    id="sig-text-size"
-                    min="6"
-                    max="72"
-                    value="12"
-                    class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    type="checkbox"
+                    id="enable-visible-sig"
+                    class="sr-only peer"
                   />
+                  <div
+                    class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"
+                  ></div>
+                </label>
+              </div>
+              <p
+                class="text-xs text-gray-500"
+                data-i18n="tools:digitalSignPdf.visibleSignatureDescription"
+              >
+                When enabled, a visible signature box appears on the PDF. You
+                can upload an image/logo or add text. If neither is provided,
+                the signer's name from the certificate will be shown
+                automatically.
+              </p>
+
+              <div id="visible-sig-options" class="hidden space-y-4">
+                <div>
+                  <label
+                    class="block text-sm font-medium text-gray-300 mb-2"
+                    data-i18n="tools:digitalSignPdf.signatureImage"
+                    >Signature Image/Logo (Optional)</label
+                  >
+                  <div
+                    id="sig-image-drop-zone"
+                    class="relative flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+                  >
+                    <div class="flex flex-col items-center justify-center py-2">
+                      <i
+                        data-lucide="image"
+                        class="w-6 h-6 mb-1 text-gray-400"
+                      ></i>
+                      <p
+                        class="text-xs text-gray-400"
+                        data-i18n="tools:digitalSignPdf.uploadSignatureImage"
+                      >
+                        Upload image (PNG, JPG, WebP)
+                      </p>
+                    </div>
+                    <input
+                      id="sig-image-input"
+                      type="file"
+                      class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                      accept="image/png,image/jpeg,image/webp"
+                    />
+                  </div>
+                  <div
+                    id="sig-image-preview"
+                    class="hidden mt-2 flex items-center gap-2"
+                  >
+                    <img
+                      id="sig-image-thumb"
+                      class="h-12 w-auto rounded border border-gray-600"
+                      alt="Signature preview"
+                    />
+                    <button
+                      id="remove-sig-image"
+                      class="text-sm shift-tool-file-remove"
+                      data-i18n="tools:digitalSignPdf.remove"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      for="sig-page"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.page"
+                      >Page</label
+                    >
+                    <select
+                      id="sig-page"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option
+                        value="0"
+                        data-i18n="tools:digitalSignPdf.firstPage"
+                      >
+                        First page
+                      </option>
+                      <option
+                        value="last"
+                        data-i18n="tools:digitalSignPdf.lastPage"
+                      >
+                        Last page
+                      </option>
+                      <option
+                        value="all"
+                        data-i18n="tools:digitalSignPdf.allPages"
+                      >
+                        All pages
+                      </option>
+                      <option
+                        value="custom"
+                        data-i18n="tools:digitalSignPdf.customPage"
+                      >
+                        Custom page #
+                      </option>
+                    </select>
+                  </div>
+                  <div id="custom-page-wrapper" class="hidden">
+                    <label
+                      for="sig-custom-page"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.pageNumber"
+                      >Page #</label
+                    >
+                    <input
+                      type="number"
+                      id="sig-custom-page"
+                      min="1"
+                      value="1"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      for="sig-x"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.xPosition"
+                      >X Position (left)</label
+                    >
+                    <input
+                      type="number"
+                      id="sig-x"
+                      min="0"
+                      value="25"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="sig-y"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.yPosition"
+                      >Y Position (top)</label
+                    >
+                    <input
+                      type="number"
+                      id="sig-y"
+                      min="0"
+                      value="700"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      for="sig-width"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.width"
+                      >Width</label
+                    >
+                    <input
+                      type="number"
+                      id="sig-width"
+                      min="20"
+                      value="150"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="sig-height"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.height"
+                      >Height</label
+                    >
+                    <input
+                      type="number"
+                      id="sig-height"
+                      min="20"
+                      value="70"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div class="border-t border-gray-700 pt-4">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="enable-sig-text"
+                      class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                    />
+                    <span
+                      class="text-sm font-medium text-gray-300"
+                      data-i18n="tools:digitalSignPdf.addTextOverlay"
+                      >Add text overlay</span
+                    >
+                  </label>
+                </div>
+
+                <div id="sig-text-options" class="hidden space-y-4">
+                  <div>
+                    <label
+                      for="sig-text"
+                      class="block text-sm font-medium text-gray-300 mb-2"
+                      data-i18n="tools:digitalSignPdf.text"
+                      >Text</label
+                    >
+                    <input
+                      type="text"
+                      id="sig-text"
+                      class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., Digitally signed by John Doe"
+                      data-i18n-placeholder="tools:digitalSignPdf.textPlaceholder"
+                    />
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        for="sig-text-color"
+                        class="block text-sm font-medium text-gray-300 mb-2"
+                        data-i18n="tools:digitalSignPdf.textColor"
+                        >Text Color</label
+                      >
+                      <input type="color" id="sig-text-color" value="#000000" />
+                    </div>
+                    <div>
+                      <label
+                        for="sig-text-size"
+                        class="block text-sm font-medium text-gray-300 mb-2"
+                        data-i18n="tools:digitalSignPdf.fontSize"
+                        >Font Size</label
+                      >
+                      <input
+                        type="number"
+                        id="sig-text-size"
+                        min="6"
+                        max="72"
+                        value="12"
+                        class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <button
-          id="process-btn"
-          class="btn-gradient w-full mt-6"
-          style="display: none"
-          data-i18n="tools:digitalSignPdf.applySignature"
-        >
-          Apply Digital Signature
-        </button>
+          <div id="panel-validate" class="hidden space-y-6">
+            <div id="custom-cert-section" class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-gray-300">
+                  Custom Certificate File X.509 (Optional)
+                </h2>
+              </div>
+              <p class="text-xs text-gray-500">
+                Upload a trusted X.509 certificate to validate against a custom
+                trust source.
+              </p>
+              <div
+                id="custom-cert-drop-zone"
+                class="relative flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer bg-gray-900 hover:bg-gray-700 transition-colors duration-300"
+              >
+                <div class="flex flex-col items-center justify-center py-2">
+                  <i
+                    data-lucide="shield"
+                    class="w-6 h-6 mb-1 text-gray-400"
+                  ></i>
+                  <p class="text-xs text-gray-400">
+                    Upload certificate (.pem, .crt, .cer)
+                  </p>
+                </div>
+                <input
+                  id="custom-cert-input"
+                  type="file"
+                  class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                  accept=".pem,.crt,.cer,.der"
+                />
+              </div>
+              <div id="custom-cert-display-area" class="space-y-2"></div>
+            </div>
+
+            <div id="results-section" class="hidden">
+              <h2 class="text-lg font-semibold text-white mb-4">
+                Signature Validation Results
+              </h2>
+              <div id="results-container"></div>
+            </div>
+          </div>
+
+          <div id="panel-timestamp" class="hidden space-y-4">
+            <div
+              class="bg-blue-900/30 border border-blue-700 rounded-lg p-3 flex items-start gap-3"
+              data-network-touchpoint="timestamp-tsa"
+            >
+              <i
+                data-lucide="wifi"
+                class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5"
+              ></i>
+              <div class="text-sm">
+                <p class="text-blue-300 font-medium">
+                  Internet connection required
+                </p>
+                <p class="text-blue-400/80 mt-1">
+                  Timestamping requires contacting the selected TSA server to
+                  obtain a trusted timestamp token.
+                </p>
+              </div>
+            </div>
+
+            <div id="tsa-section" class="space-y-4">
+              <h3
+                class="text-lg font-semibold text-white"
+                data-i18n="tools:timestampPdf.tsaSectionTitle"
+              >
+                Timestamp Server (TSA)
+              </h3>
+
+              <div>
+                <label
+                  for="tsa-preset"
+                  class="block text-sm font-medium text-gray-300 mb-1"
+                  data-i18n="tools:timestampPdf.selectTsa"
+                >
+                  Select a TSA server
+                </label>
+                <select
+                  id="tsa-preset"
+                  class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                ></select>
+              </div>
+            </div>
+          </div>
+
+          <button
+            id="process-btn"
+            class="btn-gradient w-full mt-6"
+            style="display: none"
+            data-i18n="tools:digitalSignPdf.applySignature"
+          >
+            Apply Digital Signature
+          </button>
+        </div>
       </div>
     </div>
 

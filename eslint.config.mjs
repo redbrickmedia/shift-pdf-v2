@@ -19,7 +19,6 @@ export default [
       'libreoffice-wasm-package/**',
       'bentopdf-airgap-bundle/**',
       'public/pdfjs-viewer/**',
-      'public/pdfjs-annotation-viewer/**',
       'public/libreoffice-wasm/**',
       'public/workers/**',
     ],

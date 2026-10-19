@@ -7,7 +7,6 @@ ICLA.md
 
 # Vendored viewers and engines. Prettier should not restyle upstream builds.
 public/pdfjs-viewer/**
-public/pdfjs-annotation-viewer/**
 public/libreoffice-wasm/**
 
 # Generated VitePress dependency cache

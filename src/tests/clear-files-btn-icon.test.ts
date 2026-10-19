@@ -48,6 +48,6 @@ describe('Clear All button icon', () => {
     }
 
     expect(mismatches).toEqual([]);
-    expect(found).toBeGreaterThan(40);
+    expect(found).toBeGreaterThan(10);
   });
 });

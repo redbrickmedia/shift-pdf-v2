@@ -61,20 +61,13 @@ describe('iframe file-save capture', () => {
 });
 
 describe('viewer tool output sessions', () => {
-  it('publishes form, stamp, and edit output only after a real change', () => {
-    const form = readSrc('src/js/logic/form-filler-page.ts');
-    expect(form).toContain('exportPdfJsAnnotations');
-    expect(form).toContain('downloadFile');
-    expect(form).toContain('canSave: () => formDirty');
-    expect(form).not.toContain("getElementById(\n      'downloadButton'");
-
-    const stamps = readSrc('src/js/logic/add-stamps.ts');
-    expect(stamps).toContain('registerToolOutputSession');
-    expect(stamps).toContain('canSave: () => stampsHaveChanges()');
-    expect(stamps).toContain('apply: applyStampedPdf');
-    expect(stamps).not.toContain('setTimeout(() => resetState(), 500)');
-
+  it('publishes edit, fill-sign, stamp, and crop output only after a real change', () => {
     const edit = readSrc('src/js/logic/edit-pdf-page.ts');
+    expect(edit).toContain('exportPdfJsAnnotations');
+    expect(edit).toContain('downloadFile');
+    expect(edit).toContain('fillSignFormDirty');
+    expect(edit).toContain('shouldAutoActivateStampTool');
+    expect(edit).toContain('registerToolOutputSession');
     expect(edit).toContain('canSave: () => editorHasEdits()');
     expect(edit).toContain(
       "getRegistryPlugin<HistoryPlugin>(registry, 'history')"
@@ -82,18 +75,14 @@ describe('viewer tool output sessions', () => {
     expect(edit).not.toContain('canSave: () => isViewerInitialized');
   });
 
-  it('resets Sign PDF edits without removing the open file', () => {
-    const sign = readSrc('src/js/logic/sign-pdf-page.ts');
-    expect(sign).toContain('reset: resetEdits');
-    expect(sign).toContain('canReset: hasSignEditsToReset');
-    expect(sign).toContain('await handleFile(file)');
-    expect(sign).toMatch(
-      /registerToolOutputSession\(\{[\s\S]*reset: resetEdits/
+  it('resets Edit PDF viewer state and clears workspace file', () => {
+    const edit = readSrc('src/js/logic/edit-pdf-page.ts');
+    expect(edit).toContain('reset: resetViewer');
+    expect(edit).toContain('canReset: hasLoadedDocument');
+    expect(edit).toMatch(
+      /registerToolOutputSession\(\{[\s\S]*reset: resetViewer/
     );
-    expect(sign).not.toMatch(
-      /registerToolOutputSession\(\{[\s\S]*reset: resetState/
-    );
-    expect(sign).toContain('void clearWorkspaceOpenFile()');
+    expect(edit).toContain('void clearWorkspaceOpenFile()');
   });
 
   it('publishes Compare PDFs through the shared Save session', () => {

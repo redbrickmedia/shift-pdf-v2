@@ -24,9 +24,6 @@ const [
   viewerCore,
   viewerWorker,
   viewerBundle,
-  annotationCore,
-  annotationBundle,
-  annotationAlignmentText,
 ] = await Promise.all([
   readText('package.json'),
   readText('package-lock.json'),
@@ -34,15 +31,11 @@ const [
   readText('public/pdfjs-viewer/pdf.mjs'),
   readText('public/pdfjs-viewer/pdf.worker.mjs'),
   readText('public/pdfjs-viewer/viewer.mjs'),
-  readText('public/pdfjs-annotation-viewer/build/pdf.mjs'),
-  readText('public/pdfjs-annotation-viewer/web/viewer.mjs'),
-  readText('public/pdfjs-annotation-viewer/pdfjs-alignment.json'),
 ]);
 
 const packageJson = JSON.parse(packageJsonText);
 const packageLock = JSON.parse(packageLockText);
 const installedPackage = JSON.parse(installedPackageText);
-const annotationAlignment = JSON.parse(annotationAlignmentText);
 const lockVersion = packageLock.packages?.['node_modules/pdfjs-dist']?.version;
 
 if (!lockVersion) {
@@ -77,35 +70,4 @@ assertVersion(
   'Vendored viewer bundle'
 );
 
-const annotationVersion = annotationAlignment.pdfjsVersion;
-if (
-  annotationAlignment.status !== 'pinned-legacy-exception' ||
-  typeof annotationAlignment.reason !== 'string' ||
-  annotationAlignment.reason.length < 20
-) {
-  throw new Error(
-    'Annotation viewer alignment metadata must document its pinned legacy exception.'
-  );
-}
-assertVersion(
-  extractVersion(
-    annotationCore,
-    /const pdfjsVersion = "([0-9.]+)"/,
-    'annotation core'
-  ),
-  annotationVersion,
-  'Annotation viewer core'
-);
-assertVersion(
-  extractVersion(
-    annotationBundle,
-    /const pdfjsVersion = "([0-9.]+)"/,
-    'annotation viewer bundle'
-  ),
-  annotationVersion,
-  'Annotation viewer bundle'
-);
-
-console.log(
-  `PDF.js aligned at ${lockVersion}; annotation viewer is explicitly pinned at ${annotationVersion}.`
-);
+console.log(`PDF.js aligned at ${lockVersion}.`);

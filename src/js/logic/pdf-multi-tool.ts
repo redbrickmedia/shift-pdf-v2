@@ -3,7 +3,7 @@ import { degrees, PDFDocument as PDFLibDocument, PDFPage } from 'pdf-lib';
 
 import JSZip from 'jszip';
 import Sortable from 'sortablejs';
-import { downloadFile, getPDFDocument } from '../utils/helpers';
+import { downloadBlob, downloadFile, getPDFDocument } from '../utils/helpers';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import {
   renderPagesProgressively,
@@ -13,7 +13,6 @@ import {
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import { repairPdfFile } from './repair-pdf.js';
 import { partitionIncomingFiles } from '../utils/multi-tool-file-input.js';
-import { convertImagesToPdfFile } from '../utils/images-to-pdf-lib.js';
 
 import { t } from '../i18n/i18n';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
@@ -21,6 +20,28 @@ import { syncSeededToolFiles } from './tool-file-seed.js';
 import { createShiftActionButton } from './shift-action-row.js';
 import { createShiftFilePreview } from './shift-file-preview.js';
 import { setShiftBrowserItemState } from './shift-file-browser.js';
+import {
+  applyLaunchContextToDom,
+  resolveLaunchContext,
+} from './launch-context.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
+import {
+  clearWorkspaceOpenFile,
+  setWorkspaceFiles,
+} from './workspace-files.js';
+
+const LAUNCH_ACTION_BUTTON_IDS_BY_ENTRY: Readonly<
+  Record<string, readonly string[]>
+> = {
+  'organize-pdf': ['bulk-duplicate-btn'],
+  'delete-pages': ['bulk-delete-btn'],
+  'rotate-pdf': ['bulk-rotate-left-btn', 'bulk-rotate-btn'],
+  'add-blank-page': ['add-blank-page-btn'],
+  'reverse-pages': ['reverse-pages-btn'],
+};
 
 interface PageData {
   id: string; // Unique ID for DOM reconciliation
@@ -66,6 +87,9 @@ let splitMarkers: Set<number> = new Set();
 let isRendering = false;
 let renderCancelled = false;
 let sortableInstance: Sortable | null = null;
+let loadedSourceFiles: File[] = [];
+let dragOverlay: HTMLDivElement | null = null;
+let isProcessingDrop = false;
 
 const pageCanvasCache = new Map<string, HTMLCanvasElement>();
 
@@ -85,6 +109,7 @@ function snapshot() {
   };
   undoStack.push(snap);
   redoStack.length = 0;
+  syncToolOutputToolbar();
 }
 
 function restore(snap: Snapshot) {
@@ -95,6 +120,60 @@ function restore(snap: Snapshot) {
   selectedPages = new Set(snap.selectedPages);
   splitMarkers = new Set(snap.splitMarkers);
   updatePageDisplay();
+  syncToolOutputToolbar();
+}
+
+function performUndo() {
+  if (isRendering) return;
+  const last = undoStack.pop();
+  if (last) {
+    const current: Snapshot = {
+      allPages: allPages.map((p) => ({ ...p, canvas: p.canvas })),
+      selectedPages: Array.from(selectedPages),
+      splitMarkers: Array.from(splitMarkers),
+    };
+    redoStack.push(current);
+    restore(last);
+  }
+}
+
+function performRedo() {
+  if (isRendering) return;
+  const next = redoStack.pop();
+  if (next) {
+    const current: Snapshot = {
+      allPages: allPages.map((p) => ({ ...p, canvas: p.canvas })),
+      selectedPages: Array.from(selectedPages),
+      splitMarkers: Array.from(splitMarkers),
+    };
+    undoStack.push(current);
+    restore(next);
+  }
+}
+
+export function applyMultiToolLaunchContext(root: Document = document) {
+  const context = applyLaunchContextToDom(root);
+
+  root
+    .querySelectorAll<HTMLElement>('.toolbar-container .shift-action-button')
+    .forEach((button) => {
+      button.removeAttribute('data-launch-highlight');
+      button.classList.remove('is-launch-action');
+    });
+
+  const highlightedIds =
+    LAUNCH_ACTION_BUTTON_IDS_BY_ENTRY[context.entryId] ?? [];
+  let firstHighlighted: HTMLButtonElement | null = null;
+  for (const id of highlightedIds) {
+    const button = root.getElementById(id) as HTMLButtonElement | null;
+    if (button) {
+      button.dataset.launchHighlight = 'true';
+      button.classList.add('is-launch-action');
+      if (!firstHighlighted) firstHighlighted = button;
+    }
+  }
+  firstHighlighted?.focus?.();
+  return context;
 }
 
 function showModal(
@@ -198,9 +277,40 @@ if (document.readyState === 'loading') {
   initializeTool();
 }
 
-function initializeTool() {
+export function initializeTool() {
   console.log('PDF Multi Tool: Initializing...');
+  allPages = [];
+  selectedPages.clear();
+  splitMarkers.clear();
+  currentPdfDocs = [];
+  loadedSourceFiles = [];
+  undoStack.length = 0;
+  redoStack.length = 0;
+  isRendering = false;
+  renderCancelled = false;
+  isProcessingDrop = false;
+
   createIcons({ icons });
+  applyMultiToolLaunchContext(document);
+
+  registerToolOutputSession({
+    undo: performUndo,
+    redo: performRedo,
+    reset: () => {
+      if (isRendering) {
+        renderCancelled = true;
+        setTimeout(() => resetAll(), 100);
+      } else {
+        resetAll();
+      }
+    },
+    canUndo: () => undoStack.length > 0 && !isRendering,
+    canRedo: () => redoStack.length > 0 && !isRendering,
+    canReset: () => allPages.length > 0 && !isRendering,
+    canSave: () => allPages.length > 0 && !isRendering,
+    outputKind: () => (splitMarkers.size > 0 ? 'multi-pdf-zip' : 'pdf'),
+    apply: () => exportPdfForSession(),
+  });
 
   initializeGlobalShortcuts();
   document.getElementById('upload-pdfs-btn')?.addEventListener('click', () => {
@@ -226,36 +336,71 @@ function initializeTool() {
   document
     .getElementById('bulk-rotate-left-btn')
     ?.addEventListener('click', () => {
-      if (isRendering) return;
+      if (isRendering || allPages.length === 0) return;
       snapshot();
       bulkRotate(-90);
+      syncToolOutputToolbar();
     });
   document.getElementById('bulk-rotate-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
+    if (isRendering || allPages.length === 0) return;
     snapshot();
     bulkRotate(90);
+    syncToolOutputToolbar();
   });
   document.getElementById('bulk-delete-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
+    if (isRendering || selectedPages.size === 0) {
+      if (!isRendering && selectedPages.size === 0) {
+        showModal('No Selection', 'Please select pages to delete.', 'info');
+      }
+      return;
+    }
     snapshot();
     bulkDelete();
+    syncToolOutputToolbar();
   });
   document
     .getElementById('bulk-duplicate-btn')
     ?.addEventListener('click', () => {
-      if (isRendering) return;
+      if (isRendering || selectedPages.size === 0) {
+        if (!isRendering && selectedPages.size === 0) {
+          showModal(
+            'No Selection',
+            'Please select pages to duplicate.',
+            'info'
+          );
+        }
+        return;
+      }
       snapshot();
       bulkDuplicate();
+      syncToolOutputToolbar();
     });
   document.getElementById('bulk-split-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
+    if (isRendering || selectedPages.size === 0) {
+      if (!isRendering && selectedPages.size === 0) {
+        showModal(
+          'No Selection',
+          'Please select pages to mark for splitting.',
+          'info'
+        );
+      }
+      return;
+    }
     snapshot();
     bulkSplit();
+    syncToolOutputToolbar();
   });
+  document
+    .getElementById('reverse-pages-btn')
+    ?.addEventListener('click', () => {
+      if (isRendering || allPages.length === 0) return;
+      snapshot();
+      reversePages();
+      syncToolOutputToolbar();
+    });
   document
     .getElementById('bulk-download-btn')
     ?.addEventListener('click', () => {
-      if (isRendering) return;
       if (isRendering) return;
       if (selectedPages.size === 0) {
         showModal(
@@ -266,34 +411,37 @@ function initializeTool() {
         return;
       }
       withButtonLoading('bulk-download-btn', async () => {
-        await downloadPagesAsPdf(
-          Array.from(selectedPages).sort((a, b) => a - b),
-          'selected-pages.pdf'
+        const blob = await buildPagesPdfBlob(
+          Array.from(selectedPages).sort((a, b) => a - b)
         );
+        if (blob) {
+          downloadBlob(blob, 'selected-pages.pdf');
+        }
       });
     });
 
   document.getElementById('select-all-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
+    if (isRendering || allPages.length === 0) return;
     snapshot();
     selectAll();
+    syncToolOutputToolbar();
   });
 
   document.getElementById('deselect-all-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
+    if (isRendering || selectedPages.size === 0) return;
     snapshot();
     deselectAll();
+    syncToolOutputToolbar();
   });
 
   document.getElementById('export-pdf-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
     if (isRendering) return;
     if (allPages.length === 0) {
       showModal(t('multiTool.noPages'), t('multiTool.noPagesToExport'), 'info');
       return;
     }
     withButtonLoading('export-pdf-btn', async () => {
-      await downloadAll();
+      await exportPdfForSession();
     });
   });
   document
@@ -302,32 +450,13 @@ function initializeTool() {
       if (isRendering) return;
       snapshot();
       addBlankPage();
+      syncToolOutputToolbar();
     });
   document.getElementById('undo-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
-    const last = undoStack.pop();
-    if (last) {
-      const current: Snapshot = {
-        allPages: allPages.map((p) => ({ ...p })),
-        selectedPages: Array.from(selectedPages),
-        splitMarkers: Array.from(splitMarkers),
-      };
-      redoStack.push(current);
-      restore(last);
-    }
+    performUndo();
   });
   document.getElementById('redo-btn')?.addEventListener('click', () => {
-    if (isRendering) return;
-    const next = redoStack.pop();
-    if (next) {
-      const current: Snapshot = {
-        allPages: allPages.map((p) => ({ ...p })),
-        selectedPages: Array.from(selectedPages),
-        splitMarkers: Array.from(splitMarkers),
-      };
-      undoStack.push(current);
-      restore(next);
-    }
+    performRedo();
   });
   document.getElementById('reset-btn')?.addEventListener('click', () => {
     if (isRendering) {
@@ -357,10 +486,8 @@ function initializeTool() {
   });
 
   document.getElementById('upload-area')?.classList.remove('hidden');
+  syncToolOutputToolbar();
 }
-
-let dragOverlay: HTMLDivElement | null = null;
-let isProcessingDrop = false;
 
 function showDragOverlay() {
   if (dragOverlay) return;
@@ -416,16 +543,23 @@ function setupGlobalDragAndDrop() {
   });
 }
 
-async function processIncomingFiles(rawFiles: File[]): Promise<File[]> {
+export async function processIncomingFiles(rawFiles: File[]): Promise<File[]> {
   const { pdfFiles, imageFiles, skipped } = partitionIncomingFiles(rawFiles);
   const result: File[] = [...pdfFiles];
+  const activeAccept = resolveLaunchContext().accept.toLowerCase();
+  const acceptsImages =
+    activeAccept.includes('image') ||
+    activeAccept.includes('.jpg') ||
+    activeAccept.includes('.png');
 
-  if (imageFiles.length > 0) {
+  if (imageFiles.length > 0 && acceptsImages) {
     try {
       showLoading(0, 100);
       const loadingText = document.getElementById('loading-text');
       if (loadingText)
         loadingText.textContent = t('multiTool.convertingImages');
+      const { convertImagesToPdfFile } =
+        await import('../utils/images-to-pdf-lib.js');
       const imagesPdfFile = await convertImagesToPdfFile(imageFiles);
       result.push(imagesPdfFile);
     } catch (e) {
@@ -437,6 +571,8 @@ async function processIncomingFiles(rawFiles: File[]): Promise<File[]> {
         'error'
       );
     }
+  } else if (imageFiles.length > 0) {
+    skipped.push(...imageFiles.map((file) => file.name));
   }
 
   if (skipped.length > 0) {
@@ -446,7 +582,7 @@ async function processIncomingFiles(rawFiles: File[]): Promise<File[]> {
   return result;
 }
 
-async function handleIncomingFiles(rawFiles: File[]) {
+export async function handleIncomingFiles(rawFiles: File[]) {
   if (isRendering || isProcessingDrop) {
     showModal(t('multiTool.pleaseWait'), t('multiTool.pagesRendering'), 'info');
     return;
@@ -456,7 +592,10 @@ async function handleIncomingFiles(rawFiles: File[]) {
   try {
     const processed = await processIncomingFiles(rawFiles);
     if (processed.length > 0) {
+      loadedSourceFiles.push(...processed);
+      setWorkspaceFiles(loadedSourceFiles);
       await loadPdfs(processed);
+      syncToolOutputToolbar();
     } else {
       hideLoading();
     }
@@ -465,16 +604,18 @@ async function handleIncomingFiles(rawFiles: File[]) {
   }
 }
 
-function resetAll() {
+export function resetAll() {
   renderCancelled = true;
   isRendering = false;
   isProcessingDrop = false;
   hideDragOverlay();
-  snapshot();
   allPages = [];
   selectedPages.clear();
   splitMarkers.clear();
   currentPdfDocs = [];
+  loadedSourceFiles = [];
+  undoStack.length = 0;
+  redoStack.length = 0;
   pageCanvasCache.clear();
   cleanupLazyRendering();
 
@@ -489,6 +630,8 @@ function resetAll() {
 
   updatePageDisplay();
   document.getElementById('upload-area')?.classList.remove('hidden');
+  void clearWorkspaceOpenFile();
+  syncToolOutputToolbar();
 }
 
 async function handlePdfUpload(e: Event) {
@@ -1106,12 +1249,14 @@ function addBlankPage() {
 }
 
 function bulkRotate(delta: number) {
-  if (selectedPages.size === 0) {
-    showModal('No Selection', 'Please select pages to rotate.', 'info');
-    return;
-  }
+  if (allPages.length === 0) return;
 
-  selectedPages.forEach((index) => {
+  const targetIndices =
+    selectedPages.size > 0
+      ? Array.from(selectedPages)
+      : allPages.map((_, index) => index);
+
+  targetIndices.forEach((index) => {
     const pageData = allPages[index];
     if (pageData) {
       // Update state
@@ -1133,8 +1278,26 @@ function bulkRotate(delta: number) {
       }
     }
   });
+}
 
-  // TODO@ALAM - Do NOT call updatePageDisplay() as it destroys lazy loading observers
+function reversePages() {
+  if (allPages.length === 0) return;
+
+  if (selectedPages.size >= 2) {
+    const indices = Array.from(selectedPages).sort((a, b) => a - b);
+    const reversedSelected = indices.map((index) => allPages[index]).reverse();
+    indices.forEach((index, pos) => {
+      allPages[index] = reversedSelected[pos];
+    });
+  } else {
+    const total = allPages.length;
+    allPages.reverse();
+    selectedPages = new Set(
+      Array.from(selectedPages).map((index) => total - 1 - index)
+    );
+  }
+
+  updatePageDisplay();
 }
 
 function bulkDelete() {
@@ -1146,12 +1309,10 @@ function bulkDelete() {
   indices.forEach((index) => allPages.splice(index, 1));
   selectedPages.clear();
 
-  if (allPages.length === 0) {
-    resetAll();
-    return;
-  }
-
   updatePageDisplay();
+  if (allPages.length === 0) {
+    document.getElementById('upload-area')?.classList.remove('hidden');
+  }
 }
 
 function bulkDuplicate() {
@@ -1187,20 +1348,17 @@ function bulkSplit() {
   updatePageDisplay();
 }
 
-async function downloadAll() {
-  if (allPages.length === 0) {
-    showModal('No Pages', 'Please upload PDFs first.', 'info');
-    return;
-  }
+async function exportPdfForSession() {
+  if (allPages.length === 0) return;
 
-  // Check if there are split markers
   if (splitMarkers.size > 0) {
-    // Split into multiple PDFs and download as ZIP
     await downloadSplitPdfs();
   } else {
-    // Download as single PDF
     const indices = Array.from({ length: allPages.length }, (_, i) => i);
-    await downloadPagesAsPdf(indices, 'all-pages.pdf');
+    const blob = await buildPagesPdfBlob(indices);
+    if (blob) {
+      downloadFile(blob, 'all-pages.pdf');
+    }
   }
 }
 
@@ -1294,24 +1452,18 @@ async function downloadSplitPdfs() {
       zip.file(`document - ${segIndex + 1}.pdf`, pdfBytes);
     }
 
-    // Generate and download ZIP
+    // Generate and stage ZIP output
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     downloadFile(zipBlob, 'split-documents.zip');
-
-    showModal(
-      'Success',
-      `Downloaded ${segments.length} PDF files in a ZIP archive.`,
-      'success'
-    );
   } catch (e) {
     console.error('Failed to create split PDFs:', e);
     showModal('Error', 'Failed to create split PDFs.', 'error');
   } finally {
-    hideLoading(); // Ensure loader is hidden if we used it (though showModal replaces it)
+    hideLoading();
   }
 }
 
-async function downloadPagesAsPdf(indices: number[], filename: string) {
+async function buildPagesPdfBlob(indices: number[]): Promise<Blob | null> {
   try {
     const newPdf = await PDFLibDocument.create();
 
@@ -1375,15 +1527,13 @@ async function downloadPagesAsPdf(indices: number[], filename: string) {
     }
 
     const pdfBytes = await newPdf.save();
-    const blob = new Blob([new Uint8Array(pdfBytes)], {
+    return new Blob([new Uint8Array(pdfBytes)], {
       type: 'application/pdf',
     });
-
-    downloadFile(blob, filename);
-    showModal('Success', 'PDF downloaded successfully.', 'success');
   } catch (e) {
     console.error('Failed to create PDF:', e);
     showModal('Error', 'Failed to create PDF.', 'error');
+    return null;
   }
 }
 

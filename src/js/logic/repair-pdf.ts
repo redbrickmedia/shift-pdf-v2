@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import {
@@ -77,9 +76,7 @@ export async function repairPdf() {
 
     for (let i = 0; i < state.files.length; i++) {
       const file = state.files[i];
-      showResultLoader(
-        `Repairing ${file.name} (${i + 1}/${state.files.length})...`
-      );
+      showLoader(`Repairing ${file.name} (${i + 1}/${state.files.length})...`);
 
       const repairedData = await repairPdfFile(file);
 
@@ -118,7 +115,7 @@ export async function repairPdf() {
       });
       downloadFile(blob, file.name);
     } else {
-      showResultLoader('Creating ZIP archive...');
+      showLoader('Creating ZIP archive...');
       const zip = new JSZip();
       const usedNames = new Set<string>();
       successfulRepairs.forEach((file) => {

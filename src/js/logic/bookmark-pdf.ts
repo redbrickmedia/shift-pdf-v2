@@ -5,6 +5,8 @@ import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
 import Sortable from 'sortablejs';
 import { createIcons, icons } from 'lucide';
 import '../../css/bookmark.css';
+import { t } from '../i18n/index.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper.js';
 import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
 import {
   truncateFilename,
@@ -15,7 +17,18 @@ import {
 } from '../utils/helpers.js';
 import { loadPdfWithPasswordPrompt } from '../utils/password-prompt.js';
 import { loadPdfDocument } from '../utils/load-pdf-document.js';
+import { getPDFDocument } from '../utils/pdfjs.js';
+import {
+  showWasmRequiredDialog,
+  WasmProvider,
+} from '../utils/wasm-provider.js';
 import { hideLoader, showLoader } from '../ui.js';
+import { printPdfBlob } from '../utils/pdfjs-viewer-print.js';
+import { applyLaunchContextToDom, setLaunchContext } from './launch-context.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 import {
   BookmarkNode,
   BookmarkTree,
@@ -32,9 +45,34 @@ import {
   TEXT_COLOR_CLASSES,
   HEX_COLOR_MAP,
   PDF_COLOR_MAP,
-} from '@/types';
+} from '../types/index.js';
 
-const modalContainer = document.getElementById(
+type BookmarkWorkspaceMode = 'bookmarks' | 'toc';
+
+interface TOCSuccessResponse {
+  status: 'success';
+  pdfBytes: ArrayBuffer;
+}
+
+interface TOCErrorResponse {
+  status: 'error';
+  message: string;
+}
+
+type TOCWorkerResponse = TOCSuccessResponse | TOCErrorResponse;
+
+interface TocWorkerLike {
+  onmessage: ((event: MessageEvent<TOCWorkerResponse>) => void) | null;
+  onerror: ((event: ErrorEvent) => void) | null;
+  postMessage: (message: unknown, transfer?: Transferable[]) => void;
+  terminate?: () => void;
+}
+
+let activeBookmarkMode: BookmarkWorkspaceMode = 'bookmarks';
+let tocWorker: TocWorkerLike | null = null;
+let documentListenersBound = false;
+
+let modalContainer = document.getElementById(
   'modal-container'
 ) as HTMLElement | null;
 
@@ -44,164 +82,183 @@ let destinationMarker: HTMLDivElement | null = null;
 let savedModalOverlay: HTMLDivElement | null = null;
 let currentViewport: PageViewport | null = null;
 let currentZoom = 1.0;
-const fileInput = document.getElementById(
+let fileInput = document.getElementById(
   'file-input'
 ) as HTMLInputElement | null;
-const csvInput = document.getElementById(
-  'csv-input'
-) as HTMLInputElement | null;
-const jsonInput = document.getElementById(
+let csvInput = document.getElementById('csv-input') as HTMLInputElement | null;
+let jsonInput = document.getElementById(
   'json-input'
 ) as HTMLInputElement | null;
-const autoExtractCheckbox = document.getElementById(
+let autoExtractCheckbox = document.getElementById(
   'auto-extract-checkbox'
 ) as HTMLInputElement | null;
-const appEl = document.getElementById('app') as HTMLElement | null;
-const uploaderEl = document.getElementById('uploader') as HTMLElement | null;
-const fileDisplayArea = document.getElementById(
+let appEl = document.getElementById('app') as HTMLElement | null;
+let uploaderEl = document.getElementById('uploader') as HTMLElement | null;
+let toolUploaderEl = document.getElementById(
+  'tool-uploader'
+) as HTMLElement | null;
+let fileDisplayArea = document.getElementById(
   'file-display-area'
 ) as HTMLElement | null;
-const closeBtn = document.getElementById(
-  'back-btn'
-) as HTMLButtonElement | null;
-const canvas = document.getElementById(
-  'pdf-canvas'
-) as HTMLCanvasElement | null;
-const ctx = canvas?.getContext('2d') ?? null;
-const pageIndicator = document.getElementById(
+let closeBtn = document.getElementById('back-btn') as HTMLButtonElement | null;
+let canvas = document.getElementById('pdf-canvas') as HTMLCanvasElement | null;
+let ctx = canvas?.getContext('2d') ?? null;
+let pageIndicator = document.getElementById(
   'page-indicator'
 ) as HTMLElement | null;
-const prevPageBtn = document.getElementById(
+let prevPageBtn = document.getElementById(
   'prev-page'
 ) as HTMLButtonElement | null;
-const nextPageBtn = document.getElementById(
+let nextPageBtn = document.getElementById(
   'next-page'
 ) as HTMLButtonElement | null;
-const gotoPageInput = document.getElementById(
+let gotoPageInput = document.getElementById(
   'goto-page'
 ) as HTMLInputElement | null;
-const gotoBtn = document.getElementById('goto-btn') as HTMLButtonElement | null;
-const zoomInBtn = document.getElementById(
+let gotoBtn = document.getElementById('goto-btn') as HTMLButtonElement | null;
+let zoomInBtn = document.getElementById(
   'zoom-in-btn'
 ) as HTMLButtonElement | null;
-const zoomOutBtn = document.getElementById(
+let zoomOutBtn = document.getElementById(
   'zoom-out-btn'
 ) as HTMLButtonElement | null;
-const zoomFitBtn = document.getElementById(
+let zoomFitBtn = document.getElementById(
   'zoom-fit-btn'
 ) as HTMLButtonElement | null;
-const zoomIndicator = document.getElementById(
+let zoomIndicator = document.getElementById(
   'zoom-indicator'
 ) as HTMLElement | null;
-const addTopLevelBtn = document.getElementById(
+let addTopLevelBtn = document.getElementById(
   'add-top-level-btn'
 ) as HTMLButtonElement | null;
-const titleInput = document.getElementById(
+let titleInput = document.getElementById(
   'bookmark-title'
 ) as HTMLInputElement | null;
-const treeList = document.getElementById(
+let treeList = document.getElementById(
   'bookmark-tree-list'
 ) as HTMLElement | null;
-const noBookmarksEl = document.getElementById(
+let noBookmarksEl = document.getElementById(
   'no-bookmarks'
 ) as HTMLElement | null;
-const downloadBtn = document.getElementById(
+let downloadBtn = document.getElementById(
   'download-btn'
 ) as HTMLButtonElement | null;
-const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement | null;
-const redoBtn = document.getElementById('redo-btn') as HTMLButtonElement | null;
-const resetBtn = document.getElementById(
-  'reset-btn'
-) as HTMLButtonElement | null;
-const deleteAllBtn = document.getElementById(
+let undoBtn = document.getElementById('undo-btn') as HTMLButtonElement | null;
+let redoBtn = document.getElementById('redo-btn') as HTMLButtonElement | null;
+let resetBtn = document.getElementById('reset-btn') as HTMLButtonElement | null;
+let deleteAllBtn = document.getElementById(
   'delete-all-btn'
 ) as HTMLButtonElement | null;
-const searchInput = document.getElementById(
+let searchInput = document.getElementById(
   'search-bookmarks'
 ) as HTMLInputElement | null;
 
-const importDropdownBtn = document.getElementById(
+let importDropdownBtn = document.getElementById(
   'import-dropdown-btn'
 ) as HTMLButtonElement | null;
-const exportDropdownBtn = document.getElementById(
+let exportDropdownBtn = document.getElementById(
   'export-dropdown-btn'
 ) as HTMLButtonElement | null;
-const importDropdown = document.getElementById(
+let importDropdown = document.getElementById(
   'import-dropdown'
 ) as HTMLElement | null;
-const exportDropdown = document.getElementById(
+let exportDropdown = document.getElementById(
   'export-dropdown'
 ) as HTMLElement | null;
-const importCsvBtn = document.getElementById(
+let importCsvBtn = document.getElementById(
   'import-csv-btn'
 ) as HTMLButtonElement | null;
-const exportCsvBtn = document.getElementById(
+let exportCsvBtn = document.getElementById(
   'export-csv-btn'
 ) as HTMLButtonElement | null;
-const importJsonBtn = document.getElementById(
+let importJsonBtn = document.getElementById(
   'import-json-btn'
 ) as HTMLButtonElement | null;
-const exportJsonBtn = document.getElementById(
+let exportJsonBtn = document.getElementById(
   'export-json-btn'
 ) as HTMLButtonElement | null;
-const csvImportHidden = document.getElementById(
+let csvImportHidden = document.getElementById(
   'csv-import-hidden'
 ) as HTMLInputElement | null;
-const jsonImportHidden = document.getElementById(
+let jsonImportHidden = document.getElementById(
   'json-import-hidden'
 ) as HTMLInputElement | null;
-const extractExistingBtn = document.getElementById(
+let extractExistingBtn = document.getElementById(
   'extract-existing-btn'
 ) as HTMLButtonElement | null;
-const currentPageDisplay = document.getElementById(
+let currentPageDisplay = document.getElementById(
   'current-page-display'
 ) as HTMLElement | null;
-const filenameDisplay = document.getElementById(
+let filenameDisplay = document.getElementById(
   'filename-display'
 ) as HTMLElement | null;
 
-const batchModeCheckbox = document.getElementById(
+let batchModeCheckbox = document.getElementById(
   'batch-mode-checkbox'
 ) as HTMLInputElement | null;
-const batchOperations = document.getElementById(
+let batchOperations = document.getElementById(
   'batch-operations'
 ) as HTMLElement | null;
-const selectedCountDisplay = document.getElementById(
+let selectedCountDisplay = document.getElementById(
   'selected-count'
 ) as HTMLElement | null;
-const batchColorSelect = document.getElementById(
+let batchColorSelect = document.getElementById(
   'batch-color-select'
 ) as HTMLSelectElement | null;
-const batchStyleSelect = document.getElementById(
+let batchStyleSelect = document.getElementById(
   'batch-style-select'
 ) as HTMLSelectElement | null;
-const batchDeleteBtn = document.getElementById(
+let batchDeleteBtn = document.getElementById(
   'batch-delete-btn'
 ) as HTMLButtonElement | null;
-const selectAllBtn = document.getElementById(
+let selectAllBtn = document.getElementById(
   'select-all-btn'
 ) as HTMLButtonElement | null;
-const deselectAllBtn = document.getElementById(
+let deselectAllBtn = document.getElementById(
   'deselect-all-btn'
 ) as HTMLButtonElement | null;
-const expandAllBtn = document.getElementById(
+let expandAllBtn = document.getElementById(
   'expand-all-btn'
 ) as HTMLButtonElement | null;
-const collapseAllBtn = document.getElementById(
+let collapseAllBtn = document.getElementById(
   'collapse-all-btn'
 ) as HTMLButtonElement | null;
 
-const showViewerBtn = document.getElementById(
+let showViewerBtn = document.getElementById(
   'show-viewer-btn'
 ) as HTMLButtonElement | null;
-const showBookmarksBtn = document.getElementById(
+let showBookmarksBtn = document.getElementById(
   'show-bookmarks-btn'
 ) as HTMLButtonElement | null;
-const viewerSection = document.getElementById(
+let viewerSection = document.getElementById(
   'viewer-section'
 ) as HTMLElement | null;
-const bookmarksSection = document.getElementById(
+let bookmarksSection = document.getElementById(
   'bookmarks-section'
+) as HTMLElement | null;
+
+let tabBookmarksBtn = document.getElementById(
+  'tab-bookmarks'
+) as HTMLButtonElement | null;
+let tabTocBtn = document.getElementById('tab-toc') as HTMLButtonElement | null;
+let bookmarksPanel = document.getElementById(
+  'bookmarks-panel'
+) as HTMLElement | null;
+let tocPanel = document.getElementById('toc-panel') as HTMLElement | null;
+let tocTitleInput = document.getElementById(
+  'toc-title'
+) as HTMLInputElement | null;
+let fontSizeSelect = document.getElementById(
+  'font-size'
+) as HTMLSelectElement | null;
+let fontFamilySelect = document.getElementById(
+  'font-family'
+) as HTMLSelectElement | null;
+let addBookmarkCheckbox = document.getElementById(
+  'add-bookmark'
+) as HTMLInputElement | null;
+let statusMessage = document.getElementById(
+  'status-message'
 ) as HTMLElement | null;
 
 function showInputModal(
@@ -690,9 +747,7 @@ function cancelDestinationPicking(): void {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  initializeGlobalShortcuts();
-
+function bindDestinationPickingListeners(): void {
   const canvasEl = document.getElementById(
     'pdf-canvas'
   ) as HTMLCanvasElement | null;
@@ -807,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cancelDestinationPicking();
     });
   }
-});
+}
 
 function showConfirmModal(message: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -914,43 +969,6 @@ function handleResize(): void {
   }
 }
 
-window.addEventListener('resize', handleResize);
-
-showViewerBtn?.addEventListener('click', () => {
-  viewerSection?.classList.remove('hidden');
-  bookmarksSection?.classList.add('hidden');
-  showViewerBtn?.classList.add('bg-indigo-600', 'text-white');
-  showViewerBtn?.classList.remove('text-gray-300');
-  showBookmarksBtn?.classList.remove('bg-indigo-600', 'text-white');
-  showBookmarksBtn?.classList.add('text-gray-300');
-});
-
-showBookmarksBtn?.addEventListener('click', () => {
-  viewerSection?.classList.add('hidden');
-  bookmarksSection?.classList.remove('hidden');
-  showBookmarksBtn?.classList.add('bg-indigo-600', 'text-white');
-  showBookmarksBtn?.classList.remove('text-gray-300');
-  showViewerBtn?.classList.remove('bg-indigo-600', 'text-white');
-  showViewerBtn?.classList.add('text-gray-300');
-});
-
-importDropdownBtn?.addEventListener('click', (e: MouseEvent) => {
-  e.stopPropagation();
-  importDropdown?.classList.toggle('hidden');
-  exportDropdown?.classList.add('hidden');
-});
-
-exportDropdownBtn?.addEventListener('click', (e: MouseEvent) => {
-  e.stopPropagation();
-  exportDropdown?.classList.toggle('hidden');
-  importDropdown?.classList.add('hidden');
-});
-
-document.addEventListener('click', () => {
-  importDropdown?.classList.add('hidden');
-  exportDropdown?.classList.add('hidden');
-});
-
 let pdfLibDoc: PDFDocument | null = null;
 let pdfJsDoc: PDFDocumentProxy | null = null;
 let currentPage = 1;
@@ -993,37 +1011,8 @@ function redo(): void {
 function updateUndoRedoButtons(): void {
   if (undoBtn) undoBtn.disabled = historyIndex <= 0;
   if (redoBtn) redoBtn.disabled = historyIndex >= history.length - 1;
+  syncToolOutputToolbar();
 }
-
-undoBtn?.addEventListener('click', undo);
-redoBtn?.addEventListener('click', redo);
-
-resetBtn?.addEventListener('click', async () => {
-  const confirmed = await showConfirmModal(
-    'Reset and go back to file uploader? All unsaved changes will be lost.'
-  );
-  if (confirmed) {
-    resetToUploader();
-  }
-});
-
-deleteAllBtn?.addEventListener('click', async () => {
-  if (bookmarkTree.length === 0) {
-    await showAlertModal('Info', 'No bookmarks to delete.');
-    return;
-  }
-
-  const confirmed = await showConfirmModal(
-    `Delete all ${bookmarkTree.length} bookmark(s) ? `
-  );
-  if (confirmed) {
-    bookmarkTree = [];
-    selectedBookmarks.clear();
-    updateSelectedCount();
-    saveState();
-    renderBookmarkTree();
-  }
-});
 
 function resetToUploader(): void {
   pdfLibDoc = null;
@@ -1045,7 +1034,11 @@ function resetToUploader(): void {
   if (jsonInput) jsonInput.value = '';
 
   appEl?.classList.add('hidden');
-  uploaderEl?.classList.remove('hidden');
+  if (toolUploaderEl) {
+    toolUploaderEl.classList.remove('hidden');
+  } else {
+    uploaderEl?.classList.remove('hidden');
+  }
 
   viewerSection?.classList.remove('hidden');
   bookmarksSection?.classList.add('hidden');
@@ -1053,39 +1046,8 @@ function resetToUploader(): void {
   showViewerBtn?.classList.remove('text-gray-300');
   showBookmarksBtn?.classList.remove('bg-indigo-600', 'text-white');
   showBookmarksBtn?.classList.add('text-gray-300');
+  syncToolOutputToolbar();
 }
-
-document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-      e.preventDefault();
-      redo();
-    }
-  } else if (e.key === 'PageUp') {
-    e.preventDefault();
-    prevPageBtn?.click();
-  } else if (e.key === 'PageDown') {
-    e.preventDefault();
-    nextPageBtn?.click();
-  }
-});
-
-batchModeCheckbox?.addEventListener('change', (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  batchMode = target.checked;
-  if (!batchMode) {
-    selectedBookmarks.clear();
-    updateSelectedCount();
-  }
-  batchOperations?.classList.toggle(
-    'hidden',
-    !batchMode || selectedBookmarks.size === 0
-  );
-  renderBookmarkTree();
-});
 
 function updateSelectedCount(): void {
   if (selectedCountDisplay)
@@ -1094,71 +1056,6 @@ function updateSelectedCount(): void {
     batchOperations?.classList.toggle('hidden', selectedBookmarks.size === 0);
   }
 }
-
-selectAllBtn?.addEventListener('click', () => {
-  const getAllIds = (nodes: BookmarkNode[]): number[] => {
-    let ids: number[] = [];
-    nodes.forEach((node) => {
-      ids.push(node.id);
-      if (node.children.length > 0) {
-        ids = ids.concat(getAllIds(node.children));
-      }
-    });
-    return ids;
-  };
-
-  getAllIds(bookmarkTree).forEach((id) => selectedBookmarks.add(id));
-  updateSelectedCount();
-  renderBookmarkTree();
-});
-
-deselectAllBtn?.addEventListener('click', () => {
-  selectedBookmarks.clear();
-  updateSelectedCount();
-  renderBookmarkTree();
-});
-
-batchColorSelect?.addEventListener('change', (e: Event) => {
-  const target = e.target as HTMLSelectElement;
-  if (target.value && selectedBookmarks.size > 0) {
-    const color = target.value === 'null' ? null : target.value;
-    applyToSelected((node) => (node.color = color));
-    target.value = '';
-  }
-});
-
-batchStyleSelect?.addEventListener('change', (e: Event) => {
-  const target = e.target as HTMLSelectElement;
-  if (target.value && selectedBookmarks.size > 0) {
-    const style =
-      target.value === 'null' ? null : (target.value as BookmarkStyle);
-    applyToSelected((node) => (node.style = style));
-    target.value = '';
-  }
-});
-
-batchDeleteBtn?.addEventListener('click', async () => {
-  if (selectedBookmarks.size === 0) return;
-
-  const confirmed = await showConfirmModal(
-    `Delete ${selectedBookmarks.size} bookmark(s) ? `
-  );
-  if (!confirmed) return;
-
-  const remove = (nodes: BookmarkNode[]): BookmarkNode[] => {
-    return nodes.filter((node) => {
-      if (selectedBookmarks.has(node.id)) return false;
-      node.children = remove(node.children);
-      return true;
-    });
-  };
-
-  bookmarkTree = remove(bookmarkTree);
-  selectedBookmarks.clear();
-  updateSelectedCount();
-  saveState();
-  renderBookmarkTree();
-});
 
 function applyToSelected(fn: (node: BookmarkNode) => void): void {
   const update = (nodes: BookmarkNode[]): BookmarkNode[] => {
@@ -1175,24 +1072,6 @@ function applyToSelected(fn: (node: BookmarkNode) => void): void {
   saveState();
   renderBookmarkTree();
 }
-
-expandAllBtn?.addEventListener('click', () => {
-  collapsedNodes.clear();
-  renderBookmarkTree();
-});
-
-collapseAllBtn?.addEventListener('click', () => {
-  const collapseAll = (nodes: BookmarkNode[]): void => {
-    nodes.forEach((node) => {
-      if (node.children.length > 0) {
-        collapsedNodes.add(node.id);
-        collapseAll(node.children);
-      }
-    });
-  };
-  collapseAll(bookmarkTree);
-  renderBookmarkTree();
-});
 
 function renderFileDisplay(file: File): void {
   if (!fileDisplayArea) return;
@@ -1216,8 +1095,6 @@ function renderFileDisplay(file: File): void {
   fileDisplayArea.appendChild(fileDiv);
 }
 
-fileInput?.addEventListener('change', loadPDF);
-
 async function loadPDF(e?: Event): Promise<void> {
   const file = e
     ? (e.target as HTMLInputElement).files?.[0]
@@ -1227,7 +1104,7 @@ async function loadPDF(e?: Event): Promise<void> {
   // Show loader
   showLoader('Loading PDF...');
 
-  originalFileName = file.name.replace('.pdf', '');
+  originalFileName = file.name.replace(/\.pdf$/i, '');
   if (filenameDisplay)
     filenameDisplay.textContent = truncateFilename(file.name);
   renderFileDisplay(file);
@@ -1252,7 +1129,11 @@ async function loadPDF(e?: Event): Promise<void> {
   if (gotoPageInput) gotoPageInput.max = String(pdfJsDoc.numPages);
 
   appEl?.classList.remove('hidden');
-  uploaderEl?.classList.add('hidden');
+  if (toolUploaderEl) {
+    toolUploaderEl.classList.add('hidden');
+  } else {
+    uploaderEl?.classList.add('hidden');
+  }
 
   if (autoExtractCheckbox?.checked) {
     const extracted = await extractExistingBookmarks();
@@ -1271,43 +1152,13 @@ async function loadPDF(e?: Event): Promise<void> {
 
   saveState();
   renderBookmarkTree();
-  renderPage(currentPage);
+  await renderPage(currentPage);
   createIcons({ icons });
+  syncToolOutputToolbar();
 
   // Hide loader
   hideLoader();
 }
-
-csvInput?.addEventListener('change', async (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  const text = await file.text();
-  csvBookmarks = parseCSV(text);
-
-  await showAlertModal(
-    'CSV Loaded',
-    `Loaded ${csvBookmarks.length} bookmarks from CSV. Now upload your PDF.`
-  );
-});
-
-jsonInput?.addEventListener('change', async (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  const text = await file.text();
-  try {
-    jsonBookmarks = JSON.parse(text);
-    await showAlertModal(
-      'JSON Loaded',
-      'Loaded bookmarks from JSON. Now upload your PDF.'
-    );
-  } catch {
-    await showAlertModal('Error', 'Invalid JSON format');
-  }
-});
 
 async function renderPage(
   num: number,
@@ -1398,58 +1249,11 @@ async function renderPageWithDestination(
   await renderPage(pageNum, zoom, x, y);
 }
 
-prevPageBtn?.addEventListener('click', () => {
-  if (currentPage > 1) renderPage(currentPage - 1);
-});
-
-nextPageBtn?.addEventListener('click', () => {
-  if (pdfJsDoc && currentPage < pdfJsDoc.numPages) renderPage(currentPage + 1);
-});
-
-gotoBtn?.addEventListener('click', () => {
-  if (!pdfJsDoc || !gotoPageInput) return;
-  const page = parseInt(gotoPageInput.value);
-  if (page >= 1 && page <= pdfJsDoc.numPages) {
-    renderPage(page);
-  }
-});
-
-gotoPageInput?.addEventListener('keypress', (e: KeyboardEvent) => {
-  if (e.key === 'Enter') gotoBtn?.click();
-});
-
 function updateZoomIndicator(): void {
   if (zoomIndicator) {
     zoomIndicator.textContent = `${Math.round(currentZoom * 100)}%`;
   }
 }
-
-zoomInBtn?.addEventListener('click', () => {
-  currentZoom = Math.min(currentZoom + 0.05, 2.0);
-  updateZoomIndicator();
-  renderPage(currentPage);
-});
-
-zoomOutBtn?.addEventListener('click', () => {
-  currentZoom = Math.max(currentZoom - 0.05, 0.25);
-  updateZoomIndicator();
-  renderPage(currentPage);
-});
-
-zoomFitBtn?.addEventListener('click', async () => {
-  if (!pdfJsDoc) return;
-  currentZoom = 1.0;
-  updateZoomIndicator();
-  renderPage(currentPage);
-});
-
-updateZoomIndicator();
-
-searchInput?.addEventListener('input', (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  searchQuery = target.value.toLowerCase();
-  renderBookmarkTree();
-});
 
 function removeNodeById(nodes: BookmarkNode[], id: number): boolean {
   for (let i = 0; i < nodes.length; i++) {
@@ -1875,86 +1679,9 @@ function createNodeElement(node: BookmarkNode, level = 0): HTMLLIElement {
   return li;
 }
 
-addTopLevelBtn?.addEventListener('click', async () => {
-  const title = titleInput?.value.trim();
-  if (!title) {
-    await showAlertModal('Error', 'Please enter a title.');
-    return;
-  }
-
-  bookmarkTree.push({
-    id: Date.now(),
-    title: title,
-    page: currentPage,
-    children: [],
-    color: null,
-    style: null,
-    destX: null,
-    destY: null,
-    zoom: null,
-  });
-
-  saveState();
-  renderBookmarkTree();
-  if (titleInput) titleInput.value = '';
-});
-
-titleInput?.addEventListener('keypress', (e: KeyboardEvent) => {
-  if (e.key === 'Enter') addTopLevelBtn?.click();
-});
-
 function escapeHTML(str: string): string {
   return escapeHtml(str);
 }
-
-importCsvBtn?.addEventListener('click', () => {
-  csvImportHidden?.click();
-  importDropdown?.classList.add('hidden');
-});
-
-csvImportHidden?.addEventListener('change', async (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  const text = await file.text();
-  const imported = parseCSV(text);
-
-  if (imported.length > 0) {
-    bookmarkTree = imported;
-    saveState();
-    renderBookmarkTree();
-    await showAlertModal('Success', `Imported ${imported.length} bookmarks!`);
-  }
-
-  if (csvImportHidden) csvImportHidden.value = '';
-});
-
-exportCsvBtn?.addEventListener('click', () => {
-  exportDropdown?.classList.add('hidden');
-
-  if (bookmarkTree.length === 0) {
-    showAlertModal('Error', 'No bookmarks to export!');
-    return;
-  }
-
-  const flat = flattenBookmarks(bookmarkTree);
-  const csv =
-    'title,page,level\n' +
-    flat
-      .map((b) => {
-        const first = b.title.charAt(0);
-        const t =
-          /[=+\-@]/.test(first) || first === '\t' || first === '\r'
-            ? `'${b.title}`
-            : b.title;
-        return `"${t.replace(/"/g, '""')}",${b.page},${b.level}`;
-      })
-      .join('\n');
-
-  const blob = new Blob([csv], { type: 'text/csv' });
-  downloadFile(blob, `${originalFileName}-bookmarks.csv`);
-});
 
 function parseCSV(text: string): BookmarkTree {
   const lines = text.trim().split('\n').slice(1);
@@ -1989,106 +1716,6 @@ function parseCSV(text: string): BookmarkTree {
 
   return bookmarks;
 }
-
-importJsonBtn?.addEventListener('click', () => {
-  jsonImportHidden?.click();
-  importDropdown?.classList.add('hidden');
-});
-
-jsonImportHidden?.addEventListener('change', async (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  const text = await file.text();
-  try {
-    const imported = JSON.parse(text) as BookmarkTree;
-    function cleanImportedTree(nodes: BookmarkNode[]): void {
-      if (!nodes) return;
-      const validStyles = ['bold', 'italic', 'bold-italic'];
-      for (const node of nodes) {
-        if (node.title) node.title = cleanTitle(node.title);
-        node.page = Number.isFinite(Number(node.page))
-          ? Math.max(1, Math.trunc(Number(node.page)))
-          : 1;
-        if (
-          typeof node.color === 'string' &&
-          node.color.startsWith('#') &&
-          !/^#[0-9a-fA-F]{3,8}$/.test(node.color)
-        ) {
-          node.color = '';
-        }
-        if (!validStyles.includes(node.style as string)) {
-          node.style = null;
-        }
-        node.destX =
-          node.destX != null && Number.isFinite(Number(node.destX))
-            ? Number(node.destX)
-            : null;
-        node.destY =
-          node.destY != null && Number.isFinite(Number(node.destY))
-            ? Number(node.destY)
-            : null;
-        node.zoom =
-          node.zoom != null && /^-?\d*\.?\d+$/.test(String(node.zoom))
-            ? String(node.zoom)
-            : null;
-        if (node.children) cleanImportedTree(node.children);
-      }
-    }
-    cleanImportedTree(imported);
-    bookmarkTree = imported;
-    saveState();
-    renderBookmarkTree();
-    await showAlertModal('Success', 'Bookmarks imported from JSON!');
-  } catch {
-    await showAlertModal('Error', 'Invalid JSON format');
-  }
-
-  if (jsonImportHidden) jsonImportHidden.value = '';
-});
-
-exportJsonBtn?.addEventListener('click', () => {
-  exportDropdown?.classList.add('hidden');
-
-  if (bookmarkTree.length === 0) {
-    showAlertModal('Error', 'No bookmarks to export!');
-    return;
-  }
-
-  const json = JSON.stringify(bookmarkTree, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  downloadFile(blob, `${originalFileName}-bookmarks.json`);
-});
-
-extractExistingBtn?.addEventListener('click', async () => {
-  if (!pdfLibDoc) return;
-
-  const extracted = await extractExistingBookmarks();
-  if (extracted.length > 0) {
-    const confirmed = await showConfirmModal(
-      `Found ${extracted.length} existing bookmarks. Replace current bookmarks?`
-    );
-    if (confirmed) {
-      bookmarkTree = extracted;
-      saveState();
-      renderBookmarkTree();
-    }
-  } else {
-    await showAlertModal('Info', 'No existing bookmarks found in this PDF.');
-  }
-});
-
-// function cleanTitle(title) {
-//   // @TODO@ALAM: visit this for encoding issues later
-//   if (typeof title === 'string') {
-//     if (title.includes('€') && !title.includes(' ')) {
-//       return title.replace(/€/g, ' ');
-//     }
-//     return title.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
-//   }
-//   return title;
-// }
 
 function cleanTitle(title: string): string {
   if (typeof title === 'string') {
@@ -2189,17 +1816,11 @@ async function extractExistingBookmarks(): Promise<BookmarkTree> {
   }
 }
 
-if (closeBtn) {
-  closeBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
-}
-
-downloadBtn?.addEventListener('click', async () => {
-  if (!pdfLibDoc) return;
-  const pages = pdfLibDoc.getPages();
-  const outlinesDict = pdfLibDoc.context.obj({});
-  const outlinesRef = pdfLibDoc.context.register(outlinesDict);
+function writeOutlinesToPdfDoc(doc: PDFDocument, tree: BookmarkTree): void {
+  const pages = doc.getPages();
+  if (pages.length === 0) return;
+  const outlinesDict = doc.context.obj({});
+  const outlinesRef = doc.context.register(outlinesDict);
 
   function createOutlineItems(
     nodes: BookmarkNode[],
@@ -2209,11 +1830,11 @@ downloadBtn?.addEventListener('click', async () => {
 
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
-      const itemDict = pdfLibDoc!.context.obj({}) as unknown as ReturnType<
-        typeof pdfLibDoc.context.obj
+      const itemDict = doc.context.obj({}) as unknown as ReturnType<
+        typeof doc.context.obj
       > & { set: (key: PDFName, value: unknown) => void };
-      const itemRef = pdfLibDoc!.context.register(
-        itemDict as unknown as Parameters<typeof pdfLibDoc.context.register>[0]
+      const itemRef = doc.context.register(
+        itemDict as unknown as Parameters<typeof doc.context.register>[0]
       );
 
       itemDict.set(PDFName.of('Title'), PDFHexString.fromText(node.title));
@@ -2232,7 +1853,7 @@ downloadBtn?.addEventListener('click', async () => {
           zoom = PDFNumber.of(parseFloat(node.zoom) / 100);
         }
 
-        destArray = pdfLibDoc!.context.obj([
+        destArray = doc.context.obj([
           pageRef,
           PDFName.of('XYZ'),
           x,
@@ -2240,7 +1861,7 @@ downloadBtn?.addEventListener('click', async () => {
           zoom,
         ] as (PDFRef | PDFName | PDFNumber | null)[]);
       } else {
-        destArray = pdfLibDoc!.context.obj([
+        destArray = doc.context.obj([
           pageRef,
           PDFName.of('XYZ'),
           null,
@@ -2263,7 +1884,7 @@ downloadBtn?.addEventListener('click', async () => {
         }
 
         if (rgb) {
-          const colorArray = pdfLibDoc!.context.obj(rgb);
+          const colorArray = doc.context.obj(rgb);
           itemDict.set(PDFName.of('C'), colorArray);
         }
       }
@@ -2287,10 +1908,7 @@ downloadBtn?.addEventListener('click', async () => {
             PDFName.of('Last'),
             childItems[childItems.length - 1].ref
           );
-          itemDict.set(
-            PDFName.of('Count'),
-            pdfLibDoc.context.obj(childItems.length)
-          );
+          itemDict.set(PDFName.of('Count'), doc.context.obj(childItems.length));
         }
       }
 
@@ -2305,35 +1923,204 @@ downloadBtn?.addEventListener('click', async () => {
     return items;
   }
 
+  const topLevelItems = createOutlineItems(tree, outlinesRef);
+
+  if (topLevelItems.length > 0) {
+    outlinesDict.set(PDFName.of('Type'), PDFName.of('Outlines'));
+    outlinesDict.set(PDFName.of('First'), topLevelItems[0].ref);
+    outlinesDict.set(
+      PDFName.of('Last'),
+      topLevelItems[topLevelItems.length - 1].ref
+    );
+    outlinesDict.set(
+      PDFName.of('Count'),
+      doc.context.obj(topLevelItems.length)
+    );
+  }
+
+  doc.catalog.set(PDFName.of('Outlines'), outlinesRef);
+}
+
+function showTocStatus(
+  message: string,
+  type: 'success' | 'error' | 'info' = 'info'
+): void {
+  if (!statusMessage) return;
+  statusMessage.textContent = message;
+  statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
+    type === 'success'
+      ? 'bg-green-900 text-green-200'
+      : type === 'error'
+        ? 'bg-red-900 text-red-200'
+        : 'bg-blue-900 text-blue-200'
+  }`;
+  statusMessage.classList.remove('hidden');
+}
+
+function syncBookmarkModeTabs(): void {
+  const isBookmarks = activeBookmarkMode === 'bookmarks';
+  const isToc = activeBookmarkMode === 'toc';
+
+  if (tabBookmarksBtn) {
+    tabBookmarksBtn.setAttribute('aria-selected', String(isBookmarks));
+    tabBookmarksBtn.classList.toggle('bg-indigo-600', isBookmarks);
+    tabBookmarksBtn.classList.toggle('text-white', isBookmarks);
+    tabBookmarksBtn.classList.toggle('text-gray-300', !isBookmarks);
+  }
+
+  if (tabTocBtn) {
+    tabTocBtn.setAttribute('aria-selected', String(isToc));
+    tabTocBtn.classList.toggle('bg-indigo-600', isToc);
+    tabTocBtn.classList.toggle('text-white', isToc);
+    tabTocBtn.classList.toggle('text-gray-300', !isToc);
+  }
+
+  bookmarksPanel?.classList.toggle('hidden', !isBookmarks);
+  tocPanel?.classList.toggle('hidden', !isToc);
+  syncToolOutputToolbar();
+}
+
+function switchBookmarkMode(nextMode: BookmarkWorkspaceMode): void {
+  activeBookmarkMode = nextMode;
+  setLaunchContext(
+    nextMode === 'toc' ? 'table-of-contents' : 'bookmark',
+    document
+  );
+  syncBookmarkModeTabs();
+}
+
+async function applyBookmarkOrTocOutput(): Promise<void> {
+  if (!pdfLibDoc) return;
+
   try {
-    const topLevelItems = createOutlineItems(bookmarkTree, outlinesRef);
+    writeOutlinesToPdfDoc(pdfLibDoc, bookmarkTree);
 
-    if (topLevelItems.length > 0) {
-      outlinesDict.set(PDFName.of('Type'), PDFName.of('Outlines'));
-      outlinesDict.set(PDFName.of('First'), topLevelItems[0].ref);
-      outlinesDict.set(
-        PDFName.of('Last'),
-        topLevelItems[topLevelItems.length - 1].ref
+    if (activeBookmarkMode === 'toc') {
+      if (!isCpdfAvailable()) {
+        showWasmRequiredDialog('cpdf');
+        return;
+      }
+
+      showTocStatus(t('tools:tableOfContents.statusGenerating'), 'info');
+      const currentBytes = await pdfLibDoc.save();
+      const arrayBuffer = currentBytes.buffer.slice(
+        currentBytes.byteOffset,
+        currentBytes.byteOffset + currentBytes.byteLength
+      ) as ArrayBuffer;
+
+      const title =
+        tocTitleInput?.value ||
+        t('tools:tableOfContents.name') ||
+        'Table of Contents';
+      const fontSize = parseInt(fontSizeSelect?.value || '12', 10);
+      const fontFamily = parseInt(fontFamilySelect?.value || '4', 10);
+      const addBookmark = Boolean(addBookmarkCheckbox?.checked);
+
+      const generatedBytes = await new Promise<Uint8Array>(
+        (resolve, reject) => {
+          if (!tocWorker) {
+            reject(new Error('TOC worker is not initialized.'));
+            return;
+          }
+          tocWorker.onmessage = (e: MessageEvent<TOCWorkerResponse>) => {
+            if (e.data.status === 'success') {
+              resolve(new Uint8Array(e.data.pdfBytes));
+            } else {
+              const errorMessage = e.data.message || t('common.unknownError');
+              showTocStatus(
+                t('tools:tableOfContents.workerErrorWithMessage', {
+                  message: errorMessage,
+                }),
+                'error'
+              );
+              reject(new Error(errorMessage));
+            }
+          };
+          tocWorker.onerror = (error) => {
+            console.error('Worker error:', error);
+            showTocStatus(
+              t('tools:tableOfContents.workerErrorOccurred'),
+              'error'
+            );
+            reject(new Error('TOC worker error'));
+          };
+          tocWorker.postMessage(
+            {
+              command: 'generate-toc',
+              pdfData: arrayBuffer,
+              title,
+              fontSize,
+              fontFamily,
+              addBookmark,
+              cpdfUrl:
+                (WasmProvider.getUrl('cpdf') ?? '') +
+                'coherentpdf.browser.min.js',
+            },
+            [arrayBuffer]
+          );
+        }
       );
-      outlinesDict.set(
-        PDFName.of('Count'),
-        pdfLibDoc.context.obj(topLevelItems.length)
+
+      const previousPageCount = pdfJsDoc ? pdfJsDoc.numPages : 0;
+      pdfLibDoc = await loadPdfDocument(generatedBytes, {
+        ignoreEncryption: true,
+      });
+      const loadingTask = getPDFDocument({ data: generatedBytes.slice(0) });
+      pdfJsDoc = (await loadingTask.promise) as PDFDocumentProxy;
+      const insertedTocPages =
+        previousPageCount > 0
+          ? Math.max(0, pdfJsDoc.numPages - previousPageCount)
+          : 0;
+
+      const extractedAfterToc = await extractExistingBookmarks();
+      if (extractedAfterToc.length > 0) {
+        bookmarkTree = extractedAfterToc;
+      } else if (insertedTocPages > 0) {
+        const shiftBookmarkPages = (nodes: BookmarkTree): BookmarkTree =>
+          nodes.map((node) => ({
+            ...node,
+            page: node.page + insertedTocPages,
+            children: shiftBookmarkPages(node.children || []),
+          }));
+        bookmarkTree = shiftBookmarkPages(bookmarkTree);
+        if (addBookmark) {
+          bookmarkTree.unshift({
+            id: Date.now(),
+            title,
+            page: 1,
+            children: [],
+            color: null,
+            style: null,
+            destX: null,
+            destY: null,
+            zoom: null,
+          });
+        }
+      }
+      saveState();
+      renderBookmarkTree();
+
+      if (gotoPageInput) gotoPageInput.max = String(pdfJsDoc.numPages);
+      currentPage = Math.min(currentPage + insertedTocPages, pdfJsDoc.numPages);
+      if (gotoPageInput) gotoPageInput.value = String(currentPage);
+      await renderPage(currentPage);
+
+      const blob = new Blob([new Uint8Array(generatedBytes)], {
+        type: 'application/pdf',
+      });
+      downloadFile(blob, `${originalFileName || 'document'}.pdf`);
+      showTocStatus(
+        t('tools:tableOfContents.successGeneratedDownloadStarted'),
+        'success'
       );
+      return;
     }
-
-    pdfLibDoc.catalog.set(PDFName.of('Outlines'), outlinesRef);
 
     const pdfBytes = await pdfLibDoc.save();
     const blob = new Blob([new Uint8Array(pdfBytes)], {
       type: 'application/pdf',
     });
-    downloadFile(blob, `${originalFileName}.pdf`);
-
-    await showAlertModal('Success', 'PDF saved successfully!');
-
-    setTimeout(() => {
-      resetToUploader();
-    }, 500);
+    downloadFile(blob, `${originalFileName || 'document'}.pdf`);
   } catch (err) {
     console.error(err);
     await showAlertModal(
@@ -2341,4 +2128,686 @@ downloadBtn?.addEventListener('click', async () => {
       'Error saving PDF. Check console for details.'
     );
   }
-});
+}
+
+function refreshDomElements(): void {
+  modalContainer = document.getElementById(
+    'modal-container'
+  ) as HTMLElement | null;
+  fileInput = document.getElementById('file-input') as HTMLInputElement | null;
+  csvInput = document.getElementById('csv-input') as HTMLInputElement | null;
+  jsonInput = document.getElementById('json-input') as HTMLInputElement | null;
+  autoExtractCheckbox = document.getElementById(
+    'auto-extract-checkbox'
+  ) as HTMLInputElement | null;
+  appEl = document.getElementById('app') as HTMLElement | null;
+  uploaderEl = document.getElementById('uploader') as HTMLElement | null;
+  toolUploaderEl = document.getElementById(
+    'tool-uploader'
+  ) as HTMLElement | null;
+  fileDisplayArea = document.getElementById(
+    'file-display-area'
+  ) as HTMLElement | null;
+  closeBtn = document.getElementById('back-btn') as HTMLButtonElement | null;
+  canvas = document.getElementById('pdf-canvas') as HTMLCanvasElement | null;
+  ctx = canvas?.getContext('2d') ?? null;
+  pageIndicator = document.getElementById(
+    'page-indicator'
+  ) as HTMLElement | null;
+  prevPageBtn = document.getElementById(
+    'prev-page'
+  ) as HTMLButtonElement | null;
+  nextPageBtn = document.getElementById(
+    'next-page'
+  ) as HTMLButtonElement | null;
+  gotoPageInput = document.getElementById(
+    'goto-page'
+  ) as HTMLInputElement | null;
+  gotoBtn = document.getElementById('goto-btn') as HTMLButtonElement | null;
+  zoomInBtn = document.getElementById(
+    'zoom-in-btn'
+  ) as HTMLButtonElement | null;
+  zoomOutBtn = document.getElementById(
+    'zoom-out-btn'
+  ) as HTMLButtonElement | null;
+  zoomFitBtn = document.getElementById(
+    'zoom-fit-btn'
+  ) as HTMLButtonElement | null;
+  zoomIndicator = document.getElementById(
+    'zoom-indicator'
+  ) as HTMLElement | null;
+  addTopLevelBtn = document.getElementById(
+    'add-top-level-btn'
+  ) as HTMLButtonElement | null;
+  titleInput = document.getElementById(
+    'bookmark-title'
+  ) as HTMLInputElement | null;
+  treeList = document.getElementById(
+    'bookmark-tree-list'
+  ) as HTMLElement | null;
+  noBookmarksEl = document.getElementById('no-bookmarks') as HTMLElement | null;
+  downloadBtn = document.getElementById(
+    'download-btn'
+  ) as HTMLButtonElement | null;
+  undoBtn = document.getElementById('undo-btn') as HTMLButtonElement | null;
+  redoBtn = document.getElementById('redo-btn') as HTMLButtonElement | null;
+  resetBtn = document.getElementById('reset-btn') as HTMLButtonElement | null;
+  deleteAllBtn = document.getElementById(
+    'delete-all-btn'
+  ) as HTMLButtonElement | null;
+  searchInput = document.getElementById(
+    'search-bookmarks'
+  ) as HTMLInputElement | null;
+  importDropdownBtn = document.getElementById(
+    'import-dropdown-btn'
+  ) as HTMLButtonElement | null;
+  exportDropdownBtn = document.getElementById(
+    'export-dropdown-btn'
+  ) as HTMLButtonElement | null;
+  importDropdown = document.getElementById(
+    'import-dropdown'
+  ) as HTMLElement | null;
+  exportDropdown = document.getElementById(
+    'export-dropdown'
+  ) as HTMLElement | null;
+  importCsvBtn = document.getElementById(
+    'import-csv-btn'
+  ) as HTMLButtonElement | null;
+  exportCsvBtn = document.getElementById(
+    'export-csv-btn'
+  ) as HTMLButtonElement | null;
+  importJsonBtn = document.getElementById(
+    'import-json-btn'
+  ) as HTMLButtonElement | null;
+  exportJsonBtn = document.getElementById(
+    'export-json-btn'
+  ) as HTMLButtonElement | null;
+  csvImportHidden = document.getElementById(
+    'csv-import-hidden'
+  ) as HTMLInputElement | null;
+  jsonImportHidden = document.getElementById(
+    'json-import-hidden'
+  ) as HTMLInputElement | null;
+  extractExistingBtn = document.getElementById(
+    'extract-existing-btn'
+  ) as HTMLButtonElement | null;
+  currentPageDisplay = document.getElementById(
+    'current-page-display'
+  ) as HTMLElement | null;
+  filenameDisplay = document.getElementById(
+    'filename-display'
+  ) as HTMLElement | null;
+  batchModeCheckbox = document.getElementById(
+    'batch-mode-checkbox'
+  ) as HTMLInputElement | null;
+  batchOperations = document.getElementById(
+    'batch-operations'
+  ) as HTMLElement | null;
+  selectedCountDisplay = document.getElementById(
+    'selected-count'
+  ) as HTMLElement | null;
+  batchColorSelect = document.getElementById(
+    'batch-color-select'
+  ) as HTMLSelectElement | null;
+  batchStyleSelect = document.getElementById(
+    'batch-style-select'
+  ) as HTMLSelectElement | null;
+  batchDeleteBtn = document.getElementById(
+    'batch-delete-btn'
+  ) as HTMLButtonElement | null;
+  selectAllBtn = document.getElementById(
+    'select-all-btn'
+  ) as HTMLButtonElement | null;
+  deselectAllBtn = document.getElementById(
+    'deselect-all-btn'
+  ) as HTMLButtonElement | null;
+  expandAllBtn = document.getElementById(
+    'expand-all-btn'
+  ) as HTMLButtonElement | null;
+  collapseAllBtn = document.getElementById(
+    'collapse-all-btn'
+  ) as HTMLButtonElement | null;
+  showViewerBtn = document.getElementById(
+    'show-viewer-btn'
+  ) as HTMLButtonElement | null;
+  showBookmarksBtn = document.getElementById(
+    'show-bookmarks-btn'
+  ) as HTMLButtonElement | null;
+  viewerSection = document.getElementById(
+    'viewer-section'
+  ) as HTMLElement | null;
+  bookmarksSection = document.getElementById(
+    'bookmarks-section'
+  ) as HTMLElement | null;
+  tabBookmarksBtn = document.getElementById(
+    'tab-bookmarks'
+  ) as HTMLButtonElement | null;
+  tabTocBtn = document.getElementById('tab-toc') as HTMLButtonElement | null;
+  bookmarksPanel = document.getElementById(
+    'bookmarks-panel'
+  ) as HTMLElement | null;
+  tocPanel = document.getElementById('toc-panel') as HTMLElement | null;
+  tocTitleInput = document.getElementById(
+    'toc-title'
+  ) as HTMLInputElement | null;
+  fontSizeSelect = document.getElementById(
+    'font-size'
+  ) as HTMLSelectElement | null;
+  fontFamilySelect = document.getElementById(
+    'font-family'
+  ) as HTMLSelectElement | null;
+  addBookmarkCheckbox = document.getElementById(
+    'add-bookmark'
+  ) as HTMLInputElement | null;
+  statusMessage = document.getElementById(
+    'status-message'
+  ) as HTMLElement | null;
+}
+
+function bindBookmarkDomListeners(): void {
+  if (!documentListenersBound) {
+    documentListenersBound = true;
+    initializeGlobalShortcuts();
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('click', () => {
+      importDropdown?.classList.add('hidden');
+      exportDropdown?.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          undo();
+        } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      } else if (e.key === 'PageUp') {
+        e.preventDefault();
+        prevPageBtn?.click();
+      } else if (e.key === 'PageDown') {
+        e.preventDefault();
+        nextPageBtn?.click();
+      }
+    });
+  }
+
+  bindDestinationPickingListeners();
+
+  tabBookmarksBtn?.addEventListener('click', () => {
+    switchBookmarkMode('bookmarks');
+  });
+  tabTocBtn?.addEventListener('click', () => {
+    switchBookmarkMode('toc');
+  });
+
+  showViewerBtn?.addEventListener('click', () => {
+    viewerSection?.classList.remove('hidden');
+    bookmarksSection?.classList.add('hidden');
+    showViewerBtn?.classList.add('bg-indigo-600', 'text-white');
+    showViewerBtn?.classList.remove('text-gray-300');
+    showBookmarksBtn?.classList.remove('bg-indigo-600', 'text-white');
+    showBookmarksBtn?.classList.add('text-gray-300');
+  });
+
+  showBookmarksBtn?.addEventListener('click', () => {
+    viewerSection?.classList.add('hidden');
+    bookmarksSection?.classList.remove('hidden');
+    showBookmarksBtn?.classList.add('bg-indigo-600', 'text-white');
+    showBookmarksBtn?.classList.remove('text-gray-300');
+    showViewerBtn?.classList.remove('bg-indigo-600', 'text-white');
+    showViewerBtn?.classList.add('text-gray-300');
+  });
+
+  importDropdownBtn?.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation();
+    importDropdown?.classList.toggle('hidden');
+    exportDropdown?.classList.add('hidden');
+  });
+
+  exportDropdownBtn?.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation();
+    exportDropdown?.classList.toggle('hidden');
+    importDropdown?.classList.add('hidden');
+  });
+
+  undoBtn?.addEventListener('click', undo);
+  redoBtn?.addEventListener('click', redo);
+
+  resetBtn?.addEventListener('click', async () => {
+    const confirmed = await showConfirmModal(
+      'Reset and go back to file uploader? All unsaved changes will be lost.'
+    );
+    if (confirmed) {
+      resetToUploader();
+    }
+  });
+
+  deleteAllBtn?.addEventListener('click', async () => {
+    if (bookmarkTree.length === 0) {
+      await showAlertModal('Info', 'No bookmarks to delete.');
+      return;
+    }
+
+    const confirmed = await showConfirmModal(
+      `Delete all ${bookmarkTree.length} bookmark(s) ? `
+    );
+    if (confirmed) {
+      bookmarkTree = [];
+      selectedBookmarks.clear();
+      updateSelectedCount();
+      saveState();
+      renderBookmarkTree();
+    }
+  });
+
+  batchModeCheckbox?.addEventListener('change', (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    batchMode = target.checked;
+    if (!batchMode) {
+      selectedBookmarks.clear();
+      updateSelectedCount();
+    }
+    batchOperations?.classList.toggle(
+      'hidden',
+      !batchMode || selectedBookmarks.size === 0
+    );
+    renderBookmarkTree();
+  });
+
+  selectAllBtn?.addEventListener('click', () => {
+    const getAllIds = (nodes: BookmarkNode[]): number[] => {
+      let ids: number[] = [];
+      nodes.forEach((node) => {
+        ids.push(node.id);
+        if (node.children.length > 0) {
+          ids = ids.concat(getAllIds(node.children));
+        }
+      });
+      return ids;
+    };
+
+    getAllIds(bookmarkTree).forEach((id) => selectedBookmarks.add(id));
+    updateSelectedCount();
+    renderBookmarkTree();
+  });
+
+  deselectAllBtn?.addEventListener('click', () => {
+    selectedBookmarks.clear();
+    updateSelectedCount();
+    renderBookmarkTree();
+  });
+
+  batchColorSelect?.addEventListener('change', (e: Event) => {
+    const target = e.target as HTMLSelectElement;
+    if (target.value && selectedBookmarks.size > 0) {
+      const color = target.value === 'null' ? null : target.value;
+      applyToSelected((node) => (node.color = color));
+      target.value = '';
+    }
+  });
+
+  batchStyleSelect?.addEventListener('change', (e: Event) => {
+    const target = e.target as HTMLSelectElement;
+    if (target.value && selectedBookmarks.size > 0) {
+      const style =
+        target.value === 'null' ? null : (target.value as BookmarkStyle);
+      applyToSelected((node) => (node.style = style));
+      target.value = '';
+    }
+  });
+
+  batchDeleteBtn?.addEventListener('click', async () => {
+    if (selectedBookmarks.size === 0) return;
+
+    const confirmed = await showConfirmModal(
+      `Delete ${selectedBookmarks.size} bookmark(s) ? `
+    );
+    if (!confirmed) return;
+
+    const remove = (nodes: BookmarkNode[]): BookmarkNode[] => {
+      return nodes.filter((node) => {
+        if (selectedBookmarks.has(node.id)) return false;
+        node.children = remove(node.children);
+        return true;
+      });
+    };
+
+    bookmarkTree = remove(bookmarkTree);
+    selectedBookmarks.clear();
+    updateSelectedCount();
+    saveState();
+    renderBookmarkTree();
+  });
+
+  expandAllBtn?.addEventListener('click', () => {
+    collapsedNodes.clear();
+    renderBookmarkTree();
+  });
+
+  collapseAllBtn?.addEventListener('click', () => {
+    const collapseAll = (nodes: BookmarkNode[]): void => {
+      nodes.forEach((node) => {
+        if (node.children.length > 0) {
+          collapsedNodes.add(node.id);
+          collapseAll(node.children);
+        }
+      });
+    };
+    collapseAll(bookmarkTree);
+    renderBookmarkTree();
+  });
+
+  fileInput?.addEventListener('change', loadPDF);
+
+  csvInput?.addEventListener('change', async (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    csvBookmarks = parseCSV(text);
+
+    await showAlertModal(
+      'CSV Loaded',
+      `Loaded ${csvBookmarks.length} bookmarks from CSV. Now upload your PDF.`
+    );
+  });
+
+  jsonInput?.addEventListener('change', async (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    try {
+      jsonBookmarks = JSON.parse(text);
+      await showAlertModal(
+        'JSON Loaded',
+        'Loaded bookmarks from JSON. Now upload your PDF.'
+      );
+    } catch {
+      await showAlertModal('Error', 'Invalid JSON format');
+    }
+  });
+
+  prevPageBtn?.addEventListener('click', () => {
+    if (currentPage > 1) renderPage(currentPage - 1);
+  });
+
+  nextPageBtn?.addEventListener('click', () => {
+    if (pdfJsDoc && currentPage < pdfJsDoc.numPages) {
+      renderPage(currentPage + 1);
+    }
+  });
+
+  gotoBtn?.addEventListener('click', () => {
+    if (!pdfJsDoc || !gotoPageInput) return;
+    const page = parseInt(gotoPageInput.value);
+    if (page >= 1 && page <= pdfJsDoc.numPages) {
+      renderPage(page);
+    }
+  });
+
+  gotoPageInput?.addEventListener('keypress', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') gotoBtn?.click();
+  });
+
+  zoomInBtn?.addEventListener('click', () => {
+    currentZoom = Math.min(currentZoom + 0.05, 2.0);
+    updateZoomIndicator();
+    renderPage(currentPage);
+  });
+
+  zoomOutBtn?.addEventListener('click', () => {
+    currentZoom = Math.max(currentZoom - 0.05, 0.25);
+    updateZoomIndicator();
+    renderPage(currentPage);
+  });
+
+  zoomFitBtn?.addEventListener('click', async () => {
+    if (!pdfJsDoc) return;
+    currentZoom = 1.0;
+    updateZoomIndicator();
+    renderPage(currentPage);
+  });
+
+  updateZoomIndicator();
+
+  searchInput?.addEventListener('input', (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    searchQuery = target.value.toLowerCase();
+    renderBookmarkTree();
+  });
+
+  addTopLevelBtn?.addEventListener('click', async () => {
+    const title = titleInput?.value.trim();
+    if (!title) {
+      await showAlertModal('Error', 'Please enter a title.');
+      return;
+    }
+
+    bookmarkTree.push({
+      id: Date.now(),
+      title: title,
+      page: currentPage,
+      children: [],
+      color: null,
+      style: null,
+      destX: null,
+      destY: null,
+      zoom: null,
+    });
+
+    saveState();
+    renderBookmarkTree();
+    if (titleInput) titleInput.value = '';
+  });
+
+  titleInput?.addEventListener('keypress', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') addTopLevelBtn?.click();
+  });
+
+  importCsvBtn?.addEventListener('click', () => {
+    csvImportHidden?.click();
+    importDropdown?.classList.add('hidden');
+  });
+
+  csvImportHidden?.addEventListener('change', async (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const imported = parseCSV(text);
+
+    if (imported.length > 0) {
+      bookmarkTree = imported;
+      saveState();
+      renderBookmarkTree();
+      await showAlertModal('Success', `Imported ${imported.length} bookmarks!`);
+    }
+
+    if (csvImportHidden) csvImportHidden.value = '';
+  });
+
+  exportCsvBtn?.addEventListener('click', () => {
+    exportDropdown?.classList.add('hidden');
+
+    if (bookmarkTree.length === 0) {
+      showAlertModal('Error', 'No bookmarks to export!');
+      return;
+    }
+
+    const flat = flattenBookmarks(bookmarkTree);
+    const csv =
+      'title,page,level\n' +
+      flat
+        .map((b) => {
+          const first = b.title.charAt(0);
+          const t =
+            /[=+\-@]/.test(first) || first === '\t' || first === '\r'
+              ? `'${b.title}`
+              : b.title;
+          return `"${t.replace(/"/g, '""')}",${b.page},${b.level}`;
+        })
+        .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    downloadFile(blob, `${originalFileName}-bookmarks.csv`);
+  });
+
+  importJsonBtn?.addEventListener('click', () => {
+    jsonImportHidden?.click();
+    importDropdown?.classList.add('hidden');
+  });
+
+  jsonImportHidden?.addEventListener('change', async (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    try {
+      const imported = JSON.parse(text) as BookmarkTree;
+      function cleanImportedTree(nodes: BookmarkNode[]): void {
+        if (!nodes) return;
+        const validStyles = ['bold', 'italic', 'bold-italic'];
+        for (const node of nodes) {
+          if (node.title) node.title = cleanTitle(node.title);
+          node.page = Number.isFinite(Number(node.page))
+            ? Math.max(1, Math.trunc(Number(node.page)))
+            : 1;
+          if (
+            typeof node.color === 'string' &&
+            node.color.startsWith('#') &&
+            !/^#[0-9a-fA-F]{3,8}$/.test(node.color)
+          ) {
+            node.color = '';
+          }
+          if (!validStyles.includes(node.style as string)) {
+            node.style = null;
+          }
+          node.destX =
+            node.destX != null && Number.isFinite(Number(node.destX))
+              ? Number(node.destX)
+              : null;
+          node.destY =
+            node.destY != null && Number.isFinite(Number(node.destY))
+              ? Number(node.destY)
+              : null;
+          node.zoom =
+            node.zoom != null && /^-?\d*\.?\d+$/.test(String(node.zoom))
+              ? String(node.zoom)
+              : null;
+          if (node.children) cleanImportedTree(node.children);
+        }
+      }
+      cleanImportedTree(imported);
+      bookmarkTree = imported;
+      saveState();
+      renderBookmarkTree();
+      await showAlertModal('Success', 'Bookmarks imported from JSON!');
+    } catch {
+      await showAlertModal('Error', 'Invalid JSON format');
+    }
+
+    if (jsonImportHidden) jsonImportHidden.value = '';
+  });
+
+  exportJsonBtn?.addEventListener('click', () => {
+    exportDropdown?.classList.add('hidden');
+
+    if (bookmarkTree.length === 0) {
+      showAlertModal('Error', 'No bookmarks to export!');
+      return;
+    }
+
+    const json = JSON.stringify(bookmarkTree, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    downloadFile(blob, `${originalFileName}-bookmarks.json`);
+  });
+
+  extractExistingBtn?.addEventListener('click', async () => {
+    if (!pdfLibDoc) return;
+
+    const extracted = await extractExistingBookmarks();
+    if (extracted.length > 0) {
+      const confirmed = await showConfirmModal(
+        `Found ${extracted.length} existing bookmarks. Replace current bookmarks?`
+      );
+      if (confirmed) {
+        bookmarkTree = extracted;
+        saveState();
+        renderBookmarkTree();
+      }
+    } else {
+      await showAlertModal('Info', 'No existing bookmarks found in this PDF.');
+    }
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    window.location.href = import.meta.env.BASE_URL;
+  });
+
+  downloadBtn?.addEventListener('click', () => {
+    void applyBookmarkOrTocOutput();
+  });
+}
+
+export function initializeBookmarkPage(): void {
+  refreshDomElements();
+  const context = applyLaunchContextToDom(document);
+  activeBookmarkMode =
+    context.entryId === 'table-of-contents' ? 'toc' : 'bookmarks';
+
+  const host = uploaderEl ?? document.body;
+  if (host.dataset.bookmarkBound !== 'true') {
+    host.dataset.bookmarkBound = 'true';
+    tocWorker = new Worker(
+      import.meta.env.BASE_URL + 'workers/table-of-contents.worker.js'
+    ) as unknown as TocWorkerLike;
+    bindBookmarkDomListeners();
+  } else if (!tocWorker) {
+    tocWorker = new Worker(
+      import.meta.env.BASE_URL + 'workers/table-of-contents.worker.js'
+    ) as unknown as TocWorkerLike;
+  }
+
+  registerToolOutputSession({
+    undo,
+    redo,
+    reset: async () => {
+      if (historyIndex > 0 && modalContainer) {
+        const confirmed = await showConfirmModal(
+          'Reset and go back to file uploader? All unsaved changes will be lost.'
+        );
+        if (!confirmed) return;
+      }
+      resetToUploader();
+    },
+    apply: applyBookmarkOrTocOutput,
+    print: async () => {
+      if (!pdfLibDoc) return;
+      writeOutlinesToPdfDoc(pdfLibDoc, bookmarkTree);
+      const pdfBytes = await pdfLibDoc.save();
+      await printPdfBlob(
+        new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' })
+      );
+    },
+    canUndo: () => historyIndex > 0,
+    canRedo: () => historyIndex < history.length - 1,
+    canReset: () => pdfLibDoc !== null,
+    canSave: () => pdfLibDoc !== null,
+    canPrint: () => pdfLibDoc !== null,
+  });
+
+  syncBookmarkModeTabs();
+  createIcons({ icons });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeBookmarkPage);
+} else {
+  initializeBookmarkPage();
+}

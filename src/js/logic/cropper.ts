@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import {
@@ -217,7 +216,7 @@ async function performFlatteningCrop(
 
   for (let i = 0; i < totalPages; i++) {
     const pageNum = i + 1;
-    showResultLoader(`Processing page ${pageNum} of ${totalPages}...`);
+    showLoader(`Processing page ${pageNum} of ${totalPages}...`);
 
     if (cropData[pageNum]) {
       const page = await cropperState.pdfDoc.getPage(pageNum);
@@ -352,7 +351,7 @@ export async function setupCropperTool() {
       return;
     }
 
-    showResultLoader('Applying crop...');
+    showLoader('Applying crop...');
 
     try {
       let finalPdfBytes;

@@ -211,6 +211,50 @@ export async function seedToolOpenFile(
     return false;
   }
 
+  const compareInput1 = root.getElementById(
+    'file-input-1'
+  ) as HTMLInputElement | null;
+  const compareInput2 = root.getElementById(
+    'file-input-2'
+  ) as HTMLInputElement | null;
+  if (compareInput1 && compareInput2) {
+    const accepted = files.filter((file) =>
+      inputAcceptsFile(compareInput1, file)
+    );
+    if (accepted.length === 0 || accepted.length > 2) {
+      removeOpenFileSkeleton(root);
+      restoreRevealedPanels(root);
+      clearOpenFileFlagClasses(root);
+      renderWorkspaceFiles(root);
+      return false;
+    }
+
+    const appliedFirst = applyFilesToInput(compareInput1, [accepted[0]!]);
+    const appliedSecond =
+      accepted.length >= 2
+        ? applyFilesToInput(compareInput2, [accepted[1]!])
+        : false;
+    if (!appliedFirst && !appliedSecond) {
+      removeOpenFileSkeleton(root);
+      restoreRevealedPanels(root);
+      clearOpenFileFlagClasses(root);
+      renderWorkspaceFiles(root);
+      return false;
+    }
+
+    const seededSlice = accepted.slice(0, 2);
+    if (state.files.length === 0) {
+      state.files = seededSlice.slice();
+    }
+    markToolFilesSeeded(root);
+    forgetRevealedPanels(root);
+    retireOpenFileSkeleton(root, {
+      onRetired: () => renderWorkspaceFiles(root),
+    });
+    setWorkspaceFiles(seededSlice, root);
+    return true;
+  }
+
   const applicable = filesApplicableToToolInput(files, root);
   const applied = applyFilesToToolInput(files, root);
   if (!applied) {

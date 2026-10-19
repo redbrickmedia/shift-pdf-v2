@@ -153,6 +153,11 @@
 
     <script type="module" src="/src/js/utils/lucide-init.ts"></script>
     <script type="module">
+      import {
+        getCatalogEntryById,
+        PRUNED_TOOL_ID_SET,
+      } from '/src/js/config/tools.ts';
+
       const tools = [
         // Converters
         {
@@ -803,6 +808,7 @@
         const noResults = document.getElementById('no-results');
 
         const filtered = tools.filter((tool) => {
+          if (PRUNED_TOOL_ID_SET.has(tool.name)) return false;
           const matchesCategory =
             currentCategory === 'all' || tool.category === currentCategory;
           const matchesSearch =
@@ -822,14 +828,16 @@
         noResults.classList.add('hidden');
 
         grid.innerHTML = filtered
-          .map(
-            (tool) => `
-                <a href="/${tool.name}.html" class="tool-card">
+          .map((tool) => {
+            const href =
+              getCatalogEntryById(tool.name)?.href ?? `/${tool.name}.html`;
+            return `
+                <a href="${href}" class="tool-card">
                     <i class="ph ph-${tool.icon} text-4xl text-indigo-400 mb-2"></i>
                     <h3 class="font-semibold text-white text-sm">${tool.title}</h3>
                 </a>
-            `
-          )
+            `;
+          })
           .join('');
 
         document.getElementById('results-count').textContent = filtered.length;

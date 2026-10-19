@@ -126,57 +126,214 @@
             type="file"
             class="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
             accept="application/pdf"
+            multiple
           />
+        </div>
+
+        <div id="file-controls" class="hidden mt-4 flex gap-3">
+          <button
+            id="add-more-btn"
+            type="button"
+            class="btn bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <i data-lucide="plus"></i>
+            <span data-i18n="upload.addMore">Add More Files</span>
+          </button>
+          <button
+            id="clear-files-btn"
+            type="button"
+            class="btn bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <i data-lucide="x"></i>
+            <span data-i18n="upload.clearAll">Clear All</span>
+          </button>
         </div>
 
         <div id="file-display-area" class="mt-4 space-y-2"></div>
 
         <div id="tool-options" class="hidden mt-6 space-y-4">
-          <div>
-            <label
-              for="user-password-input"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >User Password (Required)</label
+          <div
+            class="flex gap-2 p-1 rounded-lg bg-gray-900 border border-gray-700"
+            role="tablist"
+            aria-label="Encryption and permission modes"
+          >
+            <button
+              id="mode-protect"
+              type="button"
+              class="flex-1 btn bg-indigo-600 text-white font-semibold py-2 rounded-md text-sm"
+              aria-pressed="true"
             >
-            <input
-              type="password"
-              id="user-password-input"
-              placeholder="Enter password to open PDF"
-              class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              This password will be required to open the PDF.
-            </p>
+              Protect &amp; Permissions
+            </button>
+            <button
+              id="mode-unlock"
+              type="button"
+              class="flex-1 btn text-gray-300 font-semibold py-2 rounded-md text-sm"
+              aria-pressed="false"
+            >
+              Unlock &amp; Remove Restrictions
+            </button>
           </div>
 
-          <div>
-            <label
-              for="owner-password-input"
-              class="block mb-2 text-sm font-medium text-gray-300"
-              >Owner Password (Optional)</label
+          <div id="protect-options" class="space-y-4">
+            <div>
+              <label
+                for="user-password-input"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >User Password (Open Password)</label
+              >
+              <input
+                type="password"
+                id="user-password-input"
+                placeholder="Enter password to open PDF"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                Required to open the PDF when set.
+              </p>
+            </div>
+
+            <div>
+              <label
+                for="owner-password-input"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >Owner Password (Permissions Password)</label
+              >
+              <input
+                type="password"
+                id="owner-password-input"
+                placeholder="Enter password for permissions (optional)"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
+              />
+              <p class="text-xs text-gray-500 mt-1">
+                Controls editing, printing, and copying permissions.
+              </p>
+            </div>
+
+            <div>
+              <label
+                for="current-password"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >Current Password (if already encrypted)</label
+              >
+              <input
+                type="password"
+                id="current-password"
+                placeholder="Enter current password if PDF is encrypted"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
+              />
+            </div>
+
+            <div
+              id="permissions-section"
+              class="p-4 bg-gray-900 rounded-lg border border-gray-700"
             >
-            <input
-              type="password"
-              id="owner-password-input"
-              placeholder="Enter password for permissions (optional)"
-              class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              If provided, usage restrictions will be applied. Leave empty for
-              no restrictions.
-            </p>
+              <h3 class="text-sm font-semibold text-white mb-3">
+                Permissions (applied when an owner password is set)
+              </h3>
+              <div class="space-y-2">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-printing"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300">Allow Printing</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-copying"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300">Allow Copying Text</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-modifying"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300">Allow Modifying</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-annotating"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300">Allow Annotating</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-filling-forms"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300">Allow Filling Forms</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-document-assembly"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300"
+                    >Allow Document Assembly</span
+                  >
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="allow-page-extraction"
+                    checked
+                    class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500"
+                  />
+                  <span class="text-sm text-gray-300"
+                    >Allow Page Extraction</span
+                  >
+                </label>
+              </div>
+            </div>
           </div>
 
-          <div class="p-4 bg-gray-900 rounded-lg border border-gray-700">
-            <h3 class="text-sm font-semibold text-white mb-2">
-              Encryption Details:
-            </h3>
-            <ul class="text-xs text-gray-400 space-y-1 list-disc list-inside">
-              <li>256-bit AES encryption (highest security)</li>
-              <li>User password required to open PDF</li>
-              <li>Owner password enables usage restrictions</li>
-              <li>Without owner password: no restrictions applied</li>
-            </ul>
+          <div id="unlock-options" class="hidden space-y-4">
+            <div>
+              <label
+                id="unlock-password-label"
+                for="unlock-password"
+                class="block mb-2 text-sm font-medium text-gray-300"
+                >PDF Password</label
+              >
+              <input
+                type="password"
+                id="unlock-password"
+                placeholder="Enter password (optional for owner-restricted PDFs)"
+                class="w-full bg-gray-700 border border-gray-600 text-white rounded-lg p-2.5"
+              />
+              <p id="unlock-password-hint" class="text-xs text-gray-500 mt-1">
+                Enter the PDF password, or leave empty to remove owner
+                restrictions in 1 click.
+              </p>
+            </div>
+
+            <div class="p-4 bg-gray-900 rounded-lg border border-gray-700">
+              <h3 class="text-sm font-semibold text-white mb-2">
+                What will be removed:
+              </h3>
+              <ul class="text-xs text-gray-400 space-y-1 list-disc list-inside">
+                <li>Password protection</li>
+                <li>Printing restrictions</li>
+                <li>Editing &amp; annotation restrictions</li>
+                <li>Copying &amp; page extraction restrictions</li>
+              </ul>
+            </div>
           </div>
 
           <button id="process-btn" class="btn-gradient w-full">

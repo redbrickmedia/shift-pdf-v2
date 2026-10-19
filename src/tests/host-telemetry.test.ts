@@ -482,20 +482,23 @@ describe('pdf telemetry', () => {
     }
   );
 
-  it.each([
-    ['pdf-to-excel', 'src/js/logic/pdf-to-excel-page.ts', '!pwResult'],
-    ['pdf-to-png', 'src/js/logic/pdf-to-png-page.ts', '!result'],
-  ])(
+  it.each(['pdf-to-excel', 'pdf-to-png'])(
     'emits one cancelled when the %s password prompt returns early',
-    (toolId, pagePath, guard) => {
-      const page = readFileSync(resolve(process.cwd(), pagePath), 'utf8');
-      expect(page).toContain(
-        `if (${guard}) {\n      endToolUse('cancelled');\n      return;\n    }`
+    (toolId) => {
+      const convertRunner = readFileSync(
+        resolve(process.cwd(), 'src/js/logic/convert-runner.ts'),
+        'utf8'
       );
+      expect(convertRunner).toContain('loadPdfWithPasswordPrompt');
+      expect(convertRunner).toContain('batchDecryptIfNeeded');
 
       resetToolUseForTests();
       trackFn.mockClear();
-      window.history.replaceState({}, '', `/${toolId}.html`);
+      window.history.replaceState(
+        {},
+        '',
+        `/pdf-converter.html?entry=${toolId}`
+      );
       document.body.innerHTML =
         '<button id="process-btn" type="button"></button>';
       listenForToolJobs();

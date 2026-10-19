@@ -18,7 +18,6 @@ import {
   OPEN_FILE_SKELETON_ATTR,
   writePersistedOpenFiles,
 } from './open-file-store.js';
-import { acceptForToolHref } from './tool-input-accept.js';
 import { attachShiftTooltip, hideShiftTooltip } from './shift-tooltip.js';
 import { downloadBlob } from '../utils/helpers.js';
 import {
@@ -30,8 +29,12 @@ import {
   resetMyPdfsSearch,
 } from './my-pdfs-search.js';
 import { findToolFileInput } from './tool-file-seed.js';
-import { loadFavoriteRailSnapshot } from './tool-favorites.js';
-import { categories, extractCatalogEntryIdFromHref } from '../config/tools.js';
+import {
+  bindOpenWithDismissListeners,
+  createOpenWithDropdown,
+  renderOpenWithMenuContents,
+  setOpenWithDropdownExpanded,
+} from './open-with-menu.js';
 import { isPdfFile } from '../utils/pdf-file.js';
 import {
   createShiftBrowserEmpty,
@@ -56,8 +59,6 @@ const MY_PDFS_SELECTION_COUNT_ID = 'shift-my-pdfs-selection-count';
 const MY_PDFS_DELETE_SELECTED_ID = 'shift-my-pdfs-delete-selected';
 const MY_PDFS_MORE_TOOLS_ID = 'shift-my-pdfs-more-tools';
 const MY_PDFS_MORE_TOOLS_MENU_ID = 'shift-my-pdfs-more-tools-menu';
-const MORE_TOOLS_CARET_PATH = 'm6 9.5 6 6 6-6';
-const MAX_OPEN_WITH_FAVORITES = 3;
 
 export type WorkspaceFileSource = 'upload' | 'handoff' | 'download';
 
@@ -99,14 +100,6 @@ let thumbnailRenderToken = 0;
 let viewToggleBoundRoot: Document | null = null;
 let myPdfsChromeBoundRoot: Document | null = null;
 const myPdfsSelectionDelegated = new WeakSet<Document>();
-
-/* Pinned-favorite overflow. Kept at module scope because a resize has to
-   re-measure a row nobody is rebuilding. */
-let favoriteOverflowObserver: ResizeObserver | null = null;
-let observedControlsRow: HTMLElement | null = null;
-let lastControlsRowWidth = -1;
-let collapsedFavoriteKey = '';
-let measuringFavoriteOverflow = false;
 
 export function markFileFromHandoff(file: File): File {
   fileOrigins.set(file, 'handoff');
@@ -390,11 +383,6 @@ export function resetWorkspaceFileIndicator(root: Document = document): void {
   observedRoot = null;
   viewToggleBoundRoot = null;
   myPdfsChromeBoundRoot = null;
-  favoriteOverflowObserver?.disconnect();
-  favoriteOverflowObserver = null;
-  observedControlsRow = null;
-  lastControlsRowWidth = -1;
-  collapsedFavoriteKey = '';
   currentFiles = [];
   homeLibraryFiles = [];
   homeLibraryEpoch += 1;
@@ -443,38 +431,23 @@ function syncHomeHeaderToolActions(root: Document): void {
   const tools = root.getElementById('shift-open-file-tools');
   if (!tools) return;
 
-  renderOpenWithFavorites(root, tools);
-  // Forced: different pins and a longer selection count both change the fit
-  // without changing the width the observer watches.
-  syncOpenWithFavoriteOverflow(root, true);
+  // Remove any legacy inline favorite buttons if present in markup
+  tools
+    .querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
+    .forEach((link) => link.remove());
+
+  refreshMoreToolsMenu(root);
 
   const hasSelection = currentFiles.length > 0;
   tools.hidden = false;
   tools.setAttribute('aria-disabled', String(!hasSelection));
   tools.classList.toggle('is-disabled', !hasSelection);
 
-  for (const link of tools.querySelectorAll<HTMLAnchorElement>(
-    'a.shift-open-file-tool-btn, a.shift-button'
-  )) {
-    if (!link.classList.contains('shift-open-file-tool-btn')) continue;
-    const mismatch = hasSelection && !toolMatchesSelection(link.href);
-    const disabled = !hasSelection || mismatch;
-    link.classList.toggle('is-disabled', disabled);
-    link.setAttribute('aria-disabled', String(disabled));
-    if (disabled) link.tabIndex = -1;
-    else link.removeAttribute('tabindex');
-    syncOpenWithTooltip(
-      link,
-      mismatch ? incompatibleToolTooltip(link.href) : ''
-    );
-  }
-
   const deleteSelected = root.getElementById(
     MY_PDFS_DELETE_SELECTED_ID
   ) as HTMLButtonElement | null;
   if (deleteSelected) deleteSelected.disabled = !hasSelection;
 
-  // Its items open the selected PDF, so it follows the row it belongs to.
   const moreTools = root.getElementById(
     MY_PDFS_MORE_TOOLS_ID
   ) as HTMLButtonElement | null;
@@ -494,168 +467,6 @@ function syncHomeHeaderToolActions(root: Document): void {
   tools.classList.add(HEADER_TOOLS_ENTER_CLASS);
 }
 
-/**
- * The Open-with row is the user's favorites, so it follows whatever the star
- * buttons saved. The page markup ships the seeded four as a no-JS fallback;
- * this replaces them once the rail cache is readable, and leaves the row alone
- * when nothing is cached yet so the fallback never blanks out. Only the first
- * few fit beside Delete, so the rest stay in the sidebar rail.
- */
-function renderOpenWithFavorites(root: Document, tools: HTMLElement): void {
-  const toggle = tools.querySelector<HTMLElement>(
-    '.shift-open-file-tools-toggle'
-  );
-  if (!toggle) return;
-
-  const favorites = loadFavoriteRailSnapshot().slice(
-    0,
-    MAX_OPEN_WITH_FAVORITES
-  );
-  if (favorites.length === 0) return;
-
-  const existing = Array.from(
-    toggle.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
-  );
-  const unchanged =
-    existing.length === favorites.length &&
-    favorites.every(
-      (favorite, index) =>
-        existing[index]?.getAttribute('href') === favorite.href &&
-        existing[index]?.textContent === favorite.name
-    );
-  if (unchanged) return;
-
-  const links = favorites.map((favorite) => {
-    const link = root.createElement('a');
-    link.className = 'shift-open-file-tool-btn';
-    link.href = favorite.href;
-    link.dataset.tool = openWithToolId(favorite.href);
-    link.textContent = favorite.name;
-    return link;
-  });
-
-  existing.forEach((link) => link.remove());
-  // Delete is appended to the same toggle, so favorites go in front of it.
-  toggle.prepend(...links);
-  // The menu lists what the row left out, so it has to follow the row.
-  refreshMoreToolsMenu(root);
-}
-
-/**
- * Priority+ overflow for the pinned favorites: drop them from the end, but
- * only once there is genuinely no room for them, so narrowing costs the
- * fewest shortcuts it can. Nothing is lost by dropping one — the More tools
- * menu lists whatever the row is not showing.
- */
-function syncOpenWithFavoriteOverflow(root: Document, force = false): void {
-  // Hiding a pin resizes the row, which calls straight back in here.
-  if (measuringFavoriteOverflow) return;
-
-  const toggle = root.querySelector<HTMLElement>(
-    '.shift-open-file-tools-toggle'
-  );
-  const row =
-    toggle?.closest<HTMLElement>('.shift-my-pdfs-controls-row') ?? null;
-  if (!toggle || !row) return;
-
-  const links = Array.from(
-    toggle.querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
-  );
-  if (links.length === 0) return;
-
-  const width = row.clientWidth;
-  // Zero means the row has no layout yet (jsdom, or chrome built before the
-  // first paint). Measuring against that would read as "nothing fits" and
-  // collapse every pin on a screen with room to spare.
-  if (width === 0) return;
-  // Height also changes as pins drop, so the observer fires again on a row
-  // whose width — the only input here — is the same as last time.
-  if (!force && width === lastControlsRowWidth) return;
-  lastControlsRowWidth = width;
-
-  measuringFavoriteOverflow = true;
-  try {
-    // Measure up from every pin shown, so widening restores them.
-    for (const link of links) link.hidden = false;
-    for (let index = links.length - 1; index >= 0; index -= 1) {
-      if (favoritePinsFit(row, toggle)) break;
-      links[index].hidden = true;
-    }
-  } finally {
-    measuringFavoriteOverflow = false;
-  }
-
-  const collapsed = links
-    .filter((link) => link.hidden)
-    .map((link) => link.dataset.tool ?? link.getAttribute('href') ?? '')
-    .join('|');
-  // Rebuilding the menu on every resize tick would fight an open menu.
-  if (collapsed === collapsedFavoriteKey) return;
-  collapsedFavoriteKey = collapsed;
-  refreshMoreToolsMenu(root);
-}
-
-/**
- * The row never wraps, so it rarely overflows either: the selection count is
- * the flexible half and gives up its own width first. That makes the count
- * being cut short the honest signal that a pin has taken space there is not
- * — and it only goes short once every other part of the row is at its
- * natural size, so nothing collapses while there is still room.
- */
-function favoritePinsFit(row: HTMLElement, toggle: HTMLElement): boolean {
-  if (row.scrollWidth > row.clientWidth + 1) return false;
-
-  const count = row.querySelector<HTMLElement>(
-    '.shift-my-pdfs-selection-count'
-  );
-  if (count && count.scrollWidth > count.clientWidth + 1) return false;
-
-  return isSingleLine(toggle);
-}
-
-/**
- * Tolerant by necessity: `align-items: center` leaves controls of unequal
- * height a few pixels apart on the same line, so exact offsets would read a
- * centered row as wrapped and collapse a pin that fits. A real second line
- * is a whole control further down, hence the half-height threshold.
- */
-function isSingleLine(host: HTMLElement): boolean {
-  const visible = (Array.from(host.children) as HTMLElement[]).filter(
-    (child) => !child.hidden
-  );
-  if (visible.length < 2) return true;
-
-  const tolerance =
-    Math.max(...visible.map((child) => child.offsetHeight), 0) / 2;
-  const top = visible[0].offsetTop;
-  return visible.every((child) => Math.abs(child.offsetTop - top) <= tolerance);
-}
-
-/**
- * The row is as wide as the panel regardless of what it holds, so a resize is
- * the only signal that the fit changed. Re-observed when the chrome is
- * rebuilt, because that replaces the node this is watching.
- */
-function observeFavoriteOverflow(root: Document): void {
-  const row = root.querySelector<HTMLElement>('.shift-my-pdfs-controls-row');
-  if (!row || row === observedControlsRow) return;
-  if (typeof ResizeObserver === 'undefined') return;
-
-  favoriteOverflowObserver?.disconnect();
-  observedControlsRow = row;
-  lastControlsRowWidth = -1;
-  favoriteOverflowObserver = new ResizeObserver(() =>
-    syncOpenWithFavoriteOverflow(root)
-  );
-  favoriteOverflowObserver.observe(row);
-}
-
-/**
- * Only MAX_OPEN_WITH_FAVORITES pins fit beside Delete, so the overflow needs a
- * way in from here rather than only from the sidebar rail. Sits between the
- * last tool and Delete because it belongs to the tools, not to the
- * destructive action.
- */
 function ensureMyPdfsMoreTools(root: Document): void {
   if (root.getElementById(MY_PDFS_MORE_TOOLS_ID)) return;
 
@@ -663,229 +474,45 @@ function ensureMyPdfsMoreTools(root: Document): void {
   const toggle = deleteSelected?.parentElement;
   if (!deleteSelected || !toggle) return;
 
-  // Wrapper so the menu can anchor to the button instead of the whole row.
-  const wrap = root.createElement('div');
-  wrap.className = 'shift-my-pdfs-more-tools-wrap';
+  // Remove any legacy inline favorite links before mounting the unified dropdown
+  toggle
+    .querySelectorAll<HTMLAnchorElement>('a.shift-open-file-tool-btn')
+    .forEach((link) => link.remove());
 
-  const button = root.createElement('button');
-  button.type = 'button';
-  button.id = MY_PDFS_MORE_TOOLS_ID;
-  // Secondary, like Delete: it opens a menu rather than acting on the file,
-  // so it should not compete with the blue tool shortcuts beside it.
-  button.className = 'shift-button shift-my-pdfs-more-tools';
-  button.setAttribute('aria-haspopup', 'true');
-  button.setAttribute('aria-expanded', 'false');
-  button.setAttribute('aria-controls', MY_PDFS_MORE_TOOLS_MENU_ID);
-  button.setAttribute('aria-label', 'More tools');
-  button.disabled = currentFiles.length === 0;
-  button.append(root.createTextNode('More'), createMoreToolsCaret(root));
-
-  const menu = root.createElement('div');
-  menu.id = MY_PDFS_MORE_TOOLS_MENU_ID;
-  menu.className = 'shift-my-pdfs-more-tools-menu';
-  menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-labelledby', MY_PDFS_MORE_TOOLS_ID);
-  menu.hidden = true;
-
-  wrap.append(button, menu);
-  toggle.insertBefore(wrap, deleteSelected);
-  renderMoreToolsMenu(root, menu);
-
-  // Bound here rather than alongside the other controls because those bind
-  // once per document, and this pair is created with the button it drives.
-  button.addEventListener('click', (event) => {
-    // The dismiss listener would otherwise close it in this same click.
-    event.stopPropagation();
-    // The menu drops into the space the tooltip occupies, so one has to go.
-    hideShiftTooltip(root);
-    setMoreToolsExpanded(root, menu.hidden);
+  const { wrap } = createOpenWithDropdown(root, {
+    buttonId: MY_PDFS_MORE_TOOLS_ID,
+    menuId: MY_PDFS_MORE_TOOLS_MENU_ID,
+    buttonClassName:
+      'shift-button shift-open-file-tool-btn shift-my-pdfs-more-tools',
+    label: 'Open with',
+    ariaLabel: 'Open with',
+    disabled: currentFiles.length === 0,
+    getSelectedPdfCount: () => Math.max(getWorkspacePdfSelectionCount(), 1),
   });
-  menu.addEventListener('click', () => setMoreToolsExpanded(root, false));
-}
 
-function createMoreToolsCaret(root: Document): SVGSVGElement {
-  const svgNs = 'http://www.w3.org/2000/svg';
-  const svg = root.createElementNS(svgNs, 'svg');
-  svg.setAttribute('class', 'shift-my-pdfs-more-tools-caret');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('aria-hidden', 'true');
-
-  const path = root.createElementNS(svgNs, 'path');
-  path.setAttribute('d', MORE_TOOLS_CARET_PATH);
-  path.setAttribute('stroke', 'currentColor');
-  path.setAttribute('stroke-width', '2');
-  path.setAttribute('stroke-linecap', 'round');
-  path.setAttribute('stroke-linejoin', 'round');
-  svg.appendChild(path);
-  return svg;
-}
-
-/**
- * Overflow favorites first, since those are the tools the user chose, then
- * the popular tools. Whatever the row already shows is skipped so the same
- * tool never appears twice. Deliberately not the whole catalog: this is a
- * shortlist, and Browse all tools below it is the way to everything else.
- */
-function moreToolsEntries(root: Document): { name: string; href: string }[] {
-  // Only what the row is actually showing counts as listed: a pin collapsed
-  // for width is exactly the thing this menu exists to hand back.
-  const listed = new Set(
-    Array.from(
-      root.querySelectorAll<HTMLAnchorElement>(
-        '.shift-open-file-tools-toggle a.shift-open-file-tool-btn:not([hidden])'
-      )
-    ).map((link) => openWithToolId(link.getAttribute('href') ?? ''))
-  );
-
-  const entries: { name: string; href: string }[] = [];
-  const add = (name: string, href: string): void => {
-    const id = openWithToolId(href);
-    if (listed.has(id)) return;
-    listed.add(id);
-    entries.push({ name, href });
-  };
-
-  for (const pin of loadFavoriteRailSnapshot()) add(pin.name, pin.href);
-  // By name rather than by index: the menu is meant to hold the popular
-  // tools specifically, not whichever category happens to be listed first.
-  const popular =
-    categories.find((category) => category.name === 'Popular Tools') ??
-    categories[0];
-  for (const tool of popular?.tools ?? []) add(tool.name, tool.href);
-
-  return entries;
-}
-
-function renderMoreToolsMenu(root: Document, menu: HTMLElement): void {
-  menu.replaceChildren();
-
-  // The tools scroll inside this while Browse all tools stays pinned below
-  // it. `role="none"` keeps the items direct children of the menu as far as
-  // assistive tech is concerned, so the wrapper costs nothing semantically.
-  const list = root.createElement('div');
-  list.className = 'shift-my-pdfs-more-tools-list';
-  list.setAttribute('role', 'none');
-
-  for (const entry of moreToolsEntries(root)) {
-    const link = root.createElement('a');
-    link.className = 'shift-my-pdfs-more-tools-item';
-    link.href = entry.href;
-    link.dataset.tool = openWithToolId(entry.href);
-    link.setAttribute('role', 'menuitem');
-    link.textContent = entry.name;
-    const mismatch =
-      currentFiles.length > 0 && !toolMatchesSelection(entry.href);
-    if (mismatch) {
-      link.classList.add('is-disabled');
-      link.setAttribute('aria-disabled', 'true');
-      link.tabIndex = -1;
-      const wrap = root.createElement('span');
-      wrap.className = 'shift-open-file-tool-wrap';
-      wrap.append(link);
-      attachShiftTooltip(wrap, {
-        placement: 'bottom',
-        text: incompatibleToolTooltip(entry.href),
-      });
-      list.appendChild(wrap);
-    } else {
-      list.appendChild(link);
-    }
-  }
-  menu.appendChild(list);
-
-  const browse = root.createElement('a');
-  browse.className =
-    'shift-my-pdfs-more-tools-item shift-my-pdfs-more-tools-browse';
-  browse.href = `${import.meta.env.BASE_URL}all-tools.html`;
-  browse.setAttribute('role', 'menuitem');
-  browse.textContent = 'Browse all tools';
-  menu.appendChild(browse);
+  toggle.insertBefore(wrap, deleteSelected);
 }
 
 function refreshMoreToolsMenu(root: Document): void {
   const menu = root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID);
-  if (menu) renderMoreToolsMenu(root, menu);
+  if (menu) {
+    renderOpenWithMenuContents(root, menu, {
+      selectedPdfCount: Math.max(getWorkspacePdfSelectionCount(), 1),
+    });
+  }
 }
 
 function setMoreToolsExpanded(root: Document, expanded: boolean): void {
-  const button = root.getElementById(
-    MY_PDFS_MORE_TOOLS_ID
-  ) as HTMLButtonElement | null;
-  const menu = root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID);
-  if (!button || !menu) return;
-
-  const open = expanded && !button.disabled;
-  menu.hidden = !open;
-  button.setAttribute('aria-expanded', String(open));
+  setOpenWithDropdownExpanded(
+    root,
+    MY_PDFS_MORE_TOOLS_ID,
+    MY_PDFS_MORE_TOOLS_MENU_ID,
+    expanded
+  );
 }
 
-/**
- * Dismissal only: the button's own handlers are bound where it is built.
- * These look the menu up per event rather than closing over it, because they
- * bind once per document while the chrome can be rebuilt underneath them.
- */
 function bindMyPdfsMoreTools(root: Document): void {
-  root.addEventListener('click', (event) => {
-    if (root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID)?.hidden !== false)
-      return;
-    const inside = (event.target as HTMLElement | null)?.closest(
-      '.shift-my-pdfs-more-tools-wrap'
-    );
-    if (inside) return;
-    setMoreToolsExpanded(root, false);
-  });
-
-  root.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    if (root.getElementById(MY_PDFS_MORE_TOOLS_MENU_ID)?.hidden !== false)
-      return;
-    setMoreToolsExpanded(root, false);
-    root.getElementById(MY_PDFS_MORE_TOOLS_ID)?.focus();
-  });
-}
-
-function selectedInputBlobs(): File[] {
-  return currentFiles
-    .map((file) => file.blob)
-    .filter((blob): blob is File => blob instanceof File);
-}
-
-function toolMatchesSelection(href: string): boolean {
-  const files = selectedInputBlobs();
-  if (files.length === 0) return true;
-  const probe = document.createElement('input');
-  probe.accept = acceptForToolHref(href);
-  return files.some((file) => pickerAcceptsFile(probe, file));
-}
-
-function incompatibleToolTooltip(href: string): string {
-  const accept = acceptForToolHref(href).toLowerCase();
-  const takesPdf =
-    accept.includes('pdf') || accept.includes('*') || accept.trim() === '';
-  if (!takesPdf) return "This tool doesn't accept PDF files.";
-  return "This tool doesn't accept the selected file.";
-}
-
-function syncOpenWithTooltip(link: HTMLAnchorElement, text: string): void {
-  const doc = link.ownerDocument;
-  let wrap = link.parentElement;
-  if (!wrap?.classList.contains('shift-open-file-tool-wrap')) {
-    if (!text) return;
-    wrap = doc.createElement('span');
-    wrap.className = 'shift-open-file-tool-wrap';
-    link.replaceWith(wrap);
-    wrap.append(link);
-  }
-  if (!text) {
-    wrap.replaceWith(link);
-    return;
-  }
-  attachShiftTooltip(wrap, { placement: 'bottom', text });
-}
-
-function openWithToolId(href: string): string {
-  return extractCatalogEntryIdFromHref(href) || href;
+  bindOpenWithDismissListeners(root);
 }
 
 /**
@@ -905,7 +532,6 @@ function ensureMyPdfsPageChrome(root: Document): void {
   ensureMyPdfsDeleteSelected(root);
   ensureMyPdfsMoreTools(root);
   ensureMyPdfsViewToggle(root);
-  observeFavoriteOverflow(root);
 
   const heading = root.getElementById('shift-my-pdfs-heading');
   const dropZone = root.getElementById('drop-zone');
@@ -1176,7 +802,7 @@ function bindMyPdfsSelectionControls(root: Document): void {
   root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
     const openWithLink = target?.closest<HTMLAnchorElement>(
-      '#shift-open-file-tools a.shift-open-file-tool-btn, #shift-my-pdfs-more-tools-menu a.shift-my-pdfs-more-tools-item:not(.shift-my-pdfs-more-tools-browse)'
+      '#shift-open-file-tools a.shift-open-file-tool-btn, #shift-my-pdfs-more-tools-menu a.shift-my-pdfs-more-tools-item'
     );
     const disabledOpenWith =
       openWithLink?.getAttribute('aria-disabled') === 'true' ||

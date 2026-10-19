@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   categories,
   getCatalogEntriesForSurface,
@@ -7,7 +8,7 @@ import {
   PRUNED_TOOL_ID_SET,
 } from '@/js/config/tools';
 import { shiftToolIcons } from '@/js/config/shift-tool-icons';
-import { SINGLE_FILE_DESTINATION_IDS } from '@/js/config/convert-destinations';
+import { getPdfDestinations } from '@/js/config/convert-destinations';
 import { describe, it, expect } from 'vitest';
 
 describe('Tool Categories Configuration', () => {
@@ -69,12 +70,16 @@ describe('Tool Categories Configuration', () => {
   it('prunes all 18 retired niche tools from the catalog, icons, and destination maps', () => {
     expect(PRUNED_TOOL_IDS).toHaveLength(18);
     const allToolIds = categories.flatMap((c) => c.tools.map((t) => t.id));
+    const { primary, secondary } = getPdfDestinations();
+    const pdfDestIds = new Set([...primary, ...secondary].map((d) => d.id));
+    const docsToolsDir = resolve(process.cwd(), 'docs/tools');
     for (const prunedId of PRUNED_TOOL_IDS) {
       expect(PRUNED_TOOL_ID_SET.has(prunedId)).toBe(true);
       expect(allToolIds).not.toContain(prunedId);
       expect(getCatalogEntryById(prunedId)).toBeUndefined();
       expect(shiftToolIcons).not.toHaveProperty(prunedId);
-      expect(SINGLE_FILE_DESTINATION_IDS.has(prunedId)).toBe(false);
+      expect(pdfDestIds.has(prunedId)).toBe(false);
+      expect(existsSync(resolve(docsToolsDir, `${prunedId}.md`))).toBe(false);
     }
   });
 
@@ -217,5 +222,163 @@ describe('Tool Categories Configuration', () => {
         'reverse-pages',
       ])
     );
+  });
+
+  it('retires all 87 consolidated and pruned standalone .html pages and maps every Catalog Entry surface to an existing canonical .html page', () => {
+    const retiredStandalonePages = [
+      // 69 consolidated standalone pages
+      'organize-pdf.html',
+      'delete-pages.html',
+      'rotate-pdf.html',
+      'add-blank-page.html',
+      'reverse-pages.html',
+      'extract-pages.html',
+      'alternate-merge.html',
+      'jpg-to-pdf.html',
+      'png-to-pdf.html',
+      'webp-to-pdf.html',
+      'svg-to-pdf.html',
+      'bmp-to-pdf.html',
+      'heic-to-pdf.html',
+      'tiff-to-pdf.html',
+      'psd-to-pdf.html',
+      'image-to-pdf.html',
+      'word-to-pdf.html',
+      'excel-to-pdf.html',
+      'powerpoint-to-pdf.html',
+      'odt-to-pdf.html',
+      'ods-to-pdf.html',
+      'odp-to-pdf.html',
+      'odg-to-pdf.html',
+      'rtf-to-pdf.html',
+      'pages-to-pdf.html',
+      'pub-to-pdf.html',
+      'vsd-to-pdf.html',
+      'epub-to-pdf.html',
+      'mobi-to-pdf.html',
+      'xps-to-pdf.html',
+      'csv-to-pdf.html',
+      'xml-to-pdf.html',
+      'email-to-pdf.html',
+      'pdf-to-jpg.html',
+      'pdf-to-png.html',
+      'pdf-to-webp.html',
+      'pdf-to-bmp.html',
+      'pdf-to-tiff.html',
+      'pdf-to-svg.html',
+      'pdf-to-docx.html',
+      'pdf-to-pptx.html',
+      'pdf-to-excel.html',
+      'pdf-to-csv.html',
+      'pdf-to-text.html',
+      'pdf-to-markdown.html',
+      'extract-tables.html',
+      'sign-pdf.html',
+      'add-stamps.html',
+      'form-filler.html',
+      'crop-pdf.html',
+      'table-of-contents.html',
+      'remove-annotations.html',
+      'view-metadata.html',
+      'remove-metadata.html',
+      'add-attachments.html',
+      'extract-attachments.html',
+      'change-permissions.html',
+      'decrypt-pdf.html',
+      'remove-restrictions.html',
+      'validate-signature-pdf.html',
+      'timestamp-pdf.html',
+      'rasterize-pdf.html',
+      'pdf-to-greyscale.html',
+      'invert-colors.html',
+      'background-color.html',
+      'text-color.html',
+      'header-footer.html',
+      'bates-numbering.html',
+      'page-dimensions.html',
+      // 18 pruned standalone pages
+      'rotate-custom.html',
+      'posterize-pdf.html',
+      'pdf-booklet.html',
+      'json-to-pdf.html',
+      'pdf-to-json.html',
+      'prepare-pdf-for-ai.html',
+      'wpd-to-pdf.html',
+      'wps-to-pdf.html',
+      'fb2-to-pdf.html',
+      'cbz-to-pdf.html',
+      'pdf-to-cbz.html',
+      'scanner-effect.html',
+      'add-page-labels.html',
+      'linearize-pdf.html',
+      'font-to-outline.html',
+      'pdf-layers.html',
+      'pdf-workflow.html',
+      'overlay-pdf.html',
+    ];
+
+    expect(retiredStandalonePages).toHaveLength(87);
+    const pagesDir = resolve(process.cwd(), 'src/pages');
+    const existingRetired = retiredStandalonePages.filter((page) =>
+      existsSync(resolve(pagesDir, page))
+    );
+    expect(existingRetired).toEqual([]);
+
+    const canonicalPagesInSrcPages = [
+      'view-pdf.html',
+      'edit-pdf.html',
+      'pdf-multi-tool.html',
+      'merge-pdf.html',
+      'split-pdf.html',
+      'bookmark.html',
+      'form-creator.html',
+      'add-watermark.html',
+      'markdown-to-pdf.html',
+      'txt-to-pdf.html',
+      'compress-pdf.html',
+      'repair-pdf.html',
+      'pdf-to-pdfa.html',
+      'deskew-pdf.html',
+      'ocr-pdf.html',
+      'flatten-pdf.html',
+      'encrypt-pdf.html',
+      'digital-sign-pdf.html',
+      'sanitize-pdf.html',
+      'edit-metadata.html',
+      'edit-attachments.html',
+      'adjust-colors.html',
+      'page-numbers.html',
+      'fix-page-size.html',
+      'remove-blank-pages.html',
+      'divide-pages.html',
+      'n-up-pdf.html',
+      'combine-single-page.html',
+      'compare-pdfs.html',
+      'extract-images.html',
+      'pdf-to-zip.html',
+      'wasm-settings.html',
+    ].sort();
+
+    const actualPagesInSrcPages = readdirSync(pagesDir)
+      .filter((name) => name.endsWith('.html'))
+      .sort();
+    expect(actualPagesInSrcPages).toEqual(canonicalPagesInSrcPages);
+
+    const uniqueSurfaces = new Set(
+      categories.flatMap((category) =>
+        category.tools.map((tool) => tool.surface)
+      )
+    );
+    uniqueSurfaces.add('view-pdf');
+
+    for (const surface of uniqueSurfaces) {
+      const pagePath =
+        surface === 'pdf-converter'
+          ? resolve(process.cwd(), 'pdf-converter.html')
+          : resolve(pagesDir, `${surface}.html`);
+      expect(existsSync(pagePath), `missing canonical surface ${surface}`).toBe(
+        true
+      );
+    }
   });
 });

@@ -1,5 +1,4 @@
-import { showResultLoader } from './tool-success.js';
-import { hideLoader, showAlert } from '../ui.js';
+import { hideLoader, showAlert, showLoader } from '../ui.js';
 
 import { downloadFile } from '../utils/helpers.js';
 import { state } from '../state.js';
@@ -10,7 +9,7 @@ import type { RedactionRect } from '@/types';
 const { rgb } = window.PDFLib;
 
 export async function redact(redactions: RedactionRect[], canvasScale: number) {
-  showResultLoader('Applying redactions...');
+  showLoader('Applying redactions...');
   try {
     const pdfPages = state.pdfDoc.getPages();
     const conversionScale = 1 / canvasScale;

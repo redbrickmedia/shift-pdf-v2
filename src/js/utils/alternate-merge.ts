@@ -4,10 +4,28 @@ import type { InterleaveFile } from '@/types';
 
 export type { InterleaveFile } from '@/types';
 
+export interface InterleaveOptions {
+  retainPageLabels?: boolean;
+  reverseFlags?: boolean[];
+}
+
+export interface InterleaveParams extends InterleaveOptions {
+  files: InterleaveFile[];
+}
+
 export async function interleavePdfs(
-  files: InterleaveFile[],
-  options?: { retainPageLabels?: boolean }
+  filesOrParams: InterleaveFile[] | InterleaveParams,
+  options?: InterleaveOptions
 ): Promise<Uint8Array> {
+  const files = Array.isArray(filesOrParams)
+    ? filesOrParams
+    : filesOrParams.files;
+  const resolvedOptions: InterleaveOptions | undefined = Array.isArray(
+    filesOrParams
+  )
+    ? options
+    : filesOrParams;
+
   if (files.length < 2) {
     throw new Error(formatCpdfWorkerError('alternateMergeNeedsTwo'));
   }
@@ -51,8 +69,9 @@ export async function interleavePdfs(
       {
         command: 'interleave',
         files,
+        reverseFlags: resolvedOptions?.reverseFlags,
         cpdfUrl: cpdfBaseUrl + 'coherentpdf.browser.min.js',
-        retainPageLabels: options?.retainPageLabels === true,
+        retainPageLabels: resolvedOptions?.retainPageLabels === true,
       },
       files.map((f) => f.data)
     );

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  STATEFUL_UNDO_REDO_SURFACE_IDS,
   VIEWER_CHROME_ACTIONS_ATTR,
   VIEWER_CHROME_ACTIONS_CLASS,
   VIEWER_CHROME_FEATURE_ATTR,
@@ -27,6 +28,10 @@ function readPage(name: string): string {
 describe('viewer chrome', () => {
   beforeEach(() => {
     resetPdfViewerPageForTests();
+    document.documentElement.removeAttribute('data-launch-surface');
+    document.documentElement.removeAttribute('data-launch-entry');
+    document.documentElement.removeAttribute('data-launch-context-applied');
+    window.history.replaceState({}, '', '/');
     document.body.innerHTML = '';
   });
 
@@ -42,6 +47,72 @@ describe('viewer chrome', () => {
     expect(resolveViewerChromeFeatures({ preset: 'tool' })).toEqual(
       VIEWER_CHROME_PRESETS.tool
     );
+  });
+
+  it('shows Undo and Redo only on the 6 stateful interactive Tool Surfaces and hides them on option/batch Tool Surfaces', () => {
+    const statefulSurfaces = [
+      'edit-pdf',
+      'pdf-multi-tool',
+      'merge-pdf',
+      'bookmark',
+      'form-creator',
+      'add-watermark',
+    ];
+    for (const surface of statefulSurfaces) {
+      expect(STATEFUL_UNDO_REDO_SURFACE_IDS.has(surface)).toBe(true);
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.undo).toBe(true);
+      expect(features.redo).toBe(true);
+    }
+
+    const nonStatefulSurfaces = [
+      'compress-pdf',
+      'split-pdf',
+      'pdf-converter',
+      'markdown-to-pdf',
+      'txt-to-pdf',
+      'repair-pdf',
+      'pdf-to-pdfa',
+      'deskew-pdf',
+      'ocr-pdf',
+      'flatten-pdf',
+      'encrypt-pdf',
+      'digital-sign-pdf',
+      'sanitize-pdf',
+      'edit-metadata',
+      'edit-attachments',
+      'adjust-colors',
+      'page-numbers',
+      'fix-page-size',
+      'remove-blank-pages',
+      'divide-pages',
+      'n-up-pdf',
+      'combine-single-page',
+      'compare-pdfs',
+      'extract-images',
+      'pdf-to-zip',
+    ];
+    for (const surface of nonStatefulSurfaces) {
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.undo).toBe(false);
+      expect(features.redo).toBe(false);
+      expect(features.reset).toBe(true);
+    }
+  });
+
+  it('hides Save and Print on non-PDF output surfaces (extract-images and pdf-to-zip)', () => {
+    for (const surface of ['extract-images', 'pdf-to-zip']) {
+      document.documentElement.dataset.launchSurface = surface;
+      const features = resolveViewerChromeFeatures({ preset: 'tool' });
+      expect(features.save).toBe(false);
+      expect(features.print).toBe(false);
+      expect(features.download).toBe(true);
+      expect(features.reset).toBe(true);
+      expect(features.undo).toBe(false);
+      expect(features.redo).toBe(false);
+    }
   });
 
   it('lets a page hide or show a feature without changing the preset', () => {
@@ -219,9 +290,9 @@ describe('viewer chrome', () => {
     expect(isViewerChromeFeatureOn(existing!, 'subtitle')).toBe(true);
   });
 
-  it('authors Sign PDF with the same header component as View PDF', () => {
+  it('authors Edit PDF with the same header component as View PDF', () => {
     const viewPdf = readPage('view-pdf.html');
-    const signPdf = readPage('sign-pdf.html');
+    const editPdf = readPage('edit-pdf.html');
 
     expect(viewPdf).toContain('class="shift-pdf-viewer-shell"');
     expect(viewPdf).toContain(`class="${VIEWER_CHROME_HEADER_CLASS}"`);
@@ -230,37 +301,36 @@ describe('viewer chrome', () => {
     expect(viewPdf).toContain('shift-action-row');
     expect(viewPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
 
-    expect(signPdf).toContain('id="uploader"');
-    expect(signPdf).not.toContain(
+    expect(editPdf).toContain('id="uploader"');
+    expect(editPdf).not.toContain(
       'id="uploader" class="shift-pdf-viewer-shell"'
     );
-    expect(signPdf).toContain(`<header class="${VIEWER_CHROME_HEADER_CLASS}">`);
-    expect(signPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
-    expect(signPdf).toContain(VIEWER_CHROME_ACTIONS_CLASS);
-    expect(signPdf).toContain('shift-action-row');
-    expect(signPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
-    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="subtitle"`);
-    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="flatten"`);
-    expect(signPdf).toContain('id="flatten-signature-toggle"');
-    expect(signPdf).toContain('id="signature-editor"');
-    expect(signPdf).toContain('class="shift-pdf-viewer-stage"');
-    expect(signPdf).toContain('id="tool-uploader"');
-    expect(signPdf).toContain('border-dashed');
-    expect(signPdf).toContain('data-lucide="circle-arrow-up"');
-    expect(signPdf).not.toContain('shift-pdf-viewer-empty');
-    expect(signPdf).not.toContain('shift-pdf-viewer-page');
-    expect(signPdf).toContain('bg-gray-800 rounded-xl');
-    expect(signPdf).not.toMatch(/id="tool-uploader"[\s\S]*<h1/);
-    expect(signPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="sign"`);
-    expect(signPdf).not.toContain('id="shift-pdf-viewer"');
-    expect(signPdf).toContain('{{> footer }}');
+    expect(editPdf).toContain(`<header class="${VIEWER_CHROME_HEADER_CLASS}">`);
+    expect(editPdf).toContain(`class="${VIEWER_CHROME_HEADING_CLASS}"`);
+    expect(editPdf).toContain(VIEWER_CHROME_ACTIONS_CLASS);
+    expect(editPdf).toContain('shift-action-row');
+    expect(editPdf).toContain(VIEWER_CHROME_ACTIONS_ATTR);
+    expect(editPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="subtitle"`);
+    expect(editPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="flatten"`);
+    expect(editPdf).toContain('id="flatten-signature-toggle"');
+    expect(editPdf).toContain('id="fill-sign-stage"');
+    expect(editPdf).toContain('id="tool-uploader"');
+    expect(editPdf).toContain('border-dashed');
+    expect(editPdf).toContain('data-lucide="circle-arrow-up"');
+    expect(editPdf).not.toContain('shift-pdf-viewer-empty');
+    expect(editPdf).not.toContain('shift-pdf-viewer-page');
+    expect(editPdf).toContain('bg-gray-800 rounded-xl');
+    expect(editPdf).not.toMatch(/id="tool-uploader"[\s\S]*<h1/);
+    expect(editPdf).toContain(`${VIEWER_CHROME_FEATURE_ATTR}="sign"`);
+    expect(editPdf).not.toContain('id="shift-pdf-viewer"');
+    expect(editPdf).toContain('{{> footer }}');
 
-    const signPage = readFileSync(
-      resolve(process.cwd(), 'src/js/logic/sign-pdf-page.ts'),
+    const editPage = readFileSync(
+      resolve(process.cwd(), 'src/js/logic/edit-pdf-page.ts'),
       'utf8'
     );
-    expect(signPage).toContain("bentoSign: '1'");
-    expect(signPage).toContain("shiftLaunchpad: '1'");
+    expect(editPage).toContain("bentoSign: '1'");
+    expect(editPage).toContain("shiftLaunchpad: '1'");
   });
 
   it('gives the Sign shell a real pane height so the PDF.js iframe can paint', () => {

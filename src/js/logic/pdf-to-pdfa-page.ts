@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { hideLoader, showAlert, showLoader } from '../ui.js';
 
@@ -130,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          showResultLoader('Pre-flattening PDF...');
+          showLoader('Pre-flattening PDF...');
           const pymupdf = await loadPyMuPDF();
 
           // Rasterize PDF to images and back to PDF (300 DPI for quality)
@@ -152,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const convertedBlob = await convertFileToPdfA(
           fileToConvert,
           level,
-          (msg) => showResultLoader(msg)
+          (msg) => showLoader(msg)
         );
 
         const fileName = originalFile.name.replace(/\.pdf$/i, '') + '_pdfa.pdf';
@@ -168,19 +167,19 @@ document.addEventListener('DOMContentLoaded', () => {
           () => resetState()
         );
       } else {
-        showResultLoader('Converting multiple PDFs to PDF/A...');
+        showLoader('Converting multiple PDFs to PDF/A...');
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         const usedNames = new Set<string>();
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showResultLoader(
+          showLoader(
             `Converting ${i + 1}/${state.files.length}: ${file.name}...`
           );
 
           const convertedBlob = await convertFileToPdfA(file, level, (msg) =>
-            showResultLoader(msg)
+            showLoader(msg)
           );
 
           const baseName = file.name.replace(/\.pdf$/i, '');

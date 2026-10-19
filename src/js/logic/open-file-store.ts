@@ -128,6 +128,22 @@ export function consumeOpenWithSelection(): boolean {
   }
 }
 
+export function hasOpenWithSelection(): boolean {
+  try {
+    return sessionStorage.getItem(OPEN_WITH_SELECTION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function clearOpenWithSelection(): void {
+  try {
+    sessionStorage.removeItem(OPEN_WITH_SELECTION_KEY);
+  } catch {
+    // Session storage can be blocked.
+  }
+}
+
 export function hasOpenFileFlag(): boolean {
   try {
     return sessionStorage.getItem(OPEN_FILE_FLAG_KEY) === '1';

@@ -31,8 +31,17 @@
   outline-offset: 2px;
 }
 
-/* Dark bar focus ring. The default brand step on dark-700 is below 3:1. */
-html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible {
+.shift-action-button.is-launch-action,
+.shift-action-button[data-launch-highlight='true'] {
+  outline: 2px solid var(--action-button-surface-primary-default);
+  outline-offset: 2px;
+  color: var(--text-primary);
+}
+
+/* Dark bar focus ring and launch-action highlight. The default brand step on dark-700 is below 3:1. */
+html.dark :is(.shift-action-button, .shift-pdf-viewer-action):focus-visible,
+html.dark .shift-action-button.is-launch-action,
+html.dark .shift-action-button[data-launch-highlight='true'] {
   outline-color: #60a5fa;
 }
 

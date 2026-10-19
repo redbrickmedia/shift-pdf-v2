@@ -10,8 +10,8 @@ const paths = [
   '/',
   '/merge-pdf.html',
   '/compress-pdf.html',
-  '/pdf-to-jpg.html',
-  '/sign-pdf.html',
+  '/pdf-converter.html?entry=pdf-to-jpg',
+  '/edit-pdf.html?entry=sign-pdf',
   '/about.html',
   '/my-pdfs.html',
   '/all-tools.html',
@@ -21,8 +21,8 @@ const paths = [
 const expectedTitles = new Map([
   ['/merge-pdf.html', 'Merge PDF | Shift PDF'],
   ['/compress-pdf.html', 'Compress PDF | Shift PDF'],
-  ['/pdf-to-jpg.html', 'PDF to JPG | Shift PDF'],
-  ['/sign-pdf.html', 'Sign PDF | Shift PDF'],
+  ['/pdf-converter.html?entry=pdf-to-jpg', 'Convert | Shift PDF'],
+  ['/edit-pdf.html?entry=sign-pdf', 'PDF Editor | Shift PDF'],
 ]);
 
 let failed = 0;
@@ -205,14 +205,14 @@ try {
   );
   await verifyCompletion('Merge');
 
-  await openTool('/pdf-to-jpg.html');
+  await openTool('/pdf-converter.html?entry=pdf-to-jpg');
   await expectDownload(
-    () => page.locator('#process-btn').click(),
+    () => page.locator('#shift-tool-output-download').click(),
     'PDF-to-JPG initial'
   );
   await verifyCompletion('PDF-to-JPG');
 
-  await openTool('/sign-pdf.html');
+  await openTool('/edit-pdf.html?entry=sign-pdf');
   const viewer = page.frameLocator('iframe[title="Visual signature editor"]');
   await viewer.locator('#editorSignatureButton').waitFor({ timeout: 90_000 });
   await viewer.locator('#editorSignatureButton').click();

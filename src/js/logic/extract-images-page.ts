@@ -1,8 +1,8 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { t } from '../i18n/i18n';
 import {
+  downloadBlob,
   downloadFile,
   readFileAsArrayBuffer,
   formatBytes,
@@ -12,6 +12,10 @@ import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import { batchDecryptIfNeeded } from '../utils/password-prompt.js';
+import {
+  registerToolOutputSession,
+  syncToolOutputToolbar,
+} from './tool-output-toolbar.js';
 
 interface ExtractedImage {
   data: Uint8Array;
@@ -74,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBtn.innerHTML = '<i data-lucide="x" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_: File, i: number) => i !== index);
-          updateUI();
+          void updateUI();
         };
 
         fileDiv.append(infoContainer, removeBtn);
@@ -99,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
       extractOptions.classList.add('hidden');
       (processBtn as HTMLButtonElement).disabled = true;
     }
+    syncToolOutputToolbar();
   };
 
   const resetState = () => {
@@ -107,7 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
     extractedImages = [];
     if (imagesContainer) imagesContainer.classList.add('hidden');
     if (imagesGrid) imagesGrid.innerHTML = '';
-    updateUI();
+    if (fileInput) fileInput.value = '';
+    void updateUI();
   };
 
   const displayImages = () => {
@@ -136,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
       downloadBtn.className = 'text-indigo-400 hover:text-indigo-300';
       downloadBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i>';
       downloadBtn.onclick = () => {
-        downloadFile(blob, img.name);
+        downloadBlob(blob, img.name);
       };
 
       info.append(name, downloadBtn);
@@ -165,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (let i = 0; i < state.files.length; i++) {
         const file = state.files[i];
-        showResultLoader(`Extracting images from ${file.name}...`);
+        showLoader(`Extracting images from ${file.name}...`);
 
         const doc = await pymupdf.open(file);
         const pageCount = doc.pageCount;
@@ -202,12 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
         );
       } else {
         displayImages();
-        showAlert(
-          'Extraction Complete',
-          `Found ${extractedImages.length} image(s) in ${state.files.length} PDF(s).`,
-          'success'
-        );
       }
+      syncToolOutputToolbar();
     } catch (e: unknown) {
       hideLoader();
       showAlert(
@@ -218,9 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const downloadAll = async () => {
+    if (extractedImages.length === 0 && state.files.length > 0) {
+      await extract();
+    }
     if (extractedImages.length === 0) return;
 
-    showResultLoader('Creating ZIP archive...');
+    showLoader('Creating ZIP archive...');
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
 
@@ -233,6 +238,14 @@ document.addEventListener('DOMContentLoaded', () => {
     hideLoader();
   };
 
+  registerToolOutputSession({
+    outputKind: 'non-pdf',
+    apply: () => downloadAll(),
+    reset: () => resetState(),
+    canDownload: () => state.files.length > 0 || extractedImages.length > 0,
+    canReset: () => state.files.length > 0 || extractedImages.length > 0,
+  });
+
   const handleFileSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
       const pdfFiles = Array.from(files).filter(
@@ -240,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
           f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
       );
       state.files = [...state.files, ...pdfFiles];
-      updateUI();
+      void updateUI();
     }
   };
 

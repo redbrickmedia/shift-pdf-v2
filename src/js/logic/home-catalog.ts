@@ -17,9 +17,12 @@ export function getDefaultSelectedCategory(
   return ALL_TOOLS_CATEGORY_ID;
 }
 
-/** Chip order for the home catalog toolbar: All tools first, then categories. */
+/** Chip order for the home catalog toolbar: All tools first, then domain categories (excluding Popular Tools). */
 export function getCategoryChipOrder(categoryNames: string[]): string[] {
-  return [ALL_TOOLS_CATEGORY_ID, ...categoryNames];
+  return [
+    ALL_TOOLS_CATEGORY_ID,
+    ...categoryNames.filter((name) => name !== 'Popular Tools'),
+  ];
 }
 
 export function shouldShowToolCatalog(options: {

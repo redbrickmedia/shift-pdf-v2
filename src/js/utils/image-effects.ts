@@ -213,19 +213,49 @@ export function applyScannerEffect(
   }
 }
 
+function parseHexColorRgb255(
+  hex: string | null | undefined
+): [number, number, number] | null {
+  if (!hex) return null;
+  const cleaned = hex.trim().replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) return null;
+  return [
+    parseInt(cleaned.slice(0, 2), 16),
+    parseInt(cleaned.slice(2, 4), 16),
+    parseInt(cleaned.slice(4, 6), 16),
+  ];
+}
+
+function cloneImageData(
+  sourceData: ImageData,
+  width: number,
+  height: number
+): ImageData {
+  const copy = new Uint8ClampedArray(sourceData.data);
+  if (typeof ImageData !== 'undefined') {
+    return new ImageData(copy, width, height);
+  }
+  return {
+    data: copy,
+    width,
+    height,
+    colorSpace: 'srgb',
+  } as ImageData;
+}
+
 export function applyColorAdjustments(
   sourceData: ImageData,
   canvas: HTMLCanvasElement,
   settings: AdjustColorsSettings
-): void {
-  const ctx = canvas.getContext('2d')!;
+): ImageData {
+  const ctx = canvas.getContext('2d');
   const w = sourceData.width;
   const h = sourceData.height;
 
   canvas.width = w;
   canvas.height = h;
 
-  const imageData = new ImageData(new Uint8ClampedArray(sourceData.data), w, h);
+  const imageData = cloneImageData(sourceData, w, h);
   const data = imageData.data;
 
   const contrastFactor =
@@ -235,11 +265,29 @@ export function applyColorAdjustments(
 
   const gammaCorrection = settings.gamma !== 1.0 ? 1 / settings.gamma : 1;
   const sepiaAmount = settings.sepia / 100;
+  const bgRgb = parseHexColorRgb255(settings.backgroundColor);
+  const textRgb = parseHexColorRgb255(settings.textColor);
+  const darknessThreshold = settings.textDarknessThreshold ?? 120;
 
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i];
     let g = data[i + 1];
     let b = data[i + 2];
+
+    if (bgRgb && r >= 240 && g >= 240 && b >= 240) {
+      r = bgRgb[0];
+      g = bgRgb[1];
+      b = bgRgb[2];
+    } else if (
+      textRgb &&
+      r < darknessThreshold &&
+      g < darknessThreshold &&
+      b < darknessThreshold
+    ) {
+      r = textRgb[0];
+      g = textRgb[1];
+      b = textRgb[2];
+    }
 
     if (settings.brightness !== 0) {
       const adj = settings.brightness * 2.55;
@@ -303,10 +351,28 @@ export function applyColorAdjustments(
       b = b + (sb - b) * sepiaAmount;
     }
 
+    if (settings.greyscale) {
+      const grey = Math.round(
+        0.299 * Math.max(0, Math.min(255, r)) +
+          0.587 * Math.max(0, Math.min(255, g)) +
+          0.114 * Math.max(0, Math.min(255, b))
+      );
+      r = grey;
+      g = grey;
+      b = grey;
+    }
+
+    if (settings.invertColors) {
+      r = 255 - Math.max(0, Math.min(255, r));
+      g = 255 - Math.max(0, Math.min(255, g));
+      b = 255 - Math.max(0, Math.min(255, b));
+    }
+
     data[i] = Math.max(0, Math.min(255, r));
     data[i + 1] = Math.max(0, Math.min(255, g));
     data[i + 2] = Math.max(0, Math.min(255, b));
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  ctx?.putImageData(imageData, 0, 0);
+  return imageData;
 }

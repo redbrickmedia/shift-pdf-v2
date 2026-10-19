@@ -1,4 +1,3 @@
-import { showResultLoader } from './tool-success.js';
 import { mountToolInputPreview } from './tool-input-preview.js';
 import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
 import type { PyMuPDFInstance } from '@/types';
@@ -172,7 +171,7 @@ async function processDeskew(): Promise<void> {
     await pdf.load();
 
     for (const file of selectedFiles) {
-      showResultLoader(`Deskewing ${file.name}...`);
+      showLoader(`Deskewing ${file.name}...`);
 
       const { pdf: resultPdf, result } = await pdf.deskewPdf(file, {
         threshold,
