@@ -29,6 +29,8 @@ import { bootstrapHostIntegration } from './host/bootstrap.js';
 import { hasShiftFileHandoffRequest } from './embedder/shift-file-handoff.js';
 import {
   FAVORITE_CATALOG_COPY_ATTR,
+  SIDEBAR_FAVORITE_LIMIT,
+  bindSidebarGlobalLauncherGuard,
   loadFavoriteToolIds,
   placeFavoriteToolCards,
   reorderFavoriteToolIds,
@@ -54,7 +56,10 @@ import { initToolEmptyState } from './logic/tool-empty-state.js';
 import { initAddMoreLibraryPicker } from './logic/add-more-files.js';
 import { initToolViewerLayout } from './logic/tool-viewer-layout.js';
 import { initToolOutputToolbar } from './logic/tool-output-toolbar.js';
-import { applyOpenFileFlagClasses } from './logic/open-file-store.js';
+import {
+  applyOpenFileFlagClasses,
+  clearOpenWithSelection,
+} from './logic/open-file-store.js';
 import {
   ALL_TOOLS_CATEGORY_ID,
   getCategoryChipOrder,
@@ -82,6 +87,7 @@ import {
   applyLaunchContextToDom,
   syncActiveToolNavLinks,
 } from './logic/launch-context.js';
+import { applyAllToolsOpenWithGuards } from './logic/open-with-menu.js';
 
 declare const __BRAND_NAME__: string;
 
@@ -169,6 +175,7 @@ function createInlineIcon(pathData: string): SVGSVGElement {
 
 function initShiftShell() {
   applyLaunchContextToDom(document);
+  bindSidebarGlobalLauncherGuard(document);
   // sidebar-boot.js usually applied these before first paint; re-apply so a
   // missed boot (or tests) still hide the empty drop zone once main loads.
   applyOpenFileFlagClasses(document, {
@@ -628,7 +635,7 @@ const init = async () => {
     rail.textContent = '';
     const pins: FavoriteRailPin[] = [];
 
-    favoriteToolIds.forEach((toolId) => {
+    favoriteToolIds.slice(0, SIDEBAR_FAVORITE_LIMIT).forEach((toolId) => {
       const tool = toolsById.get(toolId);
       if (!tool) return;
 
@@ -638,6 +645,7 @@ const init = async () => {
       const link = document.createElement('a');
       link.href = tool.href;
       link.className = 'shift-nav-link shift-favorite-link';
+      link.addEventListener('click', () => clearOpenWithSelection());
 
       const icon = createToolIcon(tool, 'shift-nav-icon');
       const label = document.createElement('span');
@@ -714,6 +722,7 @@ const init = async () => {
     }
 
     const filteredCategories = categories
+      .filter((category) => category.name !== 'Popular Tools')
       .map((category) => ({
         ...category,
         tools: category.tools.filter((tool) => !isToolDisabled(tool.id)),
@@ -723,9 +732,82 @@ const init = async () => {
     const toolCards = new Map<string, HTMLElement[]>();
     const originalToolContainers = new Map<HTMLElement, HTMLElement>();
 
-    // Favorites is always the first category. It owns one card per favorited
-    // tool rather than cloning it. Extra catalog copies of the same ID stay in
-    // their source sections and hide only while that tool is favorited.
+    // Also ensure any catalog tools that only live in Popular Tools (e.g.,
+    // pdf-converter) still have a prototype card for Favorites cloning.
+    const popularOnlyTools = (
+      categories.find((category) => category.name === 'Popular Tools')?.tools ??
+      []
+    ).filter(
+      (tool) =>
+        !isToolDisabled(tool.id) &&
+        !filteredCategories.some((cat) =>
+          cat.tools.some((t) => t.id === tool.id)
+        )
+    );
+    const buildToolCard = (
+      tool: (typeof categories)[number]['tools'][number]
+    ): HTMLElement => {
+      const toolId = getToolId(tool);
+
+      const toolCard = document.createElement('div');
+      toolCard.className = 'tool-card';
+      toolCard.dataset.toolId = toolId;
+
+      let toolContent: HTMLDivElement | HTMLAnchorElement;
+
+      if (tool.href) {
+        toolContent = document.createElement('a');
+        toolContent.href = tool.href;
+        toolContent.className =
+          'shift-tool-card-link no-underline transition duration-200';
+      } else {
+        toolContent = document.createElement('div');
+        toolContent.className =
+          'shift-tool-card-link cursor-pointer transition duration-200';
+        toolContent.dataset.toolId = toolId;
+      }
+
+      const icon = createToolIcon(tool, 'mb-3');
+
+      const toolName = document.createElement('h3');
+      toolName.className = 'font-semibold shift-tool-name';
+      const toolKey = toolTranslationKeys[tool.name];
+      toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
+      attachShiftTooltip(toolContent, {
+        placement: 'bottom',
+        text: toolName.textContent,
+      });
+
+      toolContent.append(icon, toolName);
+
+      if (tool.subtitle) {
+        const toolSubtitle = document.createElement('p');
+        toolSubtitle.className = 'text-xs shift-tool-subtitle mt-1 px-2';
+        toolSubtitle.textContent = toolKey
+          ? t(`${toolKey}.subtitle`)
+          : tool.subtitle;
+        toolContent.appendChild(toolSubtitle);
+      }
+
+      const favoriteButton = document.createElement('button');
+      favoriteButton.type = 'button';
+      favoriteButton.className = 'shift-tool-favorite';
+      favoriteButton.dataset.toolId = toolId;
+      favoriteButton.appendChild(
+        createInlineIcon(
+          'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
+        )
+      );
+      favoriteButton.addEventListener('click', () => toggleFavorite(toolId));
+      toolCard.append(toolContent, favoriteButton);
+
+      return toolCard;
+    };
+    popularOnlyTools.forEach((tool) => {
+      const toolId = getToolId(tool);
+      const card = buildToolCard(tool);
+      toolCards.set(toolId, [card]);
+    });
     const favoritesGroup = document.createElement('div');
     favoritesGroup.id = 'favorite-tools';
     favoritesGroup.className =
@@ -899,63 +981,11 @@ const init = async () => {
 
       category.tools.forEach((tool) => {
         const toolId = getToolId(tool);
-
-        const toolCard = document.createElement('div');
-        toolCard.className = 'tool-card';
-        toolCard.dataset.toolId = toolId;
+        const toolCard = buildToolCard(tool);
         const cardsForTool = toolCards.get(toolId) ?? [];
         cardsForTool.push(toolCard);
         toolCards.set(toolId, cardsForTool);
         originalToolContainers.set(toolCard, toolsContainer);
-
-        let toolContent: HTMLDivElement | HTMLAnchorElement;
-
-        if (tool.href) {
-          toolContent = document.createElement('a');
-          toolContent.href = tool.href;
-          toolContent.className =
-            'shift-tool-card-link no-underline transition duration-200';
-        } else {
-          toolContent = document.createElement('div');
-          toolContent.className =
-            'shift-tool-card-link cursor-pointer transition duration-200';
-          toolContent.dataset.toolId = toolId;
-        }
-
-        const icon = createToolIcon(tool, 'mb-3');
-
-        const toolName = document.createElement('h3');
-        toolName.className = 'font-semibold shift-tool-name';
-        const toolKey = toolTranslationKeys[tool.name];
-        toolName.textContent = toolKey ? t(`${toolKey}.name`) : tool.name;
-        attachShiftTooltip(toolContent, {
-          placement: 'bottom',
-          text: toolName.textContent,
-        });
-
-        toolContent.append(icon, toolName);
-
-        if (tool.subtitle) {
-          const toolSubtitle = document.createElement('p');
-          toolSubtitle.className = 'text-xs shift-tool-subtitle mt-1 px-2';
-          toolSubtitle.textContent = toolKey
-            ? t(`${toolKey}.subtitle`)
-            : tool.subtitle;
-          toolContent.appendChild(toolSubtitle);
-        }
-
-        const favoriteButton = document.createElement('button');
-        favoriteButton.type = 'button';
-        favoriteButton.className = 'shift-tool-favorite';
-        favoriteButton.dataset.toolId = toolId;
-        favoriteButton.appendChild(
-          createInlineIcon(
-            'm12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z'
-          )
-        );
-        favoriteButton.addEventListener('click', () => toggleFavorite(toolId));
-        toolCard.append(toolContent, favoriteButton);
-
         toolsContainer.appendChild(toolCard);
       });
 
@@ -987,7 +1017,10 @@ const init = async () => {
         toolCards,
         originalToolContainers,
         favoriteToolIds,
-        favoritesToolsContainer
+        favoritesToolsContainer,
+        {
+          onToggleFavorite: (toolId) => toggleFavorite(toolId),
+        }
       );
 
       favoritesCount.textContent = favoriteToolIds.length
@@ -1003,6 +1036,9 @@ const init = async () => {
       if (!favoritesCollapsed) {
         favoritesToolsContainer.style.maxHeight = 'none';
         favoritesToolsContainer.style.overflow = 'visible';
+      }
+      if (dom.toolGrid) {
+        applyAllToolsOpenWithGuards(dom.toolGrid);
       }
     };
 

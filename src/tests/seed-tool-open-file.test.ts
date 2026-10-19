@@ -579,4 +579,56 @@ describe('seed tool open file', () => {
     expect(localFiles).toHaveLength(1);
     expect(localFiles[0]?.name).toBe('briefing.pdf');
   });
+
+  it('seeds 1 PDF into #file-input-1 and 2 PDFs into #file-input-1 and #file-input-2 on compare-pdfs.html', async () => {
+    document.body.innerHTML = `
+      <input id="file-input-1" type="file" accept="application/pdf" />
+      <input id="file-input-2" type="file" accept="application/pdf" />
+    `;
+    const input1 = document.getElementById('file-input-1') as HTMLInputElement;
+    const input2 = document.getElementById('file-input-2') as HTMLInputElement;
+    let change1 = 0;
+    let change2 = 0;
+    input1.addEventListener('change', () => {
+      change1 += 1;
+    });
+    input2.addEventListener('change', () => {
+      change2 += 1;
+    });
+
+    await writePersistedOpenFiles([
+      {
+        file: new File(['one'], 'first.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+    markOpenWithSelection();
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+    expect(input1.files?.[0]?.name).toBe('first.pdf');
+    expect(input2.files?.length ?? 0).toBe(0);
+    expect(change1).toBe(1);
+    expect(change2).toBe(0);
+
+    // Now test seeding 2 PDFs
+    input1.value = '';
+    input2.value = '';
+    change1 = 0;
+    change2 = 0;
+    await writePersistedOpenFiles([
+      {
+        file: new File(['one'], 'first.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+      {
+        file: new File(['two'], 'second.pdf', { type: 'application/pdf' }),
+        source: 'upload',
+      },
+    ]);
+    markOpenWithSelection();
+    await expect(seedToolOpenFile()).resolves.toBe(true);
+    expect(input1.files?.[0]?.name).toBe('first.pdf');
+    expect(input2.files?.[0]?.name).toBe('second.pdf');
+    expect(change1).toBe(1);
+    expect(change2).toBe(1);
+  });
 });

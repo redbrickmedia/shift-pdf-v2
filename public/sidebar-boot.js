@@ -92,7 +92,7 @@
   var PANEL_REVEAL_SKIP_PATTERN = '^(?:completion-panel|preview-panel)$';
   var MAX_SKELETON_ROWS = 6;
   var MAX_STORED_LENGTH = 8192;
-  var MAX_PINS = 40;
+  var MAX_PINS = 6;
 
   function read(key) {
     try {
@@ -872,7 +872,7 @@
     var migratedPins = [];
     var mutated = false;
 
-    for (var i = 0; i < pins.length && i < MAX_PINS; i++) {
+    for (var i = 0; i < pins.length && rendered < MAX_PINS; i++) {
       var pin = pins[i];
       if (
         !pin ||
