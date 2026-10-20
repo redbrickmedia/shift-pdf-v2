@@ -5081,6 +5081,136 @@ body.shift-pdf-viewer-page:not(.simple-mode):has(#shift-sidebar) {
   }
 }
 
+/* ---- Commit Bar (ADR 0004) ----
+ * The bottom action bar of every Tool Surface: Reset on the left, Overwrite /
+ * Save / Download / Print on the right. It is the last child of the header's
+ * host, so it sits under the card on card pages and under the viewer pane on
+ * viewer pages. tool-output-toolbar.ts hides it until there is a job to commit. */
+.shift-commit-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 0;
+  background: var(--background-secondary);
+}
+
+/* The footer is sticky too, so the bar parks just above it instead of under it. */
+body:has(#shift-sidebar):has(> .shift-footer) .shift-commit-bar {
+  bottom: 64px;
+}
+
+.shift-commit-bar[hidden] {
+  display: none;
+}
+
+.shift-commit-bar-start,
+.shift-commit-bar-end,
+.shift-commit-bar [data-shift-action='save']:not(button) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shift-commit-bar-end {
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.shift-commit-bar .shift-pdf-viewer-action {
+  flex-direction: row;
+  gap: 8px;
+  width: auto;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--action-button-border-secondary-default);
+  background: var(--action-button-surface-secondary-default);
+  color: var(--action-text-neutral-default);
+  font-weight: var(--font-weight-semibold);
+}
+
+.shift-commit-bar .shift-pdf-viewer-action:hover:not(:disabled),
+.shift-commit-bar .shift-pdf-viewer-action:focus-visible {
+  border-color: var(--action-button-border-secondary-hover);
+  background: var(--action-button-surface-secondary-hover);
+  color: var(--action-text-neutral-hover);
+}
+
+.shift-commit-bar .shift-pdf-viewer-action > i {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: transparent;
+}
+
+/* The header collapses labels to icons in a narrow panel; the bar has the
+   room, and an unlabeled Save beside an unlabeled Download is a guess. */
+.shift-commit-bar .shift-pdf-viewer-action > span:last-child {
+  display: inline;
+}
+
+.shift-commit-bar [data-viewer-chrome='download'] {
+  border-color: var(--action-button-surface-primary-default);
+  background: var(--action-button-surface-primary-default);
+  color: var(--text-white);
+}
+
+.shift-commit-bar [data-viewer-chrome='download']:hover:not(:disabled),
+.shift-commit-bar [data-viewer-chrome='download']:focus-visible {
+  border-color: var(--action-button-surface-primary-hover);
+  background: var(--action-button-surface-primary-hover);
+  color: var(--text-white);
+}
+
+.shift-commit-bar [data-viewer-chrome][hidden],
+.shift-commit-bar [data-shift-action][hidden] {
+  display: none;
+}
+
+/* Card pages: line the bar up with the card above it. */
+body:not(.simple-mode):not(.shift-home):has(#shift-sidebar):has(> .shift-footer)
+  > #uploader:has(#tool-uploader)
+  > .shift-commit-bar {
+  width: 100%;
+  max-width: none !important;
+}
+
+@media (max-width: 640px) {
+  /* Reset and Print keep their icon and aria-label; the three commit actions
+     keep their words so the row fits one line. */
+  .shift-commit-bar
+    :is([data-viewer-chrome='reset'], [data-viewer-chrome='print'])
+    > span:last-child {
+    display: none;
+  }
+
+  .shift-commit-bar .shift-pdf-viewer-action {
+    padding: 0 12px;
+  }
+
+  .shift-commit-bar-end {
+    flex: 1 1 auto;
+  }
+
+  .shift-commit-bar .shift-pdf-viewer-action {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .shift-commit-bar-start {
+    flex: 0 0 auto;
+  }
+}
+
 .shift-my-pdfs-table {
   width: 100%;
   border-collapse: separate;
