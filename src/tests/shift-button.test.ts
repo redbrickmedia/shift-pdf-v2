@@ -89,3 +89,17 @@ describe('central button style', () => {
     ).toEqual([]);
   });
 });
+
+describe('library button on an active drop zone', () => {
+  it('lifts off the zone surface while the zone is hovered or dragged over', async () => {
+    const css = await readText('src/css/shift-theme.css');
+    const rule = css.match(
+      /:is\(\s*#drop-zone,[^{]*\):is\(:hover, \.is-dragover\)\s*\.tool-library-btn \{([^}]*)\}/
+    );
+
+    expect(rule?.[1]).toContain('background: var(--background-secondary)');
+    expect(rule?.[1]).toContain(
+      'border-color: var(--action-button-border-secondary-hover)'
+    );
+  });
+});

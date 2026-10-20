@@ -86,6 +86,19 @@ export async function loadPyMuPDF(): Promise<PyMuPDFInstance> {
   return loadPromise;
 }
 
+/**
+ * Starts the PyMuPDF + Ghostscript WASM download without waiting for it, so a
+ * later `loadPyMuPDF()` finds it warm. The first Condense run otherwise pays
+ * the whole cold load while the user watches a spinner. Failures are left for
+ * the real call to report.
+ */
+export function preloadPyMuPDF(): void {
+  if (cachedPyMuPDF || loadPromise || !isPyMuPDFAvailable()) return;
+  loadPyMuPDF().catch((error: unknown) => {
+    console.warn('[PyMuPDF Loader] Preload failed:', error);
+  });
+}
+
 export function isPyMuPDFAvailable(): boolean {
   return (
     WasmProvider.isConfigured('pymupdf') &&

@@ -18,6 +18,7 @@ import {
   isImageSourceFile,
   isPdfFile,
   type ConvertDestination,
+  type ConvertSourceKind,
 } from '../config/convert-destinations.js';
 import {
   createDefaultConvertFormatOptions,
@@ -386,6 +387,111 @@ function createDestinationButton(
   return button;
 }
 
+export const CONVERT_FORMAT_SUMMARY_ID = 'convert-format-summary';
+export const CONVERT_SELECTED_FORMAT_ID = 'convert-selected-format';
+export const CONVERT_OTHER_FORMATS_TOGGLE_ID = 'convert-other-formats-toggle';
+
+/**
+ * A per-format Catalog Entry (`?entry=pdf-to-webp`) already chose the format,
+ * so the grid of every other format stays out of the way behind a toggle. The
+ * bare Convert entry has not chosen, so it keeps the grid open.
+ */
+export function isFormatGridCollapsed(options: {
+  launchEntryId: string | null | undefined;
+  sourceKind: ConvertSourceKind;
+  selectedDestinationId: string | null;
+  showFormats: boolean;
+}): boolean {
+  return isFormatGridCollapsible(options) && !options.showFormats;
+}
+
+function isFormatGridCollapsible(options: {
+  launchEntryId: string | null | undefined;
+  sourceKind: ConvertSourceKind;
+  selectedDestinationId: string | null;
+}): boolean {
+  return (
+    Boolean(options.launchEntryId) &&
+    options.sourceKind === 'pdf' &&
+    Boolean(options.selectedDestinationId)
+  );
+}
+
+function ensureFormatSummary(
+  root: Document,
+  onToggle: () => void
+): {
+  summary: HTMLElement;
+  selected: HTMLElement;
+  toggle: HTMLButtonElement;
+} | null {
+  const heading = root.getElementById('convert-destination-heading');
+  if (!heading) return null;
+
+  let summary = root.getElementById(CONVERT_FORMAT_SUMMARY_ID);
+  if (!summary) {
+    summary = root.createElement('div');
+    summary.id = CONVERT_FORMAT_SUMMARY_ID;
+    summary.className = 'shift-convert-format-summary';
+
+    const selected = root.createElement('div');
+    selected.id = CONVERT_SELECTED_FORMAT_ID;
+    selected.className = 'shift-convert-selected-format';
+
+    const toggle = root.createElement('button');
+    toggle.id = CONVERT_OTHER_FORMATS_TOGGLE_ID;
+    toggle.type = 'button';
+    toggle.className = 'shift-convert-other-formats-toggle';
+    toggle.setAttribute('aria-controls', 'convert-destination-primary');
+
+    const label = root.createElement('span');
+    label.textContent = 'Other formats';
+    const chevron = root.createElement('i');
+    chevron.className = 'ph ph-caret-down shift-convert-other-formats-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    toggle.append(label, chevron);
+
+    summary.append(selected, toggle);
+    heading.insertAdjacentElement('afterend', summary);
+  }
+
+  const selected = summary.querySelector<HTMLElement>(
+    `#${CONVERT_SELECTED_FORMAT_ID}`
+  );
+  const toggle = summary.querySelector<HTMLButtonElement>(
+    `#${CONVERT_OTHER_FORMATS_TOGGLE_ID}`
+  );
+  if (!selected || !toggle) return null;
+  toggle.onclick = onToggle;
+  return { summary, selected, toggle };
+}
+
+function renderSelectedFormat(
+  root: Document,
+  container: HTMLElement,
+  files: File[],
+  destination: ConvertDestination
+): void {
+  const icon = root.createElement('i');
+  icon.className = `ph ${destination.icon} shift-convert-destination-icon`;
+  icon.setAttribute('aria-hidden', 'true');
+
+  const info = root.createElement('div');
+  info.className = 'shift-convert-destination-info';
+
+  const name = root.createElement('span');
+  name.className = 'shift-convert-destination-name';
+  name.textContent = destination.name;
+
+  const output = root.createElement('span');
+  output.className = 'shift-convert-destination-output';
+  output.textContent = describeOutput(files, destination);
+
+  info.append(name, output);
+  container.dataset.selectedDestinationId = destination.id;
+  container.replaceChildren(icon, info);
+}
+
 export function getConvertDestinationSearchQuery(): string {
   return destinationSearchQuery;
 }
@@ -535,6 +641,11 @@ export function renderConvertHub(
     ) => void;
     formatOptions?: ConvertFormatOptions;
     showMore: boolean;
+    /** Catalog Entry that opened the hub when it already names a format. */
+    launchEntryId?: string | null;
+    /** Whether the user expanded the full format grid on a per-format entry. */
+    showFormats?: boolean;
+    onToggleFormats?: () => void;
   }
 ): void {
   const sourceStep = root.getElementById('convert-source-step');
@@ -604,7 +715,7 @@ export function renderConvertHub(
       sourceKind === 'pdf' ? 'Convert to…' : 'Convert to PDF';
   }
 
-  ensureConvertDestinationSearch(root, (query) => {
+  const searchInput = ensureConvertDestinationSearch(root, (query) => {
     handlers.onSearch?.(query);
   });
 
@@ -635,6 +746,37 @@ export function renderConvertHub(
   );
   const showSecondary = handlers.showMore || isSearching || selectedInSecondary;
 
+  const collapsible = isFormatGridCollapsible({
+    launchEntryId: handlers.launchEntryId,
+    sourceKind,
+    selectedDestinationId: selectedId,
+  });
+  const collapsed = collapsible && !handlers.showFormats;
+  const formatSummary = ensureFormatSummary(root, () =>
+    handlers.onToggleFormats?.()
+  );
+  if (formatSummary) {
+    const selectedDestination = [...primary, ...secondary].find(
+      (dest) => dest.id === selectedId
+    );
+    formatSummary.summary.classList.toggle('hidden', !collapsible);
+    formatSummary.selected.classList.toggle('hidden', !collapsed);
+    formatSummary.toggle.setAttribute('aria-expanded', String(!collapsed));
+    if (collapsed && selectedDestination) {
+      renderSelectedFormat(
+        root,
+        formatSummary.selected,
+        files,
+        selectedDestination
+      );
+    }
+  }
+  searchInput?.parentElement?.classList.toggle('hidden', collapsed);
+  root
+    .getElementById('convert-destination-hint')
+    ?.classList.toggle('hidden', collapsed);
+  primaryGrid?.classList.toggle('hidden', collapsed);
+
   if (primaryGrid) {
     renderDestinationGrid(
       root,
@@ -649,7 +791,7 @@ export function renderConvertHub(
   }
 
   if (secondaryGrid) {
-    secondaryGrid.classList.toggle('hidden', !showSecondary);
+    secondaryGrid.classList.toggle('hidden', collapsed || !showSecondary);
     renderDestinationGrid(
       root,
       secondaryGrid,
@@ -689,7 +831,10 @@ export function renderConvertHub(
 
   if (showMoreButton) {
     const hasSecondary = secondary.length > 0 && sourceKind === 'pdf';
-    showMoreButton.classList.toggle('hidden', !hasSecondary || isSearching);
+    showMoreButton.classList.toggle(
+      'hidden',
+      collapsed || !hasSecondary || isSearching
+    );
     showMoreButton.textContent = showSecondary ? 'Show less' : 'Show more';
     showMoreButton.onclick = () => handlers.onToggleMore();
   }
@@ -719,6 +864,7 @@ export function initConvertHubPage(root: Document = document): void {
 
   let state = createInitialConvertHubState([], initialDestinationId);
   let showMore = false;
+  let showFormats = false;
   let formatOptions = createDefaultConvertFormatOptions();
 
   const fileInput = root.getElementById(
@@ -781,6 +927,7 @@ export function initConvertHubPage(root: Document = document): void {
   const resetHub = async () => {
     state = clearConvertSources(initialDestinationId);
     showMore = false;
+    showFormats = false;
     destinationSearchQuery = '';
     formatOptions = createDefaultConvertFormatOptions();
     setLaunchContext(initialDestinationId ?? 'pdf-converter', root);
@@ -873,6 +1020,7 @@ export function initConvertHubPage(root: Document = document): void {
           ...state,
           selectedDestinationId: destination.id,
         };
+        showFormats = false;
         setLaunchContext(destination.id, root);
         if (fileInput) {
           fileInput.multiple = true;
@@ -881,6 +1029,10 @@ export function initConvertHubPage(root: Document = document): void {
       },
       onToggleMore: () => {
         showMore = !showMore;
+        refresh();
+      },
+      onToggleFormats: () => {
+        showFormats = !showFormats;
         refresh();
       },
       onSearch: (query) => {
@@ -900,6 +1052,8 @@ export function initConvertHubPage(root: Document = document): void {
       },
       formatOptions,
       showMore,
+      launchEntryId: initialDestinationId,
+      showFormats,
     });
     syncToolOutputToolbar(root);
     createIcons({ icons });

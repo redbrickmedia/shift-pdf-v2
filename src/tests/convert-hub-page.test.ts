@@ -676,6 +676,146 @@ describe('in-place destination selection, Launch Context sync, format options, a
     ).toBe(true);
   });
 
+  describe('per-format entry keeps the chosen format and tucks the rest away', () => {
+    const isHidden = (id: string): boolean =>
+      document.getElementById(id)?.classList.contains('hidden') ?? false;
+
+    const expectCollapsedOn = (destinationId: string): void => {
+      const selected = document.getElementById('convert-selected-format');
+      expect(selected?.dataset.selectedDestinationId).toBe(destinationId);
+      expect(selected?.classList.contains('hidden')).toBe(false);
+      expect(isHidden('convert-destination-primary')).toBe(true);
+      expect(isHidden('convert-destination-secondary')).toBe(true);
+      expect(isHidden('convert-show-more-formats')).toBe(true);
+      expect(isHidden('convert-destination-hint')).toBe(true);
+      expect(
+        document
+          .getElementById('convert-other-formats-toggle')
+          ?.getAttribute('aria-expanded')
+      ).toBe('false');
+    };
+
+    it('collapses the format grid after a file is picked on ?entry=pdf-to-webp', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/pdf-converter.html?entry=pdf-to-webp'
+      );
+      mountRealPage();
+      initToolOutputToolbar(document);
+      initConvertHubPage(document);
+      await Promise.resolve();
+
+      selectFiles([pdf('scan.pdf')]);
+
+      expectCollapsedOn('pdf-to-webp');
+      expect(
+        document.querySelector('[data-destination-id="pdf-to-webp"]')?.classList
+      ).toContain('is-selected');
+      expect(
+        (document.getElementById('webp-quality') as HTMLInputElement | null)
+          ?.value
+      ).toBe('0.85');
+    });
+
+    it('keeps the entry format when the file is seeded from the workspace', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/pdf-converter.html?entry=pdf-to-webp'
+      );
+      setWorkspaceFiles([pdf('seeded.pdf')], document);
+      mountRealPage();
+      initToolOutputToolbar(document);
+      initConvertHubPage(document);
+
+      await vi.waitFor(() => {
+        expect(
+          document.getElementById('convert-source-name')?.textContent
+        ).toBe('seeded.pdf');
+      });
+      expectCollapsedOn('pdf-to-webp');
+    });
+
+    it('reveals every format behind the toggle and collapses again on a pick', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/pdf-converter.html?entry=pdf-to-webp'
+      );
+      mountRealPage();
+      initToolOutputToolbar(document);
+      initConvertHubPage(document);
+      await Promise.resolve();
+      selectFiles([pdf('scan.pdf')]);
+
+      const toggle = document.getElementById(
+        'convert-other-formats-toggle'
+      ) as HTMLButtonElement;
+      toggle.click();
+
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(isHidden('convert-destination-primary')).toBe(false);
+      expect(
+        document.querySelectorAll(
+          '#convert-destination-primary [data-destination-id]'
+        ).length
+      ).toBeGreaterThan(1);
+
+      document
+        .querySelector<HTMLButtonElement>(
+          '#convert-destination-primary [data-destination-id="pdf-to-png"]'
+        )
+        ?.click();
+
+      expectCollapsedOn('pdf-to-png');
+    });
+
+    it('returns to the collapsed state after Reset and a new file', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/pdf-converter.html?entry=pdf-to-webp'
+      );
+      mountRealPage();
+      initToolOutputToolbar(document);
+      initConvertHubPage(document);
+      await Promise.resolve();
+      selectFiles([pdf('scan.pdf')]);
+      (
+        document.getElementById('convert-other-formats-toggle') as HTMLElement
+      ).click();
+
+      (document.getElementById('convert-change-source') as HTMLElement).click();
+      await vi.waitFor(() => {
+        expect(isHidden('convert-source-step')).toBe(false);
+      });
+      selectFiles([pdf('next.pdf')]);
+
+      expectCollapsedOn('pdf-to-webp');
+    });
+
+    it('keeps the whole grid open on the bare Convert entry', async () => {
+      mountRealPage();
+      initToolOutputToolbar(document);
+      initConvertHubPage(document);
+      await Promise.resolve();
+
+      selectFiles([pdf('scan.pdf')]);
+
+      expect(isHidden('convert-format-summary')).toBe(true);
+      expect(isHidden('convert-destination-primary')).toBe(false);
+      expect(isHidden('convert-destination-hint')).toBe(false);
+
+      document
+        .querySelector<HTMLButtonElement>('[data-destination-id="pdf-to-png"]')
+        ?.click();
+
+      expect(isHidden('convert-format-summary')).toBe(true);
+      expect(isHidden('convert-destination-primary')).toBe(false);
+    });
+  });
+
   it('renders email-to-pdf options and secondary editor button for .txt / .md uploads', async () => {
     mountRealPage();
     initToolOutputToolbar(document);
