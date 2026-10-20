@@ -231,10 +231,14 @@ function isFillSignChromeActive(root: Document): boolean {
     '[data-edit-mode="fill-sign"]'
   );
   if (fillSignTab) {
-    return (
+    const isTabSelected =
       fillSignTab.getAttribute('aria-selected') === 'true' ||
-      fillSignTab.getAttribute('aria-pressed') === 'true'
+      fillSignTab.getAttribute('aria-pressed') === 'true';
+    const wrapper = root.getElementById('embed-pdf-wrapper');
+    const isViewerRevealed = Boolean(
+      wrapper && !wrapper.classList.contains('hidden') && !wrapper.hidden
     );
+    return isTabSelected && (isViewerRevealed || isToolViewerShowing(root));
   }
   return isToolViewerShowing(root);
 }

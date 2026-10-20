@@ -1296,7 +1296,7 @@ body.shift-open-file-in-tool
  * `hidden` ends the reservation and the panel animates in as usual.
  * Scoped to an active open file, so an empty tool never reserves dead space.
  */
-body.shift-open-file-in-tool #cropper-editor.hidden,
+body.shift-open-file-in-tool #cropper-editor.hidden:not([hidden]),
 body.shift-open-file-in-tool #signature-editor.hidden,
 body.shift-open-file-in-tool #compare-viewer.hidden,
 body.shift-open-file-in-tool #convert-destination-step.hidden {
@@ -1600,7 +1600,9 @@ body:not(.simple-mode):has(#shift-sidebar) > #uploader.shift-pdf-viewer-shell {
 }
 
 body:has(#uploader.shift-pdf-viewer-shell) > .shift-footer,
-body.shift-pdf-viewer-page .shift-footer {
+body.shift-pdf-viewer-page .shift-footer,
+body.shift-tool-viewer > .shift-footer,
+body.shift-tool-viewer-pending > .shift-footer {
   display: none !important;
 }
 
@@ -2051,7 +2053,9 @@ body.shift-tool-viewer
     #form-filler-options
   ):not(#signature-editor):not(#cropper-editor):not(#compare-viewer):not(
     #viewer-card
-  ):not(#file-controls):not([data-shift-skeleton]) {
+  ):not(#app):not(#tool-container):not(#file-controls):not(
+    [data-shift-skeleton]
+  ) {
   display: none !important;
 }
 
@@ -2101,6 +2105,17 @@ body.shift-tool-viewer-pending #tool-uploader {
   box-shadow: none;
 }
 
+/* While a viewer is active, tighten the outer shell padding and row gap so the
+   PDF stage occupies the maximum viewport height between the header and the
+   Commit Bar. */
+body.shift-tool-viewer:not(.simple-mode):has(#shift-sidebar)
+  > #uploader:has(#tool-uploader),
+body.shift-tool-viewer-pending:not(.simple-mode):has(#shift-sidebar)
+  > #uploader:has(#tool-uploader) {
+  padding: 12px 16px 0 !important;
+  gap: 8px !important;
+}
+
 /* The viewer lives inside #tool-uploader on every viewer tool, so that host
    is what grows to fill the panel. */
 body.shift-tool-viewer
@@ -2110,22 +2125,27 @@ body.shift-tool-viewer
     #signature-editor:not(.hidden),
     #cropper-editor:not(.hidden),
     #compare-viewer:not(.hidden),
-    #viewer-card:not(.hidden)
+    #viewer-card:not(.hidden),
+    #app:not(.hidden),
+    #tool-container:not(.hidden)
   ) {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  gap: clamp(16px, 2.5vw, 32px);
+  gap: 8px;
 }
 
 body.shift-tool-viewer #embed-pdf-wrapper:not(.hidden),
+body.shift-tool-viewer #fill-sign-stage:not(.hidden):not([hidden]),
 body.shift-tool-viewer #form-filler-options:not(.hidden),
 body.shift-tool-viewer #signature-editor:not(.hidden),
-body.shift-tool-viewer #cropper-editor:not(.hidden),
+body.shift-tool-viewer #cropper-editor:not(.hidden):not([hidden]),
 body.shift-tool-viewer #compare-viewer:not(.hidden),
-body.shift-tool-viewer #viewer-card:not(.hidden) {
+body.shift-tool-viewer #viewer-card:not(.hidden),
+body.shift-tool-viewer #app:not(.hidden),
+body.shift-tool-viewer #tool-container:not(.hidden) {
   flex: 1 1 auto;
   min-height: 0;
   max-width: none;
@@ -2145,16 +2165,129 @@ body.shift-tool-viewer #viewer-card:not(.hidden) {
   box-shadow: none;
 }
 
-body.shift-tool-viewer #embed-pdf-container,
+/* Explicitly keep hidden mode stages and switcher collapsed even when higher-
+   specificity viewer rules target their IDs. */
+#embed-pdf-container.hidden,
+#embed-pdf-container[hidden],
+#fill-sign-stage.hidden,
+#fill-sign-stage[hidden],
+#cropper-editor.hidden,
+#cropper-editor[hidden],
+#edit-pdf-mode-switcher.hidden,
+#edit-pdf-mode-switcher[hidden] {
+  display: none !important;
+}
+
+/* Keep the viewer header on a single compact horizontal bar while a document
+   is open so the mode switcher and Undo/Redo/Flatten/Sign controls do not wrap
+   onto a second toolbar line above the PDF. */
+body.shift-tool-viewer .shift-pdf-viewer-header,
+body.shift-tool-viewer-pending .shift-pdf-viewer-header {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 40px;
+  gap: 12px;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-heading,
+body.shift-tool-viewer-pending .shift-pdf-viewer-heading {
+  flex: 0 1 auto;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-actions,
+body.shift-tool-viewer-pending .shift-pdf-viewer-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-action,
+body.shift-tool-viewer-pending .shift-pdf-viewer-action {
+  flex-direction: row;
+  width: auto;
+  height: 36px;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-action > i,
+body.shift-tool-viewer-pending .shift-pdf-viewer-action > i {
+  width: auto;
+  height: auto;
+  padding: 0;
+}
+
+body.shift-tool-viewer .shift-pdf-viewer-flatten:not([hidden]) {
+  min-height: 36px;
+}
+
+body.shift-tool-viewer .shift-commit-bar,
+body.shift-tool-viewer-pending .shift-commit-bar {
+  bottom: 0 !important;
+  padding: 8px 0;
+}
+
+/* Compare, Bookmark (#app), and Form Creator (#tool-container) fill the full
+   active viewer height and scroll internally. */
+body.shift-tool-viewer #compare-viewer:not(.hidden) > .compare-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+body.shift-tool-viewer #app:not(.hidden) > .p-4 {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.shift-tool-viewer #app:not(.hidden) > .p-4 > .flex {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.shift-tool-viewer #app:not(.hidden) #viewer-section,
+body.shift-tool-viewer #app:not(.hidden) #bookmarks-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body.shift-tool-viewer #app:not(.hidden) #viewer-section > div,
+body.shift-tool-viewer #app:not(.hidden) #bookmarks-section > div {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+body.shift-tool-viewer #app:not(.hidden) #canvas-container {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.shift-tool-viewer #tool-container:not(.hidden) > .flex {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+body.shift-tool-viewer #embed-pdf-container:not(.hidden):not([hidden]),
 body.shift-tool-viewer #pdf-viewer-container,
 body.shift-tool-viewer #canvas-container-sign,
 body.shift-tool-viewer #cropper-container,
 body.shift-tool-viewer #compare-viewer-wrapper,
 body.shift-tool-viewer #stamp-viewer-container,
-body.shift-tool-viewer .shift-viewer-scroll-host {
+body.shift-tool-viewer .shift-viewer-scroll-host:not(.hidden):not([hidden]) {
   flex: 1 1 auto;
   min-height: 0 !important;
-  height: auto !important;
+  height: 100% !important;
   max-height: none;
   aspect-ratio: auto !important;
   width: 100%;
@@ -2290,8 +2423,10 @@ body.shift-tool-viewer-pending
     #embed-pdf-wrapper,
     #signature-editor,
     #form-filler-options,
-    #cropper-editor,
-    #viewer-card
+    #cropper-editor:not([hidden]),
+    #viewer-card,
+    #app,
+    #tool-container
   ).hidden {
   display: flex;
   flex: 1 1 auto;
@@ -2316,14 +2451,16 @@ body.shift-tool-viewer-pending
     #form-filler-options,
     #signature-editor,
     #cropper-editor,
-    #viewer-card
+    #viewer-card,
+    #app,
+    #tool-container
   ) {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  gap: clamp(16px, 2.5vw, 32px);
+  gap: 8px;
 }
 
 /* Placeholder file rows have nothing to sit above once the pane is reserved,
@@ -2338,8 +2475,10 @@ body.shift-tool-viewer-pending #tool-uploader > [data-shift-skeleton] {
       #embed-pdf-wrapper,
       #signature-editor,
       #form-filler-options,
-      #cropper-editor,
-      #viewer-card
+      #cropper-editor:not([hidden]),
+      #viewer-card,
+      #app,
+      #tool-container
     ).hidden {
     animation: none;
   }
