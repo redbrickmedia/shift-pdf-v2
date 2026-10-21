@@ -74,6 +74,8 @@
     'cropper-editor',
     'compare-viewer',
     'viewer-card',
+    'app',
+    'tool-container',
   ];
   /* Needs a file per slot, so one selection must not claim the layout. */
   var MULTI_FILE_VIEWER_ROOT_IDS = ['compare-viewer'];

@@ -462,6 +462,9 @@ describe('in-place destination selection, Launch Context sync, format options, a
     document.body.innerHTML = `<div id="uploader">${hub?.[0] ?? ''}</div>`;
   }
 
+  const commitBar = (): HTMLElement =>
+    document.getElementById('shift-commit-bar') as HTMLElement;
+
   function selectFiles(files: File[]): void {
     const input = document.getElementById('file-input') as HTMLInputElement;
     Object.defineProperty(input, 'files', {
@@ -509,8 +512,8 @@ describe('in-place destination selection, Launch Context sync, format options, a
     expect(fileInput.multiple).toBe(true);
 
     // Non-PDF destination hides Save and Print and enables Download
-    expect(isViewerChromeFeatureOn(header, 'save')).toBe(false);
-    expect(isViewerChromeFeatureOn(header, 'print')).toBe(false);
+    expect(isViewerChromeFeatureOn(commitBar(), 'save')).toBe(false);
+    expect(isViewerChromeFeatureOn(commitBar(), 'print')).toBe(false);
     expect(downloadBtn.disabled).toBe(false);
     expect(
       (document.getElementById(TOOL_OUTPUT_RESET_ID) as HTMLButtonElement)
@@ -556,8 +559,8 @@ describe('in-place destination selection, Launch Context sync, format options, a
     expect(jpgToPdfCard?.classList.contains('is-selected')).toBe(true);
     expect(jpgToPdfCard?.getAttribute('aria-pressed')).toBe('true');
 
-    expect(isViewerChromeFeatureOn(header, 'save')).toBe(true);
-    expect(isViewerChromeFeatureOn(header, 'print')).toBe(true);
+    expect(isViewerChromeFeatureOn(commitBar(), 'save')).toBe(true);
+    expect(isViewerChromeFeatureOn(commitBar(), 'print')).toBe(true);
     expect(saveBtn.disabled).toBe(false);
     expect(downloadBtn.disabled).toBe(false);
     expect(printBtn.disabled).toBe(false);

@@ -797,6 +797,7 @@ export function initConvertHubPage(root: Document = document): void {
 
   registerToolOutputSession(
     {
+      primaryLabel: () => 'Convert',
       outputKind: () => resolveCurrentOutputKind(),
       canSave: () => {
         const dest = resolveActiveDestination();

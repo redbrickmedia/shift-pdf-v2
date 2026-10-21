@@ -443,6 +443,11 @@ describe('unified edit-pdf.html Tool Surface controller', () => {
     expect(fillSignBtn.getAttribute('aria-selected')).toBe('false');
     expect(cropBtn.getAttribute('aria-selected')).toBe('false');
     expect(document.getElementById('shift-sign-add')?.hidden).toBe(true);
+    expect(document.getElementById('edit-pdf-mode-switcher')?.hidden).toBe(
+      true
+    );
+    expect(document.getElementById('fill-sign-stage')?.hidden).toBe(true);
+    expect(document.getElementById('cropper-editor')?.hidden).toBe(true);
 
     // Upload a valid 1-page PDF
     const srcDoc = await PDFDocument.create();
@@ -480,6 +485,12 @@ describe('unified edit-pdf.html Tool Surface controller', () => {
       'annotation:add-stamp',
       'doc-1'
     );
+    expect(document.getElementById('edit-pdf-mode-switcher')?.hidden).toBe(
+      false
+    );
+    expect(document.getElementById('embed-pdf-container')?.hidden).toBe(false);
+    expect(document.getElementById('fill-sign-stage')?.hidden).toBe(true);
+    expect(document.getElementById('cropper-editor')?.hidden).toBe(true);
 
     // Simulate an annotation edit in EmbedPDF
     historyStateMock.canUndo = true;
@@ -510,7 +521,10 @@ describe('unified edit-pdf.html Tool Surface controller', () => {
     expect(saveAsCopyToPromiseMock).toHaveBeenCalledTimes(1);
     // Launch Context synced to ?entry=sign-pdf
     expect(window.location.search).toBe('?entry=sign-pdf');
-    // + Sign and Flatten controls are visible in Fill & Sign mode
+    // + Sign and Flatten controls are visible in Fill & Sign mode, and only #fill-sign-stage is shown
+    expect(document.getElementById('fill-sign-stage')?.hidden).toBe(false);
+    expect(document.getElementById('embed-pdf-container')?.hidden).toBe(true);
+    expect(document.getElementById('cropper-editor')?.hidden).toBe(true);
     expect(document.getElementById('shift-sign-add')?.hidden).toBe(false);
     expect(
       document.querySelector<HTMLElement>('[data-viewer-chrome="flatten"]')

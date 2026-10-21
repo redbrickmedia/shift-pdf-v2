@@ -20,11 +20,13 @@ import {
   arrangeShiftActionRow,
 } from './shift-action-row.js';
 import {
+  COMMIT_BAR_ID,
   NON_PDF_OUTPUT_SURFACE_IDS,
   VIEWER_CHROME_FEATURE_ATTR,
   VIEWER_CHROME_HEADER_CLASS,
   applyViewerChromeFeatures,
   detectActiveSurfaceId,
+  ensureCommitBar,
   mountViewerChrome,
   resolveViewerChromeFeatures,
   type ViewerChromeFeature,
@@ -41,6 +43,7 @@ export const TOOL_OUTPUT_MENU_ID = 'shift-tool-output-menu';
 export const TOOL_OUTPUT_DOWNLOAD_ID = 'shift-tool-output-download';
 export const TOOL_OUTPUT_PRINT_ID = 'shift-tool-output-print';
 export const TOOL_OUTPUT_SAVE_MENU_HIDE_MS = 280;
+export const TOOL_OUTPUT_DEFAULT_PRIMARY_LABEL = 'Download';
 
 export type ToolOutputKind =
   | 'pdf'
@@ -61,6 +64,8 @@ export interface ToolOutputSession {
   canDownload?: () => boolean;
   canPrint?: () => boolean;
   outputKind?: ToolOutputKind | (() => ToolOutputKind);
+  /** Tool-specific name for the primary commit action. Defaults to Download. */
+  primaryLabel?: () => string;
 }
 
 let boundRoot: Document | null = null;
@@ -156,6 +161,17 @@ function resolveSessionOutputKind(root: Document = document): ToolOutputKind {
   return 'pdf';
 }
 
+/** The header and the Commit Bar read one feature map; each shows its own controls. */
+function applyChromeFeatures(
+  root: Document,
+  header: ParentNode,
+  features: ReturnType<typeof resolveViewerChromeFeatures>
+): void {
+  applyViewerChromeFeatures(header, features);
+  const bar = root.getElementById(COMMIT_BAR_ID);
+  if (bar) applyViewerChromeFeatures(bar, features);
+}
+
 function syncHeaderFeaturesForOutputKind(root: Document): void {
   const header = root.querySelector<HTMLElement>(
     `.${VIEWER_CHROME_HEADER_CLASS}`
@@ -173,7 +189,8 @@ function syncHeaderFeaturesForOutputKind(root: Document): void {
     featureOverrides.undo = true;
     featureOverrides.redo = true;
   }
-  applyViewerChromeFeatures(
+  applyChromeFeatures(
+    root,
     header,
     resolveViewerChromeFeatures(
       { preset: 'tool', features: featureOverrides },
@@ -236,14 +253,49 @@ export function syncToolOutputToolbar(root: Document = document): void {
       kind !== 'inspection-only' &&
       (canSaveOutput(root) || Boolean(output))
   );
+  syncPrimaryLabel(download);
+  syncCommitBarVisibility(root, output !== null);
   hideEmbeddedViewerPrintControls(root);
 }
 
+function syncPrimaryLabel(download: HTMLButtonElement | null): void {
+  if (!download) return;
+  const label =
+    session?.primaryLabel?.().trim() || TOOL_OUTPUT_DEFAULT_PRIMARY_LABEL;
+  const text = download.querySelector('span');
+  if (text && text.textContent !== label) text.textContent = label;
+  if (download.getAttribute('aria-label') !== label) {
+    download.setAttribute('aria-label', label);
+  }
+}
+
+/**
+ * The bar has nothing to offer until a job exists. Uses the readiness
+ * predicates rather than the buttons' disabled state, so it stays put while a
+ * commit is in flight and every button is momentarily disabled.
+ */
+function syncCommitBarVisibility(root: Document, hasOutput: boolean): void {
+  const bar = root.getElementById(COMMIT_BAR_ID);
+  if (!bar) return;
+  const visible =
+    hasResettableState(root, hasOutput) ||
+    canSaveOutput(root) ||
+    canDownloadOutput(root) ||
+    canOverwriteOutput(root) ||
+    canPrintOutput(root);
+  if (bar.hidden === visible) bar.hidden = !visible;
+}
+
+/**
+ * A process button inside a panel the page keeps hidden until a file is chosen
+ * (Compress, for one) is not a job waiting to run. The button itself is hidden
+ * by `hideLegacyOutputActions`, so only its ancestors count.
+ */
 function hasReadyProcessButton(root: Document): boolean {
   const processBtn = findProcessButton(root);
   if (!processBtn) return false;
-  if (!processBtn.disabled) return true;
-  return false;
+  if (processBtn.disabled) return false;
+  return !processBtn.parentElement?.closest('.hidden, [hidden]');
 }
 
 function canSaveOutput(root: Document = document): boolean {
@@ -320,10 +372,14 @@ function ensureViewerHeaderActions(
 ): HTMLElement | null {
   const host = root.querySelector<HTMLElement>('[data-shift-viewer-actions]');
   if (!host) return null;
+  // Without a header to anchor the bar, keep every control reachable in the
+  // authored action row rather than losing the commit actions.
+  const commit = ensureCommitBar(root, header) ?? { start: host, end: host };
   if (root.getElementById(TOOL_OUTPUT_UNDO_ID)) {
     arrangeShiftActionRow(host);
     if (header) {
-      applyViewerChromeFeatures(
+      applyChromeFeatures(
+        root,
         header,
         resolveViewerChromeFeatures({ preset: 'tool' }, root)
       );
@@ -376,7 +432,7 @@ function ensureViewerHeaderActions(
   const download = createViewerActionButton(
     root,
     TOOL_OUTPUT_DOWNLOAD_ID,
-    'Download',
+    TOOL_OUTPUT_DEFAULT_PRIMARY_LABEL,
     'ph-download-simple',
     'download'
   );
@@ -387,15 +443,18 @@ function ensureViewerHeaderActions(
     'ph-printer',
     'print'
   );
-  saveGroup.append(save, overwrite);
-  host.append(undo, redo, reset, saveGroup, download, print);
+  saveGroup.append(overwrite, save);
+  host.append(undo, redo);
   arrangeShiftActionRow(host);
+  commit.start.append(reset);
+  commit.end.append(saveGroup, download, print);
   bindSharedActionHandlers(root);
   save.addEventListener('click', () => void saveOutput(root));
   overwrite.addEventListener('click', () => void overwriteOutput(root));
   hideLegacyOutputActions(root);
   if (header) {
-    applyViewerChromeFeatures(
+    applyChromeFeatures(
+      root,
       header,
       resolveViewerChromeFeatures({ preset: 'tool' }, root)
     );

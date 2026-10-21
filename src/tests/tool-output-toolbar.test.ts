@@ -15,6 +15,7 @@ import {
   TOOL_OUTPUT_TOOLBAR_ID,
   TOOL_OUTPUT_UNDO_ID,
 } from '../js/logic/tool-output-toolbar';
+import { COMMIT_BAR_ID } from '../js/logic/viewer-chrome';
 import {
   clearLatestPdfOutput,
   initShiftPdfSave,
@@ -93,7 +94,7 @@ describe('tool output toolbar', () => {
     expect(document.querySelector('.shift-pdf-viewer-header')).toBe(bar);
   });
 
-  it('puts the title on the left and Reset/Save on the right outside the card', () => {
+  it('puts the title in the header and Reset/Save in the Commit Bar under the card', () => {
     const card = document.getElementById('tool-uploader');
     const bar = document.querySelector('.shift-pdf-viewer-header');
     const title = bar?.querySelector('.shift-pdf-viewer-heading');
@@ -105,8 +106,25 @@ describe('tool output toolbar', () => {
     expect(bar?.firstElementChild).toBe(title);
     expect(title?.querySelector('h1')?.textContent).toBe('Sign PDF');
     expect(title?.querySelector('p')?.textContent).toBe('Sign a document.');
-    expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(true);
-    expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+    const commitBar = document.getElementById(COMMIT_BAR_ID);
+    expect(actions?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_REDO_ID))).toBe(true);
+    expect(actions?.contains(button(TOOL_OUTPUT_RESET_ID))).toBe(false);
+    expect(actions?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
+    expect(commitBar?.previousElementSibling).toBe(card);
+    expect(commitBar?.parentElement).toBe(card?.parentElement);
+    expect(
+      commitBar
+        ?.querySelector('.shift-commit-bar-start')
+        ?.contains(button(TOOL_OUTPUT_RESET_ID))
+    ).toBe(true);
+    expect(
+      commitBar
+        ?.querySelector('.shift-commit-bar-end')
+        ?.contains(button(TOOL_OUTPUT_SAVE_ID))
+    ).toBe(true);
+    // Nothing to commit yet, so the bar stays out of the way.
+    expect(commitBar?.hidden).toBe(true);
     expect(button(TOOL_OUTPUT_UNDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_REDO_ID).disabled).toBe(true);
     expect(button(TOOL_OUTPUT_RESET_ID).disabled).toBe(true);
@@ -171,12 +189,15 @@ describe('tool output toolbar', () => {
     );
   });
 
-  it('places Save, Overwrite, Download, and Print in one output group', () => {
+  it('places Reset left and Overwrite, Save, Download, Print right in the Commit Bar', () => {
     const menu = document.getElementById(TOOL_OUTPUT_MENU_ID) as HTMLElement;
-    const output = document.querySelector('[data-shift-action-group="output"]');
-    const ids = [
+    const output = document.querySelector('.shift-commit-bar-end');
+    const headerIds = [
       ...document.querySelectorAll('[data-shift-viewer-actions] button'),
     ].map((node) => node.id);
+    const ids = [...document.querySelectorAll('.shift-commit-bar button')].map(
+      (node) => node.id
+    );
 
     expect(menu.className).toBe('shift-tool-viewer-save');
     expect(menu.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
@@ -185,12 +206,11 @@ describe('tool output toolbar', () => {
     expect(menu.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(false);
     expect(output?.contains(button(TOOL_OUTPUT_DOWNLOAD_ID))).toBe(true);
     expect(output?.contains(button(TOOL_OUTPUT_PRINT_ID))).toBe(true);
+    expect(headerIds).toEqual([TOOL_OUTPUT_UNDO_ID, TOOL_OUTPUT_REDO_ID]);
     expect(ids).toEqual([
-      TOOL_OUTPUT_UNDO_ID,
-      TOOL_OUTPUT_REDO_ID,
       TOOL_OUTPUT_RESET_ID,
-      TOOL_OUTPUT_SAVE_ID,
       TOOL_OUTPUT_OVERWRITE_ID,
+      TOOL_OUTPUT_SAVE_ID,
       TOOL_OUTPUT_DOWNLOAD_ID,
       TOOL_OUTPUT_PRINT_ID,
     ]);
@@ -749,7 +769,13 @@ describe('tool output toolbar', () => {
       1
     );
     expect(document.querySelector('.shift-pdf-viewer-header')).toBe(existing);
-    expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(true);
+    expect(existing?.contains(button(TOOL_OUTPUT_UNDO_ID))).toBe(true);
+    expect(existing?.contains(button(TOOL_OUTPUT_SAVE_ID))).toBe(false);
+    expect(
+      document
+        .getElementById(COMMIT_BAR_ID)
+        ?.contains(button(TOOL_OUTPUT_SAVE_ID))
+    ).toBe(true);
   });
 
   it('lifts the convert title into the shared tool header', () => {

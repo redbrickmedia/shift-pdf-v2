@@ -18,6 +18,7 @@ import {
 } from './workspace-files.js';
 import { onToolFilesSeeded } from './tool-file-seed.js';
 import { state } from '../state.js';
+import { registerToolOutputSession } from './tool-output-toolbar.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
@@ -639,6 +640,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (processBtn) {
     processBtn.addEventListener('click', compress);
   }
+
+  // The Commit Bar's primary action runs Compress; the session adds nothing else.
+  registerToolOutputSession({ primaryLabel: () => 'Compress' });
 
   listenForShiftFileHandoff({
     onFile: (file) => {
