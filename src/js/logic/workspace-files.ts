@@ -1524,6 +1524,13 @@ function createHomeFileRow(
   if (file.id) row.dataset.fileId = file.id;
   row.dataset.fileName = file.name;
   row.dataset.source = file.source;
+  /* List rows select only through the checkbox, so a double-click here never
+     toggles anything and the native event is safe. */
+  row.addEventListener('dblclick', (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, input, a')) return;
+    void openLibraryFileOnDoubleClick(file, root);
+  });
 
   const selectCell = root.createElement('td');
   selectCell.className = 'shift-my-pdfs-select-cell';
@@ -1612,11 +1619,6 @@ function createHomeFileThumb(
     empty: true,
     selected: isSelected,
   });
-  const replaceHint = root.createElement('span');
-  replaceHint.className = 'shift-open-file-thumb-replace';
-  replaceHint.textContent = 'Use this PDF';
-  preview.append(replaceHint);
-
   const meta = root.createElement('div');
   meta.className = 'shift-open-file-thumb-meta';
   const name = root.createElement('span');
@@ -1648,7 +1650,11 @@ function createHomeFileThumb(
       text: 'Downloaded copy. Click to use this PDF.',
     });
   }
-  card.addEventListener('click', () => {
+  card.addEventListener('click', (event) => {
+    if (event.detail >= 2) {
+      void openLibraryFileOnDoubleClick(file, root);
+      return;
+    }
     activateHomeLibraryFile(file, root);
   });
 
@@ -1970,6 +1976,29 @@ function activateHomeLibraryFile(
   }
 
   choose(file);
+}
+
+/**
+ * Double-click opens the PDF in the viewer and leaves it selected.
+ *
+ * This runs from the second `click` (`event.detail >= 2`), not from `dblclick`:
+ * selecting re-renders the library, which replaces the card before the browser
+ * can pair the two clicks into a `dblclick`. Without this the pair arrives as
+ * two plain clicks that select and then deselect the file. The first click
+ * already toggled the selection, so a file that was selected before the
+ * double-click is re-selected here instead of toggled back off.
+ */
+export async function openLibraryFileOnDoubleClick(
+  file: WorkspaceFileInfo,
+  root: Document = document,
+  assignLocation?: (href: string) => void
+): Promise<boolean> {
+  if (!isHomeLibraryFileSelected(file)) {
+    activateHomeLibraryFile(file, root);
+  }
+  return assignLocation
+    ? openLibraryFileInViewer(file, root, assignLocation)
+    : openLibraryFileInViewer(file, root);
 }
 
 function isHomeLibraryFileSelected(file: WorkspaceFileInfo): boolean {

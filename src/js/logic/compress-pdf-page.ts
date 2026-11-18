@@ -21,7 +21,11 @@ import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
 import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import {
+  loadPyMuPDF,
+  isPyMuPDFAvailable,
+  preloadPyMuPDF,
+} from '../utils/pymupdf-loader.js';
 import {
   completionTiming,
   createDefaultToolCompletionPanel,
@@ -87,8 +91,9 @@ async function performCondenseCompression(
     removeThumbnails?: boolean;
   }
 ) {
-  // Load PyMuPDF dynamically from user-provided URL
+  const loadStartedAt = performance.now();
   const pymupdf = await loadPyMuPDF();
+  const loadMs = Math.round(performance.now() - loadStartedAt);
 
   const preset =
     CONDENSE_PRESETS[level as keyof typeof CONDENSE_PRESETS] ||
@@ -124,8 +129,14 @@ async function performCondenseCompression(
     },
   };
 
+  const compressStartedAt = performance.now();
   try {
     const result = await pymupdf.compressPdf(fileBlob, options);
+    console.info('[CompressPDF] Condense timing (ms)', {
+      load: loadMs,
+      compress: Math.round(performance.now() - compressStartedAt),
+      inputBytes: fileBlob.size,
+    });
     return result;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -261,6 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!compressOptions) return;
 
     if (state.files.length > 0) {
+      if (!algorithmSelect || algorithmSelect.value === 'condense') {
+        preloadPyMuPDF();
+      }
       const fileDisplayArea = document.getElementById('file-display-area');
       if (fileDisplayArea) {
         fileDisplayArea.innerHTML = '';

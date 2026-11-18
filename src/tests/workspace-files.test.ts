@@ -31,6 +31,7 @@ import {
   markFileFromHandoff,
   markFileLibraryId,
   openLibraryFileInViewer,
+  openLibraryFileOnDoubleClick,
   persistWorkspaceOpenFile,
   resetWorkspaceFileIndicator,
   setHomeLibraryFiles,
@@ -822,9 +823,8 @@ describe('workspace files sidebar', () => {
     expect(
       document.querySelector('.shift-open-file-thumb-name')?.textContent
     ).toBe('briefing.pdf');
-    expect(
-      document.querySelector('.shift-open-file-thumb-replace')?.textContent
-    ).toBe('Use this PDF');
+    expect(document.querySelector('.shift-open-file-thumb-replace')).toBeNull();
+    expect(document.body.textContent).not.toContain('Use this PDF');
     expect(
       document.querySelector('.shift-open-file-thumb')?.hasAttribute('title')
     ).toBe(false);
@@ -1647,7 +1647,25 @@ describe('workspace files sidebar', () => {
         )
       ).toMatch(/opacity:\s*1/);
       // Nothing may hover-reveal them back into the tile.
-      expect(css).not.toMatch(/\.shift-my-pdfs-thumb-item:hover/);
+      expect(css).not.toMatch(
+        /\.shift-my-pdfs-thumb-item:hover[^{]*\{[^}]*opacity/
+      );
+    });
+
+    it('tints the whole tile on hover, strip included', () => {
+      const card = body(
+        /\n\.shift-open-file-thumb:hover,\n\.shift-my-pdfs-thumb-item:hover > \.shift-open-file-thumb:not\(\.is-selected\) \{([^}]*)\}/
+      );
+      expect(card).toMatch(
+        /background:\s*var\(--action-controls-surface-primary-hover\)/
+      );
+      const strip = body(
+        /\n\.shift-my-pdfs-thumb-item:hover:not\(\s*:has\(> \.shift-open-file-thumb\.is-selected\)\s*\)\s*\.shift-my-pdfs-thumb-actions \{([^}]*)\}/
+      );
+      expect(strip).toMatch(
+        /background:\s*var\(--action-controls-surface-primary-hover\)/
+      );
+      expect(css).not.toContain('shift-open-file-thumb-replace');
     });
 
     it('leaves list rows plain on hover but keeps the focus ring', () => {
@@ -1926,6 +1944,115 @@ describe('workspace files sidebar', () => {
     expect((await readPersistedOpenFiles()).map((entry) => entry.name)).toEqual(
       persistedBefore
     );
+  });
+
+  describe('double-click opens the viewer', () => {
+    const makePdf = (name: string) =>
+      new File([name], name, { type: 'application/pdf' });
+
+    it('selects an unselected PDF and opens it', async () => {
+      mountLibrary();
+      const pdf = makePdf('briefing.pdf');
+      setHomeLibraryFiles([pdf]);
+      const assignLocation = vi.fn();
+
+      await expect(
+        openLibraryFileOnDoubleClick(
+          {
+            id: 'briefing-id',
+            name: pdf.name,
+            size: pdf.size,
+            source: 'upload',
+            blob: pdf,
+          },
+          document,
+          assignLocation
+        )
+      ).resolves.toBe(true);
+
+      expect(assignLocation).toHaveBeenCalledWith(
+        'view-pdf.html?file=briefing-id'
+      );
+      expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+        'briefing.pdf',
+      ]);
+    });
+
+    it('keeps an already selected PDF selected', async () => {
+      mountLibrary();
+      const pdf = makePdf('briefing.pdf');
+      setHomeLibraryFiles([pdf]);
+      setWorkspaceFiles([pdf]);
+      const assignLocation = vi.fn();
+
+      await openLibraryFileOnDoubleClick(
+        {
+          id: 'briefing-id',
+          name: pdf.name,
+          size: pdf.size,
+          source: 'upload',
+          blob: pdf,
+        },
+        document,
+        assignLocation
+      );
+
+      expect(assignLocation).toHaveBeenCalledTimes(1);
+      expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+        'briefing.pdf',
+      ]);
+    });
+
+    it.each([
+      ['unselected', false],
+      ['selected', true],
+    ])(
+      'ends with a %s card selected after two clicks on a re-rendering grid',
+      (_label, startsSelected) => {
+        mountLibrary();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const pdf = makePdf('briefing.pdf');
+        setHomeLibraryFiles([pdf]);
+        if (startsSelected) setWorkspaceFiles([pdf]);
+
+        const clickCard = (detail: number) => {
+          // The grid re-renders on every selection change, so each click lands
+          // on a fresh card, exactly like a real double-click.
+          document
+            .querySelector<HTMLButtonElement>('.shift-open-file-thumb')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail }));
+        };
+        clickCard(1);
+        clickCard(2);
+
+        expect(getWorkspaceFiles().map((file) => file.name)).toEqual([
+          'briefing.pdf',
+        ]);
+        expect(
+          document
+            .querySelector('.shift-open-file-thumb')
+            ?.classList.contains('is-selected')
+        ).toBe(true);
+        vi.restoreAllMocks();
+      }
+    );
+
+    it('still toggles on a single click', () => {
+      mountLibrary();
+      const pdf = makePdf('briefing.pdf');
+      setHomeLibraryFiles([pdf]);
+
+      const card = () =>
+        document.querySelector<HTMLButtonElement>('.shift-open-file-thumb');
+      card()?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, detail: 1 })
+      );
+      expect(getWorkspaceFiles()).toHaveLength(1);
+      card()?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, detail: 1 })
+      );
+      expect(getWorkspaceFiles()).toHaveLength(0);
+    });
   });
 
   it('renames a handled PDF on disk and in the library', async () => {
