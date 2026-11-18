@@ -1,5 +1,7 @@
 # Unified tool output toolbar
 
+> **Historical.** The decisions that stand are in [ADR 0003](../adr/0003-unified-tool-output-and-save-lifecycle.md) and [ADR 0004](../adr/0004-commit-bar.md). Commit actions now live in a bottom Commit Bar, not the header, so the "Surface (every tool)" layout below no longer applies.
+
 Branch intent: one output surface on every tool. Visual iteration first (Sign PDF), then the same component everywhere. All other download/save/reset chrome is removed.
 
 This is not a design-team handoff. You iterate visually in the product.

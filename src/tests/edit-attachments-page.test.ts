@@ -234,7 +234,7 @@ describe('edit-attachments.html consolidated Tool Surface (edit, add, extract)',
       'invoice.csv'
     );
 
-    // Switch to Extract Attachments tab -> syncs ?entry=extract-attachments, keeps 2 files loaded, and hides Save & Print in header
+    // Switch to Extract Attachments tab -> syncs ?entry=extract-attachments, keeps 2 files loaded, and hides Save & Print in the Commit Bar
     modeExtractBtn.click();
     expect(window.location.search).toBe('?entry=extract-attachments');
     expect(
@@ -247,14 +247,14 @@ describe('edit-attachments.html consolidated Tool Surface (edit, add, extract)',
       'doc2.pdf'
     );
 
-    const header = document.querySelector('.shift-pdf-viewer-header');
+    const commitBar = document.getElementById('shift-commit-bar');
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="save"]')
         ?.hasAttribute('hidden')
     ).toBe(true);
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="print"]')
         ?.hasAttribute('hidden')
     ).toBe(true);
@@ -274,7 +274,7 @@ describe('edit-attachments.html consolidated Tool Surface (edit, add, extract)',
       'doc2_notes.txt',
     ]);
 
-    // Switch to Edit & Manage Attachments tab -> restores Save & Print in header and syncs to bare /edit-attachments.html
+    // Switch to Edit & Manage Attachments tab -> restores Save & Print in the Commit Bar and syncs to bare /edit-attachments.html
     clearLatestPdfOutput();
     modeEditBtn.click();
     expect(window.location.search).toBe('');
@@ -282,12 +282,12 @@ describe('edit-attachments.html consolidated Tool Surface (edit, add, extract)',
       document.querySelector('.shift-pdf-viewer-header h1')?.textContent
     ).toBe('Edit Attachments');
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="save"]')
         ?.hasAttribute('hidden')
     ).toBe(false);
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="print"]')
         ?.hasAttribute('hidden')
     ).toBe(false);

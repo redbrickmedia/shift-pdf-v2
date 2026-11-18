@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  COMMIT_BAR_ID,
   STATEFUL_UNDO_REDO_SURFACE_IDS,
   VIEWER_CHROME_ACTIONS_ATTR,
   VIEWER_CHROME_ACTIONS_CLASS,
@@ -199,15 +200,20 @@ describe('viewer chrome', () => {
 
     const header = document.querySelector(`.${VIEWER_CHROME_HEADER_CLASS}`);
     expect(header).toBeTruthy();
+    const bar = document.getElementById(COMMIT_BAR_ID);
+    expect(bar).toBeTruthy();
     expect(isViewerChromeFeatureOn(header!, 'undo')).toBe(true);
-    expect(isViewerChromeFeatureOn(header!, 'save')).toBe(true);
-
-    applyViewerChromeFeatures(
-      header!,
-      resolveViewerChromeFeatures({ preset: 'launchpad' })
-    );
-    expect(isViewerChromeFeatureOn(header!, 'undo')).toBe(false);
+    // Commit actions live in the Commit Bar, never in the header.
     expect(isViewerChromeFeatureOn(header!, 'save')).toBe(false);
+    expect(isViewerChromeFeatureOn(bar!, 'save')).toBe(true);
+
+    const launchpadFeatures = resolveViewerChromeFeatures({
+      preset: 'launchpad',
+    });
+    applyViewerChromeFeatures(header!, launchpadFeatures);
+    applyViewerChromeFeatures(bar!, launchpadFeatures);
+    expect(isViewerChromeFeatureOn(header!, 'undo')).toBe(false);
+    expect(isViewerChromeFeatureOn(bar!, 'save')).toBe(false);
   });
 
   it('applies the launchpad preset on View PDF without building a second header', () => {

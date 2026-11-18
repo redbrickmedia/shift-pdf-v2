@@ -25,5 +25,9 @@ The identity of the specific Catalog Entry that opened a shared Tool Surface, de
 _Avoid_: Entry mode, route alias, tool preset
 
 **Output Session**:
-The active contract between a Tool Surface and the shared header toolbar that reports action readiness (`canSave`, `canUndo`, `canRedo`, `canReset`, `canPrint`) and generates fresh staged output on demand when the user commits via `Save`, `Overwrite`, `Download`, or `Print`.
+The active contract between a Tool Surface and the shared Commit Bar that reports action readiness (`canSave`, `canUndo`, `canRedo`, `canReset`, `canPrint`), supplies the tool-specific primary label, and generates fresh staged output on demand when the user commits via `Save`, `Overwrite`, `Download`, or `Print`.
 _Avoid_: Process handler, completion modal, auto-save listener
+
+**Commit Bar**:
+The single bottom action bar of a Tool Surface holding `Reset` (left) and `Overwrite`, `Save`, `Download`, `Print` (right), shown only once there is something to commit. The header keeps the title, `Back`, `Undo` / `Redo`, and tool-specific extras.
+_Avoid_: Action row, footer, header actions, export bar

@@ -18,6 +18,8 @@ export const VIEWER_ROOT_IDS = [
   'cropper-editor',
   'compare-viewer',
   'viewer-card',
+  'app',
+  'tool-container',
 ] as const;
 
 /** Process / download controls that belong in the tool header while viewing. */
