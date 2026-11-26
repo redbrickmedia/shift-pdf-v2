@@ -21,6 +21,47 @@ const safePath = (path) =>
 const ADVISORY = /^Advisory:\s*/i;
 const REVIEWER = /(?:^|\n)Reviewer: `([^`\r\n]+)`\s*$/;
 
+function incompleteReason(body) {
+  let fence;
+  let htmlComment = false;
+  for (const line of (body ?? '').split(/\r?\n/)) {
+    const delimiter = /^[ ]{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence) {
+      if (
+        delimiter &&
+        delimiter[1][0] === fence[0] &&
+        delimiter[1].length >= fence.length &&
+        !delimiter[2].trim()
+      )
+        fence = undefined;
+      continue;
+    }
+    if (
+      !htmlComment &&
+      delimiter &&
+      (delimiter[1][0] !== '`' || !delimiter[2].includes('`'))
+    ) {
+      fence = delimiter[1];
+      continue;
+    }
+    // Comment delimiters inside fenced examples are literal text. Only track
+    // metadata comments after the fence checks, across lines when necessary.
+    let visible = '';
+    let offset = 0;
+    while (offset < line.length) {
+      const boundary = line.indexOf(htmlComment ? '-->' : '<!--', offset);
+      if (boundary < 0) {
+        if (!htmlComment) visible += line.slice(offset);
+        break;
+      }
+      if (!htmlComment) visible += line.slice(offset, boundary);
+      offset = boundary + (htmlComment ? 3 : 4);
+      htmlComment = !htmlComment;
+    }
+    if (/^Review incomplete:/.test(visible)) return visible;
+  }
+}
+
 export function isReviewerName(value) {
   return typeof value === 'string' && /^[a-z][a-z0-9_-]*$/.test(value);
 }
@@ -100,9 +141,19 @@ export function conciseReview(
     };
   }
 
+  const paragraphs = (input.body ?? '')
+    .replace(REVIEWER, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^#{1,6}[\t ]+[^\r\n]*(?:\r?\n|$)/gm, '\n')
+    .split(/\r?\n\s*\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const summary = paragraphs[0];
+  const reason = incompleteReason(input.body);
   const incomplete =
     reviewIncomplete(input.body) ||
-    (!input.approved && !input.comments?.length);
+    Boolean(reason) ||
+    (!input.approved && !input.comments?.length && !summary);
   const isAdvisory = ({ body }) =>
     (!incomplete && input.approved === true && !input.request_changes) ||
     ADVISORY.test(body ?? '');
@@ -130,15 +181,35 @@ export function conciseReview(
     ...(snapshot.ownPullRequest && { approved: false, request_changes: false }),
   };
   if (!incomplete) {
+    const advisoryOnlyBody =
+      !comments?.length &&
+      paragraphs.length > 0 &&
+      paragraphs.every((paragraph) => ADVISORY.test(paragraph));
     const requestChanges =
       review.request_changes &&
+      !advisoryOnlyBody &&
       (!advisory.length || review.comments.length > 0);
     const verdict = requestChanges
-      ? 'Changes requested. See the inline findings.'
+      ? 'Changes requested.' +
+        (review.comments?.length ? ' See the inline findings.' : '')
       : review.approved === true
         ? 'Approved.'
         : 'Review posted.';
     const body = [verdict, marker];
+    if (!input.approved && !comments?.length && summary) {
+      const claimed = REVIEWER.exec(input.body ?? '')?.[1];
+      const noteReviewer =
+        isReviewerName(claimed) &&
+        (claimed === reviewer || delegatedReviewers?.has(claimed))
+          ? claimed
+          : reviewer;
+      const note = requestChanges
+        ? input.body.replace(REVIEWER, '').trim()
+        : summary.length > 1200
+          ? summary.slice(0, 1200).trimEnd() + '…'
+          : summary;
+      body.push('**Reviewer note**', note, `Reviewer: \`${noteReviewer}\``);
+    }
     if (advisory.length) {
       body.push(
         '**Advisory suggestions**',
@@ -155,9 +226,6 @@ export function conciseReview(
     return { ...review, body: reviewBody };
   }
 
-  const reason = input.body
-    ?.split(/\r?\n/)
-    .find((line) => line.startsWith('Review incomplete: '));
   return {
     ...review,
     approved: false,
