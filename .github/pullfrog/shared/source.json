@@ -2,8 +2,8 @@
   "repository": "redbrickmedia/shift-github-actions",
   "revision": "538ff7e732e15cf93747564f6aab11f8947cac1b",
   "fileRevisions": {
-    "pullfrog-review-gate/review-output.mjs": "1f0dd882c4a9c6ed70ff7df922bb9a99de899b5c",
-    "pullfrog-review-gate/review-output.test.mjs": "1f0dd882c4a9c6ed70ff7df922bb9a99de899b5c"
+    "pullfrog-review-gate/review-output.mjs": "d69d1ca7cac1e993999168f5c696526677d85dc8",
+    "pullfrog-review-gate/review-output.test.mjs": "d69d1ca7cac1e993999168f5c696526677d85dc8"
   },
   "files": [
     "pullfrog-review-gate/gate.mjs",

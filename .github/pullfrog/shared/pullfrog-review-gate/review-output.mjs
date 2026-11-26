@@ -24,7 +24,10 @@ const REVIEWER = /(?:^|\n)Reviewer: `([^`\r\n]+)`\s*$/;
 function incompleteReason(body) {
   let fence;
   let htmlComment = false;
-  for (const line of (body ?? '').split(/\r?\n/)) {
+  let codeSpan;
+  const lines = (body ?? '').split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    if (!line.trim()) codeSpan = undefined;
     const delimiter = /^[ ]{0,3}(`{3,}|~{3,})(.*)$/.exec(line);
     if (fence) {
       if (
@@ -42,6 +45,7 @@ function incompleteReason(body) {
       (delimiter[1][0] !== '`' || !delimiter[2].includes('`'))
     ) {
       fence = delimiter[1];
+      codeSpan = undefined;
       continue;
     }
     // Comment delimiters inside fenced examples are literal text. Only track
@@ -49,12 +53,49 @@ function incompleteReason(body) {
     let visible = '';
     let offset = 0;
     while (offset < line.length) {
-      const boundary = line.indexOf(htmlComment ? '-->' : '<!--', offset);
+      if (codeSpan) {
+        const close = [...line.slice(offset).matchAll(/`+/g)].find(
+          (match) => match[0].length === codeSpan
+        );
+        if (!close) break;
+        offset += close.index + close[0].length;
+        codeSpan = undefined;
+        continue;
+      }
+      const token = htmlComment ? undefined : /<!--|`+/g;
+      if (token) token.lastIndex = offset;
+      const next = token?.exec(line);
+      const boundary = htmlComment
+        ? line.indexOf('-->', offset)
+        : (next?.index ?? -1);
       if (boundary < 0) {
         if (!htmlComment) visible += line.slice(offset);
         break;
       }
       if (!htmlComment) visible += line.slice(offset, boundary);
+      if (next?.[0].startsWith('`')) {
+        const ticks = next[0];
+        let slashes = 0;
+        while (line[boundary - slashes - 1] === '\\') slashes++;
+        // A code span must have an exact-length closing run in this paragraph.
+        // Unmatched and escaped ticks stay literal rather than hiding warnings.
+        const tail = [line.slice(boundary + ticks.length)];
+        for (const following of lines.slice(index + 1)) {
+          if (!following.trim() || /^[ ]{0,3}(?:`{3,}|~{3,})/.test(following))
+            break;
+          tail.push(following);
+        }
+        if (
+          slashes % 2 === 0 &&
+          [...tail.join('\n').matchAll(/`+/g)].some(
+            (match) => match[0].length === ticks.length
+          )
+        )
+          codeSpan = ticks.length;
+        else visible += ticks;
+        offset = boundary + ticks.length;
+        continue;
+      }
       offset = boundary + (htmlComment ? 3 : 4);
       htmlComment = !htmlComment;
     }

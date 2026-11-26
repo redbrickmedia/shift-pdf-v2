@@ -345,6 +345,38 @@ test('HTML comment examples cannot hide a real diagnostic between fenced blocks'
   assert.ok(!complete.body.includes(INCOMPLETE_MARKER));
 });
 
+test('inline code comment delimiters cannot hide a subsequent real diagnostic', () => {
+  for (const example of [
+    '`<!--`',
+    '``<!-- ` literal``',
+    '`<!--\ncontinued code`',
+    '\\`literal tick and `<!--`',
+  ]) {
+    const body =
+      'Reviewed ' +
+      example +
+      ' handling.\n\nReview incomplete: specialist timed out.';
+    const output = conciseReview({ ...review, body }, snapshot, opts);
+    assert.equal(output.approved, false, example);
+    assert.ok(output.body.includes(INCOMPLETE_MARKER));
+    assert.match(output.body, /specialist timed out/);
+  }
+  for (const body of [
+    'Reviewed changes.\n\n<!-- ` metadata -->\n\nReview incomplete: missing specialist.',
+    'Reviewed `unmatched code\n\nReview incomplete: missing specialist.',
+  ])
+    assert.equal(
+      conciseReview({ ...review, body }, snapshot, opts).approved,
+      false
+    );
+  const code =
+    'Reviewed `an example\nReview incomplete: quoted example.\nend of example`.';
+  assert.equal(
+    conciseReview({ ...review, body: code }, snapshot, opts).approved,
+    true
+  );
+});
+
 test('rejects tool calls for a different PR or head', () => {
   assert.throws(
     () => conciseReview({ ...review, pull_number: 8 }, snapshot, opts),
