@@ -1,0 +1,6 @@
+{
+  "name": "shift-pullfrog-review-output",
+  "private": true,
+  "type": "module",
+  "exports": "./index.js"
+}

@@ -1,0 +1,26 @@
+name: Pullfrog review snapshot
+description: Resolve the current same-repository PR revision for an authenticated native Pullfrog dispatch
+outputs:
+  disposition:
+    description: Whether this dispatch is a review, a general request, or declined
+    value: '${{ steps.gate.outputs.disposition }}'
+  group:
+    description: Concurrency group for automated reviews of the same revision
+    value: '${{ steps.gate.outputs.group }}'
+  snapshot:
+    description: The resolved review snapshot as JSON
+    value: '${{ steps.gate.outputs.snapshot }}'
+  number:
+    description: Pull request number
+    value: '${{ steps.gate.outputs.number }}'
+  head:
+    description: Head commit SHA
+    value: '${{ steps.gate.outputs.head }}'
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/gate.mjs"
+      env:
+        GH_TOKEN: '${{ github.token }}'

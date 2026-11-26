@@ -1,0 +1,27 @@
+{
+  "repository": "redbrickmedia/shift-github-actions",
+  "revision": "538ff7e732e15cf93747564f6aab11f8947cac1b",
+  "files": [
+    "pullfrog-review-gate/gate.mjs",
+    "pullfrog-review-gate/review-output.mjs",
+    "pullfrog-review-gate/action.yml",
+    "pullfrog-review-gate/check/action.yml",
+    "pullfrog-review-gate/gate.test.mjs",
+    "pullfrog-review-gate/review-output.test.mjs",
+    "pullfrog-review-runtime/publish-config.mjs",
+    "pullfrog-review-runtime/adapter.mjs",
+    "pullfrog-review-runtime/follow-up.mjs",
+    "pullfrog-review-runtime/prepare/action.yml",
+    "pullfrog-review-runtime/follow-up/action.yml",
+    "pullfrog-review-runtime/review-output/index.js",
+    "pullfrog-review-runtime/review-output/package.json",
+    "pullfrog-review-runtime/publishing.test.mjs",
+    "pullfrog-review-runtime/follow-up.test.mjs",
+    "pullfrog-review-runtime/adapter.test.mjs"
+  ],
+  "adaptations": [
+    "Public repository action paths",
+    "Pullfrog-managed OPENCODE_API_KEY replaces GitHub key routing",
+    "Only specialist configuration is retained from runtime.mjs"
+  ]
+}
