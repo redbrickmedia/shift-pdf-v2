@@ -1,0 +1,9 @@
+{
+  "guidance": [
+    "AGENTS.md",
+    "CODING_STANDARDS.md",
+    "GLOSSARY.md",
+    "docs/agents/domain.md"
+  ],
+  "reviewers": []
+}

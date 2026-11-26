@@ -1,0 +1,39 @@
+name: Hand off a superseded Pullfrog review
+description: Dispatch a fresh native review when native cleanup cannot recover a superseded run
+inputs:
+  snapshot:
+    description: The current run's admitted review snapshot
+    required: true
+  review-outcome:
+    description: The native Pullfrog step outcome when planning in the review job
+  head:
+    description: The planned follow-up commit when dispatching from the trusted job
+  workdir:
+    description: The checked-out review source directory for planning
+    default: .
+outputs:
+  head:
+    description: The current PR head that needs a fresh native dispatch
+    value: ${{ steps.plan.outputs.head }}
+runs:
+  using: composite
+  steps:
+    - id: plan
+      if: inputs.review-outcome != ''
+      shell: bash
+      working-directory: ${{ inputs.workdir }}
+      run: node "$GITHUB_ACTION_PATH/../follow-up.mjs" plan
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PULLFROG_SNAPSHOT: ${{ inputs.snapshot }}
+        PULLFROG_REVIEW_OUTCOME: ${{ inputs.review-outcome }}
+    - id: installation
+      if: inputs.head != ''
+      uses: pullfrog/pullfrog/get-installation-token@v0
+    - if: inputs.head != ''
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/../follow-up.mjs" dispatch
+      env:
+        GH_TOKEN: ${{ steps.installation.outputs.token }}
+        PULLFROG_SNAPSHOT: ${{ inputs.snapshot }}
+        PULLFROG_FOLLOW_UP_HEAD: ${{ inputs.head }}

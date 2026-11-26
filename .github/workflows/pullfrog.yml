@@ -1,0 +1,109 @@
+name: Pullfrog
+run-name: ${{ inputs.name || 'Pullfrog' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Native Pullfrog agent prompt
+        type: string
+      name:
+        description: Run name
+        type: string
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Plan Pullfrog review
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.actor_id == '226033991' &&
+      github.ref_name == github.event.repository.default_branch && github.event.inputs.prompt != ''
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      disposition: ${{ steps.review.outputs.disposition }}
+      group: ${{ steps.review.outputs.group }}
+      head: ${{ steps.review.outputs.head }}
+      snapshot: ${{ steps.review.outputs.snapshot }}
+    steps:
+      - id: review
+        uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-gate@main
+
+  native:
+    name: Pullfrog native dispatch
+    needs: plan
+    if: needs.plan.outputs.disposition == 'review' || needs.plan.outputs.disposition == 'general'
+    concurrency:
+      group: ${{ needs.plan.outputs.group || format('shift-pullfrog-run-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 60
+    environment: pullfrog
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    outputs:
+      follow-up-head: ${{ steps.follow-up.outputs.head }}
+    steps:
+      - id: revision
+        if: needs.plan.outputs.disposition == 'review'
+        uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-gate/check@main
+        with:
+          snapshot: ${{ needs.plan.outputs.snapshot }}
+          automatic: ${{ needs.plan.outputs.group != '' }}
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        id: source
+        if: needs.plan.outputs.disposition == 'general' || steps.revision.outputs.state == 'current'
+        with:
+          ref: ${{ needs.plan.outputs.head || github.sha }}
+          persist-credentials: false
+      - id: context
+        if: steps.revision.outputs.state == 'current'
+        uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-runtime/prepare@main
+        with:
+          snapshot: ${{ needs.plan.outputs.snapshot }}
+          workdir: ${{ github.workspace }}
+      - id: pullfrog
+        if: needs.plan.outputs.disposition == 'general' || steps.context.outputs.ready == 'true'
+        uses: pullfrog/pullfrog@v0
+        with:
+          prompt: ${{ steps.context.outputs.prompt || github.event.inputs.prompt }}
+          model: opencode-go/deepseek-v4.1-flash
+          effort: max
+          push: disabled
+          shell: disabled
+        env:
+          PULLFROG_SNAPSHOT: ${{ needs.plan.outputs.snapshot }}
+          PULLFROG_AGENT: opencode
+          PULLFROG_OPENCODE_VERSION: '2'
+          # OPENCODE_API_KEY is injected by Pullfrog after repository OIDC verification.
+          # Do not map an empty GitHub secret over the Pullfrog-managed credential.
+      - name: Check for a superseded review that needs a new dispatch
+        id: follow-up
+        if: >-
+          !cancelled() && (steps.revision.outputs.state == 'current' ||
+          steps.revision.outputs.state == 'superseded')
+        uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-runtime/follow-up@main
+        with:
+          snapshot: ${{ needs.plan.outputs.snapshot }}
+          review-outcome: ${{ steps.pullfrog.outcome }}
+
+  follow-up:
+    name: Dispatch a fresh native Pullfrog review
+    needs: [plan, native]
+    if: "!cancelled() && needs.native.outputs.follow-up-head != ''"
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    environment: pullfrog
+    permissions:
+      id-token: write
+    steps:
+      - uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-runtime/follow-up@main
+        with:
+          snapshot: ${{ needs.plan.outputs.snapshot }}
+          head: ${{ needs.native.outputs.follow-up-head }}

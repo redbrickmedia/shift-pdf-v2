@@ -1,0 +1,32 @@
+name: Prepare Pullfrog publishing
+description: Validate trusted review policy and configure the live publish guard
+inputs:
+  snapshot:
+    description: Admitted Pullfrog review snapshot as JSON
+    required: true
+  workdir:
+    description: Checked-out review source directory
+    required: true
+  adapter:
+    description: Optional trusted repository adapter module
+  trusted-root:
+    description: Checkout of the workflow revision containing the adapter
+outputs:
+  ready:
+    description: The exact revision is ready for review
+    value: '${{ steps.prepare.outputs.ready }}'
+  prompt:
+    description: Native Pullfrog prompt including the exact reviewed revision
+    value: '${{ steps.prepare.outputs.prompt }}'
+runs:
+  using: composite
+  steps:
+    - id: prepare
+      shell: bash
+      working-directory: '${{ inputs.workdir }}'
+      run: node "$GITHUB_ACTION_PATH/../publish-config.mjs"
+      env:
+        PULLFROG_ADAPTER: '${{ inputs.adapter }}'
+        PULLFROG_TRUSTED_ROOT: '${{ inputs.trusted-root }}'
+        GH_TOKEN: '${{ github.token }}'
+        PULLFROG_SNAPSHOT: '${{ inputs.snapshot }}'

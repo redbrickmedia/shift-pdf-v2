@@ -1,0 +1,23 @@
+name: Check Pullfrog review revision
+description: Admit a current review unless an automated dispatch already completed it
+inputs:
+  snapshot:
+    description: The admitted PR snapshot
+    required: true
+  automatic:
+    description: Whether automated reviews are serialized for this revision
+    required: true
+outputs:
+  state:
+    description: The current, duplicate, superseded, or ineligible review state
+    value: ${{ steps.check.outputs.state }}
+runs:
+  using: composite
+  steps:
+    - id: check
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/../gate.mjs" check
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PULLFROG_SNAPSHOT: ${{ inputs.snapshot }}
+        PULLFROG_AUTOMATIC: ${{ inputs.automatic }}
