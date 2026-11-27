@@ -3,7 +3,15 @@
   "revision": "538ff7e732e15cf93747564f6aab11f8947cac1b",
   "fileRevisions": {
     "pullfrog-review-gate/review-output.mjs": "ed4e93428d441b98b0f80c1f1dcf855f6d3f00e2",
-    "pullfrog-review-gate/review-output.test.mjs": "ed4e93428d441b98b0f80c1f1dcf855f6d3f00e2"
+    "pullfrog-review-gate/review-output.test.mjs": "ed4e93428d441b98b0f80c1f1dcf855f6d3f00e2",
+    "pullfrog-review-gate/gate.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-gate/gate.test.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/publish-config.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/prepare/action.yml": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/review-output/index.js": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/lifecycle.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/lifecycle.test.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062",
+    "pullfrog-review-runtime/review-plugin.test.mjs": "423b05cbbe9ff72b72be53012d4ecae977859062"
   },
   "files": [
     "pullfrog-review-gate/gate.mjs",
@@ -21,7 +29,10 @@
     "pullfrog-review-runtime/review-output/package.json",
     "pullfrog-review-runtime/publishing.test.mjs",
     "pullfrog-review-runtime/follow-up.test.mjs",
-    "pullfrog-review-runtime/adapter.test.mjs"
+    "pullfrog-review-runtime/adapter.test.mjs",
+    "pullfrog-review-runtime/lifecycle.mjs",
+    "pullfrog-review-runtime/lifecycle.test.mjs",
+    "pullfrog-review-runtime/review-plugin.test.mjs"
   ],
   "adaptations": [
     "Public repository action paths",

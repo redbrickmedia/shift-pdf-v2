@@ -212,6 +212,13 @@ export async function readReviewRevision(
   )
     throw new Error('Invalid Pullfrog review snapshot.');
   const pr = await github.get('/pulls/' + snapshot.number);
+  if (
+    pr.number === snapshot.number &&
+    pr.state === 'closed' &&
+    pr.head?.repo?.id === repositoryId &&
+    pr.base?.repo?.id === repositoryId
+  )
+    return { state: 'closed' };
   if (!matchesTarget(pr, snapshot, repositoryId))
     return { state: 'ineligible' };
   if (pr.head.sha !== snapshot.head)

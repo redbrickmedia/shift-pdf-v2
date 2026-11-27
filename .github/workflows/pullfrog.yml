@@ -62,12 +62,16 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.head || github.sha }}
           persist-credentials: false
+      - id: lifecycle-token
+        if: steps.revision.outputs.state == 'current'
+        uses: pullfrog/pullfrog/get-installation-token@v0
       - id: context
         if: steps.revision.outputs.state == 'current'
         uses: redbrickmedia/shift-pdf-v2/.github/pullfrog/shared/pullfrog-review-runtime/prepare@main
         with:
           snapshot: ${{ needs.plan.outputs.snapshot }}
           workdir: ${{ github.workspace }}
+          cancellation-token: ${{ steps.lifecycle-token.outputs.token }}
       - id: pullfrog
         if: needs.plan.outputs.disposition == 'general' || steps.context.outputs.ready == 'true'
         uses: pullfrog/pullfrog@v0

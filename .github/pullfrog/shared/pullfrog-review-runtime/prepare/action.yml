@@ -11,6 +11,9 @@ inputs:
     description: Optional trusted repository adapter module
   trusted-root:
     description: Checkout of the workflow revision containing the adapter
+  cancellation-token:
+    description: Current-repository Pullfrog app token used only by the trusted review lifecycle guard
+    required: true
 outputs:
   ready:
     description: The exact revision is ready for review
@@ -30,3 +33,4 @@ runs:
         PULLFROG_TRUSTED_ROOT: '${{ inputs.trusted-root }}'
         GH_TOKEN: '${{ github.token }}'
         PULLFROG_SNAPSHOT: '${{ inputs.snapshot }}'
+        PULLFROG_CANCELLATION_TOKEN: '${{ inputs.cancellation-token }}'

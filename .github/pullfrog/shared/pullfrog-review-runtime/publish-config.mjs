@@ -20,6 +20,7 @@ import {
 } from '../pullfrog-review-gate/gate.mjs';
 import { isReviewerName } from '../pullfrog-review-gate/review-output.mjs';
 import { loadAdapter, planAdapter } from './adapter.mjs';
+import { reviewLifecycle, watchReviewLifecycle } from './lifecycle.mjs';
 import {
   configureReviewAgents,
   configureReviewNesting,
@@ -208,6 +209,12 @@ export function addNativeReviewInstructions(payload, instruction) {
 
 async function serve(env) {
   const { snapshot, context, github } = readContext(env);
+  const lifecycle = reviewLifecycle(
+    snapshot,
+    context,
+    github,
+    githubApi(env.GITHUB_REPOSITORY, env.PULLFROG_CANCELLATION_TOKEN)
+  );
   const path = '/' + randomUUID() + '/current';
   const server = createServer(async (request, response) => {
     if (request.method !== 'GET' || request.url !== path) {
@@ -215,8 +222,13 @@ async function serve(env) {
       return;
     }
     try {
-      const { state } = await readReviewRevision(snapshot, context, github);
-      const status = { current: 204, superseded: 412, ineligible: 409 }[state];
+      const { state } = await lifecycle.refresh();
+      const status = {
+        current: 204,
+        superseded: 412,
+        ineligible: 409,
+        closed: 410,
+      }[state];
       response.writeHead(status).end();
     } catch {
       response.writeHead(503).end();
@@ -224,11 +236,16 @@ async function serve(env) {
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
+  // Watch independently of tool calls, including while the model is thinking.
+  const stopWatching = watchReviewLifecycle(lifecycle);
+  server.on('close', stopWatching);
   process.send('http://127.0.0.1:' + server.address().port + path);
 }
 
 async function configure(env) {
   const { snapshot, trusted, context, github } = readContext(env);
+  if (!env.PULLFROG_CANCELLATION_TOKEN)
+    throw new Error('Missing the scoped Pullfrog lifecycle token');
   const { state } = await readReviewRevision(snapshot, context, github);
   if (
     state !== 'current' ||
@@ -316,6 +333,7 @@ async function configure(env) {
       snapshot.head +
       '.',
     'Call checkout_pr to establish the reviewed revision for Pullfrog. Submit against the scheduled commit ID.',
+    'If the PR closes or merges, stop. Never reopen it or change its state to complete a review.',
     'Use base ' +
       snapshot.base +
       ' and merge base ' +
