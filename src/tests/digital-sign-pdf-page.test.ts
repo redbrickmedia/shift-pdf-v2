@@ -189,14 +189,14 @@ describe('digital-sign-pdf.html consolidated Tool Surface (digital-sign-pdf, val
     });
 
     // On Validate Signatures tab, outputKind is 'inspection-only': Save/Overwrite hidden, Download & Print visible and enabled
-    const header = document.querySelector('.shift-pdf-viewer-header');
+    const commitBar = document.getElementById('shift-commit-bar');
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="save"]')
         ?.hasAttribute('hidden')
     ).toBe(true);
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="print"]')
         ?.hasAttribute('hidden')
     ).toBe(false);
@@ -209,14 +209,14 @@ describe('digital-sign-pdf.html consolidated Tool Surface (digital-sign-pdf, val
         .disabled
     ).toBe(false);
 
-    // Switch to RFC 3161 Timestamp tab -> syncs ?entry=timestamp-pdf, restores Save in header, and keeps loaded PDF
+    // Switch to RFC 3161 Timestamp tab -> syncs ?entry=timestamp-pdf, restores Save in the Commit Bar, and keeps loaded PDF
     tabTimestamp.click();
     expect(window.location.search).toBe('?entry=timestamp-pdf');
     expect(
       document.querySelector('.shift-pdf-viewer-header h1')?.textContent
     ).toBe('Timestamp PDF');
     expect(
-      header
+      commitBar
         ?.querySelector('[data-viewer-chrome="save"]')
         ?.hasAttribute('hidden')
     ).toBe(false);

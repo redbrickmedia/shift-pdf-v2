@@ -14,6 +14,17 @@ export const VIEWER_CHROME_ACTIONS_CLASS = 'shift-pdf-viewer-actions';
 export const VIEWER_CHROME_FEATURE_ATTR = 'data-viewer-chrome';
 export const VIEWER_CHROME_ACTIONS_ATTR = 'data-shift-viewer-actions';
 
+/**
+ * The Commit Bar (ADR 0004) holds the actions that finish a job. It reads the
+ * same feature map as the header, so the per-surface matrix still decides which
+ * of them appear; the controls simply live in the bar instead of the header.
+ */
+export const COMMIT_BAR_ID = 'shift-commit-bar';
+export const COMMIT_BAR_CLASS = 'shift-commit-bar';
+export const COMMIT_BAR_ATTR = 'data-shift-commit-bar';
+export const COMMIT_BAR_START_CLASS = 'shift-commit-bar-start';
+export const COMMIT_BAR_END_CLASS = 'shift-commit-bar-end';
+
 export const VIEWER_CHROME_FEATURES = [
   'back',
   'subtitle',
@@ -220,10 +231,14 @@ function isFillSignChromeActive(root: Document): boolean {
     '[data-edit-mode="fill-sign"]'
   );
   if (fillSignTab) {
-    return (
+    const isTabSelected =
       fillSignTab.getAttribute('aria-selected') === 'true' ||
-      fillSignTab.getAttribute('aria-pressed') === 'true'
+      fillSignTab.getAttribute('aria-pressed') === 'true';
+    const wrapper = root.getElementById('embed-pdf-wrapper');
+    const isViewerRevealed = Boolean(
+      wrapper && !wrapper.classList.contains('hidden') && !wrapper.hidden
     );
+    return isTabSelected && (isViewerRevealed || isToolViewerShowing(root));
   }
   return isToolViewerShowing(root);
 }
@@ -277,7 +292,57 @@ export function mountViewerChrome(
   const features = resolveViewerChromeFeatures(options, root);
   arrangeShiftActionRow(actions);
   applyViewerChromeFeatures(header, features);
+  const bar = root.getElementById(COMMIT_BAR_ID);
+  if (bar) applyViewerChromeFeatures(bar, features);
   return { header, heading, actions, features };
+}
+
+export interface CommitBar {
+  bar: HTMLElement;
+  start: HTMLElement;
+  end: HTMLElement;
+}
+
+/**
+ * Create the Commit Bar once and keep it as the last child of the header's
+ * host, so it sits under the card on card pages and under the viewer pane on
+ * viewer pages. Reset goes left; every other commit action goes right.
+ */
+export function ensureCommitBar(
+  root: Document,
+  header: HTMLElement | null
+): CommitBar | null {
+  const host =
+    header?.parentElement ??
+    root.getElementById('tool-uploader')?.parentElement ??
+    null;
+  if (!host) return null;
+
+  let bar = root.getElementById(COMMIT_BAR_ID);
+  if (!bar) {
+    bar = root.createElement('div');
+    bar.id = COMMIT_BAR_ID;
+    bar.className = COMMIT_BAR_CLASS;
+    bar.setAttribute(COMMIT_BAR_ATTR, '');
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', 'Commit actions');
+    bar.hidden = true;
+
+    const start = root.createElement('div');
+    start.className = COMMIT_BAR_START_CLASS;
+    const end = root.createElement('div');
+    end.className = COMMIT_BAR_END_CLASS;
+    bar.append(start, end);
+  }
+
+  if (bar.parentElement !== host || host.lastElementChild !== bar) {
+    host.append(bar);
+  }
+
+  const start = bar.querySelector<HTMLElement>(`.${COMMIT_BAR_START_CLASS}`);
+  const end = bar.querySelector<HTMLElement>(`.${COMMIT_BAR_END_CLASS}`);
+  if (!start || !end) return null;
+  return { bar, start, end };
 }
 
 export function applyViewerChromeFeatures(

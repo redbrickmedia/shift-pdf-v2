@@ -216,16 +216,35 @@ function syncModeTabsAndChrome(): void {
   const annotateStage = document.getElementById('embed-pdf-container');
   const fillSignStage = document.getElementById('fill-sign-stage');
   const cropStage = document.getElementById('cropper-editor');
+  const modeSwitcher = document.getElementById('edit-pdf-mode-switcher');
+  const docLoaded = hasLoadedDocument();
 
-  if (hasLoadedDocument()) {
+  if (docLoaded) {
     document.getElementById('embed-pdf-wrapper')?.classList.remove('hidden');
   }
+  if (modeSwitcher) {
+    modeSwitcher.hidden = !docLoaded;
+    modeSwitcher.classList.toggle('hidden', !docLoaded);
+  }
 
-  annotateStage?.classList.toggle('hidden', activeMode !== 'annotate');
-  fillSignStage?.classList.toggle('hidden', activeMode !== 'fill-sign');
-  cropStage?.classList.toggle('hidden', activeMode !== 'crop');
+  const showAnnotate = docLoaded && activeMode === 'annotate';
+  const showFillSign = docLoaded && activeMode === 'fill-sign';
+  const showCrop = docLoaded && activeMode === 'crop';
 
-  const isFillSign = activeMode === 'fill-sign';
+  if (annotateStage) {
+    annotateStage.hidden = !showAnnotate;
+    annotateStage.classList.toggle('hidden', !showAnnotate);
+  }
+  if (fillSignStage) {
+    fillSignStage.hidden = !showFillSign;
+    fillSignStage.classList.toggle('hidden', !showFillSign);
+  }
+  if (cropStage) {
+    cropStage.hidden = !showCrop;
+    cropStage.classList.toggle('hidden', !showCrop);
+  }
+
+  const isFillSign = showFillSign;
   const signAddBtn = document.getElementById('shift-sign-add');
   const flattenControl = document.querySelector<HTMLElement>(
     '[data-viewer-chrome="flatten"]'
@@ -351,7 +370,9 @@ async function mountAnnotateStage(bytes: Uint8Array): Promise<void> {
   if (!pdfWrapper || !pdfContainer) return;
 
   cleanupAnnotateStage();
+  pdfWrapper.hidden = false;
   pdfWrapper.classList.remove('hidden');
+  pdfContainer.hidden = false;
   pdfContainer.classList.remove('hidden');
 
   const { default: EmbedPDF } = await import('embedpdf-snippet');
@@ -464,7 +485,9 @@ async function mountFillSignStage(bytes: Uint8Array): Promise<void> {
   if (!pdfWrapper || !fillSignStage || !container) return;
 
   cleanupFillSignStage();
+  pdfWrapper.hidden = false;
   pdfWrapper.classList.remove('hidden');
+  fillSignStage.hidden = false;
   fillSignStage.classList.remove('hidden');
 
   const loadVersion = ++fillSignLoadVersion;
@@ -607,7 +630,10 @@ async function displayCropPage(pageNum: number): Promise<void> {
   }
 
   const cropperEditor = document.getElementById('cropper-editor');
-  cropperEditor?.classList.remove('hidden');
+  if (cropperEditor) {
+    cropperEditor.hidden = false;
+    cropperEditor.classList.remove('hidden');
+  }
 
   const container = document.getElementById('cropper-container');
   if (!container) return;
@@ -648,7 +674,9 @@ async function mountCropStage(bytes: Uint8Array): Promise<void> {
   if (!pdfWrapper || !cropperEditor) return;
 
   cleanupCropStage();
+  pdfWrapper.hidden = false;
   pdfWrapper.classList.remove('hidden');
+  cropperEditor.hidden = false;
   cropperEditor.classList.remove('hidden');
 
   const loadingTask = getPDFDocument({ data: bytes.slice(0) });
