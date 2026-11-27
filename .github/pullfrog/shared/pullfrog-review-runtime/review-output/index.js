@@ -25,14 +25,23 @@ export default {
       }
     });
     await ctx.tool.hook('execute.before', async (event) => {
-      if (!/(?:^|[/:._-])create_pull_request_review$/.test(event.tool)) return;
+      if (/(?:^|[/:._-])reopen_current$/.test(event.tool))
+        throw new Error('Review runs must never reopen a closed PR');
+      const checkout = /(?:^|[/:._-])checkout_pr$/.test(event.tool);
+      const publish = /(?:^|[/:._-])create_pull_request_review$/.test(
+        event.tool
+      );
+      if (!checkout && !publish) return;
       if (!process.env.PULLFROG_CONTEXT_URL)
         throw new Error('Missing the live Pullfrog review guard');
       const guard = await fetch(process.env.PULLFROG_CONTEXT_URL, {
         signal: AbortSignal.timeout(35_000),
       });
-      if (guard.status !== 204 && guard.status !== 412)
+      if (guard.status === 410)
+        throw new Error('The PR closed; this review has been stopped');
+      if (guard.status !== 204 && (!publish || guard.status !== 412))
         throw new Error('The review revision is no longer eligible');
+      if (!publish) return;
       event.input = conciseReview(
         event.input,
         JSON.parse(process.env.PULLFROG_SNAPSHOT),

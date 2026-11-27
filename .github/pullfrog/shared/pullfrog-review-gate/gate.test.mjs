@@ -261,7 +261,6 @@ test('the publish guard distinguishes a push from a retarget, base update, or cl
   );
   for (const ineligible of [
     { ...pushed, base: { ...pr.base, ref: 'main' } },
-    { ...pushed, state: 'closed' },
     { ...pushed, draft: true },
     { ...pushed, head: { ...pushed.head, repo: { id: 43 } } },
     { ...pr, base: { ...pr.base, sha: mergeBase } },
@@ -269,6 +268,16 @@ test('the publish guard distinguishes a push from a retarget, base update, or cl
     assert.deepEqual(
       await readReviewRevision(snapshot, context, github(ineligible)),
       { state: 'ineligible' }
+    );
+  }
+  for (const merged of [false, true]) {
+    assert.deepEqual(
+      await readReviewRevision(
+        snapshot,
+        context,
+        github({ ...pushed, state: 'closed', merged })
+      ),
+      { state: 'closed' }
     );
   }
   await assert.rejects(

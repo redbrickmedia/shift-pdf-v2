@@ -6,6 +6,10 @@ Reviews run on Blacksmith with `opencode-go/deepseek-v4.1-flash` at max effort.
 
 ## Add the provider key
 
+An inherited Pullfrog organization `OPENCODE_API_KEY` is sufficient; this
+repository's live verification already passed with that inherited credential.
+The repository-secret steps below are only needed for an intentional override.
+
 Open <https://pullfrog.com/console/redbrickmedia/shift-pdf-v2>, choose **Secrets**,
 and add **`OPENCODE_API_KEY`** with the OpenCode Go key value. This is a Pullfrog
 repository secret, not a GitHub Actions secret. The native action retrieves it
@@ -33,6 +37,20 @@ The public runtime preserves current-revision checks, automatic review deduplica
 superseded-review recovery, concise findings with reviewer attribution, and advisory
 suggestions alongside approvals. PR changes to trusted review policy are declined;
 they cannot supply their own instructions to a credential-bearing review.
+
+## Closing a PR during review
+
+The trusted guard polls PR state every 15 seconds, including while the model is
+thinking. Closing or merging the PR cancels that review's own workflow run.
+Review runs cannot call the native reopen tool, and checkout and publication
+recheck live eligibility. Once this run observes closure, reopening the PR does
+not revive it; a new native review request starts a new run.
+
+Cancellation uses the existing Pullfrog app's current-repository token through
+GitHub OIDC. It stays in the trusted guard process and is revoked by the action's
+post step. No new provider key, GitHub secret or workflow permission is needed.
+After deployment, close a disposable PR mid-review and verify cancellation,
+no subsequent approval, and that the PR remains closed.
 
 ## Public repository controls
 
